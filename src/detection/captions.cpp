@@ -1208,15 +1208,14 @@ bool ProcessCCDict(RecordingContext& context)
     char*	ptr;
     char	phrase[1024];
     bool	goodPhrase = true;
-    FILE*	dict = NULL;
-    dict = myfopen(context.state.dictfilename, "r");
-    if (dict == NULL)
+    auto dict = comskip::platform::own_file(myfopen(context.state.dictfilename, "r"));
+    if (!dict)
     {
         return (false);
     }
 
     Debug(context, 2, "\n\nStarting to process dictionary\n-------------------------------------\n");
-    while (fgets(phrase, sizeof(phrase), dict) != NULL)
+    while (fgets(phrase, sizeof(phrase), dict.get()) != NULL)
     {
         ptr = strchr(phrase, '\n');
         if (ptr != NULL) *ptr = '\0';
@@ -1267,7 +1266,6 @@ bool ProcessCCDict(RecordingContext& context)
         }
     }
 
-    fclose(dict);
     return (true);
 }
 

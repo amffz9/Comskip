@@ -49,12 +49,15 @@ if(COMSKIP_BUILD_GUI)
     target_link_libraries(review_window PRIVATE SDL2::SDL2 SDL2_ttf::SDL2_ttf)
 endif()
 
-add_library(commercial_length src/detection/commercial_length.cpp)
+add_library(commercial_length src/detection/commercial_length.cpp src/detection/weighted_scores.cpp)
 target_include_directories(commercial_length PUBLIC src/detection)
 target_link_libraries(commercial_length PUBLIC comskip_config)
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     include(GoogleTest)
+    add_executable(weighted_scores_test tests/detection/weighted_scores_test.cpp)
+    target_link_libraries(weighted_scores_test PRIVATE commercial_length GTest::gtest_main)
+    gtest_discover_tests(weighted_scores_test)
     add_executable(argument_snapshot_test tests/platform/argument_snapshot_test.cpp)
     target_include_directories(argument_snapshot_test PRIVATE src/app)
     target_link_libraries(argument_snapshot_test PRIVATE GTest::gtest_main)
@@ -146,6 +149,7 @@ if(COMSKIP_BUILD_APP)
         src/ui/review.cpp
         src/config/legacy_settings.cpp
         src/app/runtime.cpp
+        src/app/pixel_buffers.cpp
         src/app/csv_input.cpp
         src/output/cutlists.cpp
         src/output/diagnostics.cpp
@@ -173,6 +177,9 @@ if(COMSKIP_BUILD_APP)
         add_executable(inprocess_analysis_test tests/media/inprocess_analysis_test.cpp)
         target_link_libraries(inprocess_analysis_test PRIVATE comskip_core GTest::gtest_main)
         add_executable(xds_test tests/detection/xds_test.cpp)
+        add_executable(pixel_buffers_test tests/detection/pixel_buffers_test.cpp)
+        target_link_libraries(pixel_buffers_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(pixel_buffers_test)
         target_link_libraries(xds_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(xds_test)
         gtest_discover_tests(inprocess_analysis_test PROPERTIES TIMEOUT 120)

@@ -1,5 +1,6 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include "weighted_scores.h"
 
 void FindIniFile(RecordingContext& context)
 {
@@ -42,79 +43,26 @@ void FindIniFile(RecordingContext& context)
 
 double FindScoreThreshold(RecordingContext& context, double percentile)
 {
-    int			i;
-    int			counter;
-    double		tempScore;
-    long		tempCount;
-    long		tempStart;
-    int			tempBlocknr;
-    long		targetCount;
-    long		totalframes = 0;
-    bool		hadToSwap = false;
-    std::vector<double> score(context.state.block_count);
-    std::vector<long> count(context.state.block_count);
-    std::vector<long> start(context.state.block_count);
-    std::vector<int> blocknr(context.state.block_count);
-
-    counter = 0;
-    for (i = 0; i < context.state.block_count; i++)
-    {
-        blocknr[i] = i;
-        score[i] = context.state.cblock[i].score;
-        count[i] = context.state.cblock[i].f_end - context.state.cblock[i].f_start + 1;
-        start[i] = context.state.cblock[i].f_start;
+    using comskip::detection::WeightedScore;
+    std::vector<WeightedScore> samples;
+    if (context.state.block_count < 0 ||
+        static_cast<std::size_t>(context.state.block_count) > std::size(context.state.cblock))
+        throw std::invalid_argument("Score threshold has an invalid block count");
+    samples.reserve(context.state.block_count);
+    for (int i = 0; i < context.state.block_count; ++i) {
+        const auto& block = context.state.cblock[i];
+        if (block.f_start < 0 || block.f_end < block.f_start)
+            throw std::invalid_argument("Score threshold has an invalid frame interval");
+        samples.push_back({block.score, static_cast<std::uint64_t>(block.f_end) -
+            static_cast<std::uint64_t>(block.f_start) + 1});
     }
-
-    do
-    {
-        hadToSwap = false;
-        counter++;
-        for (i = 0; i < context.state.block_count - 1; i++)
-        {
-            if (score[i] > score[i + 1])
-            {
-                hadToSwap = true;
-                tempScore = score[i];
-                tempCount = count[i];
-                tempStart = start[i];
-                tempBlocknr = blocknr[i];
-                score[i] = score[i + 1];
-                count[i] = count[i + 1];
-                start[i] = start[i + 1];
-                blocknr[i] = blocknr[i + 1];
-                score[i + 1] = tempScore;
-                count[i + 1] = tempCount;
-                start[i + 1] = tempStart;
-                blocknr[i + 1] = tempBlocknr;
-            }
-        }
-    }
-    while (hadToSwap);
-    for (i = 0; i < context.state.block_count; i++)
-    {
-        totalframes += count[i];
-    }
-
-    tempCount = 0;
-    Debug(context, 10, "\n\nAfter Sorting - %i\n--------------\n", counter);
-    for (i = 0; i < context.state.block_count; i++)
-    {
-        tempCount += count[i];
-        Debug(context, 10, "Block %3i - %.3f\t%6i\t%6i\t%6i\t%3.1f%c\n", blocknr[i], score[i], start[i], context.state.cblock[blocknr[i]].f_end, count[i], ((double)tempCount / (double)totalframes)*100,'%');
-    }
-
-    targetCount = (long)(totalframes * percentile);
-    i = -1;
-    tempCount = 0;
-    do
-    {
-        i++;
-        tempCount += count[i];
-    }
-    while (tempCount < targetCount);
-    tempScore = score[i];
-    Debug(context, 6, "The %.2f percentile of %i frames is %.2f\n", (percentile * 100.0), totalframes, tempScore);
-    return (tempScore);
+    const auto threshold = comskip::detection::weighted_score_threshold(samples, percentile);
+    if (!threshold) throw std::invalid_argument("Cannot select a score threshold from invalid samples or percentile");
+    std::uint64_t frames = 0;
+    for (const auto& sample : samples) frames += sample.frames;
+    Debug(context, 6, "The %.2f percentile of %llu frames is %.2f\n",
+        percentile * 100, static_cast<unsigned long long>(frames), *threshold);
+    return *threshold;
 }
 
 void OutputLogoHistogram(RecordingContext& context, int buckets)
@@ -279,10 +227,10 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
     long	targetCount;
     long	totalframes = 0;
 
-    FILE *raw = NULL;
-    if (context.settings.output_training) raw = myfopen("black.csv", "a+");
+    comskip::platform::FilePtr raw;
+    if (context.settings.output_training) raw.reset(myfopen("black.csv", "a+"));
 
-    if (raw) fprintf(raw, "\"%s\"", context.state.inbasename);
+    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename);
     for (i = 0; i < 256; i++)
     {
         totalframes += context.state.brightHistogram[i];
@@ -290,10 +238,10 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
 
     for (i = 0; i < 35; i++)
     {
-        if (raw) fprintf(raw, ",%6.2f", (1000.0*(double)context.state.brightHistogram[i])/totalframes);
+        if (raw.get()) fprintf(raw.get(), ",%6.2f", (1000.0*(double)context.state.brightHistogram[i])/totalframes);
     }
-    if (raw) fprintf(raw, "\n");
-    if (raw) fclose(raw);
+    if (raw.get()) fprintf(raw.get(), "\n");
+    if (raw.get()) raw.reset();
 
     tempCount = 0;
     targetCount = (long)(totalframes * percentile);
@@ -315,10 +263,10 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
     long	targetCount;
     long	totalframes = 0;
 
-    FILE *raw = NULL;
+    comskip::platform::FilePtr raw;
 
-    if (context.settings.output_training) raw = myfopen("uniform.csv", "a+");
-    if (raw) fprintf(raw, "\"%s\"", context.state.inbasename);
+    if (context.settings.output_training) raw.reset(myfopen("uniform.csv", "a+"));
+    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename);
 
     for (i = 0; i < 256; i++)
     {
@@ -326,10 +274,10 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
     }
     for (i = 0; i < 35; i++)
     {
-        if (raw) fprintf(raw, ",%6.2f", (1000.0*(double)context.state.uniformHistogram[i])/totalframes);
+        if (raw.get()) fprintf(raw.get(), ",%6.2f", (1000.0*(double)context.state.uniformHistogram[i])/totalframes);
     }
-    if (raw) fprintf(raw, "\n");
-    if (raw) fclose(raw);
+    if (raw.get()) fprintf(raw.get(), "\n");
+    if (raw.get()) raw.reset();
 
     tempCount = 0;
     targetCount = (long)(totalframes * percentile);
@@ -351,39 +299,39 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
 void OutputFrame(RecordingContext& context, int frame_number)
 {
     int		x,y;
-    FILE*	raw;
+    comskip::platform::FilePtr raw;
     char	array[MAX_PATH];
     sprintf(array, "%.*s%i.frm", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename,frame_number);
 
     Debug(context, 5, "Sending frame to file\n");
-    raw = myfopen(array, "w");
-    if (!raw)
+    raw.reset(myfopen(array, "w"));
+    if (!raw.get())
     {
         Debug(context, 1, "Could not open frame output file.\n");
         return;
     }
 
-    fprintf(raw, "0;");
+    fprintf(raw.get(), "0;");
     for (x = 0; x < context.state.videowidth; x++)
     {
-        fprintf(raw, ";%3i", x);
+        fprintf(raw.get(), ";%3i", x);
     }
-    fprintf(raw, "\n");
+    fprintf(raw.get(), "\n");
 
     for (y = 0; y < context.state.height; y++)
     {
-        fprintf(raw, "%3i", y);
+        fprintf(raw.get(), "%3i", y);
         for (x = 0; x < context.state.videowidth; x++)
         {
             if (context.state.frame_ptr[y * context.state.width + x] < 30)
-                fprintf(raw, ";   ");
+                fprintf(raw.get(), ";   ");
             else
-                fprintf(raw, ";%3i", context.state.frame_ptr[y * context.state.width + x]);
+                fprintf(raw.get(), ";%3i", context.state.frame_ptr[y * context.state.width + x]);
 
         }
-        fprintf(raw, "\n");
+        fprintf(raw.get(), "\n");
     }
-    fclose(raw);
+    raw.reset();
 }
 
 int FindFrameWithPts(RecordingContext& context, double t)
@@ -416,24 +364,24 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     char	line[2048];
     char	split[256];
     char	array[MAX_PATH];
-    FILE*	raw;
+    comskip::platform::FilePtr raw;
     int		x;
     int		col;
     bool	lineProcessed;
     int     frames = 0;
     char	co,re;
-    FILE*    raw2=NULL;
+    comskip::platform::FilePtr raw2;
 
     sprintf(array, "%.*s%s", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename,extension);
-    raw = myfopen(array, "r");
-    if (!raw)
+    raw.reset(myfopen(array, "r"));
+    if (!raw.get())
     {
         if (context.settings.output_live)
             goto noreffer;
         return(0);
     }
 
-    fgets(line, sizeof(line), raw); // Read first line
+    fgets(line, sizeof(line), raw.get()); // Read first line
 
     frames = 0;
     if (strlen(line) > 27)
@@ -452,8 +400,8 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             context.settings.sage_framenumber_bug = false;
     }
     context.state.reffer_count = -1;
-    fgets(line, sizeof(line), raw); // Skip second line
-    while (fgets(line, sizeof(line), raw) != NULL && strlen(line) > 1)
+    fgets(line, sizeof(line), raw.get()); // Skip second line
+    while (fgets(line, sizeof(line), raw.get()) != NULL && strlen(line) > 1)
     {
         if (line[strlen(line)-1] != '\n')
         {
@@ -501,7 +449,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             i++;
         }
     }
-    fclose(raw);
+    raw.reset();
 noreffer:
     if (context.state.reffer_count >= 0)
     {
@@ -516,8 +464,8 @@ noreffer:
         return(frames);
 
     sprintf(array, "%.*s.dif", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
-    raw = myfopen(array, "w");
-    if (!raw)
+    raw.reset(myfopen(array, "w"));
+    if (!raw.get())
     {
         return(0);
     }
@@ -535,10 +483,10 @@ noreffer:
 
     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
     {
-        if (context.settings.output_training>1) raw2 = myfopen("quality.csv", "a+");
-        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+        if (context.settings.output_training>1) raw2.reset(myfopen("quality.csv", "a+"));
+        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-        if (raw2) fclose(raw2);
+        if (raw2.get()) raw2.reset();
     }
 
     while ( k < context.state.commercial[context.state.commercial_count].end_frame &&
@@ -574,10 +522,10 @@ noreffer:
                     i++;
                     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
                     {
-                        if (context.settings.output_training > 1) raw2 = myfopen("quality.csv", "a+");
-                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+                        if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
+                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
                         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-                        if (raw2) fclose(raw2);
+                        if (raw2.get()) raw2.reset();
                     }
                 }
                 if (j <= context.state.commercial_count) j++;
@@ -597,10 +545,10 @@ noreffer:
                     i++;
                     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
                     {
-                        if (context.settings.output_training > 1) raw2 = myfopen("quality.csv", "a+");
-                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+                        if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
+                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
                         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-                        if (raw2) fclose(raw2);
+                        if (raw2.get()) raw2.reset();
                     }
                 }
             }
@@ -618,10 +566,10 @@ noreffer:
                     i++;
                     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
                     {
-                        if (context.settings.output_training > 1) raw2 = myfopen("quality.csv", "a+");
-                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+                        if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
+                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
                         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-                        if (raw2) fclose(raw2);
+                        if (raw2.get()) raw2.reset();
                     }
                 }
             }
@@ -631,11 +579,11 @@ noreffer:
                 k = context.state.commercial[j].start_frame;
             }
 //			fprintf(raw, "False negative at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
-            if (context.settings.output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, pk, F2L(k, pk), 0.0, 0.0);
+            if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
+            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, pk, F2L(k, pk), 0.0, 0.0);
             fneg += F2L(k,pk);
-            if (raw2) fclose(raw2);
-            raw2 = NULL;
+            if (raw2.get()) raw2.reset();
+            raw2.reset();
             break;
         case only_commercial:
             if (i > context.state.reffer_count || context.state.commercial[j].end_frame < context.state.reffer[i].start_frame)
@@ -650,17 +598,17 @@ noreffer:
                 k = context.state.reffer[i].start_frame;
             }
 //			fprintf(raw, "False positive at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
-            if (context.settings.output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, pk, 0.0, F2L(k, pk), 0.0);
+            if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
+            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, pk, 0.0, F2L(k, pk), 0.0);
             fpos += F2L(k, pk);
-            if (raw2) fclose(raw2);
-            raw2 = NULL;
+            if (raw2.get()) raw2.reset();
+            raw2.reset();
             break;
         }
     }
-    if (context.settings.output_training) raw2 = myfopen("quality.csv", "a+");
-    if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, -1, fneg, fpos, total);
-    if (raw2) fclose(raw2);
+    if (context.settings.output_training) raw2.reset(myfopen("quality.csv", "a+"));
+    if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, -1, fneg, fpos, total);
+    if (raw2.get()) raw2.reset();
 
 //#else
     j = 0;
@@ -670,13 +618,13 @@ noreffer:
         k = min(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame);
         if ( context.state.commercial[j].end_frame < context.state.reffer[i].start_frame )
         {
-            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
+            fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
 //			fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
             j++;
         }
         else if ( context.state.commercial[j].start_frame > context.state.reffer[i].end_frame )
         {
-            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+            fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
 //			fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
             i++;
         }
@@ -685,7 +633,7 @@ noreffer:
             if (labs(context.state.reffer[i].start_frame-context.state.commercial[j].start_frame) > 40 ||
                     labs(context.state.reffer[i].end_frame-context.state.commercial[j].end_frame) > 40 )
             {
-                fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, F2L(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame , context.state.reffer[i].end_frame));
+                fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, F2L(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame , context.state.reffer[i].end_frame));
             }
             /*
                         if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ) {
@@ -703,13 +651,13 @@ noreffer:
     }
     while (j <= context.state.commercial_count)
     {
-        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
+        fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
 //		fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
         j++;
     }
     while (i <= context.state.reffer_count)
     {
-        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+        fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
 //		fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
         i++;
     }
@@ -720,12 +668,12 @@ noreffer:
         re = CheckFramesForReffer(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail);
         if (co != re)
         {
-            fprintf(raw, "Block %6d has mismatch %c%c with cause %s\n", i,co,re, CauseString(context, context.state.cblock[i].cause));
+            fprintf(raw.get(), "Block %6d has mismatch %c%c with cause %s\n", i,co,re, CauseString(context, context.state.cblock[i].cause));
         }
         context.state.cblock[i].reffer = re;
     }
 
-    fclose(raw);
+    raw.reset();
     return(frames);
 }
 
@@ -735,14 +683,14 @@ void OutputAspect(RecordingContext& context)
     int		i;
 //	long	j;
     char	array[MAX_PATH];
-    FILE*	raw;
+    comskip::platform::FilePtr raw;
 
     if (!context.settings.output_aspect)
         return;
 
     sprintf(array, "%.*s.aspects", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
-    raw = myfopen(array, "w");
-    if (!raw)
+    raw.reset(myfopen(array, "w"));
+    if (!raw.get())
     {
         Debug(context, 1, "Could not open aspect output file.\n");
         return;
@@ -752,7 +700,7 @@ void OutputAspect(RecordingContext& context)
     for (i = 0; i < context.state.ar_block_count; i++)
     {
         fprintf(
-            raw,
+            raw.get(),
             "%s %4dx%4d %.2f minX=%4d, minY=%4d, maxX=%4d, maxY=%4d\n",
             dblSecondsToStrMinutes(context, F2T(context.state.ar_block[i].start)),
             context.state.ar_block[i].width, context.state.ar_block[i].height,
@@ -760,7 +708,7 @@ void OutputAspect(RecordingContext& context)
             context.state.ar_block[i].minX, context.state.ar_block[i].minY, context.state.ar_block[i].maxX, context.state.ar_block[i].maxY
         );
     }
-    fclose(raw);
+    raw.reset();
 }
 
 
@@ -775,7 +723,7 @@ void OutputBlackArray(RecordingContext& context)
 #endif
 //	long	j;
     char	array[MAX_PATH];
-    FILE*	raw;
+    comskip::platform::FilePtr raw;
 
 return;
 
@@ -787,16 +735,16 @@ return;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    raw = myfopen(array, "w");
-    if (!raw)
+    raw.reset(myfopen(array, "w"));
+    if (!raw.get())
     {
         Debug(context, 1, "Could not open raw output file.\n");
         return;
     }
-    fprintf(raw, "black,frame,brightness,cause,uniform,volume\n");
+    fprintf(raw.get(), "black,frame,brightness,cause,uniform,volume\n");
     for (i = 1; i < context.state.black_count; i++)
     {
-        fprintf(raw, "%i,%ld,%i,%i,%ld,%i\n",
+        fprintf(raw.get(), "%i,%ld,%i,%i,%ld,%i\n",
                     i,
                     context.state.black[i].frame,
                     context.state.black[i].brightness,
@@ -806,7 +754,7 @@ return;
                    );
     }
 
-    fclose(raw);
+    raw.reset();
 }
 
 
@@ -819,7 +767,7 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
 #endif
 //	long	j;
     char	array[MAX_PATH];
-    FILE*	raw;
+    comskip::platform::FilePtr raw;
     char	lp[10];
     sprintf(array, "%.*s.csv", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
 //	Debug(5, "Expanding logo blocks into frame array\n");
@@ -829,17 +777,17 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    raw = myfopen(array, "w");
-    if (!raw)
+    raw.reset(myfopen(array, "w"));
+    if (!raw.get())
     {
         Debug(context, 1, "Could not open raw output file.\n");
         return;
     }
-    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%f",context.settings.fps);
+    fprintf(raw.get(), "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%f",context.settings.fps);
 //	for (k = 0; k < 32; k++) {
 //		fprintf(raw, ",b%3i", k);
 //	}
-    fprintf(raw, "\n");
+    fprintf(raw.get(), "\n");
 
 
 
@@ -853,7 +801,7 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
         }
         else
         {
-            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%f,%f,%i,%i,%i,%i,%i,%i,%f,%i,%i",
+            fprintf(raw.get(), "%i,%i,%i,%i,%i,%i,%i,%i,%f,%f,%i,%i,%i,%i,%i,%i,%f,%i,%i",
                     i, context.state.frame[i].brightness, context.state.frame[i].schange_percent*5, context.state.frame[i].logo_present,
                     context.state.frame[i].uniform, context.state.frame[i].volume,  context.state.frame[i].minY,context.state.frame[i].maxY,context.state.frame[i].ar_ratio,
                     context.state.frame[i].currentGoodEdge, context.state.frame[i].isblack,context.state.frame[i].cutscenematch,
@@ -863,13 +811,13 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
 #ifdef FRAME_WITH_HISTOGRAM
             for (k = 0; k < 32; k++)
             {
-                fprintf(raw, ",%i", frame[i].histogram[k]);
+                fprintf(raw.get(), ",%i", frame[i].histogram[k]);
             }
 #endif
-            fprintf(raw, "\n");
+            fprintf(raw.get(), "\n");
         }
     }
 
-    fclose(raw);
+    raw.reset();
 }
 

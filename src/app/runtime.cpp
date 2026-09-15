@@ -1,5 +1,6 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include <algorithm>
 
 int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
 {
@@ -47,125 +48,31 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
 
 void InitLogoBuffers(RecordingContext& context)
 {
-    int i;
-    if(!context.state.logoFrameNum) context.state.logoFrameNum = static_cast<int *>( malloc(context.settings.num_logo_buffers * sizeof(int)) );
-    if (context.state.logoFrameNum == NULL)
-    {
-        Debug(context, 0, "Could not allocate memory for logo buffer frame number array\n");
-        comskip::request_exit(14);
+    if (context.settings.num_logo_buffers <= 0)
+        throw std::invalid_argument("Logo buffer count must be positive");
+    context.state.ensure_pixel_buffers(true);
+    const auto count = static_cast<std::size_t>(context.settings.num_logo_buffers);
+    context.state.logoFrameNum.assign(count, 0);
+    if (context.state.width == 0 && context.state.height == 0) return;
+    const auto size = context.state.haslogo.size();
+    if (context.state.logoFrameBuffer.size() != count || context.state.lwidth != context.state.width ||
+        context.state.lheight != context.state.height) {
+        std::vector<std::vector<unsigned char>> buffers(count, std::vector<unsigned char>(size));
+        context.state.logoFrameBuffer.swap(buffers);
     }
-    memset(context.state.logoFrameNum, 0,context.settings.num_logo_buffers*sizeof(int));
-    /*
-        if(!choriz_edgemask) choriz_edgemask = malloc(width * height * sizeof(unsigned char));
-        if (choriz_edgemask == NULL) {
-            Debug(0, "Could not allocate memory for horizontal edgemask\n");
-            comskip::request_exit(14);
-        }
-
-        if(!cvert_edgemask) cvert_edgemask = malloc(width * height * sizeof(unsigned char));
-        if (cvert_edgemask == NULL) {
-            Debug(0, "Could not allocate memory for vertical edgemask\n");
-            comskip::request_exit(15);
-        }
-    */
-    if(!context.state.logoFrameBuffer)
-    {
-        context.state.logoFrameBuffer = static_cast<unsigned char **>( malloc(context.settings.num_logo_buffers * sizeof(unsigned char *)) );
-        if (!(context.state.logoFrameBuffer == NULL))
-        {
-
-            context.state.lheight = MAXHEIGHT;
-            context.state.lwidth = MAXWIDTH;
-            context.state.logoFrameBufferSize = context.state.lwidth * context.state.lheight * sizeof(context.state.frame_ptr[0]);
-            for (i = 0; i < context.settings.num_logo_buffers; i++)
-            {
-                context.state.logoFrameBuffer[i] = static_cast<unsigned char *>( malloc(context.state.logoFrameBufferSize) );
-                if (context.state.logoFrameBuffer[i] == NULL)
-                {
-                    Debug(context, 0, "Could not allocate memory for logo frame buffer %i\n", i);
-                    comskip::request_exit(16);
-                }
-            }
-        }
-        else
-        {
-            Debug(context, 0, "Could not allocate memory for logo frame buffers\n");
-            comskip::request_exit(16);
-        }
-    }
-#if MULTI_EDGE_BUFFER
-    if(!horiz_edges)
-    {
-
-        horiz_edges = malloc(num_logo_buffers * sizeof(unsigned char *));
-        if (!(horiz_edges == NULL))
-        {
-            for (i = 0; i < num_logo_buffers; i++)
-            {
-                horiz_edges[i] = malloc(width * height * sizeof(unsigned char));
-                if (horiz_edges[i] == NULL)
-                {
-                    Debug(0, "Could not allocate memory for horizontal edge buffer %i\n", i);
-                    comskip::request_exit(17);
-                }
-            }
-        }
-        else
-        {
-            Debug(0, "Could not allocate memory for horizontal edge buffers\n");
-            comskip::request_exit(18);
-        }
-    }
-#else
-    /*
-        horiz_count = malloc(width * height * sizeof(unsigned char));
-        if (horiz_count == NULL) {
-            Debug(0, "Could not allocate memory for horizontal count buffer\n");
-            comskip::request_exit(17);
-        }
-        memset(horiz_count, 0, width * height * sizeof(unsigned char));
-    */
-#endif
-
-#if MULTI_EDGE_BUFFER
-    if(!vert_edges)
-    {
-        vert_edges = malloc(num_logo_buffers * sizeof(unsigned char *));
-        if (!(vert_edges == NULL))
-        {
-            for (i = 0; i < num_logo_buffers; i++)
-            {
-                vert_edges[i] = malloc(width * height * sizeof(unsigned char));
-                if (vert_edges[i] == NULL)
-                {
-                    Debug(0, "Could not allocate memory for vertical edge buffer %i\n", i);
-                    comskip::request_exit(19);
-                }
-            }
-        }
-        else
-        {
-            Debug(0, "Could not allocate memory for vertical edge buffers\n");
-            comskip::request_exit(20);
-        }
-    }
-#else
-    /*
-        vert_count = malloc(width * height * sizeof(unsigned char));
-        if (vert_count == NULL) {
-            Debug(0, "Could not allocate memory for vertical count buffer\n");
-            comskip::request_exit(17);
-        }
-        memset(vert_count, 0, width * height * sizeof(unsigned char));
-    */
-#endif
+    context.state.lwidth = context.state.width;
+    context.state.lheight = context.state.height;
+    context.state.logoFrameBufferSize = static_cast<int>(size);
+    context.state.newestLogoBuffer = -1;
+    context.state.oldestLogoBuffer = 0;
+    context.state.logoBuffersFull = false;
 }
-
 void Init_XDS_block(RecordingContext& context);
 
 void InitComSkip(RecordingContext& context)
 {
     int i, j;
+    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0);
     context.state.min_brightness_found = 255;
     context.state.max_logo_gap = -1;
     context.state.max_nonlogo_block_length = -1;
@@ -221,8 +128,8 @@ void InitComSkip(RecordingContext& context)
 //		if (!logoInfoAvailable) {
         InitLogoBuffers(context);
 //		}
-        memset(context.state.max_br,   0, sizeof(context.state.max_br));
-        memset(context.state.min_br, 255, sizeof(context.state.min_br));
+        std::ranges::fill(context.state.max_br, 0);
+        std::ranges::fill(context.state.min_br, 255);
     }
 
     if (context.settings.commDetectMethod & SCENE_CHANGE)
@@ -262,24 +169,8 @@ void InitComSkip(RecordingContext& context)
             context.state.cc_block[i].type = NONE;
         }
 
-        if(!context.state.initialized)
-        {
-            context.state.cc_memory = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
-            context.state.cc_screen = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
-            for (i = 0; i < 15; i++)
-            {
-                context.state.cc_memory[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
-                context.state.cc_screen[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
-            }
-        }
-        for(i=0; i<15; i++)
-        {
-            for (j = 0; j < 32; j++)
-            {
-                context.state.cc_memory[i][j] = 0;
-                context.state.cc_screen[i][j] = 0;
-            }
-        }
+        context.state.cc_memory = {};
+        context.state.cc_screen = {};
 
         if(!context.state.initialized)
         {

@@ -21,6 +21,7 @@ struct RecordingContext;
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "platform.h"
+#include "file_resources.h"
 #include <argtable2.h>
 
 
@@ -36,9 +37,6 @@ extern "C" {
 #include <libavutil/samplefmt.h>
 }
 
-#ifdef HARDWARE_DECODE
-#include <fftools/ffmpeg.h>
-#endif
 
 #include "comskip.h"
 #include "commercial_length.h"
@@ -968,7 +966,7 @@ void				InitializeCCTextArray(RecordingContext& context, long i);
 void				PrintArgs(RecordingContext& context);
 void        close_dump(RecordingContext& context);
 void				OutputCommercialBlock(RecordingContext& context, int i, long prev, long start, long end, bool last);
-void				ProcessCSV(RecordingContext& context, FILE *);
+void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input);
 void				OutputCCBlock(RecordingContext& context, long i);
 void				ProcessCCData(RecordingContext& context);
 bool				CheckOddParity(unsigned char ch);
@@ -1124,7 +1122,6 @@ void InitializeBlockArray(RecordingContext& context, long i);
 void InitializeCCBlockArray(RecordingContext& context, long i);
 void InitializeCCTextArray(RecordingContext& context, long i);
 void PrintArgs(RecordingContext& context);
-void ProcessCSV(RecordingContext& context, FILE *in_file);
 void OutputCCBlock(RecordingContext& context, long i);
 void Init_XDS_block(RecordingContext& context);
 void Add_XDS_block(RecordingContext& context);

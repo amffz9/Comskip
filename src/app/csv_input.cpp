@@ -13,12 +13,13 @@ extern "C" long process_block (unsigned char *data, long length);
 #endif
 
 
-void ProcessCSV(RecordingContext& context, FILE *in_file)
+void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
 {
+    FILE* in_file = input.get();
     bool	lineProcessed = false;
     bool	lastLogoTest = false,curLogoTest = false;
 //	bool	isDim = false;
-    char	line[2048];
+    char	line[2048]{};
     char	split[256];
     int		cont = 0;
 
@@ -42,9 +43,11 @@ again:
         Debug(context, 0, "Something went wrong... Exiting...\n");
         comskip::request_exit(22);
     }
-    fgets(line, sizeof(line), in_file); // Skip first line
+    if (!fgets(line, sizeof(line), in_file))
+        throw std::invalid_argument("CSV input has no header");
     if (strcmp(line,"sep=,\n")==0)
-        fgets(line, sizeof(line), in_file); // Skip second line
+        if (!fgets(line, sizeof(line), in_file))
+            throw std::invalid_argument("CSV input has no column header");
     t = 0.0;
     if (line[85] == ';') line [85] = '+';
     if (strlen(line) > 85)
@@ -250,7 +253,7 @@ again:
 
     context.state.last_brightness = context.state.frame[1].brightness;
     Debug(context, 8, "CSV file loaded into memory.\n");
-    fclose(in_file);
+    input.reset();
     in_file = NULL;
     context.state.black_count = 0;
     context.state.logo_block_count = 0;

@@ -1,5 +1,6 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include "image_geometry.h"
 
 void PrintLogoFrameGroups(RecordingContext& context)
 {
@@ -914,7 +915,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
 void ResetLogoBuffers(RecordingContext& context)
 {
     context.state.newestLogoBuffer = context.state.oldestLogoBuffer = 0;
-    if (context.state.logoFrameNum) {
+    if (!context.state.logoFrameNum.empty()) {
         if (context.state.newestLogoBuffer == context.settings.num_logo_buffers) context.state.newestLogoBuffer = 0; // rotates buffer
         context.state.logoFrameNum[context.state.newestLogoBuffer] = context.state.framenum_real;
         context.state.oldestLogoBuffer = 0;
@@ -945,7 +946,7 @@ void FillLogoBuffer(RecordingContext& context)
     }
 
     i = min((unsigned int)context.state.logoFrameBufferSize, context.state.width * context.state.height * sizeof(context.state.frame_ptr[0]));
-    memcpy(context.state.logoFrameBuffer[context.state.newestLogoBuffer], context.state.frame_ptr, i);
+    memcpy(context.state.logoFrameBuffer[context.state.newestLogoBuffer].data(), context.state.frame_ptr, i);
 
 //	for (y = 0; y < height; y++) {
 //		for (x = 0; x < width; x++) {
@@ -953,7 +954,7 @@ void FillLogoBuffer(RecordingContext& context)
 //		}
 //	}
 
-    EdgeDetect(context, context.state.logoFrameBuffer[context.state.newestLogoBuffer], context.state.newestLogoBuffer);
+    EdgeDetect(context, context.state.logoFrameBuffer[context.state.newestLogoBuffer].data(), context.state.newestLogoBuffer);
     if ((!context.state.logoBuffersFull) && (context.state.newestLogoBuffer == context.settings.num_logo_buffers - 1)) context.state.logoBuffersFull = true;
 }
 
@@ -1042,8 +1043,8 @@ bool SearchForLogoEdges(RecordingContext& context)
     }
 #endif
 #else
-    memset(context.state.thoriz_edgemask, 0, context.state.width * context.state.height);
-    memset(context.state.tvert_edgemask, 0, context.state.width * context.state.height);
+    memset(context.state.thoriz_edgemask.data(), 0, context.state.width * context.state.height);
+    memset(context.state.tvert_edgemask.data(), 0, context.state.width * context.state.height);
 //	minY = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore));
 //	if (framearray) minY = max(minY, frame[frame_count].minY);
 //	maxY = (subtitles? height/2 : height - edge_radius - (int)(height * borderIgnore));
@@ -1066,11 +1067,11 @@ bool SearchForLogoEdges(RecordingContext& context)
     }
 #endif
 
-    ClearEdgeMaskArea(context, context.state.thoriz_edgemask, context.state.tvert_edgemask);
-    ClearEdgeMaskArea(context, context.state.tvert_edgemask, context.state.thoriz_edgemask);
+    ClearEdgeMaskArea(context, context.state.thoriz_edgemask.data(), context.state.tvert_edgemask.data());
+    ClearEdgeMaskArea(context, context.state.tvert_edgemask.data(), context.state.thoriz_edgemask.data());
 
 
-    SetEdgeMaskArea(context, context.state.thoriz_edgemask);
+    SetEdgeMaskArea(context, context.state.thoriz_edgemask.data());
     tempMinX = context.state.tlogoMinX;
     tempMaxX = context.state.tlogoMaxX;
     tempMinY = context.state.tlogoMinY;
@@ -1079,7 +1080,7 @@ bool SearchForLogoEdges(RecordingContext& context)
     context.state.tlogoMaxX = context.state.videowidth - context.settings.edge_radius - context.settings.border;
     context.state.tlogoMinY = context.settings.edge_radius + context.settings.border;
     context.state.tlogoMaxY = context.state.height - context.settings.edge_radius - context.settings.border;
-    SetEdgeMaskArea(context, context.state.tvert_edgemask);
+    SetEdgeMaskArea(context, context.state.tvert_edgemask.data());
     if (tempMinX < context.state.tlogoMinX) context.state.tlogoMinX = tempMinX;
     if (tempMaxX > context.state.tlogoMaxX) context.state.tlogoMaxX = tempMaxX;
     if (tempMinY < context.state.tlogoMinY) context.state.tlogoMinY = tempMinY;
@@ -1157,7 +1158,7 @@ bool SearchForLogoEdges(RecordingContext& context)
         Debug(context, 3, "Doublechecking frames %i to %i for logo.\n", context.state.logoFrameNum[context.state.oldestLogoBuffer], context.state.logoFrameNum[context.state.newestLogoBuffer]);
         for (i = 0; i < context.settings.num_logo_buffers; i++)
         {
-            context.state.currentGoodEdge = DoubleCheckStationLogoEdge(context, context.state.logoFrameBuffer[i]);
+            context.state.currentGoodEdge = DoubleCheckStationLogoEdge(context, context.state.logoFrameBuffer[i].data());
             LogoIsThere = (context.state.currentGoodEdge > context.settings.logo_threshold);
 
             for (x = context.state.logoFrameNum[i]; x < context.state.logoFrameNum[i] + (int)( context.state.logoFreq * context.settings.fps ); x++)
@@ -1190,8 +1191,8 @@ bool SearchForLogoEdges(RecordingContext& context)
         context.state.clogoMaxX = context.state.tlogoMaxX;
         context.state.clogoMinY = context.state.tlogoMinY;
         context.state.clogoMaxY = context.state.tlogoMaxY;
-        memcpy(context.state.choriz_edgemask, context.state.thoriz_edgemask, context.state.width * context.state.height);
-        memcpy(context.state.cvert_edgemask, context.state.tvert_edgemask, context.state.width * context.state.height);
+        memcpy(context.state.choriz_edgemask.data(), context.state.thoriz_edgemask.data(), context.state.width * context.state.height);
+        memcpy(context.state.cvert_edgemask.data(), context.state.tvert_edgemask.data(), context.state.width * context.state.height);
 
 
         context.state.logoTrendCounter = context.settings.num_logo_buffers;
@@ -1683,10 +1684,13 @@ void LoadLogoMaskData(RecordingContext& context)
         data[len] = '\0';
         if ((tmp = FindNumber(context, data, "picWidth=", (double) context.state.width)) > -1) context.state.videowidth = context.state.width = (int)tmp;
         if ((tmp = FindNumber(context, data, "picHeight=", (double) context.state.height)) > -1) context.state.height = (int)tmp;
+        context.state.ensure_pixel_buffers(true);
         if ((tmp = FindNumber(context, data, "logoMinX=", (double) context.state.clogoMinX)) > -1) context.state.clogoMinX = (int)tmp;
         if ((tmp = FindNumber(context, data, "logoMaxX=", (double) context.state.clogoMaxX)) > -1) context.state.clogoMaxX = (int)tmp;
         if ((tmp = FindNumber(context, data, "logoMinY=", (double) context.state.clogoMinY)) > -1) context.state.clogoMinY = (int)tmp;
         if ((tmp = FindNumber(context, data, "logoMaxY=", (double) context.state.clogoMaxY)) > -1) context.state.clogoMaxY = (int)tmp;
+        comskip::detection::validate_logo_bounds(context.state.width, context.state.height,
+            context.state.clogoMinX, context.state.clogoMaxX, context.state.clogoMinY, context.state.clogoMaxY);
     }
     else
     {
@@ -1695,6 +1699,7 @@ void LoadLogoMaskData(RecordingContext& context)
         return;
     }
 
+    context.state.ensure_pixel_buffers(true);
     logo_file = myfopen(context.state.logofilename, "r");
     /*
         choriz_edgemask = malloc(width * height * sizeof(unsigned char));

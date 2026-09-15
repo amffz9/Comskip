@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include <algorithm>
 
 char *CauseString(RecordingContext& context, int i)
 {
@@ -980,10 +981,11 @@ void InitHasLogo(RecordingContext& context)
 {
 
     int x,y;
-    memset(context.state.haslogo, 0, MAXWIDTH*MAXHEIGHT*sizeof(char));
-    for (y = MAX(0,context.state.clogoMinY - LOGO_BORDER); y < MIN(MAXHEIGHT,context.state.clogoMaxY + LOGO_BORDER); y++)
+    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0);
+    std::ranges::fill(context.state.haslogo, 0);
+    for (y = MAX(0,context.state.clogoMinY - LOGO_BORDER); y < MIN(context.state.height,context.state.clogoMaxY + LOGO_BORDER); y++)
     {
-        for (x = MAX(0,context.state.clogoMinX-LOGO_BORDER); x < MIN(MAXWIDTH,context.state.clogoMaxX + LOGO_BORDER) ; x++)
+        for (x = MAX(0,context.state.clogoMinX-LOGO_BORDER); x < MIN(context.state.videowidth,context.state.clogoMaxX + LOGO_BORDER) ; x++)
         {
             context.state.haslogo[y*context.state.width+x] = 1;
         }

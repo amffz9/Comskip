@@ -97,7 +97,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
         context.settings.giveUpOnLogoSearch += context.settings.added_recording * 60;
 }
 
-void list_codecs();
+void list_codecs(const comskip::localization::Translator& translator);
 
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
 {
@@ -246,7 +246,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     nerrors = arg_parse(argc, argv, argtable);
     if (cl_list_decoders->count)
     {
-        list_codecs();
+        list_codecs(translator);
         comskip::request_exit(2);
     }
     if (cl_help->count)
@@ -955,7 +955,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (context.state.loadingCSV)
     {
         context.settings.output_framearray = false;
-        ProcessCSV(context, context.state.in_file.get());
+        ProcessCSV(context, std::move(context.state.in_file));
         context.settings.output_debugwindow = false;
     }
 

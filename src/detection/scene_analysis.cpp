@@ -529,6 +529,7 @@ void DetectCredits(RecordingContext& context, int frame_count)
 
 bool CheckSceneHasChanged(RecordingContext& context)
 {
+    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0 || context.state.logoInfoAvailable);
     int		i;
     int		x;
     int		step;

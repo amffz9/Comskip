@@ -64,3 +64,17 @@ TEST(Translator, FormatsReviewLabelsAndWarnings) {
     EXPECT_TRUE(spanish.format("review_frame_block", "30.0", 0, "B", 10, "S", 1, "U", "1.78",
                                2, "30.00", "0.50", "0.95", "L").contains("Bloque #2 Duración=30.00s"));
 }
+TEST(Translator, LocalizesMediaStartupFailuresAndResults) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("media_version", "Comskip 0.83.1"), "Comskip 0.83.1, made using ffmpeg\n");
+    EXPECT_EQ(spanish.format("media_open_failed", "録画.ts"), "録画.ts: no se puede abrir el archivo\n");
+    EXPECT_EQ(spanish.format("media_using_codec", "h264_qsv", "h264"), "Usando el códec h264_qsv en lugar de h264\n");
+    EXPECT_STREQ(english.text("media_found_commercials"), "Commercials were found.\n");
+    EXPECT_STREQ(spanish.text("media_found_commercials"), "Se encontraron anuncios.\n");
+    EXPECT_EQ(spanish.format("media_seek_target", "   30.00"), "Buscar en    30.00\n");
+    EXPECT_EQ(spanish.format("media_decoded_summary", 250, "10.00", "25.00"),
+              "\n250 fotogramas decodificados en 10.00 segundos (25.00 fps)\n");
+    EXPECT_EQ(spanish.format("media_decode_progress", "00:10", 250, "10.00", "25.00", "1.00", "25.00", 50),
+              "00:10 - 250 fotogramas en 10.00 s(25.00 fps), 1.00 s(25.00 fps), 50%");
+}

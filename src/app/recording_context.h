@@ -6,6 +6,7 @@
 #include "translator.h"
 #include "file_resources.h"
 #include <memory>
+#include <array>
 #include <vector>
 
 struct RecordingState {
@@ -65,7 +66,6 @@ struct RecordingState {
     comskip::platform::FilePtr mkvtoolnix_chapters_file;
     comskip::platform::FilePtr mkvtoolnix_tags_file;
     int audio_channels{};
-    int vo_init_done= 0;
     comskip::platform::FilePtr in_file;
     int debug_cur_segment{};
     std::vector<frame_info> frame;
@@ -176,7 +176,14 @@ struct RecordingState {
     int old_height{};
     int ar_width= 0;
     int subsample_video= 0x1ff;
-    char haslogo[38400000]{};
+    std::vector<char> haslogo;
+    int pixel_width{};
+    int pixel_height{};
+    int pixel_video_width{};
+    int review_source_width{};
+    int review_source_height{};
+    void ensure_pixel_buffers(bool use_logo);
+    void ensure_review_graph(int width, int height);
     int selftest{};
     double avg_fps= 22;
     int min_hasBright= 255000;
@@ -225,21 +232,21 @@ struct RecordingState {
     int logoTrendCounter= 0;
     double logoFreq= 1.0;
     bool lastLogoTest= false;
-    int * logoFrameNum= NULL;
+    std::vector<int> logoFrameNum;
     int oldestLogoBuffer{};
     bool curLogoTest= false;
     int minHitsForTrend= 10;
     double logoPercentage= 0.0;
     bool reverseLogoLogic= false;
-    unsigned char horiz_count[38400000]{};
-    unsigned char vert_count[38400000]{};
+    std::vector<unsigned char> horiz_count;
+    std::vector<unsigned char> vert_count;
     double borderIgnore= .05;
     int int_edge_radius= 2;
     int edge_count= 0;
     int hedge_count= 0;
     int vedge_count= 0;
     int newestLogoBuffer= -1;
-    unsigned char ** logoFrameBuffer= NULL;
+    std::vector<std::vector<unsigned char>> logoFrameBuffer;
     int logoFrameBufferSize= 0;
     int lwidth{};
     int lheight{};
@@ -248,14 +255,14 @@ struct RecordingState {
     int tlogoMinY{};
     int tlogoMaxY{};
     int edgemask_filled=0;
-    unsigned char thoriz_edgemask[38400000]{};
-    unsigned char tvert_edgemask[38400000]{};
+    std::vector<unsigned char> thoriz_edgemask;
+    std::vector<unsigned char> tvert_edgemask;
     int clogoMinX{};
     int clogoMaxX{};
     int clogoMinY{};
     int clogoMaxY{};
-    unsigned char choriz_edgemask[38400000]{};
-    unsigned char cvert_edgemask[38400000]{};
+    std::vector<unsigned char> choriz_edgemask;
+    std::vector<unsigned char> cvert_edgemask;
     comskip::platform::FilePtr dump_data_file;
     uint8_t ccData[500]{};
     int ccDataLen{};
@@ -263,8 +270,8 @@ struct RecordingState {
     int prevccDataLen{};
     long cc_count[5]= { 0, 0, 0, 0, 0 };
     int most_cc_type= NONE;
-    unsigned char ** cc_screen= NULL;
-    unsigned char ** cc_memory= NULL;
+    std::array<std::array<unsigned char, 32>, 15> cc_screen{};
+    std::array<std::array<unsigned char, 32>, 15> cc_memory{};
     int minY{};
     int maxY{};
     int minX{};
@@ -277,91 +284,20 @@ struct RecordingState {
     int helpflag= 0;
     int timeflag= 0;
     int recalculate=0;
-    const char * helptext[30]=
-
-{
-
-
-
-    "Help: press any key to remove",
-
-    "Key          Action",
-
-    "Arrows	        Reposition current location",
-
-    "PgUp/PgDn      Reposition current location",
-
-    "Alt+PgUp/PgDn  Reposition current location by 1/2 second",
-
-    "n/p            Jump to next/previous cutpoint",
-
-    "e/b            Jump to next/previous end of cblock",
-
-    "z/u            Zoom in/out on the timeline",
-
-    "g              Graph on/off",
-
-    "x              XDS info on/off",
-
-    "t              Toggle current cblock between show and commercial",
-
-    "w              Write the new cutpoints to the output files",
-
-    "c              Dump this frame as CutScene"
-
-    "F2             Reduce the max_volume detection level",
-
-    "F3             Reduce the non_uniformity detection level",
-
-    "F4             Reduce the max_avg_brighness detection level",
-
-    "F5             Toggle frame number / timecode display",
-
-    "",
-
-    "During commercial break review",
-
-    "e              Set end of commercial to this position",
-
-    "b              Set begin of commercial to this position",
-
-    "i              Insert a new commercial",
-
-    "d              Delete the commercial at current location",
-
-    "s              Jump to Start of the recording",
-
-    "f              Jump to Finish of the recording",
-
-     "",
-
-    "Divide and conquer commercial break review",
-
-    "j              Set the before marker frame",
-
-    "k              Set the end marker frame",
-
-    "l              Clear the marker frames",
-
-    0
-
-};
     double currentGoodEdge= 0.0;
     int lineStart[4800]{};
     int lineEnd[4800]{};
-    unsigned char hor_edgecount[38400000]{};
-    unsigned char ver_edgecount[38400000]{};
-    unsigned char max_br[38400000]{};
-    unsigned char min_br[38400000]{};
-    unsigned char graph[115200000]{};
+    std::vector<unsigned char> hor_edgecount;
+    std::vector<unsigned char> ver_edgecount;
+    std::vector<unsigned char> max_br;
+    std::vector<unsigned char> min_br;
+    std::vector<unsigned char> graph;
     int gy=0;
     int pass= 0;
     double test_pts= 0.0;
     int av_log_level=AV_LOG_INFO;
-    VideoState * is{};
     DictionaryPtr myoptions{};
     std::unique_ptr<VideoState> video_owner{};
-    VideoState * global_video_state{};
     int64_t pev_best_effort_timestamp= 0;
     int video_stream_index= -1;
     int audio_stream_index= -1;
@@ -464,7 +400,6 @@ struct RecordingState {
     int show_silence=0;
     int preMarkerFrame= 0;
     int postMarkerFrame= 0;
-    int shift= 0;
     char CauseString_cs[4][80]{};
     int CauseString_ii=0;
     unsigned char AddXDS_XDSbuf[1024]{};

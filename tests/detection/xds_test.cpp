@@ -34,3 +34,16 @@ TEST(XdsBlocks, RejectsFrameOutsideRecordingWithoutAdvancingMetadata) {
     EXPECT_THROW(Add_XDS_block(context), std::out_of_range);
     EXPECT_EQ(context.state.XDS_block_count, 0);
 }
+TEST(CaptionGrids, OwnZeroInitializedScreenAndMemoryForEachRecording) {
+    auto first_owner = std::make_unique<RecordingContext>();
+    auto second_owner = std::make_unique<RecordingContext>();
+    auto& first = *first_owner;
+    auto& second = *second_owner;
+    first.state.cc_screen[14][31] = 'X';
+    first.state.cc_memory[0][0] = 'M';
+    EXPECT_EQ(first.state.cc_screen[14][31], 'X');
+    EXPECT_EQ(first.state.cc_screen[14][30], 0);
+    EXPECT_EQ(first.state.cc_memory[14][31], 0);
+    EXPECT_EQ(second.state.cc_screen[14][31], 0);
+    EXPECT_EQ(second.state.cc_memory[0][0], 0);
+}

@@ -2,7 +2,9 @@
 #define _PLATFORM_H
 
 #ifndef _WIN32
-#define _BSD_SOURCE
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
+#endif
 #include <unistd.h>
 #include <limits.h>
 #include <stdarg.h>

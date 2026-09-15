@@ -213,3 +213,32 @@ TEST(InprocessAnalysis, FailedAnalysesUnwindResourcesAndLeaveTheNextRecordingInd
     if (warmed_handles) EXPECT_EQ(process_handles(), warmed_handles) << "Analysis after failures retained process handles";
     EXPECT_NO_THROW(workspace.verify_cleanup());
 }
+
+TEST(InprocessAnalysis, ReplaysCsvAndReleasesItsConsumedInput)
+{
+    Workspace workspace;
+    const auto fixture = workspace.path() / "sample.y4m";
+    generate_fixture(fixture, 160, 120);
+    const auto baseline = analyze(fixture, workspace.path(), "baseline", 1, 0, false, "en");
+    const auto handles = process_handles();
+    const auto output = workspace.path() / "replay";
+    std::filesystem::create_directory(output);
+    std::vector<std::string> arguments{"comskip-inprocess",
+        "--ini=" + utf8(workspace.path() / "baseline" / "settings.ini"),
+        "--output=" + utf8(output), utf8(workspace.path() / "baseline" / "sample.csv")};
+    std::vector<char*> argv;
+    for (auto& argument : arguments) argv.push_back(argument.data());
+    argv.push_back(nullptr);
+    {
+        auto context = std::make_unique<RecordingContext>();
+        int status = -99;
+        try { status = comskip_main(*context, static_cast<int>(arguments.size()), argv.data()); }
+        catch (const comskip::ExitRequested& request) { status = request.status(); }
+        EXPECT_EQ(status, 0);
+        EXPECT_EQ(context->state.in_file, nullptr);
+    }
+    EXPECT_EQ(read_file(output / "sample.edl"), baseline.edl);
+    EXPECT_EQ(read_file(output / "sample.txt"), baseline.cutlist);
+    if (handles) EXPECT_EQ(process_handles(), handles);
+    EXPECT_NO_THROW(workspace.verify_cleanup());
+}

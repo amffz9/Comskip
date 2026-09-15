@@ -1,4 +1,5 @@
-#pragma once
+#ifndef COMSKIP_CONFIG_INI_H
+#define COMSKIP_CONFIG_INI_H
 #include <charconv>
 #include <cmath>
 #include <limits>
@@ -36,3 +37,4 @@ public:
 };
 const Ini& defaults();
 }
+#endif

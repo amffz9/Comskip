@@ -2,6 +2,7 @@
 #include "legacy_detection.h"
 #include "checked_format.h"
 #include "review_messages.h"
+#include "image_geometry.h"
 #include <algorithm>
 #include <array>
 #include <format>
@@ -53,13 +54,13 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
 //	frm++;
-    if (!forceRefresh && context.state.oldfrm == frm)
+    if (!forceRefresh && context.state.oldfrm == frm && context.state.review_source_width == context.state.videowidth && context.state.review_source_height == context.state.height)
         return;
     context.state.oldfrm = frm;
     if (context.settings.output_debugwindow && context.state.frame_count )
     {
 
-        if (!context.window.is_open())
+        if (!context.window.is_open() || context.state.review_source_width != context.state.videowidth || context.state.review_source_height != context.state.height)
         {
             if (context.state.width == 0 /*|| (loadingCSV && !showVideo) */)
                 context.state.videowidth = context.state.width = 800; // MAXWIDTH;
@@ -99,7 +100,11 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             context.state.oheight = (context.state.oheight + 31) & -32;
             context.state.owidth = (context.state.owidth + 31) & -32;
             comskip::checked_format(t, context.settings.windowtitle.c_str(), context.state.filename);
+            context.window.close();
+            context.state.ensure_review_graph(context.state.owidth, context.state.oheight + barh);
             context.window.open(context.state.owidth, context.state.oheight + barh, t);
+            context.state.review_source_width = context.state.videowidth;
+            context.state.review_source_height = context.state.height;
 
         }
 //		bartop = context.state.oheight;
@@ -125,7 +130,10 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
 
         if (showVideo && context.state.frame_ptr)
         {
-            memset(context.state.graph, 0, context.state.owidth*context.state.oheight*3);
+            const comskip::detection::LumaImageView luma(
+                std::span{context.state.frame_ptr, comskip::detection::checked_image_size(context.state.width, context.state.height)},
+                context.state.width, context.state.videowidth, context.state.height);
+            std::ranges::fill(context.state.graph, 0);
             /*
                         for (x = 0; x < border; x++) {
                             for (y = 0; y < context.state.oheight; y++) {
@@ -143,7 +151,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                 for (y = 0+context.settings.border; y < context.state.oheight-context.settings.border; y++)
                 {
                     if (x*context.state.divider < context.state.width && y*context.state.divider < context.state.height)
-                        gray_pixel(x,y+barh, context.state.frame_ptr[((int)(y*context.state.divider))*(context.state.width)+(int)(x*context.state.divider)] >> (grf?1:0));
+                        gray_pixel(x, y + barh, luma.scaled_sample(x, y, context.state.divider) >> (grf ? 1 : 0));
 //					gray_pixel(x,y+barh, min_br[(y*context.state.divider)*context.state.width+(x*context.state.divider)]);		//MAXMIN Logo search
 
 //					gray_pixel(x,y+barh, vert_edges[(y*context.state.divider)*context.state.width+(x*context.state.divider)]);	//Edge detect
@@ -223,7 +231,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
         }
         else
         {
-            memset(context.state.graph, 0, context.state.owidth*context.state.oheight*3);
+            std::ranges::fill(context.state.graph, 0);
 
         }
 
@@ -349,7 +357,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
         }
 
         /*
-                memset(context.state.graph,20,context.state.owidth*(context.state.oheight+30)*3);
+                std::ranges::fill(context.state.graph, 20);
                 for (i=0; i<context.state.oheight/2;i++) {
                     context.state.graph[(i*(context.state.owidth+0))*3] = 255;
                     context.state.graph[(i*(context.state.owidth+0))*3+1] = 0;
@@ -659,7 +667,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
     if (context.state.subsample_video == 0)
     {
         //	Enable for single stepping trough the video
-        if (!context.window.is_open())
+        if (!context.window.is_open() || context.state.review_source_width != context.state.videowidth || context.state.review_source_height != context.state.height)
         {
             if (context.state.width == 0 /*|| (loadingCSV && !showVideo) */)
                 context.state.videowidth = context.state.width = 800; // MAXWIDTH;
@@ -680,7 +688,11 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             }
             context.state.owidth = (context.state.owidth + 31) & -32;
             comskip::checked_format(t, context.settings.windowtitle.c_str(), context.state.filename);
+            context.window.close();
+            context.state.ensure_review_graph(context.state.owidth, context.state.oheight + barh);
             context.window.open(context.state.owidth, context.state.oheight + barh, t);
+            context.state.review_source_width = context.state.videowidth;
+            context.state.review_source_height = context.state.height;
 
         }
 

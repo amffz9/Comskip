@@ -34,22 +34,28 @@ than redefine completion around whichever subset currently passes tests.
 
 ## Verified migration stages
 
-- Owned FFmpeg input/codec/frame/packet/dictionary/scaler resources are integrated;
-  the media coordinator still needs to become recording-owned.
+- Owned FFmpeg input/codec/frame/packet/dictionary/scaler resources are integrated
+  in the recording-owned media coordinator. Networking follows decoder ownership.
 - C++ lower-level exit requests unwind to the application boundary, and scan task
   failures propagate to the caller. Workers support captured recording dependencies.
 - English/Spanish primary CLI catalogs, external editable catalogs, and real CLI
   selection tests are integrated. Decoder/detector/output/review messages remain.
 - Settings values own every committed configuration field and regional profile;
   application callsites now receive an explicit recording context. Detection,
-  media, output, and review state have moved into that context. Legacy raw buffer
-  and file ownership still needs completion, and repeated analyses need tests.
+  media, output, and review state have moved into that context. Dynamic detection
+  buffers, recording files, argument snapshots, and XDS metadata are owned values.
+  Pixel buffers and live logo rings allocate for validated recording geometry;
+  caption grids use owned arrays. Geometry changes invalidate stale logo state.
 - The portable review backend is integrated with explicit event state and
   English/Spanish help and labels. Both backend variants pass their six tests;
   SDL rendering verification currently uses the dummy driver on Windows.
 - Pure timed EDL serialization is integrated for standard/live/plus output, with
   boundary/offset/locale/error tests. Other serializer families remain.
-- The current Windows headless application build passes 66 tests, including
-  seeking/reopening, damaged/truncated media, and stream format changes.
-  Linux/macOS, interactive SDL application verification, sanitizers, and repeated
-  full analyses within one process still require evidence.
+- Both Windows headless and SDL-enabled application builds pass 89 tests, including
+  seeking/reopening, damaged/truncated media, stream format changes, independent
+  repeated analyses within one process, and failure cleanup followed by success.
+  CSV replay, weighted-score boundaries, bounded review sampling, and persisted
+  logo bounds. SDL rendering uses the dummy driver. An earlier Ubuntu GCC 14 /
+  FFmpeg 6.1 snapshot passed 76 tests with address, undefined-behavior, and leak
+  sanitizers; clean verification of the latest tree is pending. macOS and
+  interactive SDL application verification still require evidence.

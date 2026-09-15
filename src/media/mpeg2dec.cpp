@@ -59,27 +59,6 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-#ifdef HARDWARE_DECODE
-#include <fftools/ffmpeg.h>
-const HWAccel hwaccels[] = {
-#if HAVE_VDPAU_X11
-    { "vdpau", vdpau_init, HWACCEL_VDPAU, AV_PIX_FMT_VDPAU },
-#endif
-#if HAVE_DXVA2_LIB
-    { "dxva2", dxva2_init, HWACCEL_DXVA2, AV_PIX_FMT_DXVA2_VLD },
-#endif
-#if CONFIG_VDA
-    { "vda",   vda_init,   HWACCEL_VDA,   AV_PIX_FMT_VDA },
-#endif
-#if HAVE_QSV
-    { "qsv",   qsv_init,   HWACCEL_QSV,   AV_PIX_FMT_QSV },
-#endif
-    { 0 },
-};
-
-static InputStream inputs;
-static InputStream *ist = &inputs;
-#endif
 
 
 
@@ -292,14 +271,14 @@ extern double get_frame_pts(RecordingContext& context, int f);
 
 
 
-void list_codecs()
+void list_codecs(const comskip::localization::Translator& translator)
 {
         const AVCodec *p;
         int * p_i = (int *)NULL;
         int i = 0;
 //        avcodec_register_all();
         p = av_codec_iterate((void **)&p_i);
-        printf("Decoders:\n");
+        fputs(translator.text("media_decoders"), stdout);
         printf("---------\n");
         while (p != NULL) {
             if (av_codec_is_decoder(p)) {
@@ -321,7 +300,7 @@ int retreive_frame_volume(RecordingContext& context, double from_pts, double to_
 {
     short *buffer;
     int volume = -1;
-    VideoState *is = context.state.global_video_state;
+    VideoState *is = context.state.video_owner.get();
     int i;
     double calculated_delay;
     const int sample_rate = is->audio_st->codecpar->sample_rate;
@@ -790,8 +769,9 @@ again:
         else
             tfps = 0;
 
-        fprintf (stderr,"\n%d frames decoded in %.2f seconds (%.2f fps)\n",
-                 context.state.print_fps_frame_counter, context.state.print_fps_total_elapsed / 100.0, tfps);
+        fputs(context.translator.format("media_decoded_summary", context.state.print_fps_frame_counter,
+              std::format("{:.2f}", context.state.print_fps_total_elapsed / 100.0),
+              std::format("{:.2f}", tfps)).c_str(), stderr);
         fflush(stderr);
         return tfps;
     }
@@ -829,10 +809,12 @@ again:
     fps = frames * 100.0 / elapsed;
     tfps = context.state.print_fps_frame_counter * 100.0 / context.state.print_fps_total_elapsed;
 
-    fprintf (stderr, "%s - %d frames in %.2f sec(%.2f fps), "
-             "%.2f sec(%.2f fps), %d%%\r", cur_pos, context.state.print_fps_frame_counter,
-//             total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * get_frame_pts(framenum) / global_video_state->duration));
-             context.state.print_fps_total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * (context.state.framenum)/get_fps(context) / context.state.global_video_state->duration));
+    fputs(context.translator.format("media_decode_progress", cur_pos, context.state.print_fps_frame_counter,
+          std::format("{:.2f}", context.state.print_fps_total_elapsed / 100.0), std::format("{:.2f}", tfps),
+          std::format("{:.2f}", elapsed / 100.0), std::format("{:.2f}", fps),
+          static_cast<int>(100.0 * context.state.framenum / get_fps(context) /
+                           context.state.video_owner->duration)).c_str(), stderr);
+    fputc('\r', stderr);
     fflush(stderr);
     context.state.print_fps_last_count = context.state.print_fps_frame_counter;
     return tfps;
@@ -857,22 +839,30 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         context.state.frame_ptr = NULL;
         return(0);
     }
-    if (context.state.height != pFrame->height && pFrame->height > 100 && pFrame->height < MAXHEIGHT)
+    if (context.state.height != pFrame->height)
     {
         context.state.height= pFrame->height;
         changed = 1;
     }
-    if (context.state.width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < MAXWIDTH)
+    if (context.state.width != pFrame->linesize[0])
     {
         context.state.width= pFrame->linesize[0];
         changed = 1;
     }
-    if (context.state.videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < MAXWIDTH)
+    if (context.state.videowidth != pFrame->width)
     {
         context.state.videowidth= pFrame->width;
         changed = 1;
     }
-    if (changed) Debug(context, 5, "Format changed to [%d : %d]\n", context.state.videowidth, context.state.height);
+    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0 || context.state.logoInfoAvailable);
+    if (changed) {
+        if (context.state.initialized) {
+            if (context.settings.commDetectMethod & LOGO) InitLogoBuffers(context);
+            InitScanLines(context);
+            InitHasLogo(context);
+        }
+        Debug(context, 5, "Format changed to [%d : %d]\n", context.state.videowidth, context.state.height);
+    }
     context.state.infopos = context.state.headerpos;
     context.state.frame_ptr = pFrame->data[0];
     if (context.state.frame_ptr == NULL)
@@ -894,7 +884,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         if (context.state.test_pts != pts)
         {
                context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                fprintf(context.state.sample_file.get(), "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.is->filename);
+                fprintf(context.state.sample_file.get(), "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.video_owner->filename);
                 context.state.sample_file.reset();
                 Debug(context,  1,"\nSelftest %d FAILED: Reset\n", context.state.selftest);
         }
@@ -920,9 +910,9 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         if (res) {
             context.state.framenum = 0;
             context.state.sound_frame_counter = 0;
-            context.state.is->seek_req = 1;
-            context.state.is->seek_pos = 0;
-            context.state.is->seek_pts = 0.0;
+            context.state.video_owner->seek_req = 1;
+            context.state.video_owner->seek_pos = 0;
+            context.state.video_owner->seek_pts = 0.0;
         }
     }
     return (res);
@@ -939,7 +929,7 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
     is->seek_req = true;
     is->seek_pts = pts;
 #ifdef DEBUG
-    printf("Seek to %8.2f\n", pts);
+    fputs(context.translator.format("media_seek_target", std::format("{:8.2f}", pts)).c_str(), stdout);
 #endif // DEBUG
 
 #define MAX_GOP_SIZE 2.0
@@ -999,7 +989,8 @@ again:
         }
 #endif
 
-        fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
+        fputs(context.translator.format("media_seek_error", error_text,
+              std::format("{:6.3f}", is->seek_pts), is->pFormatCtx->url).c_str(), stderr);
 
         if (context.state.selftest)
         {
@@ -1031,14 +1022,14 @@ again:
 
 void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
 {
-    VideoState *is = context.state.global_video_state;
+    VideoState *is = context.state.video_owner.get();
     AVPacket *packet;
 //    int ret;
 
 //    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
 
     file_open(context);
-    is = context.state.global_video_state;
+    is = context.state.video_owner.get();
 
     context.state.reviewing = 1;
     Set_seek(context, is, pts);
@@ -1099,7 +1090,7 @@ nextpacket:
                 if (context.state.retries == 0) // A frame has been decoded so stop reading packets.
                 {
 #ifdef DEBUG
-    printf("Seek landed at %8.2f\n", is->video_clock);
+    fputs(context.translator.format("media_seek_landed", std::format("{:8.2f}", is->video_clock)).c_str(), stdout);
 #endif // DEBUG
 
                     av_packet_unref(packet);
@@ -1132,19 +1123,6 @@ nextpacket:
     }
     context.state.reviewing = 0;
 }
-
-void raise_exception(void)
-{
-    raise(SIGABRT);
-}
-
-
-int filter(void)
-{
-    printf("Exception raised, Comskip is terminating\n");
-    comskip::request_exit(99);
-}
-
 
 
 
@@ -1391,13 +1369,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
         }
         is->video_clock_submitted = is->video_clock;
 
-#ifdef HARDWARE_DECODE
-        if (ist->hwaccel_retrieve_data && is->pFrame->format == ist->hwaccel_pix_fmt) {
-            if (ist->hwaccel_retrieve_data(ist->dec_ctx, is->pFrame.get()) < 0)
-                goto quit;
-        }
-        ist->hwaccel_retrieved_pix_fmt = is->pFrame->format;
-#endif
 
 
 
@@ -1534,64 +1505,6 @@ quit:
 
 //extern int dxva2_init(AVCodecContext *s);
 
-#ifdef HARDWARE_DECODE
-static const HWAccel *get_hwaccel(enum AVPixelFormat pix_fmt)
-{
-    int i;
-    for (i = 0; hwaccels[i].name; i++)
-        if (hwaccels[i].pix_fmt == pix_fmt)
-            return &hwaccels[i];
-    return NULL;
-}
-
-static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat *pix_fmts)
-{
-    InputStream *ist = s->opaque;
-    const enum AVPixelFormat *p;
-    int ret;
-
-    for (p = pix_fmts; *p != -1; p++) {
-        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*p);
-        const HWAccel *hwaccel;
-
-        if (!(desc->flags & AV_PIX_FMT_FLAG_HWACCEL))
-            break;
-
-        hwaccel = get_hwaccel(*p);
-        if (!hwaccel ||
-  //          (ist->active_hwaccel_id && ist->active_hwaccel_id != hwaccel->id) ||
-            (ist->hwaccel_id != HWACCEL_AUTO && ist->hwaccel_id != hwaccel->id))
-            continue;
-
-        ret = hwaccel->init(s);
-        if (ret < 0) {
-            if (ist->hwaccel_id == hwaccel->id) {
-                av_log(NULL, AV_LOG_FATAL,
-                       "%s hwaccel requested for input stream #%d:%d, "
-                       "but cannot be initialized.\n", hwaccel->name,
-                       ist->file_index, ist->st->index);
-                return AV_PIX_FMT_NONE;
-            }
-            continue;
-        }
-//        ist->active_hwaccel_id = hwaccel->id;
-        ist->hwaccel_pix_fmt   = *p;
-        break;
-    }
-
-    return *p;
-}
-
-static int get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
-{
-    InputStream *ist = s->opaque;
-
-    if (ist->hwaccel_get_buffer && frame->format == ist->hwaccel_pix_fmt)
-        return ist->hwaccel_get_buffer(s, frame, flags);
-
-    return avcodec_default_get_buffer2(s, frame, flags);
-}
-#endif
 
 int stream_component_open(RecordingContext& context, VideoState *is, int stream_index)
 {
@@ -1664,7 +1577,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
 
 
     if (codec_hw != NULL && codec_hw != codec) {
-        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
+        fputs(context.translator.format("media_using_codec", codec_hw->name, codec->name).c_str(), stderr);
         codec = codec_hw;
     }
 
@@ -1677,21 +1590,6 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
     {
         if (!context.settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 
-#ifdef HARDWARE_DECODE
-        ist->dec_ctx = codecCtx;
-        ist->dec_ctx->opaque = ist;
-        ist->dec_ctx->get_format            = get_format;
-        ist->dec_ctx->get_buffer2           = get_buffer;
-//        ist->dec_ctx->thread_safe_callbacks = 1;
-        ist->hwaccel_id = -1; //HWACCEL_AUTO;
-        if (hardware_decode) {
-#ifdef DONATOR
-            ist->hwaccel_id = HWACCEL_AUTO;
-#else
-            Debug(0, "Hardware accelerated video decoding is only available in the Donator version\n");
-#endif
-        }
-#endif
 
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
 //        codecCtx->flags2 |= AV_CODEC_FLAG2_CHUNKS /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
@@ -1750,7 +1648,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
 
     if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(context.state.myoptions)) < 0))
     {
-        fprintf(stderr, "Unsupported codec!\n");
+        fputs(context.translator.text("media_unsupported_codec"), stderr);
         return -1;
     }
 
@@ -1865,7 +1763,7 @@ void file_open(RecordingContext& context)
     int subtitle_index= -1, audio_index= -1, video_index = -1;
     int openretries = 0;
 
-    if (context.state.global_video_state == NULL)
+    if (context.state.video_owner.get() == NULL)
     {
         context.state.video_owner = std::make_unique<VideoState>();
         is = context.state.video_owner.get();
@@ -1876,7 +1774,7 @@ void file_open(RecordingContext& context)
 
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
-        context.state.global_video_state = is;
+
         is->videoStream=-1;
         is->audioStream=-1;
         is->subtitleStream = -1;
@@ -1902,7 +1800,7 @@ void file_open(RecordingContext& context)
 
     }
     else
-        is = context.state.global_video_state;
+        is = context.state.video_owner.get();
     // Open video file
     if ( is->pFormatCtx.get() == NULL)
     {
@@ -1913,7 +1811,7 @@ void file_open(RecordingContext& context)
 again:
         if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename, NULL,std::inout_ptr(context.state.myoptions))!=0)
         {
-            fprintf(stderr, "%s: Can not open file\n", is->filename);
+            fputs(context.translator.format("media_open_failed", is->filename).c_str(), stderr);
             if (openretries++ < context.settings.live_tv_retries)
             {
                 sleep_for_ms(1000L);
@@ -1936,7 +1834,7 @@ again:
         // Retrieve stream information
         if(avformat_find_stream_info(is->pFormatCtx.get(), 0L )<0)
         {
-            fprintf(stderr, "%s: Can not find stream info\n", is->filename);
+            fputs(context.translator.format("media_stream_info_failed", is->filename).c_str(), stderr);
             comskip::request_exit(-1);
         }
         // Dump information about file onto standard error
@@ -1958,7 +1856,7 @@ again:
         if(is->videoStream < 0)
         {
             Debug(context, 0, "Could not open video codec\n");
-            fprintf(stderr, "%s: could not open video codec\n", is->filename);
+            fputs(context.translator.format("media_video_codec_failed", is->filename).c_str(), stderr);
             comskip::request_exit(-1);
         }
 
@@ -2050,34 +1948,31 @@ again:
 
 void file_close(RecordingContext& context)
 {
-    context.state.is = context.state.global_video_state;
+
 
 //    av_freep(&ist->hwaccel_device);
 
 
-    if (context.state.is->dec_ctx.get()) context.state.is->dec_ctx.reset();
-    context.state.is->videoStream = -1;
+    if (context.state.video_owner->dec_ctx.get()) context.state.video_owner->dec_ctx.reset();
+    context.state.video_owner->videoStream = -1;
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 
-    if (context.state.is->audio_ctx.get()) context.state.is->audio_ctx.reset();
-    context.state.is->audioStream = -1;
-    if (context.state.is->subtitle_ctx.get())  context.state.is->subtitle_ctx.reset();
-    context.state.is->subtitleStream = -1;
+    if (context.state.video_owner->audio_ctx.get()) context.state.video_owner->audio_ctx.reset();
+    context.state.video_owner->audioStream = -1;
+    if (context.state.video_owner->subtitle_ctx.get())  context.state.video_owner->subtitle_ctx.reset();
+    context.state.video_owner->subtitleStream = -1;
 //    is->pFormatCtx.reset();
 
 
-    context.state.is->pFormatCtx.reset();
+    context.state.video_owner->pFormatCtx.reset();
 
-    context.state.is->frame.reset();
-    context.state.is->pFrame.reset();
-    context.state.is->img_convert_ctx.reset();
+    context.state.video_owner->frame.reset();
+    context.state.video_owner->pFrame.reset();
+    context.state.video_owner->img_convert_ctx.reset();
 
     context.state.ac3_packet_index = 0;
     context.state.ac3_package_misalignment_count = 0;
 
-#ifdef HARDWARE_DECODE
-    ist->hwaccel_ctx = NULL;
-#endif
 
 //  global_video_state = NULL;
 };
@@ -2128,12 +2023,12 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         comskip::checked_format(context.state.HomeDir, "%s",
             reinterpret_cast<const char*>(directory_utf8.c_str()));
 
-        fprintf (stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);
+        fputs(context.translator.format("media_version", PACKAGE_STRING).c_str(), stderr);
 
 #ifndef DONATOR
-        fprintf (stderr, "Public build\n");
+        fputs(context.translator.text("media_public_build"), stderr);
 #else
-        fprintf (stderr, "Donator build\n");
+        fputs(context.translator.text("media_donator_build"), stderr);
 #endif
 
 #ifdef _WIN32
@@ -2190,27 +2085,27 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         av_log_set_level(AV_LOG_INFO);
 //        av_log_set_flags(AV_LOG_SKIP_REPEATED);
 //
-        context.state.is = context.state.global_video_state;
-        packet = &(context.state.is->audio_pkt);
+
+        packet = &(context.state.video_owner->audio_pkt);
 
         // main decode loop
 again:
         for(;;)
         {
-            if(context.state.is->quit)
+            if(context.state.video_owner->quit)
             {
                 break;
             }
             // seek stuff goes here
-            if(context.state.is->seek_req)
+            if(context.state.video_owner->seek_req)
             {
-                if (context.state.is->seek_pts > 0.0)
+                if (context.state.video_owner->seek_pts > 0.0)
                 {
-                    DoSeekRequest(context, context.state.is);
+                    DoSeekRequest(context, context.state.video_owner.get());
                 }
                 else
                 {
-                    context.state.is->seek_req = 0;
+                    context.state.video_owner->seek_req = 0;
                     file_close(context);
                     file_open(context);
 
@@ -2224,25 +2119,25 @@ again:
                 }
             }
 nextpacket:
-            ret=av_read_frame(context.state.is->pFormatCtx.get(), packet);
+            ret=av_read_frame(context.state.video_owner->pFormatCtx.get(), packet);
 
-            if (ret>=0 && context.state.is->seek_req)
+            if (ret>=0 && context.state.video_owner->seek_req)
             {
-                double packet_time = (packet->pts - (context.state.is->video_st->start_time != AV_NOPTS_VALUE ? context.state.is->video_st->start_time : 0)) * av_q2d(context.state.is->video_st->time_base);
+                double packet_time = (packet->pts - (context.state.video_owner->video_st->start_time != AV_NOPTS_VALUE ? context.state.video_owner->video_st->start_time : 0)) * av_q2d(context.state.video_owner->video_st->time_base);
                 if (packet->pts==AV_NOPTS_VALUE || packet->pts == 0 )
                 {
                     av_packet_unref(packet);
                     goto nextpacket;
                 }
-                if (context.state.is->seek_req < 6 && (context.state.is->seek_flags & AVSEEK_FLAG_BYTE) &&  context.state.is->duration > 0 && fabs(packet_time - (context.state.is->seek_pts - 2.5) ) < context.state.is->duration / (10 * context.state.is->seek_req))
+                if (context.state.video_owner->seek_req < 6 && (context.state.video_owner->seek_flags & AVSEEK_FLAG_BYTE) &&  context.state.video_owner->duration > 0 && fabs(packet_time - (context.state.video_owner->seek_pts - 2.5) ) < context.state.video_owner->duration / (10 * context.state.video_owner->seek_req))
                 {
-                    context.state.is->seek_pos += ((context.state.is->seek_pts - 2.5 - packet_time) / context.state.is->duration ) * avio_size(context.state.is->pFormatCtx->pb) * 0.9;
-                    context.state.is->seek_req++;
+                    context.state.video_owner->seek_pos += ((context.state.video_owner->seek_pts - 2.5 - packet_time) / context.state.video_owner->duration ) * avio_size(context.state.video_owner->pFormatCtx->pb) * 0.9;
+                    context.state.video_owner->seek_req++;
                     goto again;
                 }
                 if (context.state.retries)
                     Debug(context,  9,"Retry t_pos=%" PRId64 ", l_pos=%" PRId64 ", t_pts=%" PRId64 ", l_pts=%" PRId64 "\n", last_packet_pos, packet->pos, last_packet_pts, packet->pts);
-                context.state.is->seek_req = 0;
+                context.state.video_owner->seek_req = 0;
             }
             /*
                     if (ret < 0 && is->seek_req && !is->seek_by_bytes) {
@@ -2251,13 +2146,13 @@ nextpacket:
                         goto again;
                     }
             */
-            context.state.is->seek_req = 0;
+            context.state.video_owner->seek_req = 0;
 
 
 
 #define REOPEN_TIME 500.0
 
-            if ((context.state.selftest == 3 && context.state.retries==0 && context.state.is->video_clock >=REOPEN_TIME))
+            if ((context.state.selftest == 3 && context.state.retries==0 && context.state.video_owner->video_clock >=REOPEN_TIME))
             {
                 ret=AVERROR_EOF;  // Simulate EOF
                 context.settings.live_tv = 1;
@@ -2273,16 +2168,16 @@ nextpacket:
             }
             if(ret < 0 )
             {
-                if (ret == AVERROR_EOF || context.state.is->pFormatCtx->pb->eof_reached)
+                if (ret == AVERROR_EOF || context.state.video_owner->pFormatCtx->pb->eof_reached)
                 {
                     if (context.state.selftest == 3)   // Either simulated EOF or real EOF before REOPEN_TIME
                     {
                         if (context.state.retries > 0)
                         {
-                            if (context.state.is->video_clock < context.state.selftest_target - 0.05 || context.state.is->video_clock > context.state.selftest_target + 0.05)
+                            if (context.state.video_owner->video_clock < context.state.selftest_target - 0.05 || context.state.video_owner->video_clock > context.state.selftest_target + 0.05)
                             {
                                 context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                                fprintf(context.state.sample_file.get(), "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.is->filename, context.state.is->duration, context.state.is->video_clock );
+                                fprintf(context.state.sample_file.get(), "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.video_owner->filename, context.state.video_owner->duration, context.state.video_owner->video_clock );
                                 context.state.sample_file.reset();
                                 Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                                 comskip::request_exit(1);
@@ -2290,9 +2185,9 @@ nextpacket:
                         }
                         else
                         {
-                            if (context.state.is->video_clock < REOPEN_TIME)
+                            if (context.state.video_owner->video_clock < REOPEN_TIME)
                             {
-                                context.state.selftest_target = context.state.is->video_clock - 2.0;
+                                context.state.selftest_target = context.state.video_owner->video_clock - 2.0;
                             }
                             else
                             {
@@ -2308,7 +2203,7 @@ nextpacket:
 
                     if ((context.settings.live_tv && context.state.retries < context.settings.live_tv_retries) /* || (selftest == 3 && retries == 0) */)
                     {
-                        double frame_delay = av_q2d(context.state.is->dec_ctx->time_base) * context.state.is->ticks_per_frame;
+                        double frame_delay = av_q2d(context.state.video_owner->dec_ctx->time_base) * context.state.video_owner->ticks_per_frame;
 //                    uint64_t retry_target;
                         if (context.state.retries == 0)
                         {
@@ -2316,7 +2211,7 @@ nextpacket:
                                 retry_target = context.state.selftest_target;
 //                        retry_target = avio_tell(is->pFormatCtx->pb);
                             else
-                                retry_target = context.state.is->video_clock + frame_delay;
+                                retry_target = context.state.video_owner->video_clock + frame_delay;
                         }
                         file_close(context);
                         Debug(context,  1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", context.state.retries, context.state.framenum, retry_target);
@@ -2324,7 +2219,7 @@ nextpacket:
 
                         if (context.state.selftest == 0) sleep_for_ms(4000L);
                         file_open(context);
-                        Set_seek(context, context.state.is, retry_target);
+                        Set_seek(context, context.state.video_owner.get(), retry_target);
 
                         context.state.retries++;
                         goto again;
@@ -2332,8 +2227,8 @@ nextpacket:
 
                     // Frame-threaded decoders retain output until an explicit
                     // end-of-input packet. Drain it before finalizing detection.
-                    if (context.state.is->dec_ctx.get())
-                        video_packet_process(context, context.state.is, NULL);
+                    if (context.state.video_owner->dec_ctx.get())
+                        video_packet_process(context, context.state.video_owner.get(), NULL);
                     backfill_frame_volumes(context);
                     break;
                 }
@@ -2350,15 +2245,15 @@ nextpacket:
                 last_packet_pos = packet->pos;
             }
 
-            if(packet->stream_index == context.state.is->videoStream)
+            if(packet->stream_index == context.state.video_owner->videoStream)
             {
                 if (packet->size > 0 && packet->data != NULL)
-                    video_packet_process(context, context.state.is, packet);
+                    video_packet_process(context, context.state.video_owner.get(), packet);
             }
-            else if(packet->stream_index == context.state.is->audioStream)
+            else if(packet->stream_index == context.state.video_owner->audioStream)
             {
                 if (packet->size > 0 && packet->data != NULL)
-                    audio_packet_process(context, context.state.is, packet);
+                    audio_packet_process(context, context.state.video_owner.get(), packet);
             }
             else
             {
@@ -2374,7 +2269,7 @@ nextpacket:
                 */
             }
             av_packet_unref(packet);
-            if (context.state.is->video_clock == old_clock)
+            if (context.state.video_owner->video_clock == old_clock)
             {
                 empty_packet_count++;
                 if (empty_packet_count > 1000)
@@ -2383,18 +2278,18 @@ nextpacket:
             }
             else
             {
-                old_clock = context.state.is->video_clock;
+                old_clock = context.state.video_owner->video_clock;
                 empty_packet_count = 0;
             }
 #ifdef SELFTEST
-            if (context.state.selftest == 1 && context.state.pass == 0 && context.state.is->seek_req == 0 && context.state.framenum == 50) //Seek test
+            if (context.state.selftest == 1 && context.state.pass == 0 && context.state.video_owner->seek_req == 0 && context.state.framenum == 50) //Seek test
             {
-                if (context.state.is->duration > 2) {
-                    context.state.selftest_target = fmin(450.0, context.state.is->duration - 2);
+                if (context.state.video_owner->duration > 2) {
+                    context.state.selftest_target = fmin(450.0, context.state.video_owner->duration - 2);
                 } else {
                     context.state.selftest_target = 1.0;
                 }
-                Set_seek(context, context.state.is, context.state.selftest_target);
+                Set_seek(context, context.state.video_owner.get(), context.state.selftest_target);
                 context.state.pass = 1;
                 context.state.framenum++;
             }
@@ -2403,16 +2298,16 @@ nextpacket:
 
         if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
         {
-            if (context.state.is->video_clock < context.state.selftest_target - 0.08 || context.state.is->video_clock > context.state.selftest_target + 0.08)
+            if (context.state.video_owner->video_clock < context.state.selftest_target - 0.08 || context.state.video_owner->video_clock > context.state.selftest_target + 0.08)
             {
                 context.state.sample_file.reset(fopen("seektest.log", "a+"));
                 fprintf(context.state.sample_file.get(), "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
-                        context.state.is->seek_pts,
-                        context.state.is->video_clock,
-                        context.state.is->video_clock - context.state.is->seek_pts,
-                        context.state.is->duration,
-                        (context.state.is->seek_by_bytes ? "byteseek": "timeseek" ),
-                        context.state.is->filename);
+                        context.state.video_owner->seek_pts,
+                        context.state.video_owner->video_clock,
+                        context.state.video_owner->video_clock - context.state.video_owner->seek_pts,
+                        context.state.video_owner->duration,
+                        (context.state.video_owner->seek_by_bytes ? "byteseek": "timeseek" ),
+                        context.state.video_owner->filename);
                 context.state.sample_file.reset();
             } else
                 Debug(context,  1,"\nSelftest 1 OK: Seektest\n");
@@ -2450,17 +2345,17 @@ nextpacket:
             if(BuildMasterCommList(context))
             {
                 result = 1;
-                printf("Commercials were found.\n");
+                fputs(context.translator.text("media_found_commercials"), stdout);
             }
             else
             {
                 result = 0;
-                printf("Commercials were not found.\n");
+                fputs(context.translator.text("media_no_commercials"), stdout);
             }
             if (context.settings.output_debugwindow)
             {
                 context.state.processCC = 0;
-                printf("Close window when done\n");
+                fputs(context.translator.text("media_close_window"), stdout);
 
                 DUMP_CLOSE
                 if (context.settings.output_timing)
