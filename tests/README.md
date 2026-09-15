@@ -1,5 +1,7 @@
 # Tests
 
+Tests mirror source responsibilities in config/, detection/, media/, and platform/.
+
 Use Google Test and CTest through CMake (see the root README). Unit tests cover
 settings validation and regional profiles, frame rounding, scan-worker lifecycle,
 Windows Unicode arguments, checked path formatting, Unicode file operations,
