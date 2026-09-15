@@ -1,6 +1,10 @@
 #include "ini.h"
 #include "config_defaults.h"
 #include <cctype>
+#include <SimpleIni.h>
+#include <algorithm>
+#include <tuple>
+#include <vector>
 
 namespace comskip::config {
 namespace {
@@ -9,7 +13,9 @@ std::string_view trim(std::string_view value) {
     while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) value.remove_suffix(1);
     return value;
 }
-std::string decode(std::string_view value) {
+// Comskip historically permits escaped quoted values. SimpleIni deliberately
+// leaves escapes untouched; keep this compatibility adapter separate from INI parsing.
+std::string decode_legacy_value(std::string_view value) {
     value = trim(value);
     if (value.empty() || value.front() != '"') return std::string(trim(value.substr(0, value.find_first_of(";#"))));
     std::string result;
@@ -37,35 +43,44 @@ std::string decode(std::string_view value) {
 }
 }
 Ini::Ini(std::string_view text) {
-    if (text.starts_with("\xef\xbb\xbf")) text.remove_prefix(3);
-    while (!text.empty()) {
-        auto end = text.find('\n');
-        auto line = trim(text.substr(0, end));
-        text = end == text.npos ? std::string_view{} : text.substr(end + 1);
-        if (line.empty() || line.front() == ';' || line.front() == '#' || line.front() == '[') continue;
-        auto equals = line.find('=');
-        if (equals == line.npos) throw std::invalid_argument("Expected key=value in INI file");
-        auto key = trim(line.substr(0, equals));
-        if (key.empty()) throw std::invalid_argument("Empty INI key");
-        values_[std::string(key)] = decode(line.substr(equals + 1));
+    CSimpleIniCaseA parser(true, true, false);
+    if (parser.LoadData(text.data(), text.size()) < 0)
+        throw std::invalid_argument("Could not parse INI data");
+    CSimpleIniCaseA::TNamesDepend sections;
+    parser.GetAllSections(sections);
+    std::vector<std::tuple<int, std::string, std::string>> entries;
+    for (const auto& section : sections) {
+        const auto* values = parser.GetSection(section.pItem);
+        if (!values) continue;
+        for (const auto& [key, value] : *values)
+            entries.emplace_back(key.nOrder, key.pItem, value);
     }
+    // Legacy settings are flat even when grouped into sections. Apply entries in
+    // file order so a later override wins regardless of its section name.
+    std::ranges::sort(entries);
+    for (const auto& [order, key, value] : entries)
+        values_[key] = decode_legacy_value(value);
 }
 const std::string* Ini::find(std::string_view key) const {
     auto item = values_.find(key);
     return item == values_.end() ? nullptr : &item->second;
 }
 std::string Ini::serialize() const {
-    std::string result;
+    CSimpleIniCaseA writer(true, false, false);
     for (const auto& [key, value] : values_) {
-        result += key + "=\"";
+        std::string quoted = "\"";
         for (char ch : value) {
-            if (ch == '\\' || ch == '"') result += '\\';
-            if (ch == '\n') result += "\\n";
-            else if (ch == '\t') result += "\\t";
-            else result += ch;
+            if (ch == '\\' || ch == '"') quoted += '\\';
+            if (ch == '\n') quoted += "\\n";
+            else if (ch == '\t') quoted += "\\t";
+            else quoted += ch;
         }
-        result += "\"\n";
+        quoted += '"';
+        if (writer.SetValue("", key.c_str(), quoted.c_str()) < 0)
+            throw std::runtime_error("Could not serialize INI setting");
     }
+    std::string result;
+    if (writer.Save(result) < 0) throw std::runtime_error("Could not serialize INI settings");
     return result;
 }
 const Ini& defaults() {

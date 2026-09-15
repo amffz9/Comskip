@@ -6,6 +6,9 @@ different working directory do not change the defaults. Rebuild after editing
 the repository defaults. To override settings at runtime, copy the file or write
 a smaller INI and pass `comskip --ini=path/to/custom.ini recording.ts`.
 
+INI structure, sections, and key parsing use SimpleIni from vcpkg. A small
+adapter preserves Comskip's escaped quoted-string convention.
+
 Existing INI option names and section labels remain supported. Keys are matched
 exactly, comment lines are ignored, and the last duplicate key wins. Numbers use
 a decimal dot regardless of OS locale. Boolean settings accept 0 or 1. Numeric
