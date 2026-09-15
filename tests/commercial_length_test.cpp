@@ -3,6 +3,9 @@
 #include <stdio.h>
 
 #include <gtest/gtest.h>
+#include "settings.h"
+#include <fstream>
+#include <iterator>
 
 TEST(CommercialLength, PreservesDetectionPolicy)
 {
@@ -27,13 +30,8 @@ TEST(CommercialLength, PreservesDetectionPolicy)
     EXPECT_TRUE(commercial_length_match(5.0, 0.5, 0, &policy, &match));
     EXPECT_TRUE(!commercial_length_match(35.0, 0.5, 1, &policy, &match));
     EXPECT_TRUE(commercial_length_match(35.0, 0.5, 0, &policy, &match));
-#ifdef CHINESE_SIZE_TABLE
-    EXPECT_TRUE(commercial_length_match(18.0, 0.5, 1, &policy, &match));
-    EXPECT_TRUE(commercial_length_match(72.0, 0.5, 1, &policy, &match));
-#else
     EXPECT_TRUE(!commercial_length_match(18.0, 0.5, 1, &policy, &match));
     EXPECT_TRUE(!commercial_length_match(72.0, 0.5, 1, &policy, &match));
-#endif
 
     EXPECT_TRUE(commercial_length_match(29.89, 0.0, 1, &policy, &match));
     EXPECT_TRUE(fabs(match.adjusted_length - 30.0) < 0.000001);
@@ -56,4 +54,18 @@ TEST(CommercialLength, PreservesDetectionPolicy)
     EXPECT_TRUE(!commercial_length_match(200.0, 0.5, 1, &policy, &match));
     EXPECT_TRUE(match.adjusted_length == -123.0);
 
+}
+
+TEST(CommercialLength, LoadsRegionalProfileWithoutRecompilation) {
+    using namespace comskip::config;
+    std::ifstream file(std::string(COMSKIP_SOURCE_DIR) + "/config/profiles/china.ini");
+    ASSERT_TRUE(file.good());
+    std::string text((std::istreambuf_iterator<char>(file)), {});
+    apply_settings(Ini(text));
+    CommercialLengthPolicy policy{25, -1, 120};
+    CommercialLengthMatch match{};
+    EXPECT_TRUE(commercial_length_match(18, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(commercial_length_match(72, 0.5, 1, &policy, &match));
+    apply_settings(defaults());
+    EXPECT_FALSE(commercial_length_match(18, 0.5, 1, &policy, &match));
 }

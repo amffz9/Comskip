@@ -1,5 +1,7 @@
 #include "commercial_length.h"
-#include <stdlib.h>
+#include <cstdlib>
+#include <algorithm>
+#include "profile.h"
 
 int commercial_length_within_tolerance(double length, double expected,
                                       double tolerance, double fps)
@@ -13,37 +15,20 @@ int commercial_length_match(double length, double tolerance, int strict,
                             const CommercialLengthPolicy *policy,
                             CommercialLengthMatch *match)
 {
-#ifdef CHINESE_SIZE_TABLE
-    static const int lengths[] = {
-        10, 15, 18, 20, 25, 30, 36, 45, 60, 72, 90, 108, 120, 126,
-        150, 180, 5, 35, 40, 50, 70, 75
-    };
-    const int strict_count = 16;
-#else
-    static const int lengths[] = {
-        10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180,
-        5, 35, 40, 50, 70, 75
-    };
-    const int strict_count = 11;
-#endif
-    int count = strict ? strict_count : (int)(sizeof(lengths) / sizeof(lengths[0]));
-    int i;
+    const auto& profile = comskip::config::commercial_profile();
+    auto lengths = profile.strict_lengths;
+    if (!strict) lengths.insert(lengths.end(), profile.optional_lengths.begin(), profile.optional_lengths.end());
     double local_tolerance = policy->tolerance_override >= 0
         ? policy->tolerance_override : tolerance;
 
-    if (local_tolerance < 0.5)
-        local_tolerance = 0.5;
-    if (local_tolerance > 1.0)
-        local_tolerance = 1.0;
-
-    /* Historical correction used by the detection heuristics. */
-    length += 0.11;
-    for (i = 0; i < count; ++i) {
-        if (lengths[i] < policy->min_show_segment_length - 3 &&
-            commercial_length_within_tolerance(length, lengths[i],
+    local_tolerance = std::clamp(local_tolerance, profile.minimum_tolerance, profile.maximum_tolerance);
+    length += profile.correction;
+    for (int expected : lengths) {
+        if (expected < policy->min_show_segment_length - profile.show_margin &&
+            commercial_length_within_tolerance(length, expected,
                                                local_tolerance, policy->fps)) {
             match->adjusted_length = length;
-            match->delta = length - lengths[i];
+            match->delta = length - expected;
             match->tolerance = local_tolerance;
             return 1;
         }

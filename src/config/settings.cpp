@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "profile.h"
 #include <cstring>
 #include <functional>
 #include <vector>
@@ -210,6 +211,7 @@ struct InitializeStrings {
 }
 namespace comskip::config {
 void apply_settings(const Ini& ini) {
+    auto profile = read_profile(ini, commercial_profile());
     std::vector<std::function<void()>> updates;
     auto number = [&]<class T>(const char* key, T& target, int sign = 1) {
         if (!ini.find(key)) return;
@@ -418,5 +420,6 @@ void apply_settings(const Ini& ini) {
     text("avisynth_options", avisynth_options);
     text("dvrcut_options", dvrcut_options);
     for (const auto& update : updates) update();
+    set_commercial_profile(std::move(profile));
 }
 }
