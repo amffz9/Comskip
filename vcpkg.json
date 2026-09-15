@@ -1,0 +1,11 @@
+{
+  "name": "comskip",
+  "version-string": "0.83.1",
+  "builtin-baseline": "908da3a305a0a8028d9602ab241b433652b3df69",
+  "dependencies": ["argtable2", "ffmpeg"],
+  "features": {
+    "tests": { "description": "Google Test regression suite", "dependencies": ["gtest"] },
+    "gui": { "description": "SDL review interface", "dependencies": ["sdl2"] }
+  },
+  "default-features": ["tests"]
+}

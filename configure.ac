@@ -1,8 +1,9 @@
-AC_INIT([Comskip], m4_esyscmd_s([ sed -nEe 's/.*PACKAGE_STRING[^0-9.]*([0-9.]*).*/\1/p' comskip.h ]), [https://github.com/erikkaashoek/Comskip/issues])
+AC_INIT([Comskip], m4_esyscmd_s([ sed -nEe 's/.*PACKAGE_STRING[^0-9.]*([0-9.]*).*/\1/p' src/app/comskip.h ]), [https://github.com/erikkaashoek/Comskip/issues])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 : ${CFLAGS=""}
 AC_PROG_CC
+AC_PROG_CXX
 
 AC_CHECK_LIB([m],[fmax])
 AC_CHECK_LIB([pthread],[sem_post])
@@ -47,6 +48,7 @@ AS_IF([test "x${enable_debug}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([n
 AM_CONDITIONAL([ENABLE_DEBUG], [test "x${enable_debug}" = "xyes"])
 
 PKG_PROG_PKG_CONFIG
+PKG_CHECK_MODULES(gtest, [gtest_main])
 AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
 PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12])
 PKG_CHECK_MODULES(ffmpeg, [libavutil >= 54.7 libavformat >= 57.33.100 libavcodec >= 57.37.100 libswscale >= 5.0])

@@ -16,9 +16,10 @@
 #include "platform.h"
 #include "vo.h"
 #include <argtable2.h>
-#include <pthread.h>
 
 
+
+extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
@@ -27,6 +28,7 @@
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
+}
 
 #ifdef HARDWARE_DECODE
 #include <fftools/ffmpeg.h>
@@ -132,8 +134,8 @@ extern int		selected_subtitle_pid;
 extern int		selected_video_pid;
 extern int		demux_asf;
 
-extern int key;
-extern char osname[];
+extern "C" int key;
+extern "C" char osname[];
 
 int audio_channels;
 
@@ -143,10 +145,10 @@ int audio_channels;
 #define KRIGHT	4
 #define KNEXT	5
 #define KPREV	6
-extern int xPos,yPos,lMouseDown;
+extern "C" int xPos,yPos,lMouseDown;
 
 extern int framenum_infer;
-extern void list_codes;
+
 
 extern int64_t headerpos;
 int				vo_init_done = 0;
@@ -858,7 +860,7 @@ int					helpflag = 0;
 int				    timeflag = 0;
 #define MAXTIMEFLAG 2
 int					recalculate=0;
-char *helptext[]=
+const char *helptext[]=
 {
 
     "Help: press any key to remove",
@@ -923,12 +925,12 @@ void        OutputAspect(void);
 void        OutputTraining(void);
 bool ProcessLogoTest(int framenum_real, int curLogoTest, int close);
 void        OutputStrict(double len, double delta, double tol);
-int					InputReffer(char *ext, int setfps);
+int					InputReffer(const char *ext, int setfps);
 bool				IsStandardCommercialLength(double length, double tolerance, bool strict);
 bool				LengthWithinTolerance(double test_length, double expected_length, double tolerance);
-double				FindNumber(char* str1, char* str2, double v);
-char *				FindString(char* str1, char* str2, char *v);
-void				AddIniString( char *s);
+double				FindNumber(char* str1, const char* str2, double v);
+char *				FindString(char* str1, const char* str2, const char *v);
+void				AddIniString( const char *s);
 char*				intSecondsToStrMinutes(int seconds);
 char*				dblSecondsToStrMinutes(double seconds);
 char*				dblSecondsToStrMinutesFrames(double seconds);
@@ -965,7 +967,7 @@ void				LoadLogoMaskData(void);
 double				CalculateLogoFraction(int start, int end);
 bool				CheckFrameForLogo(int i);
 int					CountSceneChanges(int StartFrame, int EndFrame);
-void				Debug(int level, char* fmt, ...);
+void				Debug(int level, const char * fmt, ...);
 void				InitProcessLogoTest(void);
 void				InitComSkip(void);
 void				InitLogoBuffers(void);
@@ -1012,7 +1014,7 @@ extern void DecodeOnePicture(FILE * f, double pts);
 
 
 
-int CEW_init(int argc, char *argv[]);
+extern "C" int CEW_init(int argc, char *argv[]);
 
 char *CauseString(int i)
 {
@@ -1066,7 +1068,7 @@ double ValidateBlackFrames(long reason, double ratio, int remove)
     int total_cause;
     double length,summed_length;
     int incommercial;
-    char *r = " -undefined- ";
+    const char *r = " -undefined- ";
     if (reason == C_b)
         r = "Black Frame  ";
     if (reason == C_v)
@@ -2059,7 +2061,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
     char x3[80];
     char x4[80];
     char x5[80];
-    char *tt[40];
+    const char *tt[40];
     char tbuf[80][80];
     char frametext[80];
     bool	blackframe, bothtrue, haslogo, uniformframe;
@@ -2692,7 +2694,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
             for (i=0; i<25; i++)
             {
                 tt[i] = tbuf[i];
-                sprintf(tt[i],"volume[%i] = %i", i, silenceHistogram[i]);
+                sprintf(tbuf[i],"volume[%i] = %i", i, silenceHistogram[i]);
             }
             tt[i] = 0;
             ShowHelp(tt);
@@ -3655,7 +3657,7 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
         if (black_count >= max_black_count)
         {
             max_black_count += 500;
-            black = realloc(black, (max_black_count + 1) * sizeof(black_frame_info));
+            black = static_cast<black_frame_info *>( realloc(black, (max_black_count + 1) * sizeof(black_frame_info)) );
             Debug(9, "Resizing black frame array to accommodate %i frames.\n", max_black_count);
         }
 
@@ -8218,7 +8220,7 @@ bool IsStandardCommercialLength(double length, double tolerance, bool strict)
     return true;
 }
 
-double FindNumber(char* str1, char* str2, double v)
+double FindNumber(char* str1, const char* str2, double v)
 {
     char  tmp[255];
     bool negative=false;
@@ -8263,7 +8265,7 @@ double FindNumber(char* str1, char* str2, double v)
     return (res);
 }
 
-char * FindString(char* str1, char* str2, char *v)
+char * FindString(char* str1, const char* str2, const char *v)
 {
     static char foundText[1024];
     char  tmp[255];
@@ -8350,7 +8352,7 @@ char * FindString(char* str1, char* str2, char *v)
         return (0);
 }
 
-void AddIniString( char *s)
+void AddIniString( const char *s)
 {
     strcat(ini_text, s);
 //	printf("ini = %d\n", strlen(ini_text));
@@ -8788,11 +8790,11 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     printf("\n\n");
 
-    argument = malloc(sizeof(char *) * argc);
+    argument = static_cast<char **>( malloc(sizeof(char *) * argc) );
     argument_count = argc;
     for (i = 0; i < argc; i++)
     {
-        argument[i] = malloc(sizeof(char) * (strlen(argv[i]) + 1));
+        argument[i] = static_cast<char *>( malloc(sizeof(char) * (strlen(argv[i]) + 1)) );
         strcpy(argument[i], argv[i]);
     }
 
@@ -9485,20 +9487,24 @@ FILE* LoadSettings(int argc, char ** argv)
 static        char filename[MAX_PATH];
 static        char *CEW_argv[10];
         i = 0;
-        CEW_argv[i++] = "comskip.exe";
+        static char caption_arg_0[] = "comskip.exe";
+        CEW_argv[i++] = caption_arg_0;
         if (output_smi)
         {
-            CEW_argv[i++] = "-sami";
+            static char caption_arg_1[] = "-sami";
+        CEW_argv[i++] = caption_arg_1;
             output_srt = 1;
             sprintf(filename, "%s.smi", outbasename);
         }
         else
         {
-            CEW_argv[i++] = "-srt";
+            static char caption_arg_2[] = "-srt";
+        CEW_argv[i++] = caption_arg_2;
             sprintf(filename, "%s.srt", outbasename);
         }
         CEW_argv[i++] = (char *)in->filename[0];
-        CEW_argv[i++] = "-o";
+        static char caption_arg_3[] = "-o";
+        CEW_argv[i++] = caption_arg_3;
         CEW_argv[i++] = filename;
         CEW_init (i, CEW_argv);
 #endif
@@ -10060,27 +10066,16 @@ void LoadCutScene(const char *filename)
 static int own_histogram[OWN_HISTOGRAM_WIDTH][OWN_HISTOGRAM_HEIGHT];
 int scan_step;
 
-#define SCAN_MULTI
-#define THREAD_WORKERS 4
-static sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
-static int thread_init_done = 0;
-static pthread_t th1, th2, th3, th4;
-
 void ScanBottom(intptr_t arg)
 {
-    register int		i, i_max, i_step;
+    int		i, i_max, i_step;
     int		x;
     int		y;
     int     delta;
     int     max_delta;
-    register int		hereBright;
+    int		hereBright;
     int		brightCount;
     int     w = (int) arg;
-#ifdef SCAN_MULTI
-again:
-    if (thread_count>1)
-        sema_wait(thwait[w]);
-#endif
     brightCount = 0;
     max_delta =  min(videowidth,height)/2 - border;
     delta = 0;
@@ -10113,12 +10108,6 @@ again:
         }
         delta += scan_step;
     }
-#ifdef SCAN_MULTI
-    if (thread_count > 1) {
-      sema_post(thdone[w]);
-      goto again;
-    }
-#endif
 }
 
 void ScanTop(intptr_t arg)
@@ -10132,11 +10121,6 @@ void ScanTop(intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
 
-#ifdef SCAN_MULTI
-again:
-    if (thread_count>1)
-        sema_wait(thwait[w]);
-#endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
     delta = 0;
@@ -10169,12 +10153,6 @@ again:
         }
         delta += scan_step;
     }
-#ifdef SCAN_MULTI
-    if (thread_count > 1) {
-      sema_post(thdone[w]);
-      goto again;
-    }
-#endif
 }
 
 void ScanLeft(intptr_t arg)
@@ -10188,11 +10166,6 @@ void ScanLeft(intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
 
-#ifdef SCAN_MULTI
-again:
-    if (thread_count>1)
-        sema_wait(thwait[w]);
-#endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
     delta = 0;
@@ -10225,12 +10198,6 @@ again:
         }
         delta += scan_step;
     }
-#ifdef SCAN_MULTI
-    if (thread_count > 1) {
-      sema_post(thdone[w]);
-      goto again;
-    }
-#endif
 }
 
 void ScanRight(intptr_t arg)
@@ -10244,11 +10211,6 @@ void ScanRight(intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
 
-#ifdef SCAN_MULTI
-again:
-    if (thread_count>1)
-        sema_wait(thwait[w]);
-#endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
     delta = 0;
@@ -10280,12 +10242,6 @@ again:
         }
         delta += scan_step;
     }
-#ifdef SCAN_MULTI
-    if (thread_count > 1) {
-      sema_post(thdone[w]);
-      goto again;
-    }
-#endif
 }
 
 void DetectCredits(int frame_count)
@@ -10330,7 +10286,7 @@ static int credit_count = 0;
 
 bool CheckSceneHasChanged(void)
 {
-    register int		i;
+    int		i;
     int		x;
     int		step;
     long	similar = 0;
@@ -10371,32 +10327,10 @@ bool CheckSceneHasChanged(void)
 
 //    max_delta =  min(videowidth,height)/2 - border;
 
-#ifdef SCAN_MULTI
-    if (thread_count > 1)
-    {
-        if (!thread_init_done) {
-            thread_init_done = 1;
-            for (i=0; i < THREAD_WORKERS; i++) {
-                sema_init(thwait[i], 0);
-                sema_init(thdone[i], 0);
-            }
-            pthread_create(&th2, NULL, (void*)(void *)ScanBottom, (void *)0);
-            pthread_create(&th1, NULL, (void*)(void *)ScanTop, (void *)1);
-            pthread_create(&th3, NULL, (void*)(void *)ScanLeft, (void *)2);
-            pthread_create(&th4, NULL, (void*)(void *)ScanRight, (void *)3);
-            // Sleep(10L);
-        }
-        for (i=0; i < THREAD_WORKERS; i++) {
-            sema_post(thwait[i]);
-        }
-        for (i=0; i < THREAD_WORKERS; i++) {
-            sema_wait(thdone[i]);
-        }
+    if (thread_count > 1) {
+        static ScanWorkers workers({ScanBottom, ScanTop, ScanLeft, ScanRight});
+        workers.run();
     } else {
-#else
-    {
-
-#endif
         ScanBottom((intptr_t)0);
         ScanTop((intptr_t)0);
         ScanLeft((intptr_t)0);
@@ -12619,7 +12553,7 @@ int CountSceneChanges(int StartFrame, int EndFrame)
     return (count);
 }
 
-void Debug(int level, char* fmt, ...)
+void Debug(int level, const char * fmt, ...)
 {
     va_list	ap;
     FILE *log_file = NULL;
@@ -12648,7 +12582,7 @@ void Debug(int level, char* fmt, ...)
 void InitLogoBuffers(void)
 {
     int i;
-    if(!logoFrameNum) logoFrameNum = malloc(num_logo_buffers * sizeof(int));
+    if(!logoFrameNum) logoFrameNum = static_cast<int *>( malloc(num_logo_buffers * sizeof(int)) );
     if (logoFrameNum == NULL)
     {
         Debug(0, "Could not allocate memory for logo buffer frame number array\n");
@@ -12670,7 +12604,7 @@ void InitLogoBuffers(void)
     */
     if(!logoFrameBuffer)
     {
-        logoFrameBuffer = malloc(num_logo_buffers * sizeof(unsigned char *));
+        logoFrameBuffer = static_cast<unsigned char **>( malloc(num_logo_buffers * sizeof(unsigned char *)) );
         if (!(logoFrameBuffer == NULL))
         {
 
@@ -12679,7 +12613,7 @@ void InitLogoBuffers(void)
             logoFrameBufferSize = lwidth * lheight * sizeof(frame_ptr[0]);
             for (i = 0; i < num_logo_buffers; i++)
             {
-                logoFrameBuffer[i] = malloc(logoFrameBufferSize);
+                logoFrameBuffer[i] = static_cast<unsigned char *>( malloc(logoFrameBufferSize) );
                 if (logoFrameBuffer[i] == NULL)
                 {
                     Debug(0, "Could not allocate memory for logo frame buffer %i\n", i);
@@ -12780,7 +12714,7 @@ void InitComSkip(void)
         if(!initialized)
         {
             max_frame_count = (int)(60 * 60 * fps) + 1;
-            frame = malloc((int)((max_frame_count + 1) * sizeof(frame_info)));
+            frame = static_cast<frame_info *>( malloc((int)((max_frame_count + 1) * sizeof(frame_info))) );
         }
         if (frame == NULL)
         {
@@ -12793,7 +12727,7 @@ void InitComSkip(void)
     if(!initialized)
     {
         max_black_count = 500;
-        black = malloc((int)((max_black_count + 1) * sizeof(black_frame_info)));
+        black = static_cast<black_frame_info *>( malloc((int)((max_black_count + 1) * sizeof(black_frame_info))) );
     }
     if (black == NULL)
     {
@@ -12810,7 +12744,7 @@ void InitComSkip(void)
         if(!initialized)
         {
             max_logo_block_count = 1000;
-            logo_block = malloc((int)((max_logo_block_count + 1) * sizeof(logo_block_info)));
+            logo_block = static_cast<logo_block_info *>( malloc((int)((max_logo_block_count + 1) * sizeof(logo_block_info))) );
         }
         if (logo_block == NULL)
         {
@@ -12830,7 +12764,7 @@ void InitComSkip(void)
         if(!initialized)
         {
             max_schange_count = 2000;
-            schange = malloc((int)((max_schange_count + 1) * sizeof(schange_info)));
+            schange = static_cast<schange_info *>( malloc((int)((max_schange_count + 1) * sizeof(schange_info))) );
         }
         if (schange == NULL)
         {
@@ -12844,7 +12778,7 @@ void InitComSkip(void)
         if(!initialized)
         {
             max_cc_block_count = 500;
-            cc_block = malloc((max_cc_block_count + 1) * sizeof(cc_block_info));
+            cc_block = static_cast<cc_block_info *>( malloc((max_cc_block_count + 1) * sizeof(cc_block_info)) );
         }
         if (cc_block == NULL)
         {
@@ -12864,12 +12798,12 @@ void InitComSkip(void)
 
         if(!initialized)
         {
-            cc_memory = malloc(15 * sizeof(unsigned char *));
-            cc_screen = malloc(15 * sizeof(unsigned char *));
+            cc_memory = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
+            cc_screen = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
             for (i = 0; i < 15; i++)
             {
-                cc_memory[i] = malloc(32 * sizeof(unsigned char));
-                cc_screen[i] = malloc(32 * sizeof(unsigned char));
+                cc_memory[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
+                cc_screen[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
             }
         }
         for(i=0; i<15; i++)
@@ -12884,7 +12818,7 @@ void InitComSkip(void)
         if(!initialized)
         {
             max_cc_text_count = 1;
-            cc_text = malloc((max_cc_text_count + 1) * sizeof(cc_text_info));
+            cc_text = static_cast<cc_text_info *>( malloc((max_cc_text_count + 1) * sizeof(cc_text_info)) );
         }
         if (cc_text == NULL)
         {
@@ -12909,9 +12843,9 @@ void InitComSkip(void)
     if(!initialized)
     {
         max_ar_block_count = 100;
-        ar_block = malloc((int)((max_ar_block_count + 1) * sizeof(ar_block_info)));
+        ar_block = static_cast<ar_block_info *>( malloc((int)((max_ar_block_count + 1) * sizeof(ar_block_info))) );
         max_ac_block_count = 100;
-        ac_block = malloc((int)((max_ac_block_count + 1) * sizeof(ac_block_info)));
+        ac_block = static_cast<ac_block_info *>( malloc((int)((max_ac_block_count + 1) * sizeof(ac_block_info))) );
     }
     if (ar_block == NULL)
     {
@@ -13024,11 +12958,11 @@ double FindScoreThreshold(double percentile)
     long		targetCount;
     long		totalframes = 0;
     bool		hadToSwap = false;
-    score = malloc(sizeof(cblock[0].score) * block_count);
-    count = malloc(sizeof(long) * block_count);
-    start = malloc(sizeof(long) * block_count);
-    blocknr = malloc(sizeof(int) * block_count);
-    percent = malloc(sizeof(double) * block_count);
+    score = static_cast<double *>( malloc(sizeof(cblock[0].score) * block_count) );
+    count = static_cast<long *>( malloc(sizeof(long) * block_count) );
+    start = static_cast<long *>( malloc(sizeof(long) * block_count) );
+    blocknr = static_cast<int *>( malloc(sizeof(int) * block_count) );
+    percent = static_cast<double *>( malloc(sizeof(double) * block_count) );
     if ((score == NULL) || (count == NULL) || (start == NULL) || (blocknr == NULL) || (percent == NULL))
     {
         Debug(1, "Could not allocate memory.  Exiting program.\n");
@@ -13387,7 +13321,7 @@ int FindFrameWithPts(double t)
         return(t * fps);
 }
 
-int InputReffer(char *extension, int setfps)
+int InputReffer(const char *extension, int setfps)
 {
     int		i;
     long	j;
@@ -13860,7 +13794,7 @@ void InitializeFrameArray(long i)
     if (frame_count+1000 /* max size audio can run ahead of video */ >= max_frame_count)
     {
         max_frame_count += (int)(60 * 60 * 25);
-        frame = realloc(frame, max_frame_count * sizeof(frame_info));
+        frame = static_cast<frame_info *>( realloc(frame, max_frame_count * sizeof(frame_info)) );
         Debug(9, "Resizing frame array to accommodate %i frames.\n", max_frame_count);
         if (frame == NULL)
         {
@@ -13896,7 +13830,7 @@ void InitializeBlackArray(long i)
     if (black_count >= max_black_count)
     {
         max_black_count += 500;
-        black = realloc(black, (max_black_count + 1) * sizeof(black_frame_info));
+        black = static_cast<black_frame_info *>( realloc(black, (max_black_count + 1) * sizeof(black_frame_info)) );
         Debug(9, "Resizing black frame array to accommodate %i frames.\n", max_black_count);
     }
 
@@ -13916,7 +13850,7 @@ void InitializeSchangeArray(long i)
             Debug(0, "Could not allocate memory for %i scene change frames.\n", max_schange_count);
             exit(12);
         }
-        schange = ptr;
+        schange = static_cast<schange_info *>( ptr );
         Debug(9, "Resizing scene change array to accommodate %i frames.\n", max_schange_count);
     }
 
@@ -13929,7 +13863,7 @@ void InitializeLogoBlockArray(long i)
     if (logo_block_count >= max_logo_block_count)
     {
         max_logo_block_count += 20;
-        logo_block = realloc(logo_block, (max_logo_block_count + 2) * sizeof(logo_block_info));
+        logo_block = static_cast<logo_block_info *>( realloc(logo_block, (max_logo_block_count + 2) * sizeof(logo_block_info)) );
         Debug(9, "Resizing logo cblock array to accommodate %i logo groups.\n", max_logo_block_count);
     }
 }
@@ -13939,7 +13873,7 @@ void InitializeARBlockArray(long i)
     if (ar_block_count >= max_ar_block_count)
     {
         max_ar_block_count += 20;
-        ar_block = realloc(ar_block, (max_ar_block_count + 2) * sizeof(ar_block_info));
+        ar_block = static_cast<ar_block_info *>( realloc(ar_block, (max_ar_block_count + 2) * sizeof(ar_block_info)) );
         Debug(9, "Resizing aspect ratio cblock array to accommodate %i AR groups.\n", max_ar_block_count);
     }
 }
@@ -13949,7 +13883,7 @@ void InitializeACBlockArray(long i)
     if (ac_block_count >= max_ac_block_count)
     {
         max_ac_block_count += 20;
-        ac_block = realloc(ac_block, (max_ac_block_count + 2) * sizeof(ac_block_info));
+        ac_block = static_cast<ac_block_info *>( realloc(ac_block, (max_ac_block_count + 2) * sizeof(ac_block_info)) );
         Debug(9, "Resizing audio channel block array to accommodate %i AC groups.\n", max_ac_block_count);
     }
 }
@@ -13992,7 +13926,7 @@ void InitializeCCBlockArray(long i)
     if (cc_block_count >= max_cc_block_count)
     {
         max_cc_block_count += 100;
-        cc_block = realloc(cc_block, (max_cc_block_count + 2) * sizeof(cc_block_info));
+        cc_block = static_cast<cc_block_info *>( realloc(cc_block, (max_cc_block_count + 2) * sizeof(cc_block_info)) );
         Debug(9, "Resizing cc cblock array to accommodate %i cc blocks.\n", max_cc_block_count);
     }
 
@@ -14006,7 +13940,7 @@ void InitializeCCTextArray(long i)
     if (cc_text_count >= max_cc_text_count)
     {
         max_cc_text_count += 100;
-        cc_text = realloc(cc_text, (max_cc_text_count + 1) * sizeof(cc_text_info));
+        cc_text = static_cast<cc_text_info *>( realloc(cc_text, (max_cc_text_count + 1) * sizeof(cc_text_info)) );
         Debug(9, "Resizing cc text array to accommodate %i cc text groups.\n", max_cc_text_count);
     }
 
@@ -14022,7 +13956,7 @@ void PrintArgs(void)
 
 
 #ifdef PROCESS_CC
-long process_block (unsigned char *data, long length);
+extern "C" long process_block (unsigned char *data, long length);
 #endif
 
 
@@ -14601,7 +14535,7 @@ void Init_XDS_block()
     if(!XDS_block)
     {
         max_XDS_block_count = 2000;
-        XDS_block = malloc((max_XDS_block_count + 1) * sizeof(XDS_block_info));
+        XDS_block = static_cast<XDS_block_info *>( malloc((max_XDS_block_count + 1) * sizeof(XDS_block_info)) );
         if (XDS_block == NULL)
         {
             Debug(0, "Could not allocate memory for XDS blocks\n");
@@ -14639,7 +14573,7 @@ int firstXDS = 1;
 int startXDS = 1;
 int baseXDS = 0;
 
-char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
+const char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
 
 #define MAXXDSBUFFER	1024
 void AddXDS(unsigned char hi, unsigned char lo)
@@ -14894,7 +14828,7 @@ void AddCC(int i)
         '\'',
         '(',
         ')',
-        '\xe1',
+        0xe1,
         '+',
         ',',
         '-',
@@ -14944,11 +14878,11 @@ void AddCC(int i)
         'Y',
         'Z',
         '[',
-        '\xe9',
+        0xe9,
         ']',
-        '\xed',
-        '\xf3',
-        '\xfa',
+        0xed,
+        0xf3,
+        0xfa,
         'a',
         'b',
         'c',
@@ -14975,8 +14909,8 @@ void AddCC(int i)
         'x',
         'y',
         'z',
-        '\xe7',
-        '\xf7',
+        0xe7,
+        0xf7,
         'N',
         'n',
         '?'
@@ -15886,7 +15820,7 @@ void BuildCommListAsYouGo(void)
 
         lastFrameCommCalculated = framenum_real;
 
-        onTheFlyBlackFrame = calloc(black_count, sizeof(int));
+        onTheFlyBlackFrame = static_cast<int *>( calloc(black_count, sizeof(int)) );
         if (onTheFlyBlackFrame == NULL)
         {
             Debug(0, "Could not allocate memory for onTheFlyBlackFrame\n");

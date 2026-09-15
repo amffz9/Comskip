@@ -23,11 +23,16 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
 #include <inttypes.h>
 
 #ifdef _WIN32
 #include <conio.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>        // needed for sleep command
 #include <direct.h>         // needed for getcwd
 #include <process.h>
@@ -35,12 +40,14 @@
 #include <locale.h>
 #include <excpt.h>
 #include <winbase.h>
-#define inline __inline
+
 #endif
 
 #ifdef _WIN32
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#ifndef MAX_PATH
 #define MAX_PATH _MAX_PATH
+#endif
 #elif !defined(MAX_PATH) // MSVC
 #define MAX_PATH FILENAME_MAX
 #endif // MinGW32,64
@@ -60,55 +67,22 @@
 #define MAX_ARG MAX_PATH
 #endif
 
+#ifndef __cplusplus
 #define bool  int
 #define false 0
 #define true  1
-
-#ifdef _WIN32
-typedef signed char int8_t;
-typedef signed short int16_t;
-typedef signed int int32_t;
-typedef signed __int64 int64_t;
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned __int64 uint64_t;
-#if !defined(HARDWARE_DECODE) && !defined(__MINGW64__)
-#include <compat/w32pthreads.h>  // Is already defined in ffmpeg
 #endif
 
-#include <time.h>
-#else
 #include <stdint.h>
-#include <pthread.h>
-#include <time.h>
-#endif
-
-#ifdef _WIN32
-typedef HANDLE sema_t;
-#define sema_init(s,v) (s = CreateSemaphore(NULL, v, LONG_MAX, NULL))
-#define sema_wait(s) WaitForSingleObject(s, INFINITE)
-#define sema_post(s) ReleaseSemaphore(s, 1, NULL)
-#elif defined(__APPLE__)
-#include <dispatch/dispatch.h>
-typedef dispatch_semaphore_t sema_t;
-#define sema_init(s,v) (s = dispatch_semaphore_create(v))
-#define sema_wait(s) dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER)
-#define sema_post(s) dispatch_semaphore_signal(s)
-#else
-#include <semaphore.h>
-typedef sem_t sema_t;
-#define sema_init(s,v) sem_init(&s,0,v)
-#define sema_wait(s) sem_wait(&s)
-#define sema_post(s) sem_post(&s)
+#ifdef __cplusplus
+#include "portable_threads.h"
 #endif
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 typedef FILE* fileh;
 typedef struct _stati64* stath;
 #elif defined(_WIN32)
-typedef int fileh;
+typedef FILE* fileh;
 typedef struct _stati64* stath;
 #else
 typedef FILE* fileh;
@@ -121,9 +95,15 @@ typedef struct stat* stath;
 #define PATH_SEPARATOR '/'
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 int mystat(char * f, stath s);
-fileh myfopen(const char * f, char * m);
+fileh myfopen(const char * f, const char * m);
 int myremove(char * f);
+#ifdef __cplusplus
+}
+#endif
 
 #ifndef _WIN32
 #define _read read
@@ -133,19 +113,20 @@ int myremove(char * f);
 #define _flushall() fflush(NULL)
 #define _getcwd(x, y) getcwd(x, y)
 #define Sleep(x) usleep((x)*1000L)
-int min(int i,int j);
-int max(int i,int j);
+
 char *_strupr(char *string);
 #endif
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 #include <sys/timeb.h>
 
-struct timeval {
-    long tv_sec;
-    long tv_usec;
-};
+
 void gettimeofday (struct timeval * tp, void * dummy);
 #endif
 
+#endif
+
+#if defined(__cplusplus) || !defined(_WIN32)
+int min(int i, int j);
+int max(int i, int j);
 #endif

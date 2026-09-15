@@ -992,9 +992,9 @@ void ShowDetails(char *t)
 
 }
 
-void ShowHelp(char **ta)
+void ShowHelp(const char *const *ta)
 {
-     char *t;
+     const char *t;
      int l;
      int i = 0;
      while ((t = *ta)) {

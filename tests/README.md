@@ -1,26 +1,10 @@
-# Portable detection tests
+# Tests
 
-These tests exercise the production commercial-length module without FFmpeg,
-SDL, platform headers, or media fixtures. They preserve the existing detector's
-frame rounding, timing correction, strict/optional lengths, tolerance clamps,
-override precedence, and minimum-show-length boundary. Both the default and
-`CHINESE_SIZE_TABLE` builds are tested.
+Tests use Google Test and CTest. Configure with CMake and vcpkg (see the root
+README), build, then run `ctest --test-dir build --output-on-failure`.
+Use `-DCOMSKIP_BUILD_APP=OFF` for unit tests without FFmpeg application linkage.
 
-With a configured Autotools build, run `make check`.
-
-To test the module independently using Clang (GCC also works):
-
-```sh
-mkdir -p bin
-clang -std=c11 -Wall -Wextra -Werror -I. commercial_length.c tests/commercial_length_test.c -o bin/commercial-length-test.exe
-./bin/commercial-length-test.exe
-clang -std=c11 -Wall -Wextra -Werror -DCHINESE_SIZE_TABLE -I. commercial_length.c tests/commercial_length_test.c -o bin/commercial-length-chinese-test.exe
-./bin/commercial-length-chinese-test.exe
-```
-
-On PowerShell use `New-Item -ItemType Directory -Force bin` to create the output
-directory. A compiler and its platform development libraries must be installed.
-The portable-unit-test workflow runs these commands on Windows, Linux, and macOS.
-
-This suite does not yet cover decoding, complete commercial detection, or output
-files. Those need integration fixtures and expected results before larger changes.
+Commercial-length tests cover frame rounding, strict/optional length tables,
+tolerance limits and overrides, minimum-show boundaries, and timing correction.
+Worker tests cover frame publication, completion, and repeated startup/shutdown.
+Both commercial-length table variants are built separately.

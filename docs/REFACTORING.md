@@ -2,8 +2,8 @@
 
 ## Current structure
 
-`comskip.c` combines configuration, detection heuristics, output formats, captions,
-and the review UI in roughly 16,500 lines. `mpeg2dec.c` combines the entry point,
+`comskip.cpp` combines configuration, detection heuristics, output formats, captions,
+and the review UI in roughly 16,500 lines. `mpeg2dec.cpp` combines the entry point,
 FFmpeg decoding, audio analysis, and seeking. Many functions share global state.
 There are media-dependent seek/reopen self-tests and a video-output test program;
 the new commercial-length tests start independent detection coverage.
@@ -24,7 +24,7 @@ the new commercial-length tests start independent detection coverage.
   integration. Prefer standard libraries where their semantics are sufficient;
   preserve Unicode paths and optional hardware acceleration.
 
-`commercial_length.c` is the first extracted module. Its policy contains the
+`commercial_length.cpp` is the first extracted module. Its policy contains the
 previous global inputs. Its match result lets the application retain its existing
 diagnostic output without coupling the module to logging.
 

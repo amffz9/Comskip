@@ -9,7 +9,7 @@ CCExtract.gpl that helped
 John Bell- Samples, code.
 License: GPL 2.0
 */
-#include "../platform.h"
+#include "platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>

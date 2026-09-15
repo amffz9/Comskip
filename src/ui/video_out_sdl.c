@@ -119,7 +119,7 @@ vo_instance_t * vo_sdl_open (void)
 }
 #endif
 
-void ShowHelp(char **ta)
+void ShowHelp(const char *const *ta)
 {
   char *t;
   while ((t = *ta)) {

@@ -6,6 +6,10 @@
 /comskip.depend
 /comskip.ini
 /bin/
+/build/
+/vcpkg_installed/
+*.obj
+*.pdb
 /ffmpeg/
 /votest
 /votest.exe

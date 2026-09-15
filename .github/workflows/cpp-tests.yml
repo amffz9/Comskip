@@ -1,0 +1,27 @@
+name: C++23 tests
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up vcpkg
+        shell: bash
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$RUNNER_TEMP/comskip-vcpkg"
+          git -C "$RUNNER_TEMP/comskip-vcpkg" checkout 908da3a305a0a8028d9602ab241b433652b3df69
+          if [ "$RUNNER_OS" = Windows ]; then
+            "$RUNNER_TEMP/comskip-vcpkg/bootstrap-vcpkg.bat" -disableMetrics
+          else
+            "$RUNNER_TEMP/comskip-vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          fi
+      - name: Build and test
+        shell: bash
+        run: |
+          cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$RUNNER_TEMP/comskip-vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --parallel 2
+          ctest --test-dir build -C Release --output-on-failure

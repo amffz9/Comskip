@@ -44,7 +44,7 @@ int mystat(char * f, stath s)
     return(_wstati64(wf,s));
 }
 
-fileh myfopen(const char * f, char * m)
+fileh myfopen(const char * f, const char * m)
 {
     wchar_t wf[2000], wm[2000];
     int n;
@@ -68,7 +68,7 @@ int mystat(char * f, stath s)
   return stat(f, s);
 }
 
-fileh myfopen(const char * f, char * m)
+fileh myfopen(const char * f, const char * m)
 {
   return fopen(f, m);
 }
@@ -79,7 +79,6 @@ int myremove(char * f)
 }
 #endif
 
-#if !defined(_WIN32)
 int min(int i, int j)
 {
   return(i<j?i:j);
@@ -90,6 +89,7 @@ int max(int i, int j)
   return(i>j?i:j);
 }
 
+#if !defined(_WIN32)
 char *_strupr(char *string)
 {
     char *s;
