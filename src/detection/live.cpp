@@ -223,12 +223,12 @@ void BuildCommListAsYouGo(RecordingContext& context)
         {
             if (context.settings.output_default)
             {
-                context.state.out_file = myfopen(context.state.out_filename, "w");
-                if (!context.state.out_file)
+                context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+                if (!context.state.out_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.out_file = myfopen(context.state.out_filename, "w");
-                    if (!context.state.out_file)
+                    context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+                    if (!context.state.out_file.get())
                     {
                         Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename);
                         comskip::request_exit(103);
@@ -239,12 +239,12 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if (context.settings.output_edl)
             {
                 comskip::checked_format(filename, "%s.edl", context.state.outbasename);
-                context.state.edl_file = myfopen(filename, "wb");
-                if (!context.state.edl_file)
+                context.state.edl_file.reset(myfopen(filename, "wb"));
+                if (!context.state.edl_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.edl_file = myfopen(filename, "wb");
-                    if (!context.state.edl_file)
+                    context.state.edl_file.reset(myfopen(filename, "wb"));
+                    if (!context.state.edl_file.get())
                     {
                         Debug(context, 0, "ERROR writing to %s\n", filename);
                         comskip::request_exit(103);
@@ -254,27 +254,27 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if (context.settings.output_live)
             {
                 comskip::checked_format(filename, "%s.live", context.state.outbasename);
-                context.state.live_file = myfopen(filename, "wb");
-                if (!context.state.live_file)
+                context.state.live_file.reset(myfopen(filename, "wb"));
+                if (!context.state.live_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.live_file = myfopen(filename, "wb");
-                    if (!context.state.live_file)
+                    context.state.live_file.reset(myfopen(filename, "wb"));
+                    if (!context.state.live_file.get())
                     {
                         Debug(context, 0, "ERROR writing to %s\n", filename);
                         comskip::request_exit(103);
                     }
                 }
             }
-            context.state.dvrmstb_file = 0;
+            context.state.dvrmstb_file.reset();
             if (context.settings.output_dvrmstb)
             {
                 comskip::checked_format(filename, "%s.xml", context.state.outbasename);
-                context.state.dvrmstb_file = myfopen(filename, "w");
-                if (context.state.dvrmstb_file)
+                context.state.dvrmstb_file.reset(myfopen(filename, "w"));
+                if (context.state.dvrmstb_file.get())
                 {
                     //			fclose(dvrmstb_file);
-                    fprintf(context.state.dvrmstb_file, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
+                    fprintf(context.state.dvrmstb_file.get(), "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
                 }
                 else
                 {
@@ -350,46 +350,46 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         context.state.reffer[context.state.reffer_count].end_frame = context.state.commercial[context.state.reffer_count].end_frame;
                     }
 
-                    if (context.state.out_file)
-                        fprintf(context.state.out_file, "%li\t%li\n", c_start[i] + context.settings.padding, c_end[i] - context.settings.padding);
-                    if (context.state.edl_file)
-                        fprintf(context.state.edl_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
-                    if (context.state.live_file)
-                        fprintf(context.state.live_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
-                    if (context.state.dvrmstb_file)
-                        fprintf(context.state.dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + context.settings.padding) / context.settings.fps , (double) (c_end[i] - context.settings.padding) / context.settings.fps);
+                    if (context.state.out_file.get())
+                        fprintf(context.state.out_file.get(), "%li\t%li\n", c_start[i] + context.settings.padding, c_end[i] - context.settings.padding);
+                    if (context.state.edl_file.get())
+                        fprintf(context.state.edl_file.get(), "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                    if (context.state.live_file.get())
+                        fprintf(context.state.live_file.get(), "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                    if (context.state.dvrmstb_file.get())
+                        fprintf(context.state.dvrmstb_file.get(), "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + context.settings.padding) / context.settings.fps , (double) (c_end[i] - context.settings.padding) / context.settings.fps);
                 }
             }
-            if (context.state.out_file) fflush(context.state.out_file);
-            if (context.state.out_file) fclose(context.state.out_file);
-            context.state.out_file = 0;
-            if (context.state.edl_file) fflush(context.state.edl_file);
-            if (context.state.edl_file) fclose(context.state.edl_file);
-            context.state.edl_file = 0;
-            if (context.state.live_file) fflush(context.state.live_file);
-            if (context.state.live_file) fclose(context.state.live_file);
-            context.state.live_file = 0;
-            if (context.state.dvrmstb_file)
+            if (context.state.out_file.get()) fflush(context.state.out_file.get());
+            if (context.state.out_file.get()) context.state.out_file.reset();
+            context.state.out_file.reset();
+            if (context.state.edl_file.get()) fflush(context.state.edl_file.get());
+            if (context.state.edl_file.get()) context.state.edl_file.reset();
+            context.state.edl_file.reset();
+            if (context.state.live_file.get()) fflush(context.state.live_file.get());
+            if (context.state.live_file.get()) context.state.live_file.reset();
+            context.state.live_file.reset();
+            if (context.state.dvrmstb_file.get())
             {
-                fprintf(context.state.dvrmstb_file, " </root>\n");
-                fclose(context.state.dvrmstb_file);
-                context.state.dvrmstb_file = 0;
+                fprintf(context.state.dvrmstb_file.get(), " </root>\n");
+                context.state.dvrmstb_file.reset();
+                context.state.dvrmstb_file.reset();
             }
 
             if (context.settings.output_incommercial)
             {
                 comskip::checked_format(filename, "%s.incommercial", context.state.workbasename);
-                context.state.incommercial_file = myfopen(filename, "w");
-                if (!context.state.incommercial_file)
+                context.state.incommercial_file.reset(myfopen(filename, "w"));
+                if (!context.state.incommercial_file.get())
                 {
                     fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
                     goto skipit;
                 }
                 if(context.state.commercial[context.state.commercial_count].end_frame > context.state.framenum_real - context.settings.incommercial_frames)
-                    fprintf(context.state.incommercial_file, "1\n");
+                    fprintf(context.state.incommercial_file.get(), "1\n");
                 else
-                    fprintf(context.state.incommercial_file, "0\n");
-                fclose(context.state.incommercial_file);
+                    fprintf(context.state.incommercial_file.get(), "0\n");
+                context.state.incommercial_file.reset();
 skipit:
                 ;
             }

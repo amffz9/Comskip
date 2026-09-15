@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <new>
+#include <stdexcept>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -8,6 +9,16 @@ extern "C" {
 }
 
 namespace comskip::media {
+class NetworkSession {
+public:
+    NetworkSession() {
+        if (avformat_network_init() < 0)
+            throw std::runtime_error("Cannot initialize FFmpeg networking");
+    }
+    ~NetworkSession() { avformat_network_deinit(); }
+    NetworkSession(const NetworkSession&) = delete;
+    NetworkSession& operator=(const NetworkSession&) = delete;
+};
 struct FrameDeleter { void operator()(AVFrame* value) const noexcept { av_frame_free(&value); } };
 struct PacketDeleter { void operator()(AVPacket* value) const noexcept { av_packet_free(&value); } };
 struct CodecDeleter { void operator()(AVCodecContext* value) const noexcept { avcodec_free_context(&value); } };

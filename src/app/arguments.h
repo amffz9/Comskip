@@ -2,8 +2,20 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 namespace comskip {
+inline std::vector<std::string> snapshot_arguments(int count, char* const* values) {
+    if (count < 0 || (count > 0 && !values))
+        throw std::invalid_argument("Invalid command-line argument array");
+    std::vector<std::string> result;
+    result.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        if (!values[i]) throw std::invalid_argument("Null command-line argument");
+        result.emplace_back(values[i]);
+    }
+    return result;
+}
 // Owns mutable, null-terminated argv storage for the legacy command-line parser.
 class Arguments {
     std::vector<std::string> strings_;

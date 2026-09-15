@@ -11,7 +11,20 @@ option(COMSKIP_DONATOR "Enable full-speed decoding" ON)
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/config/defaults.ini" COMSKIP_DEFAULT_INI)
 configure_file(cmake/config_defaults.h.in generated/config_defaults.h @ONLY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS config/defaults.ini)
-find_package(SimpleIni CONFIG REQUIRED)
+find_package(SimpleIni CONFIG QUIET)
+if(NOT TARGET SimpleIni::SimpleIni)
+    # Distribution packages can provide the header without a CMake package.
+    find_path(SIMPLEINI_INCLUDE_DIR SimpleIni.h REQUIRED)
+    add_library(SimpleIni::SimpleIni INTERFACE IMPORTED)
+    set_target_properties(SimpleIni::SimpleIni PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${SIMPLEINI_INCLUDE_DIR}"
+        INTERFACE_COMPILE_DEFINITIONS SI_NO_CONVERSION)
+    find_library(SIMPLEINI_LIBRARY NAMES simpleini)
+    if(SIMPLEINI_LIBRARY)
+        set_property(TARGET SimpleIni::SimpleIni PROPERTY
+            INTERFACE_LINK_LIBRARIES "${SIMPLEINI_LIBRARY}")
+    endif()
+endif()
 add_library(comskip_config src/config/ini.cpp src/config/settings_value.cpp src/config/profile.cpp)
 target_link_libraries(comskip_config PRIVATE SimpleIni::SimpleIni)
 target_include_directories(comskip_config PUBLIC src/config PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -42,6 +55,18 @@ target_link_libraries(commercial_length PUBLIC comskip_config)
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     include(GoogleTest)
+    add_executable(argument_snapshot_test tests/platform/argument_snapshot_test.cpp)
+    target_include_directories(argument_snapshot_test PRIVATE src/app)
+    target_link_libraries(argument_snapshot_test PRIVATE GTest::gtest_main)
+    gtest_discover_tests(argument_snapshot_test)
+    add_executable(file_resources_test tests/platform/file_resources_test.cpp)
+    target_include_directories(file_resources_test PRIVATE src/platform)
+    target_link_libraries(file_resources_test PRIVATE GTest::gtest_main)
+    gtest_discover_tests(file_resources_test)
+    add_executable(buffer_growth_test tests/detection/buffer_growth_test.cpp)
+    target_include_directories(buffer_growth_test PRIVATE src/detection)
+    target_link_libraries(buffer_growth_test PRIVATE GTest::gtest_main)
+    gtest_discover_tests(buffer_growth_test)
     add_executable(review_window_test tests/ui/review_window_test.cpp)
     target_link_libraries(review_window_test PRIVATE review_window GTest::gtest_main)
     if(COMSKIP_BUILD_GUI)
@@ -107,7 +132,7 @@ if(COMSKIP_BUILD_APP)
     add_library(captions STATIC third_party/ccextractor/608.c third_party/ccextractor/ccextractor.c
         third_party/ccextractor/encoding.c third_party/ccextractor/general_loop.c third_party/ccextractor/myth.c)
     target_include_directories(captions PRIVATE src/platform)
-    add_executable(comskip 
+    add_library(comskip_core STATIC
         src/detection/state.cpp
         src/detection/blocks.cpp
         src/detection/detection.cpp
@@ -121,29 +146,36 @@ if(COMSKIP_BUILD_APP)
         src/ui/review.cpp
         src/config/legacy_settings.cpp
         src/app/runtime.cpp
-        src/app/main.cpp
         src/app/csv_input.cpp
         src/output/cutlists.cpp
         src/output/diagnostics.cpp
         src/output/media_dump.cpp
         src/media/frame_timing.cpp
         src/media/mpeg2dec.cpp src/platform/platform.cpp)
-    target_include_directories(comskip PRIVATE src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
-    target_compile_definitions(comskip PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
-    target_link_libraries(comskip PRIVATE commercial_length comskip_config comskip_localization output_text media_conversion captions ${FFMPEG_LIBRARIES}
+    target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
+    target_compile_definitions(comskip_core PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
+    target_link_libraries(comskip_core PUBLIC commercial_length comskip_config comskip_localization output_text media_conversion captions ${FFMPEG_LIBRARIES}
         ${ARGTABLE_LIBRARY} Threads::Threads review_window)
+    add_executable(comskip src/app/main.cpp)
+    target_link_libraries(comskip PRIVATE comskip_core)
     if(WIN32)
         if(MINGW)
             target_link_options(comskip PRIVATE -municode)
         endif()
         find_library(GETOPT_LIBRARY NAMES getopt REQUIRED)
-        target_link_libraries(comskip PRIVATE ${GETOPT_LIBRARY})
-        target_compile_definitions(comskip PRIVATE _CRT_SECURE_NO_WARNINGS)
+        target_link_libraries(comskip_core PRIVATE ${GETOPT_LIBRARY})
+        target_compile_definitions(comskip_core PRIVATE _CRT_SECURE_NO_WARNINGS)
         target_compile_definitions(captions PRIVATE _CRT_SECURE_NO_WARNINGS)
     else()
-        target_link_libraries(comskip PRIVATE m)
+        target_link_libraries(comskip_core PRIVATE m)
     endif()
     if(BUILD_TESTING)
+        add_executable(inprocess_analysis_test tests/media/inprocess_analysis_test.cpp)
+        target_link_libraries(inprocess_analysis_test PRIVATE comskip_core GTest::gtest_main)
+        add_executable(xds_test tests/detection/xds_test.cpp)
+        target_link_libraries(xds_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(xds_test)
+        gtest_discover_tests(inprocess_analysis_test PROPERTIES TIMEOUT 120)
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
         add_test(NAME cli_locale COMMAND ${Python3_EXECUTABLE}
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/localization/cli_locale.py" $<TARGET_FILE:comskip>)

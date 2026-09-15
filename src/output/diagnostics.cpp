@@ -44,11 +44,6 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
 {
     int			i;
     int			counter;
-    double*		score = NULL;
-    long*		count = NULL;
-    long*		start = NULL;
-    double*		percent = NULL;
-    int*		blocknr = NULL;
     double		tempScore;
     long		tempCount;
     long		tempStart;
@@ -56,16 +51,10 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
     long		targetCount;
     long		totalframes = 0;
     bool		hadToSwap = false;
-    score = static_cast<double *>( malloc(sizeof(context.state.cblock[0].score) * context.state.block_count) );
-    count = static_cast<long *>( malloc(sizeof(long) * context.state.block_count) );
-    start = static_cast<long *>( malloc(sizeof(long) * context.state.block_count) );
-    blocknr = static_cast<int *>( malloc(sizeof(int) * context.state.block_count) );
-    percent = static_cast<double *>( malloc(sizeof(double) * context.state.block_count) );
-    if ((score == NULL) || (count == NULL) || (start == NULL) || (blocknr == NULL) || (percent == NULL))
-    {
-        Debug(context, 1, "Could not allocate memory.  Exiting program.\n");
-        comskip::request_exit(21);
-    }
+    std::vector<double> score(context.state.block_count);
+    std::vector<long> count(context.state.block_count);
+    std::vector<long> start(context.state.block_count);
+    std::vector<int> blocknr(context.state.block_count);
 
     counter = 0;
     for (i = 0; i < context.state.block_count; i++)
@@ -124,9 +113,6 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
     }
     while (tempCount < targetCount);
     tempScore = score[i];
-    free(score);
-    free(count);
-    free(percent);
     Debug(context, 6, "The %.2f percentile of %i frames is %.2f\n", (percentile * 100.0), totalframes, tempScore);
     return (tempScore);
 }
@@ -405,7 +391,7 @@ int FindFrameWithPts(RecordingContext& context, double t)
     int mx,mn;
     mx = context.state.frame_count;
     mn = 1;
-    if (context.state.frame) {
+    if (!context.state.frame.empty()) {
     while( mx > mn+1) {
         if (t < context.state.frame[(mx+mn)/2].pts) {
             mx = (mx+mn+0.5)/2;

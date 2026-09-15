@@ -35,6 +35,4 @@ public:
     }
 };
 const Ini& defaults();
-// Validates all recognized values before changing application settings.
-void apply_settings(const Ini& ini);
 }

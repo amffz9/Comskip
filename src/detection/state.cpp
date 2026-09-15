@@ -261,7 +261,7 @@ long				lastFrameCommCalculated = 0;
 
 
 double get_frame_pts(RecordingContext& context, int f) {
-    if (!context.state.frame) {
+    if (context.state.frame.empty()) {
             return(f / context.settings.fps);
     }
     if (f < 1)

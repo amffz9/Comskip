@@ -1,3 +1,5 @@
+#ifndef COMSKIP_LEGACY_DETECTION_H
+#define COMSKIP_LEGACY_DETECTION_H
 #pragma once
 struct RecordingContext;
 #include "translator.h"
@@ -19,7 +21,6 @@ struct RecordingContext;
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "platform.h"
-#include "vo.h"
 #include <argtable2.h>
 
 
@@ -41,7 +42,7 @@ extern "C" {
 
 #include "comskip.h"
 #include "commercial_length.h"
-#include "settings.h"
+#include "settings_value.h"
 #include <string>
 #include <stdexcept>
 #include <sstream>
@@ -207,7 +208,7 @@ typedef struct
 
 double get_frame_pts(RecordingContext& context, int f);
 
-#define F2V(X) (context.state.frame != NULL ? ((X) <= 0 ? context.state.frame[1].pts : ((X) >= context.state.framenum_real ? context.state.frame[context.state.framenum_real - 1].pts : context.state.frame[X].pts )) : (X) / context.settings.fps)
+#define F2V(X) (!context.state.frame.empty() ? ((X) <= 0 ? context.state.frame[1].pts : ((X) >= context.state.framenum_real ? context.state.frame[context.state.framenum_real - 1].pts : context.state.frame[X].pts )) : (X) / context.settings.fps)
 #include <cassert>
 //#define F2T(X) (F2V(X) - F2V(1))
 #define F2T(X) (F2V(X))
@@ -1051,7 +1052,6 @@ void BuildCommercial(RecordingContext& context);
 bool OutputBlocks(RecordingContext& context);
 void OutputStrict(RecordingContext& context, double len, double delta, double tol);
 void OutputTraining(RecordingContext& context);
-bool OutputCleanMpg(RecordingContext& context);
 bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
 bool IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
 double FindNumber(RecordingContext& context, char* data, const char* key, double fallback);
@@ -1151,3 +1151,5 @@ void dump_data(RecordingContext& context, char *start, int length);
 void close_data(RecordingContext& context);
 
 #include "recording_context.h"
+
+#endif // COMSKIP_LEGACY_DETECTION_H

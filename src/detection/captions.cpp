@@ -1,5 +1,6 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include "buffer_growth.h"
 
 void OutputCCBlock(RecordingContext& context, long i)
 {
@@ -42,15 +43,10 @@ void OutputCCBlock(RecordingContext& context, long i)
 
 void Init_XDS_block(RecordingContext& context)
 {
-    if(!context.state.XDS_block)
+    if(context.state.XDS_block.empty())
     {
-        context.state.max_XDS_block_count = 2000;
-        context.state.XDS_block = static_cast<XDS_block_info *>( malloc((context.state.max_XDS_block_count + 1) * sizeof(XDS_block_info)) );
-        if (context.state.XDS_block == NULL)
-        {
-            Debug(context, 0, "Could not allocate memory for XDS blocks\n");
-            comskip::request_exit(22);
-        }
+        comskip::detection::grow_buffer(context.state.XDS_block,
+            context.state.max_XDS_block_count, 0, 2000);
         context.state.XDS_block_count = 0;
         context.state.XDS_block[context.state.XDS_block_count].frame = 0;
         context.state.XDS_block[context.state.XDS_block_count].name[0] = 0;
@@ -64,16 +60,19 @@ void Init_XDS_block(RecordingContext& context)
 
 void Add_XDS_block(RecordingContext& context)
 {
-    if (context.state.XDS_block_count < context.state.max_XDS_block_count)
-    {
-        context.state.XDS_block_count++;
-        context.state.XDS_block[context.state.XDS_block_count] = context.state.XDS_block[context.state.XDS_block_count-1];
-        context.state.XDS_block[context.state.XDS_block_count].frame = context.state.framenum;
-        context.state.frame[context.state.framenum].xds = context.state.XDS_block_count;
-
-    }
-    else
-        Debug(context, 0, "Too much XDS data, discarded\n");
+    Init_XDS_block(context);
+    auto& frame = context.state.frame.at(static_cast<std::size_t>(context.state.framenum));
+    if (context.state.XDS_block_count < 0)
+        throw std::out_of_range("Invalid XDS block index");
+    if (context.state.XDS_block_count == std::numeric_limits<long>::max())
+        throw std::length_error("Too much XDS data");
+    const long next = context.state.XDS_block_count + 1;
+    comskip::detection::grow_buffer(context.state.XDS_block,
+        context.state.max_XDS_block_count, next, 2000);
+    context.state.XDS_block[next] = context.state.XDS_block[context.state.XDS_block_count];
+    context.state.XDS_block[next].frame = context.state.framenum;
+    frame.xds = next;
+    context.state.XDS_block_count = next;
 }
 
 
@@ -231,7 +230,8 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                     if (strncmp((const char*) context.state.XDS_block[context.state.XDS_block_count].name, (const char*)&context.state.AddXDS_XDSbuf[2], n) != 0)
                     {
                         Add_XDS_block(context);
-                        strncpy(context.state.XDS_block[context.state.XDS_block_count].name, (const char*) &context.state.AddXDS_XDSbuf[2], n);
+                        strncpy(context.state.XDS_block[context.state.XDS_block_count].name, (const char*) &context.state.AddXDS_XDSbuf[2], n - 1);
+                        context.state.XDS_block[context.state.XDS_block_count].name[n - 1] = '\0';
                     }
                     Debug(context, 10, "XDS[%i]: Program Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
 //		XDS_block[XDS_block_count].name[0] = 0;

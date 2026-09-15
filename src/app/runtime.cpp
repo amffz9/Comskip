@@ -180,9 +180,9 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_frame_count = (int)(60 * 60 * context.settings.fps) + 1;
-            context.state.frame = static_cast<frame_info *>( malloc((int)((context.state.max_frame_count + 1) * sizeof(frame_info))) );
+            context.state.frame.resize(context.state.max_frame_count + 2);
         }
-        if (context.state.frame == NULL)
+        if (context.state.frame.empty())
         {
             Debug(context, 0, "Could not allocate memory for frame array\n");
             comskip::request_exit(10);
@@ -193,9 +193,9 @@ void InitComSkip(RecordingContext& context)
     if(!context.state.initialized)
     {
         context.state.max_black_count = 500;
-        context.state.black = static_cast<black_frame_info *>( malloc((int)((context.state.max_black_count + 1) * sizeof(black_frame_info))) );
+        context.state.black.resize(context.state.max_black_count + 2);
     }
-    if (context.state.black == NULL)
+    if (context.state.black.empty())
     {
         Debug(context, 0, "Could not allocate memory for black frame array\n");
         comskip::request_exit(11);
@@ -210,9 +210,9 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_logo_block_count = 1000;
-            context.state.logo_block = static_cast<logo_block_info *>( malloc((int)((context.state.max_logo_block_count + 1) * sizeof(logo_block_info))) );
+            context.state.logo_block.resize(context.state.max_logo_block_count + 2);
         }
-        if (context.state.logo_block == NULL)
+        if (context.state.logo_block.empty())
         {
             Debug(context, 0, "Could not allocate memory for logo cblock array\n");
             comskip::request_exit(13);
@@ -230,9 +230,9 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_schange_count = 2000;
-            context.state.schange = static_cast<schange_info *>( malloc((int)((context.state.max_schange_count + 1) * sizeof(schange_info))) );
+            context.state.schange.resize(context.state.max_schange_count + 2);
         }
-        if (context.state.schange == NULL)
+        if (context.state.schange.empty())
         {
             Debug(context, 0, "Could not allocate memory for scene change array\n");
             comskip::request_exit(12);
@@ -244,9 +244,9 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_cc_block_count = 500;
-            context.state.cc_block = static_cast<cc_block_info *>( malloc((context.state.max_cc_block_count + 1) * sizeof(cc_block_info)) );
+            context.state.cc_block.resize(context.state.max_cc_block_count + 2);
         }
-        if (context.state.cc_block == NULL)
+        if (context.state.cc_block.empty())
         {
             Debug(context, 0, "Could not allocate memory for cc blocks\n");
             comskip::request_exit(22);
@@ -284,9 +284,9 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_cc_text_count = 1;
-            context.state.cc_text = static_cast<cc_text_info *>( malloc((context.state.max_cc_text_count + 1) * sizeof(cc_text_info)) );
+            context.state.cc_text.resize(context.state.max_cc_text_count + 2);
         }
-        if (context.state.cc_text == NULL)
+        if (context.state.cc_text.empty())
         {
             Debug(context, 0, "Could not allocate memory for cc text groups\n");
             comskip::request_exit(22);
@@ -309,16 +309,16 @@ void InitComSkip(RecordingContext& context)
     if(!context.state.initialized)
     {
         context.state.max_ar_block_count = 100;
-        context.state.ar_block = static_cast<ar_block_info *>( malloc((int)((context.state.max_ar_block_count + 1) * sizeof(ar_block_info))) );
+        context.state.ar_block.resize(context.state.max_ar_block_count + 2);
         context.state.max_ac_block_count = 100;
-        context.state.ac_block = static_cast<ac_block_info *>( malloc((int)((context.state.max_ac_block_count + 1) * sizeof(ac_block_info))) );
+        context.state.ac_block.resize(context.state.max_ac_block_count + 2);
     }
-    if (context.state.ar_block == NULL)
+    if (context.state.ar_block.empty())
     {
         Debug(context, 0, "Could not allocate memory for aspect ratio block array\n");
         comskip::request_exit(31);
     }
-    if (context.state.ac_block == NULL)
+    if (context.state.ac_block.empty())
     {
         Debug(context, 0, "Could not allocate memory for audio channel block array\n");
         comskip::request_exit(31);

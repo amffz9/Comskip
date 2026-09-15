@@ -1,19 +1,14 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include "buffer_growth.h"
 
 void InitializeFrameArray(RecordingContext& context, long i)
 {
-    if (context.state.frame_count+1000 /* max size audio can run ahead of video */ >= context.state.max_frame_count)
-    {
-        context.state.max_frame_count += (int)(60 * 60 * 25);
-        context.state.frame = static_cast<frame_info *>( realloc(context.state.frame, context.state.max_frame_count * sizeof(frame_info)) );
-        Debug(context, 9, "Resizing frame array to accommodate %i frames.\n", context.state.max_frame_count);
-        if (context.state.frame == NULL)
-        {
-            Debug(context, 0, "Failed to allocated space for the frame array, quitting \n");
-            comskip::request_exit(1);
-        }
-    }
+    if (context.state.frame_count > std::numeric_limits<long>::max() - 1000)
+        throw std::length_error("Detection frame index exceeds supported size");
+    if (comskip::detection::grow_buffer(context.state.frame, context.state.max_frame_count,
+            std::max(i, context.state.frame_count + 1000), 90000, 1))
+        Debug(context, 9, "Resizing frame buffer to accommodate %li entries.\n", context.state.max_frame_count);
 
     context.state.frame[i].brightness = 0;
 //	frame[i].frame = i;
@@ -39,12 +34,9 @@ void InitializeFrameArray(RecordingContext& context, long i)
 
 void InitializeBlackArray(RecordingContext& context, long i)
 {
-    if (context.state.black_count >= context.state.max_black_count)
-    {
-        context.state.max_black_count += 500;
-        context.state.black = static_cast<black_frame_info *>( realloc(context.state.black, (context.state.max_black_count + 1) * sizeof(black_frame_info)) );
-        Debug(context, 9, "Resizing black frame array to accommodate %i frames.\n", context.state.max_black_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.black, context.state.max_black_count,
+            std::max(i, context.state.black_count), 500, 1))
+        Debug(context, 9, "Resizing black buffer to accommodate %li entries.\n", context.state.max_black_count);
 
     context.state.black[i].brightness = 255;
     context.state.black[i].uniform = 0;
@@ -54,17 +46,9 @@ void InitializeBlackArray(RecordingContext& context, long i)
 
 void InitializeSchangeArray(RecordingContext& context, long i)
 {
-    if (i >= context.state.max_schange_count)
-    {
-        context.state.max_schange_count += 2000;
-        void *ptr = realloc(context.state.schange, (context.state.max_schange_count + 1) * sizeof(schange_info));
-        if (ptr == NULL) {
-            Debug(context, 0, "Could not allocate memory for %i scene change frames.\n", context.state.max_schange_count);
-            comskip::request_exit(12);
-        }
-        context.state.schange = static_cast<schange_info *>( ptr );
-        Debug(context, 9, "Resizing scene change array to accommodate %i frames.\n", context.state.max_schange_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.schange, context.state.max_schange_count,
+            std::max(i, context.state.schange_count), 2000, 1))
+        Debug(context, 9, "Resizing schange buffer to accommodate %li entries.\n", context.state.max_schange_count);
 
     context.state.schange[i].frame = i;
     context.state.schange[i].percentage = 100;
@@ -72,32 +56,26 @@ void InitializeSchangeArray(RecordingContext& context, long i)
 
 void InitializeLogoBlockArray(RecordingContext& context, long i)
 {
-    if (context.state.logo_block_count >= context.state.max_logo_block_count)
-    {
-        context.state.max_logo_block_count += 20;
-        context.state.logo_block = static_cast<logo_block_info *>( realloc(context.state.logo_block, (context.state.max_logo_block_count + 2) * sizeof(logo_block_info)) );
-        Debug(context, 9, "Resizing logo cblock array to accommodate %i logo groups.\n", context.state.max_logo_block_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.logo_block, context.state.max_logo_block_count,
+            std::max(i, context.state.logo_block_count), 20, 2))
+        Debug(context, 9, "Resizing logo_block buffer to accommodate %li entries.\n", context.state.max_logo_block_count);
+
 }
 
 void InitializeARBlockArray(RecordingContext& context, long i)
 {
-    if (context.state.ar_block_count >= context.state.max_ar_block_count)
-    {
-        context.state.max_ar_block_count += 20;
-        context.state.ar_block = static_cast<ar_block_info *>( realloc(context.state.ar_block, (context.state.max_ar_block_count + 2) * sizeof(ar_block_info)) );
-        Debug(context, 9, "Resizing aspect ratio cblock array to accommodate %i AR groups.\n", context.state.max_ar_block_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.ar_block, context.state.max_ar_block_count,
+            std::max(i, context.state.ar_block_count), 20, 2))
+        Debug(context, 9, "Resizing ar_block buffer to accommodate %li entries.\n", context.state.max_ar_block_count);
+
 }
 
 void InitializeACBlockArray(RecordingContext& context, long i)
 {
-    if (context.state.ac_block_count >= context.state.max_ac_block_count)
-    {
-        context.state.max_ac_block_count += 20;
-        context.state.ac_block = static_cast<ac_block_info *>( realloc(context.state.ac_block, (context.state.max_ac_block_count + 2) * sizeof(ac_block_info)) );
-        Debug(context, 9, "Resizing audio channel block array to accommodate %i AC groups.\n", context.state.max_ac_block_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.ac_block, context.state.max_ac_block_count,
+            std::max(i, context.state.ac_block_count), 20, 2))
+        Debug(context, 9, "Resizing ac_block buffer to accommodate %li entries.\n", context.state.max_ac_block_count);
+
 }
 
 void InitializeBlockArray(RecordingContext& context, long i)
@@ -135,12 +113,9 @@ void InitializeBlockArray(RecordingContext& context, long i)
 
 void InitializeCCBlockArray(RecordingContext& context, long i)
 {
-    if (context.state.cc_block_count >= context.state.max_cc_block_count)
-    {
-        context.state.max_cc_block_count += 100;
-        context.state.cc_block = static_cast<cc_block_info *>( realloc(context.state.cc_block, (context.state.max_cc_block_count + 2) * sizeof(cc_block_info)) );
-        Debug(context, 9, "Resizing cc cblock array to accommodate %i cc blocks.\n", context.state.max_cc_block_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.cc_block, context.state.max_cc_block_count,
+            std::max(i, context.state.cc_block_count), 100, 2))
+        Debug(context, 9, "Resizing cc_block buffer to accommodate %li entries.\n", context.state.max_cc_block_count);
 
     context.state.cc_block[i].start_frame = -1;
     context.state.cc_block[i].end_frame = -1;
@@ -149,12 +124,9 @@ void InitializeCCBlockArray(RecordingContext& context, long i)
 
 void InitializeCCTextArray(RecordingContext& context, long i)
 {
-    if (context.state.cc_text_count >= context.state.max_cc_text_count)
-    {
-        context.state.max_cc_text_count += 100;
-        context.state.cc_text = static_cast<cc_text_info *>( realloc(context.state.cc_text, (context.state.max_cc_text_count + 1) * sizeof(cc_text_info)) );
-        Debug(context, 9, "Resizing cc text array to accommodate %i cc text groups.\n", context.state.max_cc_text_count);
-    }
+    if (comskip::detection::grow_buffer(context.state.cc_text, context.state.max_cc_text_count,
+            std::max(i, context.state.cc_text_count), 100, 1))
+        Debug(context, 9, "Resizing cc_text buffer to accommodate %li entries.\n", context.state.max_cc_text_count);
 
     context.state.cc_text[i].text[0] = '\0';
     context.state.cc_text[i].text_len = 0;

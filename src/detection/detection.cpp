@@ -436,12 +436,7 @@ void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int
     }
     else
     {
-        if (context.state.black_count >= context.state.max_black_count)
-        {
-            context.state.max_black_count += 500;
-            context.state.black = static_cast<black_frame_info *>( realloc(context.state.black, (context.state.max_black_count + 1) * sizeof(black_frame_info)) );
-            Debug(context, 9, "Resizing black frame array to accommodate %i frames.\n", context.state.max_black_count);
-        }
+        InitializeBlackArray(context, context.state.black_count);
 
 
         //	InitializeBlackArray(black_count);
@@ -1415,13 +1410,13 @@ again:
     if (context.settings.verbose)
     {
         Debug(context, 1, "\n%i Frames Processed\n", context.state.framesprocessed);
-        context.state.log_file = myfopen(context.state.logfilename, "a+");
-        fprintf(context.state.log_file, "################################################################\n");
+        context.state.log_file.reset(myfopen(context.state.logfilename, "a+"));
+        fprintf(context.state.log_file.get(), "################################################################\n");
         time(&ltime);
-        fprintf(context.state.log_file, "Time at end of run:\n%s", ctime(&ltime));
-        fprintf(context.state.log_file, "################################################################\n");
-        fclose(context.state.log_file);
-        context.state.log_file = NULL;
+        fprintf(context.state.log_file.get(), "Time at end of run:\n%s", ctime(&ltime));
+        fprintf(context.state.log_file.get(), "################################################################\n");
+        context.state.log_file.reset();
+        context.state.log_file.reset();
     }
 
 

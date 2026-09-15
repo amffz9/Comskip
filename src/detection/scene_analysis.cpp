@@ -251,7 +251,7 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
             }
         }
     }
-    context.state.cutscene_file = NULL;
+    context.state.cutscene_file.reset();
 //GetDumpFileName();
     if (context.state.osname[0])
     {
@@ -263,27 +263,27 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
     }
     if (context.settings.cutscenefile.c_str()[0])
     {
-        context.state.cutscene_file = myfopen(context.settings.cutscenefile.c_str(),"wb");
+        context.state.cutscene_file.reset(myfopen(context.settings.cutscenefile.c_str(),"wb"));
     }
-    if (context.state.cutscene_file != NULL)
+    if (context.state.cutscene_file.get() != NULL)
     {
-        fwrite(&brightness, sizeof(int), 1, context.state.cutscene_file);
-        fwrite(cs, sizeof(char), c, context.state.cutscene_file);
+        fwrite(&brightness, sizeof(int), 1, context.state.cutscene_file.get());
+        fwrite(cs, sizeof(char), c, context.state.cutscene_file.get());
         Debug(context, 7, "Saved frame %6i into cutfile \"%s\"\n", frame_count, context.settings.cutscenefile.c_str());
-        fclose(context.state.cutscene_file);
-        context.state.cutscene_file = NULL;
+        context.state.cutscene_file.reset();
+        context.state.cutscene_file.reset();
     }
 }
 
 void LoadCutScene(RecordingContext& context, const char *filename)
 {
     int i,j,b,c;
-    context.state.cutscene_file = myfopen(filename,"rb");
-    if (context.state.cutscene_file != NULL)
+    context.state.cutscene_file.reset(myfopen(filename,"rb"));
+    if (context.state.cutscene_file.get() != NULL)
     {
         i = context.state.cutscenes;
-        fread(&context.state.csbrightness[i], sizeof(int), 1, context.state.cutscene_file);
-        c =	fread(context.state.cutscene[i], sizeof(char), MAXCSLENGTH, context.state.cutscene_file);
+        fread(&context.state.csbrightness[i], sizeof(int), 1, context.state.cutscene_file.get());
+        c =	fread(context.state.cutscene[i], sizeof(char), MAXCSLENGTH, context.state.cutscene_file.get());
         if (c > 0)
         {
             Debug(context, 7, "Loaded %i bytes from cutfile \"%s\"\n", c, filename);
@@ -298,7 +298,7 @@ void LoadCutScene(RecordingContext& context, const char *filename)
         {
             Debug(context, 1, "ERROR: Loading from cutfile \"%s\" failed\n", c, filename);
         }
-        fclose(context.state.cutscene_file);
+        context.state.cutscene_file.reset();
     } else
          Debug(context, 1, "Can't open cutfile \"%s\"\n", filename);
 }

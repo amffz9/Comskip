@@ -3,8 +3,8 @@
 
 void PrintArgs(RecordingContext& context)
 {
-    int i;
-    for (i = 0; i < context.state.argument_count; i++) printf("%i\t%s\n", i, context.state.argument[i]);
+    for (std::size_t i = 0; i < context.state.argument.size(); ++i)
+        printf("%zu\t%s\n", i, context.state.argument[i].c_str());
 }
 
 
@@ -230,10 +230,10 @@ again:
 
     context.state.frame[context.state.frame_count].pts = (context.state.frame_count - 1) / context.settings.fps; // Should be avg_fps, but is never used.
 
-    if (!context.state.dump_data_file)
+    if (!context.state.dump_data_file.get())
     {
         sprintf(line, "%s.data", context.state.workbasename);
-        context.state.dump_data_file = myfopen(line, "rb");
+        context.state.dump_data_file.reset(myfopen(line, "rb"));
     }
     ccDataFrame = 0;
 
@@ -261,26 +261,26 @@ again:
     {
         context.state.framenum_real = i;
 ccagain:
-        if (context.state.dump_data_file && ccDataFrame == 0)
+        if (context.state.dump_data_file.get() && ccDataFrame == 0)
         {
-            cont = fread(line,8,1,context.state.dump_data_file);
+            cont = fread(line,8,1,context.state.dump_data_file.get());
             line[8]=0;
             sscanf(line,"%7d:",&ccDataFrame);
 //			ccDataFrame = strtol(line,NULL,7);
         }
-        if (context.state.dump_data_file )
+        if (context.state.dump_data_file.get() )
         {
 
             while (cont && ccDataFrame <=i)
             {
 
-                cont = fread(line,4,1,context.state.dump_data_file);
+                cont = fread(line,4,1,context.state.dump_data_file.get());
                 if (!cont)
                     break;
                 line[4]=0;
                 sscanf(line,"%4d",&context.state.ccDataLen);
 //			ccDataLen = strtol(line,NULL,4);
-                cont = fread(context.state.ccData,context.state.ccDataLen,1, context.state.dump_data_file);
+                cont = fread(context.state.ccData,context.state.ccDataLen,1, context.state.dump_data_file.get());
                 if (!cont)
                     break;
                 context.state.framenum = ccDataFrame;

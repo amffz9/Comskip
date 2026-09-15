@@ -24,13 +24,12 @@
  */
 
 #include "platform.h"
-#include "vo.h"
 #include "comskip.h"
 #include "audio_samples.h"
 #include "ffmpeg_resources.h"
 #include <memory>
 using namespace comskip::media;
-#include "settings.h"
+#include "settings_value.h"
 #include "translator.h"
 #include <algorithm>
 #include <limits>
@@ -233,11 +232,11 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 //test
 
-#define DUMP_OPEN if (context.settings.output_timing) { sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename); context.state.timing_file = myfopen(context.state.tempstring, "w"); DUMP_HEADER }
-#define DUMP_HEADER if (context.state.timing_file) fprintf(context.state.timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
-#define DUMP_TIMING(T, D, P, C, O, S) if (context.state.timing_file && !context.state.csStepping && !context.state.csJumping && !context.state.csStartJump) fprintf(context.state.timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+#define DUMP_OPEN if (context.settings.output_timing) { sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename); context.state.timing_file.reset(myfopen(context.state.tempstring, "w")); DUMP_HEADER }
+#define DUMP_HEADER if (context.state.timing_file.get()) fprintf(context.state.timing_file.get(), "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
+#define DUMP_TIMING(T, D, P, C, O, S) if (context.state.timing_file.get() && !context.state.csStepping && !context.state.csJumping && !context.state.csStartJump) fprintf(context.state.timing_file.get(), "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
     T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O), (S));
-#define DUMP_CLOSE if (context.state.timing_file) { fclose(context.state.timing_file); context.state.timing_file = NULL; }
+#define DUMP_CLOSE context.state.timing_file.reset();
 
 
 
@@ -347,10 +346,10 @@ int retreive_frame_volume(RecordingContext& context, double from_pts, double to_
         buffer = &context.state.audio_buffer[first_sample];
 
         volume = 0;
-        if (context.state.sample_file) fprintf(context.state.sample_file, "Frame %i\n", context.state.sound_frame_counter);
+        if (context.state.sample_file.get()) fprintf(context.state.sample_file.get(), "Frame %i\n", context.state.sound_frame_counter);
         for (i = 0; i < s_per_frame; i++)
         {
-            if (context.state.sample_file) fprintf(context.state.sample_file, "%i\n", *buffer);
+            if (context.state.sample_file.get()) fprintf(context.state.sample_file.get(), "%i\n", *buffer);
             volume += (*buffer>0 ? *buffer : - *buffer);
             buffer++;
         }
@@ -894,9 +893,9 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     {
         if (context.state.test_pts != pts)
         {
-               context.state.sample_file = fopen("seektest.log", "a+");
-                fprintf(context.state.sample_file, "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.is->filename);
-                fclose(context.state.sample_file);
+               context.state.sample_file.reset(fopen("seektest.log", "a+"));
+                fprintf(context.state.sample_file.get(), "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.is->filename);
+                context.state.sample_file.reset();
                 Debug(context,  1,"\nSelftest %d FAILED: Reset\n", context.state.selftest);
         }
         else
@@ -1004,9 +1003,9 @@ again:
 
         if (context.state.selftest)
         {
-            context.state.sample_file = fopen("seektest.log", "a+");
-            fprintf(context.state.sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
-            fclose(context.state.sample_file);
+            context.state.sample_file.reset(fopen("seektest.log", "a+"));
+            fprintf(context.state.sample_file.get(), "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
+            context.state.sample_file.reset();
         }
 
         if (!is->seek_by_bytes)
@@ -1413,15 +1412,15 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                 {
                    if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
                    {
-                    context.state.sample_file = fopen("seektest.log", "a+");
-                    fprintf(context.state.sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                    context.state.sample_file.reset(fopen("seektest.log", "a+"));
+                    fprintf(context.state.sample_file.get(), "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
-                    fclose(context.state.sample_file);
+                    context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
                    }
                     else
@@ -1453,15 +1452,15 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                 {
                     if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
                     {
-                        context.state.sample_file = fopen("seektest.log", "a+");
-                        fprintf(context.state.sample_file, "Reopen error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        context.state.sample_file.reset(fopen("seektest.log", "a+"));
+                        fprintf(context.state.sample_file.get(), "Reopen error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
-                        fclose(context.state.sample_file);
+                        context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest 3 FAILED: Reopen\n");
                     }
                     else
@@ -1478,15 +1477,15 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                     Debug(context, 1,"Positioning file failing with pts=%6.2f\n", is->video_clock );
                     if (context.state.selftest == 1 || context.state.selftest == 3)
                     {
-                        context.state.sample_file = fopen("seektest.log", "a+");
-                        fprintf(context.state.sample_file, "Seek error : target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        context.state.sample_file.reset(fopen("seektest.log", "a+"));
+                        fprintf(context.state.sample_file.get(), "Seek error : target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
-                        fclose(context.state.sample_file);
+                        context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                         comskip::request_exit(1);
                     }
@@ -1877,7 +1876,6 @@ void file_open(RecordingContext& context)
 
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
-        avformat_network_init();
         context.state.global_video_state = is;
         is->videoStream=-1;
         is->audioStream=-1;
@@ -2081,7 +2079,6 @@ void file_close(RecordingContext& context)
     ist->hwaccel_ctx = NULL;
 #endif
 
-    avformat_network_deinit();
 //  global_video_state = NULL;
 };
 
@@ -2172,7 +2169,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 //
 //        av_log_set_level(AV_LOG_WARNING);
         context.translator = comskip::localization::Translator::from_arguments(argc, argv);
-        context.state.mpeg2dec_in_file = LoadSettings(context, argc, argv, context.translator);
+        LoadSettings(context, argc, argv, context.translator);
 
         file_open(context);
 
@@ -2186,7 +2183,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         if (context.settings.output_timing)
         {
             sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename);
-            context.state.timing_file = myfopen(context.state.tempstring, "w");
+            context.state.timing_file.reset(myfopen(context.state.tempstring, "w"));
             DUMP_HEADER
         }
 
@@ -2284,9 +2281,9 @@ nextpacket:
                         {
                             if (context.state.is->video_clock < context.state.selftest_target - 0.05 || context.state.is->video_clock > context.state.selftest_target + 0.05)
                             {
-                                context.state.sample_file = fopen("seektest.log", "a+");
-                                fprintf(context.state.sample_file, "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.is->filename, context.state.is->duration, context.state.is->video_clock );
-                                fclose(context.state.sample_file);
+                                context.state.sample_file.reset(fopen("seektest.log", "a+"));
+                                fprintf(context.state.sample_file.get(), "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.is->filename, context.state.is->duration, context.state.is->video_clock );
+                                context.state.sample_file.reset();
                                 Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                                 comskip::request_exit(1);
                             }
@@ -2408,15 +2405,15 @@ nextpacket:
         {
             if (context.state.is->video_clock < context.state.selftest_target - 0.08 || context.state.is->video_clock > context.state.selftest_target + 0.08)
             {
-                context.state.sample_file = fopen("seektest.log", "a+");
-                fprintf(context.state.sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
+                context.state.sample_file.reset(fopen("seektest.log", "a+"));
+                fprintf(context.state.sample_file.get(), "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
                         context.state.is->seek_pts,
                         context.state.is->video_clock,
                         context.state.is->video_clock - context.state.is->seek_pts,
                         context.state.is->duration,
                         (context.state.is->seek_by_bytes ? "byteseek": "timeseek" ),
                         context.state.is->filename);
-                fclose(context.state.sample_file);
+                context.state.sample_file.reset();
             } else
                 Debug(context,  1,"\nSelftest 1 OK: Seektest\n");
 
@@ -2447,7 +2444,7 @@ nextpacket:
         Debug(context,  10,"\nMaximum Volume found is %d\n", context.state.max_volume_found);
 
 
-        context.state.mpeg2dec_in_file = 0;
+        context.state.in_file.reset();
         if (context.state.framenum>0)
         {
             if(BuildMasterCommList(context))
@@ -2501,8 +2498,8 @@ nextpacket:
 #endif
 
 #ifdef _WIN32
-    exit (result);
+    return result;
 #else
-    exit (!result);
+    return !result;
 #endif
 }

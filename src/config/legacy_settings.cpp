@@ -2,6 +2,7 @@
 #include "legacy_detection.h"
 #include "checked_format.h"
 #include "translator.h"
+#include "arguments.h"
 
 double FindNumber(RecordingContext& context, char* data, const char* key, double fallback)
 {
@@ -65,20 +66,20 @@ void LoadIniFile(RecordingContext& context)
 
 void LoadIniFile(RecordingContext& context, const comskip::localization::Translator& translator)
 {
-    if (!context.state.ini_file) {
+    if (!context.state.ini_file.get()) {
         FindIniFile(context);
-        if (*context.state.inifilename) context.state.ini_file = myfopen(context.state.inifilename, "r");
+        if (*context.state.inifilename) context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
     }
     try {
         context.state.ini_text = comskip::config::defaults().serialize();
-        if (context.state.ini_file) {
+        if (context.state.ini_file.get()) {
             std::string data;
             char buffer[4096];
             std::size_t count;
-            while ((count = fread(buffer, 1, sizeof buffer, context.state.ini_file)) != 0) data.append(buffer, count);
-            bool failed = ferror(context.state.ini_file) != 0;
-            fclose(context.state.ini_file);
-            context.state.ini_file = nullptr;
+            while ((count = fread(buffer, 1, sizeof buffer, context.state.ini_file.get())) != 0) data.append(buffer, count);
+            bool failed = ferror(context.state.ini_file.get()) != 0;
+            context.state.ini_file.reset();
+            context.state.ini_file.reset();
             if (failed) throw std::runtime_error("Could not read INI file");
             comskip::config::Ini ini(data);
             context.settings = comskip::config::load_settings(ini, context.settings);
@@ -188,6 +189,11 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         out,
         end
     };
+    struct ArgTableOwner {
+        void** entries;
+        std::size_t count;
+        ~ArgTableOwner() { arg_freetable(entries, count); }
+    } parser_owner{argtable, std::size(argtable)};
     int					nerrors;
 
     // Print out the command line parameters
@@ -205,13 +211,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
     printf("\n\n");
 
-    context.state.argument = static_cast<char **>( malloc(sizeof(char *) * argc) );
-    context.state.argument_count = argc;
-    for (i = 0; i < argc; i++)
-    {
-        context.state.argument[i] = static_cast<char *>( malloc(sizeof(char) * (strlen(argv[i]) + 1)) );
-        strcpy(context.state.argument[i], argv[i]);
-    }
+    context.state.argument = comskip::snapshot_arguments(argc, argv);
 
     if (argc <= 1)
     {
@@ -329,9 +329,9 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     else if (strcmp(in->extension[0], ".csv") == 0)
     {
         context.state.loadingCSV = true;
-        context.state.in_file = myfopen(in->filename[0], "r");
+        context.state.in_file.reset(myfopen(in->filename[0], "r"));
         fputs(translator.format("array_open", in->filename[0]).c_str(), stdout);
-        if (!context.state.in_file)
+        if (!context.state.in_file.get())
         {
             fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
             comskip::request_exit(4);
@@ -393,15 +393,15 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
         context.state.loadingTXT = true;
         context.settings.output_default = false;
-        context.state.in_file = myfopen(in->filename[0], "r");
+        context.state.in_file.reset(myfopen(in->filename[0], "r"));
         fputs(translator.format("review_open", in->filename[0]).c_str(), stdout);
-        if (!context.state.in_file)
+        if (!context.state.in_file.get())
         {
             fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
             comskip::request_exit(4);
         }
-        fclose(context.state.in_file);
-        context.state.in_file = 0;
+        context.state.in_file.reset();
+        context.state.in_file.reset();
 
         comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         comskip::checked_format(context.state.mpegfilename, "%.*s.mpg", (int)strlen(context.state.inbasename), context.state.inbasename);
@@ -464,7 +464,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         comskip::checked_format(context.state.inifilename, "%s", cl_ini->filename[0]);
         fputs(translator.format("setting_ini", context.state.inifilename).c_str(), stdout);
     }
-    context.state.ini_file = myfopen(context.state.inifilename, "r");
+    context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
 
     if (cl_work_fname->count)
     {
@@ -512,20 +512,20 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     comskip::checked_format(context.state.filename, "%s.txt", context.state.outbasename);
     if (strcmp(context.state.HomeDir, ".") == 0)
     {
-        if (!context.state.ini_file)
+        if (!context.state.ini_file.get())
         {
             comskip::checked_format(context.state.inifilename, "comskip.ini");
-            context.state.ini_file = myfopen(context.state.inifilename, "r");
+            context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
         }
         comskip::checked_format(context.state.exefilename, "comskip.exe");
         comskip::checked_format(context.state.dictfilename, "comskip.dictionary");
     }
     else
     {
-        if (!context.state.ini_file)
+        if (!context.state.ini_file.get())
         {
             comskip::checked_format(context.state.inifilename, "%s%ccomskip.ini", context.state.HomeDir, PATH_SEPARATOR);
-            context.state.ini_file = myfopen(context.state.inifilename, "r");
+            context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
         }
         comskip::checked_format(context.state.exefilename, "%s%ccomskip.exe", context.state.HomeDir, PATH_SEPARATOR);
         comskip::checked_format(context.state.dictfilename, "%s%ccomskip.dictionary", context.state.HomeDir, PATH_SEPARATOR);
@@ -838,7 +838,33 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
     }
 
-    context.state.out_file = context.state.plist_cutlist_file = context.state.zoomplayer_cutlist_file = context.state.zoomplayer_chapter_file = context.state.vcf_file = context.state.vdr_file = context.state.scf_file = context.state.projectx_file = context.state.avisynth_file = context.state.cuttermaran_file = context.state.videoredo_file = context.state.videoredo3_file = context.state.btv_file = context.state.edl_file = context.state.ffmeta_file = context.state.ffsplit_file = context.state.live_file = context.state.ipodchap_file = context.state.edlp_file = context.state.edlx_file = context.state.mls_file = context.state.womble_file = context.state.mpgtx_file = context.state.dvrcut_file = context.state.dvrmstb_file = context.state.tuning_file = context.state.training_file = 0L;
+    context.state.out_file.reset();
+    context.state.plist_cutlist_file.reset();
+    context.state.zoomplayer_cutlist_file.reset();
+    context.state.zoomplayer_chapter_file.reset();
+    context.state.vcf_file.reset();
+    context.state.vdr_file.reset();
+    context.state.scf_file.reset();
+    context.state.projectx_file.reset();
+    context.state.avisynth_file.reset();
+    context.state.cuttermaran_file.reset();
+    context.state.videoredo_file.reset();
+    context.state.videoredo3_file.reset();
+    context.state.btv_file.reset();
+    context.state.edl_file.reset();
+    context.state.ffmeta_file.reset();
+    context.state.ffsplit_file.reset();
+    context.state.live_file.reset();
+    context.state.ipodchap_file.reset();
+    context.state.edlp_file.reset();
+    context.state.edlx_file.reset();
+    context.state.mls_file.reset();
+    context.state.womble_file.reset();
+    context.state.mpgtx_file.reset();
+    context.state.dvrcut_file.reset();
+    context.state.dvrmstb_file.reset();
+    context.state.tuning_file.reset();
+    context.state.training_file.reset();
 
     if (cl_output_plist->count)
         context.settings.output_plist_cutlist = true;
@@ -862,8 +888,8 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
         if(!context.state.isSecondPass)
         {
-            context.state.out_file = myfopen(context.state.out_filename, "w");
-            if (!context.state.out_file)
+            context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+            if (!context.state.out_file.get())
             {
                 fputs(translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
                 comskip::request_exit(6);
@@ -871,7 +897,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             else
             {
                 context.settings.output_default = true;
-                fclose(context.state.out_file);
+                context.state.out_file.reset();
             }
         }
     }
@@ -929,15 +955,13 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (context.state.loadingCSV)
     {
         context.settings.output_framearray = false;
-        ProcessCSV(context, context.state.in_file);
+        ProcessCSV(context, context.state.in_file.get());
         context.settings.output_debugwindow = false;
     }
 
 
 exit:
-    // deallocate each non-null entry in argtable[]
-    arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
-    return (context.state.in_file);
+    return (context.state.in_file.get());
 }
 
 /*
