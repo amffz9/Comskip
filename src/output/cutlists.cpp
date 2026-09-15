@@ -2008,7 +2008,7 @@ bool OutputCleanMpg()
     int len;
     int prevperc,curperc;
     char *Buf;//[65536];
-#ifndef WIN32
+#ifndef _WIN32
     FILE *infile;
 #endif
 
@@ -2021,7 +2021,7 @@ bool OutputCleanMpg()
 
     if (!(Buf=(char*)malloc(BufSize))) return(false);
 
-#ifdef WIN32
+#ifdef _WIN32
     outf = _creat(outputdirname, _S_IREAD | _S_IWRITE);
     if(outf<0) return(false);
     inf = _open(mpegfilename, _O_RDONLY | _O_BINARY);
@@ -2141,4 +2141,3 @@ bool OutputCleanMpg()
     free(Buf);
     return(true);
 }
-

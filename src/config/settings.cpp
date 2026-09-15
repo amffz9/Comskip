@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 using comskip::config::defaults;
+bool ALIGN_AC3_PACKETS = defaults().number<bool>("align_ac3_packets");
 
 int commDetectMethod = defaults().number<int>("detect_method");
 int verbose = defaults().number<int>("verbose");
@@ -243,6 +244,7 @@ void apply_settings(const Ini& ini) {
         updates.emplace_back([&target, value = *value] { std::memcpy(target, value.c_str(), value.size() + 1); });
     };
     number("detect_method", commDetectMethod);
+    number("align_ac3_packets", ALIGN_AC3_PACKETS);
     number("verbose", verbose);
     number("max_brightness", max_brightness);
     number("maxbright", maxbright);

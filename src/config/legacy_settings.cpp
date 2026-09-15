@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include "checked_format.h"
 
 double FindNumber(char* data, const char* key, double fallback)
 {
@@ -24,7 +25,7 @@ char* intSecondsToStrMinutes(int seconds)
     seconds -= hours * 60 * 60;
     minutes = (int)(seconds / 60);
     seconds -= minutes * 60;
-    sprintf(tempString, "%i:%.2i:%.2i", hours, minutes, seconds);
+    comskip::checked_format(tempString, "%i:%.2i:%.2i", hours, minutes, seconds);
     return (tempString);
 }
 
@@ -35,7 +36,7 @@ char* dblSecondsToStrMinutes(double seconds)
     seconds -= hours * 60 * 60;
     minutes = (int)(seconds / 60);
     seconds -= minutes * 60;
-    sprintf(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)((seconds - (int)(seconds))*100) );
+    comskip::checked_format(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)((seconds - (int)(seconds))*100) );
 
     return (tempString);
 }
@@ -47,7 +48,7 @@ char* dblSecondsToStrMinutesFrames(double seconds)
     seconds -= hours * 60 * 60;
     minutes = (int)(seconds / 60);
     seconds -= minutes * 60;
-    sprintf(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)(((int)((seconds - (int)(seconds))*100.0)) * fps / 100.0));
+    comskip::checked_format(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)(((int)((seconds - (int)(seconds))*100.0)) * fps / 100.0));
 
     return (tempString);
 }
@@ -278,7 +279,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (strcmp(in->extension[0], ".csv") != 0 && strcmp(in->extension[0], ".txt") != 0)
     {
-        sprintf(mpegfilename, "%s", in->filename[0]);
+        comskip::checked_format(mpegfilename, "%s", in->filename[0]);
         /*		in_file = myfopen(in->filename[0], "rb");
         		printf("Opening %s\n", in->filename[0]);
         		if (!in_file) {
@@ -296,7 +297,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
                }
 */
-        sprintf(inbasename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        comskip::checked_format(inbasename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         i = strlen(inbasename);
         while (i>0 && inbasename[i-1] != PATH_SEPARATOR)
         {
@@ -304,7 +305,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
         strcpy(shortbasename, &inbasename[i]);
 
- //       sprintf(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
+ //       comskip::checked_format(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
 /*
         test_file = mymyfopen(mpegfilename, "w");
         if (!test_file)
@@ -313,7 +314,7 @@ FILE* LoadSettings(int argc, char ** argv)
             exit(3);
         }
 */
-        sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
+        comskip::checked_format(inifilename, "%.*scomskip.ini", i, inbasename);
     }
     else if (strcmp(in->extension[0], ".csv") == 0)
     {
@@ -326,37 +327,37 @@ FILE* LoadSettings(int argc, char ** argv)
             exit(4);
         }
 
-        sprintf(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        sprintf(mpegfilename, "%.*s.mpg", (int)strlen(inbasename), inbasename);
+        comskip::checked_format(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        comskip::checked_format(mpegfilename, "%.*s.mpg", (int)strlen(inbasename), inbasename);
         test_file = myfopen(mpegfilename, "rb");
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.ts", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.ts", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.tp", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.tp", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.dvr-ms", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.wtv", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.wtv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mp4", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.mp4", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.mkv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
@@ -375,8 +376,8 @@ FILE* LoadSettings(int argc, char ** argv)
             i--;
         }
         strcpy(shortbasename, &inbasename[i]);
-        sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
-        if (mpegfilename[0] == 0) sprintf(mpegfilename, "%s.mpg", inbasename);
+        comskip::checked_format(inifilename, "%.*scomskip.ini", i, inbasename);
+        if (mpegfilename[0] == 0) comskip::checked_format(mpegfilename, "%s.mpg", inbasename);
     }
     else if (strcmp(in->extension[0], ".txt") == 0)
     {
@@ -392,37 +393,37 @@ FILE* LoadSettings(int argc, char ** argv)
         fclose(in_file);
         in_file = 0;
 
-        sprintf(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        sprintf(mpegfilename, "%.*s.mpg", (int)strlen(inbasename), inbasename);
+        comskip::checked_format(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        comskip::checked_format(mpegfilename, "%.*s.mpg", (int)strlen(inbasename), inbasename);
         test_file = myfopen(mpegfilename, "rb");
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.ts", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.ts", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.tp", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.tp", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.dvr-ms", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.wtv", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.wtv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mp4", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.mp4", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(inbasename), inbasename);
+            comskip::checked_format(mpegfilename, "%.*s.mkv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
@@ -440,8 +441,8 @@ FILE* LoadSettings(int argc, char ** argv)
             i--;
         }
         strcpy(shortbasename, &inbasename[i]);
-        sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
-//		sprintf(mpegfilename, "%s.mpg", inbasename);
+        comskip::checked_format(inifilename, "%.*scomskip.ini", i, inbasename);
+//		comskip::checked_format(mpegfilename, "%s.mpg", inbasename);
     }
     else
     {
@@ -450,23 +451,23 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     if (cl_ini->count)
     {
-        sprintf(inifilename, "%s", cl_ini->filename[0]);
+        comskip::checked_format(inifilename, "%s", cl_ini->filename[0]);
         printf("Setting ini file to %s as per commandline\n", inifilename);
     }
     ini_file = myfopen(inifilename, "r");
 
     if (cl_work_fname->count)
     {
-        sprintf(shortbasename, "%s", cl_work_fname->filename[0]);
+        comskip::checked_format(shortbasename, "%s", cl_work_fname->filename[0]);
     }
 
     if (cl_work->count)
     {
-        sprintf(outputdirname, "%s", cl_work->filename[0]);
+        comskip::checked_format(outputdirname, "%s", cl_work->filename[0]);
         i = strlen(outputdirname);
-        if (outputdirname[i-1] == PATH_SEPARATOR)
+        if (i > 0 && outputdirname[i-1] == PATH_SEPARATOR)
             outputdirname[i-1] = 0;
-        sprintf(workbasename, "%s%c%s", outputdirname, PATH_SEPARATOR, shortbasename);
+        comskip::checked_format(workbasename, "%s%c%s", outputdirname, PATH_SEPARATOR, shortbasename);
         strcpy(outbasename, workbasename);
     }
     else
@@ -478,11 +479,11 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (out->count)
     {
-        sprintf(outputdirname, "%s", out->filename[0]);
+        comskip::checked_format(outputdirname, "%s", out->filename[0]);
         i = strlen(outputdirname);
-        if (outputdirname[i-1] == PATH_SEPARATOR)
+        if (i > 0 && outputdirname[i-1] == PATH_SEPARATOR)
             outputdirname[i-1] = 0;
-        sprintf(outbasename, "%s%c%s", outputdirname, PATH_SEPARATOR, shortbasename);
+        comskip::checked_format(outbasename, "%s%c%s", outputdirname, PATH_SEPARATOR, shortbasename);
     }
     else
     {
@@ -496,28 +497,28 @@ FILE* LoadSettings(int argc, char ** argv)
     }
 
 
-    sprintf(logofilename, "%s.logo.txt", workbasename);
-    sprintf(logfilename, "%s.log", workbasename);
-    sprintf(filename, "%s.txt", outbasename);
+    comskip::checked_format(logofilename, "%s.logo.txt", workbasename);
+    comskip::checked_format(logfilename, "%s.log", workbasename);
+    comskip::checked_format(filename, "%s.txt", outbasename);
     if (strcmp(HomeDir, ".") == 0)
     {
         if (!ini_file)
         {
-            sprintf(inifilename, "comskip.ini");
+            comskip::checked_format(inifilename, "comskip.ini");
             ini_file = myfopen(inifilename, "r");
         }
-        sprintf(exefilename, "comskip.exe");
-        sprintf(dictfilename, "comskip.dictionary");
+        comskip::checked_format(exefilename, "comskip.exe");
+        comskip::checked_format(dictfilename, "comskip.dictionary");
     }
     else
     {
         if (!ini_file)
         {
-            sprintf(inifilename, "%s%ccomskip.ini", HomeDir, PATH_SEPARATOR);
+            comskip::checked_format(inifilename, "%s%ccomskip.ini", HomeDir, PATH_SEPARATOR);
             ini_file = myfopen(inifilename, "r");
         }
-        sprintf(exefilename, "%s%ccomskip.exe", HomeDir, PATH_SEPARATOR);
-        sprintf(dictfilename, "%s%ccomskip.dictionary", HomeDir, PATH_SEPARATOR);
+        comskip::checked_format(exefilename, "%s%ccomskip.exe", HomeDir, PATH_SEPARATOR);
+        comskip::checked_format(dictfilename, "%s%ccomskip.dictionary", HomeDir, PATH_SEPARATOR);
     }
 
     if (cl_cut->count)
@@ -528,7 +529,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (cl_logo->count)
     {
-        sprintf(logofilename, "%s", cl_logo->filename[0]);
+        comskip::checked_format(logofilename, "%s", cl_logo->filename[0]);
         printf("Setting logo file to %s as per commandline\n", logofilename);
     }
 
@@ -813,7 +814,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     Debug(10, "\nSettings\n--------\n");
     Debug(10, "%s\n", ini_text.c_str());
-    sprintf(out_filename, "%s.txt", outbasename);
+    comskip::checked_format(out_filename, "%s.txt", outbasename);
 
 
     if (!loadingTXT)
@@ -898,13 +899,13 @@ static        char *CEW_argv[10];
             static char caption_arg_1[] = "-sami";
         CEW_argv[i++] = caption_arg_1;
             output_srt = 1;
-            sprintf(filename, "%s.smi", outbasename);
+            comskip::checked_format(filename, "%s.smi", outbasename);
         }
         else
         {
             static char caption_arg_2[] = "-srt";
         CEW_argv[i++] = caption_arg_2;
-            sprintf(filename, "%s.srt", outbasename);
+            comskip::checked_format(filename, "%s.srt", outbasename);
         }
         CEW_argv[i++] = (char *)in->filename[0];
         static char caption_arg_3[] = "-o";
@@ -1160,4 +1161,3 @@ void BuildBlackFrameCommList(void) {
 
 #endif
 */
-

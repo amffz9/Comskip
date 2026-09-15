@@ -1,5 +1,6 @@
 #pragma once
 #include "ini.h"
+extern bool ALIGN_AC3_PACKETS;
 
 extern int commDetectMethod;
 extern int verbose;

@@ -24,6 +24,14 @@
 #include "platform.h"
 #include "vo.h"
 #include "comskip.h"
+#include "audio_samples.h"
+#include "settings.h"
+#include <algorithm>
+#include <limits>
+#include <cmath>
+#include <filesystem>
+#include "checked_format.h"
+#include "frame_conversion.h"
 
 #ifdef HAVE_SDL
 #include <SDL.h>
@@ -191,6 +199,9 @@ int64_t best_effort_timestamp;
 
 //#include "mpeg2convert.h"
 #include "comskip.h"
+#include "audio_samples.h"
+#include <algorithm>
+#include <limits>
 
 extern int coding_type;
 extern int audio_channels;
@@ -282,7 +293,7 @@ extern int lowres;
 
 static int sigint = 0;
 
-static int verbose = 0;
+static int decoder_verbose = 0;
 
 extern int selftest;
 double selftest_target = 0.0;
@@ -500,22 +511,20 @@ void backfill_frame_volumes()
     }
 }
 
-int ALIGN_AC3_PACKETS=0;
 
 
 
-void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
+void sound_to_frames(VideoState *is, const AVFrame& frame)
 {
-    int i,l;
-    int volume;
+    const int s = frame.nb_samples;
+    const int c = frame.ch_layout.nb_channels;
+    if (s <= 0 || c <= 0) return;
+    const auto samples = comskip::media::normalize_audio(frame);
     static int old_c = 0;
     double old_base_apts;
     static double old_audio_clock=0.0;
     double calculated_delay = 0.0;
     double avg_volume = 0.0;
-    int planar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(format));
-    float *(fb[16]);
-    short *(sb[16]);
     static int old_sample_rate = 0;
 
     audio_samples = (audio_buffer_ptr - audio_buffer);
@@ -569,54 +578,22 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
        return;
     }
 
-    if (s > 0)
-    {
-        if (format == AV_SAMPLE_FMT_FLTP)
-        {
-            for (l=0;l < c;l++ )
-            {
-                fb[l] = (float*)b[l];
-            }
-            for (i = 0; i < s; i++)
-            {
-                volume = 0;
-                if (planar)
-                    for (l=0;l < c;l++ ) volume += *((fb[l])++) * 64000;
-                else
-                    for (l=0;l < c;l++ ) volume += *((fb[0])++) * 64000;
-#if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
-    LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
-                *audio_buffer_ptr++ = volume / is->audio_st->codecpar->ch_layout.nb_channels;
-                avg_volume += abs(volume / is->audio_st->codecpar->ch_layout.nb_channels);
-#else
-                *audio_buffer_ptr++ = volume / is->audio_st->codecpar->channels;
-                avg_volume += abs(volume / is->audio_st->codecpar->channels);
-#endif
-            }
-        }
-        else
-        {
-            for (l=0;l < c;l++ )
-            {
-                sb[l] = (short*)b[l];
-            }
-            for (i = 0; i < s; i++)
-            {
-                volume = 0;
-                if (planar)
-                    for (l=0;l < c;l++ ) volume += *((sb[l])++);
-                else
-                    for (l=0;l < c;l++ ) volume += *((sb[0])++);
-#if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
-    LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
-                *audio_buffer_ptr++ = volume / is->audio_st->codecpar->ch_layout.nb_channels;
-                avg_volume += abs(volume / is->audio_st->codecpar->ch_layout.nb_channels);
-#else
-                *audio_buffer_ptr++ = volume / is->audio_st->codecpar->channels;
-                avg_volume += abs(volume / is->audio_st->codecpar->channels);
-#endif
-            }
-        }
+    // Preserve the existing S16 and floating-point detector scales. Other
+    // representations now follow the floating-point path through FFmpeg.
+    const double scale = av_get_packed_sample_fmt(static_cast<AVSampleFormat>(frame.format))
+        == AV_SAMPLE_FMT_S16 ? 32768.0 : 64000.0;
+    for (int i = 0; i < s; ++i) {
+        double volume = 0;
+        for (const auto& channel : samples.channels) volume += channel[i];
+        volume = volume * scale / c;
+        // Floating-point streams may exceed the short buffer range or contain
+        // nonfinite samples. Avoid undefined conversion and amplitude wraparound.
+        if (!std::isfinite(volume)) volume = 0;
+        const auto value = static_cast<short>(std::clamp(volume,
+            static_cast<double>(std::numeric_limits<short>::lowest()),
+            static_cast<double>(std::numeric_limits<short>::max())));
+        *audio_buffer_ptr++ = value;
+        avg_volume += std::abs(static_cast<int>(value));
     }
     avg_volume /= s;
     audio_samples = (audio_buffer_ptr - audio_buffer);
@@ -659,7 +636,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     pkt_temp->size = pkt->size;
 
     if ( !ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
-        && ((pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77)))
+        && (pkt_temp->size < 2 || pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77))
     {
 //        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
         ac3_package_misalignment_count++;
@@ -672,9 +649,10 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-        if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )
+        if (pkt_temp->size < 0 || pkt_temp->size > AC3_BUFFER_SIZE - ac3_packet_index)
         {
             Debug(8,"AC3 sync error\n");
+            ac3_packet_index = 0;
             return;
         }
         memcpy(&ac3_packet[ac3_packet_index], pkt_temp->data, pkt_temp->size);
@@ -687,8 +665,14 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             pkt_temp->size--;
             ps++;
         }
-        if (pkt_temp->size < 2)
-            return; // No packet start found
+        if (pkt_temp->size < 2) {
+            // Keep only the possible first byte of a sync word split across packets.
+            const bool partial_sync = pkt_temp->size == 1 && pkt_temp->data[0] == 0x0b;
+            ac3_packet_index = partial_sync ? 1 : 0;
+            if (partial_sync)
+                ac3_packet[0] = 0x0b;
+            return;
+        }
         if (ps>0)
             Debug(8,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, framenum);
         pp = pkt_temp->data;
@@ -702,10 +686,9 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         }
         else
         {
-            // No complete packet found;
-            rps = pkt_temp->size;
-            pp = &pkt_temp->data[0];
-            pkt_temp->size = 0;
+            // Retain the candidate frame, discarding bytes before its sync word.
+            memmove(ac3_packet, pkt_temp->data, pkt_temp->size);
+            ac3_packet_index = pkt_temp->size;
             return;
         }
         if ( (pkt_temp->size % 768 ) != 0)
@@ -753,7 +736,26 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
     initial_apts_set = 1;
 
-    len1 = avcodec_send_packet(is->audio_ctx, pkt_temp);
+    int send_result;
+    int received_frames;
+retry_audio_send:
+    received_frames = 0;
+    send_result = avcodec_send_packet(is->audio_ctx, pkt_temp);
+
+    // send_packet consumes the whole packet on success. receive_frame returns
+    // zero on success, rather than the number of input bytes consumed.
+    if (send_result >= 0) {
+        pkt_temp->data += pkt_temp->size;
+        pkt_temp->size = 0;
+    } else if (send_result != AVERROR(EAGAIN)) {
+        if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+            const int skipped = pkt_temp->size < 2 ? pkt_temp->size : 2;
+            pkt_temp->data += skipped;
+            pkt_temp->size -= skipped;
+        } else {
+            pkt_temp->size = 0;
+        }
+    }
 
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
     while ((len1 = avcodec_receive_frame(is->audio_ctx, is->frame)) != AVERROR(EAGAIN))
@@ -766,23 +768,9 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             Debug(2 ,"Audio format change\n");
         }
         prev_codec_id = is->audio_st->codecpar->codec_id;
-        if (len1 < 0  && !ALIGN_AC3_PACKETS)
-        {
-            /* if error, we skip the frame */
-            pkt_temp->size = 0;
-            if (is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) ac3_packet_index = 0;
-
+        if (len1 < 0)
             break;
-        }
-        if (len1 < 0  && ALIGN_AC3_PACKETS)
-        {
-            len1 = 2; // Skip over packet start
-            pkt_temp->data += len1;
-            pkt_temp->size -= len1;
-            break;
-        }
-        pkt_temp->data += len1;
-        pkt_temp->size -= len1;
+        ++received_frames;
         if (!got_frame)
         {
             /* stop sending empty packets if the decoder is finished */
@@ -797,7 +785,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(is, (short **)is->frame->data, is->frame->nb_samples ,is->frame->ch_layout.nb_channels, is->frame->format);
+            sound_to_frames(is, *is->frame);
         }
         is->audio_clock += (double)data_size /
                            (is->frame->ch_layout.nb_channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
@@ -808,12 +796,20 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(is, (short **)is->frame->data, is->frame->nb_samples ,is->frame->channels, is->frame->format);
+            sound_to_frames(is, *is->frame);
         }
         is->audio_clock += (double)data_size /
                            (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
         av_frame_unref(is->frame);
 #endif
+    }
+
+    // EAGAIN means that no input was accepted. Drain queued frames and retry
+    // that same packet; moving on would silently drop non-aligned audio input.
+    if (send_result == AVERROR(EAGAIN)) {
+        if (received_frames > 0)
+            goto retry_audio_send;
+        Debug(1, "Audio decoder refused input without producing a frame\n");
     }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
@@ -840,7 +836,7 @@ static double print_fps (int final)
     int frames, elapsed;
     char cur_pos[100] = "0:00:00";
 
-    if (verbose)
+    if (decoder_verbose)
         return 0.0;
 
     if(csStepping)
@@ -1294,16 +1290,11 @@ static int    prev_strange_framenum = 0;
         frameFinished = 1;
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
-            is->img_convert_ctx = sws_getCachedContext(is->img_convert_ctx, is->pFrame->width, is->pFrame->height, static_cast<AVPixelFormat>(is->pFrame->format), is->pFrame->width, is->pFrame->height, AV_PIX_FMT_YUV420P, SWS_POINT, NULL, NULL, NULL);
-            AVFrame *newframe = av_frame_alloc();
-            av_frame_copy_props(newframe, is->pFrame);
-            newframe->format = AV_PIX_FMT_YUV420P;
-            newframe->width = is->pFrame->width;
-            newframe->height = is->pFrame->height;
-            av_frame_get_buffer(newframe, 0);
-            sws_scale(is->img_convert_ctx, (const uint8_t * const *)is->pFrame->data, is->pFrame->linesize, 0, is->pFrame->height, newframe->data, newframe->linesize);
-            av_frame_unref(is->pFrame);
-            is->pFrame = newframe;
+            if (comskip::media::convert_frame_to_8bit(is->pFrame, is->img_convert_ctx) < 0) {
+                Debug(1, "Could not convert the decoded 10-bit frame to 8-bit\n");
+                av_frame_unref(is->pFrame);
+                continue;
+            }
         }
 
         if(is->dec_ctx->framerate.den && is->dec_ctx->framerate.num)
@@ -2171,6 +2162,11 @@ void file_close()
     avformat_close_input(&is->pFormatCtx);
 
     av_frame_free(&is->frame);
+    av_frame_free(&is->pFrame);
+    sws_freeContext(is->img_convert_ctx);
+    is->img_convert_ctx = NULL;
+    ac3_packet_index = 0;
+    ac3_package_misalignment_count = 0;
 
 #ifdef HARDWARE_DECODE
     ist->hwaccel_ctx = NULL;
@@ -2181,16 +2177,7 @@ void file_close()
 };
 
 
-// copied & modified from mingw-runtime-3.13's init.c
-typedef struct
-{
-    int newmode;
-} _startupinfo;
-extern void __wgetmainargs (int *, wchar_t ***, wchar_t ***, int, _startupinfo
-                            *);
-
-
-int main (int argc, char ** argv)
+int comskip_main (int argc, char ** argv)
 {
     AVPacket pkt1, *packet = &pkt1;
     int result = 0;
@@ -2208,34 +2195,6 @@ int main (int argc, char ** argv)
 #endif
     retries = 0;
 
-    char *ptr;
-    size_t len;
-
-#ifdef __MSVCRT_VERSION__
-
-    int i;
-    int _argc = 0;
-    wchar_t **_argv = 0;
-    wchar_t **dummy_environ = 0;
-    _startupinfo start_info;
-    start_info.newmode = 0;
-    __wgetmainargs(&_argc, &_argv, &dummy_environ, -1, &start_info);
-
-
-
-    char *aargv[20];
-    char (argt[20])[1000];
-
-    argv = aargv;
-    argc = _argc;
-
-    for (i= 0; i< argc; i++)
-    {
-        argv[i] = &(argt[i][0]);
-        WideCharToMultiByte(CP_UTF8, 0,_argv[i],-1, argv[i],  1000, NULL, NULL );
-    }
-
-#endif
 
 #ifndef _DEBUG
 //	__tr y
@@ -2255,29 +2214,12 @@ int main (int argc, char ** argv)
             SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 #endif
         }
-        //get path to executable
-        ptr = argv[0];
-        if (*ptr == '\"')
-        {
-            ptr++; //strip off quotation marks
-            len = (size_t)(strchr(ptr,'\"') - ptr);
-        }
-        else
-        {
-            len = strlen(ptr);
-        }
-        strncpy(HomeDir, ptr, len);
-
-        ptr = strrchr(HomeDir,'\\');
-        if (!ptr || ptr - HomeDir == 0)
-        {
-            HomeDir[0] = '.';
-            HomeDir[1] = '\0';
-        }
-        else
-        {
-            *ptr = '\0';
-        }
+        auto executable_directory = std::filesystem::path(std::u8string_view(
+            reinterpret_cast<const char8_t*>(argv[0]))).parent_path();
+        if (executable_directory.empty()) executable_directory = ".";
+        const auto directory_utf8 = executable_directory.u8string();
+        comskip::checked_format(HomeDir, "%s",
+            reinterpret_cast<const char*>(directory_utf8.c_str()));
 
         fprintf (stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);
 

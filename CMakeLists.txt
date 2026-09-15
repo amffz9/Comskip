@@ -33,14 +33,32 @@ if(BUILD_TESTING)
     add_executable(settings_test tests/settings_test.cpp)
     target_link_libraries(settings_test PRIVATE comskip_config GTest::gtest_main)
     gtest_discover_tests(settings_test)
+    add_executable(checked_format_test tests/checked_format_test.cpp)
+    target_include_directories(checked_format_test PRIVATE src/app)
+    target_link_libraries(checked_format_test PRIVATE GTest::gtest_main)
+    gtest_discover_tests(checked_format_test)
+    if(WIN32)
+        add_executable(arguments_test tests/arguments_test.cpp)
+        target_include_directories(arguments_test PRIVATE src/app)
+        target_link_libraries(arguments_test PRIVATE GTest::gtest_main)
+        gtest_discover_tests(arguments_test)
+    endif()
 endif()
 
 if(COMSKIP_BUILD_APP)
     find_path(FFMPEG_INCLUDE_DIR libavformat/avformat.h REQUIRED)
-    foreach(component avformat avcodec avutil swscale)
+    foreach(component avformat avcodec avutil swscale swresample)
         find_library(${component}_LIBRARY NAMES ${component} REQUIRED)
         list(APPEND FFMPEG_LIBRARIES ${${component}_LIBRARY})
     endforeach()
+    add_library(media_conversion src/media/audio_samples.cpp src/media/frame_conversion.cpp)
+    target_include_directories(media_conversion PUBLIC src/media ${FFMPEG_INCLUDE_DIR})
+    target_link_libraries(media_conversion PUBLIC ${swresample_LIBRARY} ${swscale_LIBRARY} ${avutil_LIBRARY})
+    if(BUILD_TESTING)
+        add_executable(media_conversion_test tests/audio_samples_test.cpp tests/frame_conversion_test.cpp)
+        target_link_libraries(media_conversion_test PRIVATE media_conversion GTest::gtest_main)
+        gtest_discover_tests(media_conversion_test)
+    endif()
     find_path(ARGTABLE_INCLUDE_DIR argtable2.h REQUIRED)
     find_library(ARGTABLE_LIBRARY NAMES argtable2 REQUIRED)
     add_library(captions STATIC third_party/ccextractor/608.c third_party/ccextractor/ccextractor.c
@@ -60,6 +78,7 @@ if(COMSKIP_BUILD_APP)
         src/ui/review.cpp
         src/config/legacy_settings.cpp
         src/app/runtime.cpp
+        src/app/main.cpp
         src/app/csv_input.cpp
         src/output/cutlists.cpp
         src/output/diagnostics.cpp
@@ -68,9 +87,12 @@ if(COMSKIP_BUILD_APP)
         src/media/mpeg2dec.cpp src/platform/platform.cpp src/ui/video_out_dx.c)
     target_include_directories(comskip PRIVATE src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
-    target_link_libraries(comskip PRIVATE commercial_length comskip_config captions ${FFMPEG_LIBRARIES}
+    target_link_libraries(comskip PRIVATE commercial_length comskip_config media_conversion captions ${FFMPEG_LIBRARIES}
         ${ARGTABLE_LIBRARY} Threads::Threads)
     if(WIN32)
+        if(MINGW)
+            target_link_options(comskip PRIVATE -municode)
+        endif()
         find_library(GETOPT_LIBRARY NAMES getopt REQUIRED)
         target_link_libraries(comskip PRIVATE ${GETOPT_LIBRARY})
         target_link_libraries(comskip PRIVATE comdlg32 gdi32 user32 ddraw dxguid)

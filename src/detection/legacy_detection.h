@@ -490,22 +490,22 @@ extern int standoff_size;
 extern int standoff_initial_size;
 extern int standoff_initial_wait;
 
-extern char incomingCommandLine[260];
-extern char logofilename[260];
-extern char logfilename[260];
-extern char mpegfilename[260];
-extern char exefilename[260];
-extern char inbasename[260];
-extern char workbasename[260];
-extern char outbasename[260];
-extern char shortbasename[260];
-extern char inifilename[260];
-extern char dictfilename[260];
-extern char out_filename[260];
-extern char incommercial_filename[260];
+extern char incomingCommandLine[MAX_ARG];
+extern char logofilename[MAX_PATH];
+extern char logfilename[MAX_PATH];
+extern char mpegfilename[MAX_PATH];
+extern char exefilename[MAX_PATH];
+extern char inbasename[MAX_PATH];
+extern char workbasename[MAX_PATH];
+extern char outbasename[MAX_PATH];
+extern char shortbasename[MAX_PATH];
+extern char inifilename[MAX_PATH];
+extern char dictfilename[MAX_PATH];
+extern char out_filename[MAX_PATH];
+extern char incommercial_filename[MAX_PATH];
 
-extern char outputdirname[260];
-extern char filename[260];
+extern char outputdirname[MAX_PATH];
+extern char filename[MAX_PATH];
 extern int curvolume;
 extern int						framenum;
 //unsigned int			frame_period;
@@ -551,7 +551,7 @@ extern int subsample_video;
 //#define MAXWIDTH	2000
 //#define MAXHEIGHT	1200
 
-extern char haslogo[38400000];
+extern char haslogo[MAXWIDTH * MAXHEIGHT];
 
 // unsigned char		oldframe[MAXWIDTH*MAXHEIGHT];
 
@@ -802,8 +802,8 @@ extern bool reverseLogoLogic;
 unsigned char **	horiz_edges = NULL;				// rotating storage for detected horizontal edges
 unsigned char **	vert_edges = NULL;					// rotating storage for detected vertical edges
 #else
-extern unsigned char horiz_count[38400000];
-extern unsigned char vert_count[38400000];
+extern unsigned char horiz_count[MAXWIDTH * MAXHEIGHT];
+extern unsigned char vert_count[MAXWIDTH * MAXHEIGHT];
 #endif
 extern double borderIgnore;					// Percentage of each side to ignore for logo detection
 
@@ -828,15 +828,15 @@ extern int tlogoMaxX;
 extern int tlogoMinY;
 extern int tlogoMaxY;
 extern int edgemask_filled;
-extern unsigned char thoriz_edgemask[38400000];
-extern unsigned char tvert_edgemask[38400000];
+extern unsigned char thoriz_edgemask[MAXWIDTH * MAXHEIGHT];
+extern unsigned char tvert_edgemask[MAXWIDTH * MAXHEIGHT];
 
 extern int clogoMinX;
 extern int clogoMaxX;
 extern int clogoMinY;
 extern int clogoMaxY;
-extern unsigned char choriz_edgemask[38400000];
-extern unsigned char cvert_edgemask[38400000];
+extern unsigned char choriz_edgemask[MAXWIDTH * MAXHEIGHT];
+extern unsigned char cvert_edgemask[MAXWIDTH * MAXHEIGHT];
 
 
 
@@ -873,17 +873,17 @@ extern const char * helptext[30];
 extern double currentGoodEdge;
 
 
-extern int lineStart[4800];		/* Area to include for black frame detection, non logo area */
-extern int lineEnd[4800];
+extern int lineStart[MAXHEIGHT];		/* Area to include for black frame detection, non logo area */
+extern int lineEnd[MAXHEIGHT];
 
-extern unsigned char hor_edgecount[38400000];
-extern unsigned char ver_edgecount[38400000];
-extern unsigned char max_br[38400000];
-extern unsigned char min_br[38400000];
+extern unsigned char hor_edgecount[MAXWIDTH * MAXHEIGHT];
+extern unsigned char ver_edgecount[MAXWIDTH * MAXHEIGHT];
+extern unsigned char max_br[MAXWIDTH * MAXHEIGHT];
+extern unsigned char min_br[MAXWIDTH * MAXHEIGHT];
 
 
 
-extern unsigned char graph[115200000];
+extern unsigned char graph[MAXWIDTH * MAXHEIGHT * 3];
 
 extern int gy;
 
