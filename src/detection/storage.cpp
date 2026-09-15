@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 void InitializeFrameArray(long i)
@@ -10,7 +11,7 @@ void InitializeFrameArray(long i)
         if (frame == NULL)
         {
             Debug(0, "Failed to allocated space for the frame array, quitting \n");
-            exit(1);
+            comskip::request_exit(1);
         }
     }
 
@@ -59,7 +60,7 @@ void InitializeSchangeArray(long i)
         void *ptr = realloc(schange, (max_schange_count + 1) * sizeof(schange_info));
         if (ptr == NULL) {
             Debug(0, "Could not allocate memory for %i scene change frames.\n", max_schange_count);
-            exit(12);
+            comskip::request_exit(12);
         }
         schange = static_cast<schange_info *>( ptr );
         Debug(9, "Resizing scene change array to accommodate %i frames.\n", max_schange_count);
@@ -104,7 +105,7 @@ void InitializeBlockArray(long i)
     if (block_count >= max_block_count)
     {
         Debug(0,"Panic, too many blocks\n");
-        exit(102);
+        comskip::request_exit(102);
 //		max_block_count += 100;
 //		cblock = realloc(cblock, (max_block_count + 1) * sizeof(block_info));
 //		Debug(9, "Resizing cblock array to accommodate %i blocks.\n", max_block_count);

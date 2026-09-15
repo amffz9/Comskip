@@ -31,3 +31,20 @@ command-line parsing, graphics, and testing.
 
 Commit each verified migration step. Keep remaining limitations explicit rather
 than redefine completion around whichever subset currently passes tests.
+
+## Verified migration stages
+
+- Owned FFmpeg input/codec/frame/packet/dictionary/scaler resources are integrated;
+  the media coordinator still needs to become recording-owned.
+- C++ lower-level exit requests unwind to the application boundary, and scan task
+  failures propagate to the caller. Workers support captured recording dependencies.
+- English/Spanish primary CLI catalogs, external editable catalogs, and real CLI
+  selection tests are integrated. Decoder/detector/output/review messages remain.
+- Pure Settings values own every committed configuration field and regional
+  profile, with full-schema and independent-load tests. Application callsites still
+  use the legacy globals; this requirement is not complete.
+- Pure timed EDL serialization is integrated for standard/live/plus output, with
+  boundary/offset/locale/error tests. Other serializer families remain.
+- The current Windows build passes 56 tests. Linux/macOS and SDL verification,
+  repeated full analyses, seeking/reopening, damaged media, and format changes
+  still require evidence.

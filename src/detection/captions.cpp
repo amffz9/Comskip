@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 void OutputCCBlock(long i)
@@ -48,7 +49,7 @@ void Init_XDS_block()
         if (XDS_block == NULL)
         {
             Debug(0, "Could not allocate memory for XDS blocks\n");
-            exit(22);
+            comskip::request_exit(22);
         }
         XDS_block_count = 0;
         XDS_block[XDS_block_count].frame = 0;

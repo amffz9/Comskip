@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 void PrintLogoFrameGroups(void)
@@ -925,7 +926,7 @@ void ResetLogoBuffers(void)
               logoFrameBuffer[i] = malloc(width * height * sizeof(frame_ptr[0]));
               if (logoFrameBuffer[i] == NULL) {
                    Debug(0, "Could not allocate memory for logo frame buffer %i\n", i);
-                   exit(16);
+                   comskip::request_exit(16);
               }
          */
     }
@@ -1573,7 +1574,7 @@ void SaveLogoMaskData(void)
         fprintf(stderr, "%s - could not create file %s\n", strerror(errno), logofilename);
         Debug(1, "%s - could not create file %s\n", strerror(errno), logofilename);
         if(startOverAfterLogoInfoAvail)
-            exit(7);
+            comskip::request_exit(7);
     }
 
     fprintf(logo_file, "logoMinX=%i\n", clogoMinX);
@@ -1699,13 +1700,13 @@ void LoadLogoMaskData(void)
     	choriz_edgemask = malloc(width * height * sizeof(unsigned char));
     	if (choriz_edgemask == NULL) {
     		Debug(0, "Could not allocate memory for horizontal edgemask\n");
-    		exit(8);
+            comskip::request_exit(8);
     	}
 
     	cvert_edgemask = malloc(width * height * sizeof(unsigned char));
     	if (cvert_edgemask == NULL) {
     		Debug(0, "Could not allocate memory for vertical edgemask\n");
-    		exit(9);
+            comskip::request_exit(9);
     	}
     	memset(choriz_edgemask, 0, width * height);
     	memset(cvert_edgemask, 0, width * height);

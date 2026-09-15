@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "checked_format.h"
 #include "legacy_detection.h"
 
@@ -64,7 +65,7 @@ void BuildCommListAsYouGo(void)
         if (onTheFlyBlackFrame == NULL)
         {
             Debug(0, "Could not allocate memory for onTheFlyBlackFrame\n");
-            exit(8);
+            comskip::request_exit(8);
         }
 
 #ifdef OLD_LIVE_TV
@@ -230,7 +231,7 @@ void BuildCommListAsYouGo(void)
                     if (!out_file)
                     {
                         Debug(0, "ERROR writing to %s\n", out_filename);
-                        exit(103);
+                        comskip::request_exit(103);
                     }
                 }
 //				fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %4i\n-------------------\n",frame_count-1, (int)(fps*100));
@@ -246,7 +247,7 @@ void BuildCommListAsYouGo(void)
                     if (!edl_file)
                     {
                         Debug(0, "ERROR writing to %s\n", filename);
-                        exit(103);
+                        comskip::request_exit(103);
                     }
                 }
             }
@@ -261,7 +262,7 @@ void BuildCommListAsYouGo(void)
                     if (!live_file)
                     {
                         Debug(0, "ERROR writing to %s\n", filename);
-                        exit(103);
+                        comskip::request_exit(103);
                     }
                 }
             }
@@ -278,7 +279,7 @@ void BuildCommListAsYouGo(void)
                 else
                 {
                     fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-                    exit(6);
+                    comskip::request_exit(6);
                 }
             }
             reffer_count = -1;
@@ -337,7 +338,7 @@ void BuildCommListAsYouGo(void)
                     if (commercial_count >= MAX_COMMERCIALS)
                     {
                         Debug(0, "Insufficient memory to manage live_tv commercials\n");
-                        exit(8);
+                        comskip::request_exit(8);
                     }
                     commercial[commercial_count].start_frame = c_start[i] + padding*fps - remove_before*fps;
                     commercial[commercial_count].end_frame = c_end[i] - padding*fps + remove_after*fps;

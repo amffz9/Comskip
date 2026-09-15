@@ -1,7 +1,45 @@
+#include "exit_requested.h"
 #include "checked_format.h"
 #include "xml_filename.h"
+#include "edl.h"
 #include <filesystem>
+#include <sstream>
+#include <vector>
 #include "legacy_detection.h"
+
+namespace {
+void append_edl_record(FILE* destination, long start, long end,
+                       comskip::output::EdlVariant variant)
+{
+    using namespace comskip::output;
+    const OutputOptions options{edl_offset, edl_skip_field,
+                                demux_pid && enable_mencoder_pts, variant};
+    std::vector<Seconds> timestamps;
+    MediaDescription media{fps};
+    if (frame && frame_count > 1) {
+        auto first = static_cast<FrameIndex>(start < 5 ? 0 : start);
+        auto last = static_cast<FrameIndex>(end);
+        if (variant == EdlVariant::standard) {
+            first = std::max<FrameIndex>(first - options.frame_offset, 0);
+            last = std::max<FrameIndex>(last - options.frame_offset, 0);
+        }
+        first = std::clamp<FrameIndex>(first, 1, frame_count - 1);
+        last = std::clamp<FrameIndex>(last, 1, frame_count - 1);
+        timestamps.reserve(static_cast<std::size_t>(last - first + 1));
+        for (auto index = first; index <= last; ++index)
+            timestamps.emplace_back(frame[index].pts);
+        media.timestamps = timestamps;
+        media.first_frame = first;
+        media.first_frame_timestamp = Seconds{get_frame_pts(1)};
+    }
+    const CommercialInterval interval{start, end};
+    std::ostringstream serialized;
+    write_edl(serialized, std::span{&interval, 1}, media, options);
+    const auto text = serialized.str();
+    if (fwrite(text.data(), 1, text.size(), destination) != text.size())
+        throw std::ios_base::failure("Failed writing commercial EDL output");
+}
+}
 
 void OpenOutputFiles()
 {
@@ -18,7 +56,7 @@ void OpenOutputFiles()
             if (!out_file)
             {
                 Debug(0, "ERROR writing to %s\n", out_filename);
-                exit(103);
+                comskip::request_exit(103);
             }
         }
         fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",F2F(frame_count-1), (int)(fps*100));
@@ -36,7 +74,7 @@ void OpenOutputFiles()
             if (!chapters_file)
             {
                 Debug(0, "ERROR writing to %s\n", filename);
-                exit(103);
+                comskip::request_exit(103);
             }
         }
         fprintf(chapters_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",frame_count-1, (int)(fps*100));
@@ -49,7 +87,7 @@ void OpenOutputFiles()
         if (!zoomplayer_cutlist_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -64,7 +102,7 @@ void OpenOutputFiles()
         if (!plist_cutlist_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -81,7 +119,7 @@ void OpenOutputFiles()
         if (!incommercial_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         fprintf(incommercial_file, "0\n");
         fclose(incommercial_file);
@@ -97,7 +135,7 @@ void OpenOutputFiles()
         if (!zoomplayer_chapter_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -113,7 +151,7 @@ void OpenOutputFiles()
         if (!scf_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -128,7 +166,7 @@ void OpenOutputFiles()
         if (!edl_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -143,7 +181,7 @@ void OpenOutputFiles()
         if (!ffmeta_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -158,7 +196,7 @@ void OpenOutputFiles()
         if (!ffsplit_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -173,7 +211,7 @@ void OpenOutputFiles()
         if (!live_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -188,7 +226,7 @@ void OpenOutputFiles()
         if (!ipodchap_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -204,7 +242,7 @@ void OpenOutputFiles()
         if (!edlp_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -220,7 +258,7 @@ void OpenOutputFiles()
         if (!bcf_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -235,7 +273,7 @@ void OpenOutputFiles()
         if (!edlx_file)
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
         else
         {
@@ -280,7 +318,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
     if (output_videoredo3)
@@ -330,7 +368,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -347,7 +385,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -375,7 +413,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -400,7 +438,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -425,7 +463,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -440,7 +478,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -459,7 +497,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -475,7 +513,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -497,7 +535,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -514,7 +552,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -533,7 +571,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -549,7 +587,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 
@@ -570,7 +608,7 @@ void OpenOutputFiles()
         else
         {
             fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-            exit(6);
+            comskip::request_exit(6);
         }
     }
 		if (output_mkvtoolnix>0)
@@ -601,7 +639,7 @@ void OpenOutputFiles()
 		if (!mkvtoolnix_chapters_file)
 		{
 			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-			exit(6);
+            comskip::request_exit(6);
 		}
 		else
 		{
@@ -649,7 +687,7 @@ void OpenOutputFiles()
 		if (!mkvtoolnix_tags_file)
 		{
 			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-			exit(6);
+            comskip::request_exit(6);
 		}
 		else
 		{
@@ -737,7 +775,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             else  	// If the file still can't be opened for writting, give up and exit
             {
                 Debug(0, "ERROR writing to %s\n", out_filename);
-                exit(103);
+                comskip::request_exit(103);
             }
         }
     }
@@ -885,17 +923,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        s_start = max(start-edl_offset,0);
-        s_end = max(end - edl_offset,0);
-
-        if (demux_pid && enable_mencoder_pts)
-        {
-            fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + F2T(1), get_frame_pts(s_end) + F2T(1), edl_skip_field);
-        }
-        else
-        {
-            fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start), get_frame_pts(s_end), edl_skip_field);
-        }
+        append_edl_record(edl_file, start, end, comskip::output::EdlVariant::standard);
     }
     CLOSEOUTFILE(edl_file);
 
@@ -903,17 +931,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        s_start = max(start-edl_offset,0);
-        s_end = max(end - edl_offset,0);
-
-        if (demux_pid && enable_mencoder_pts)
-        {
-            fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + F2T(1), get_frame_pts(s_end) + F2T(1), edl_skip_field);
-        }
-        else
-        {
-            fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start), get_frame_pts(s_end), edl_skip_field);
-        }
+        append_edl_record(live_file, start, end, comskip::output::EdlVariant::standard);
     }
     CLOSEOUTFILE(live_file);
 
@@ -928,7 +946,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        fprintf(edlp_file, "%.2f\t%.2f\t%d\n", get_frame_pts(start) + F2T(1), get_frame_pts(end) + F2T(1), edl_skip_field);
+        append_edl_record(edlp_file, start, end, comskip::output::EdlVariant::plus);
     }
     CLOSEOUTFILE(edlp_file);
 

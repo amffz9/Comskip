@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 int CountSceneChanges(int StartFrame, int EndFrame)
@@ -51,20 +52,20 @@ void InitLogoBuffers(void)
     if (logoFrameNum == NULL)
     {
         Debug(0, "Could not allocate memory for logo buffer frame number array\n");
-        exit(14);
+        comskip::request_exit(14);
     }
     memset(logoFrameNum, 0,num_logo_buffers*sizeof(int));
     /*
     	if(!choriz_edgemask) choriz_edgemask = malloc(width * height * sizeof(unsigned char));
     	if (choriz_edgemask == NULL) {
     		Debug(0, "Could not allocate memory for horizontal edgemask\n");
-    		exit(14);
+            comskip::request_exit(14);
     	}
 
     	if(!cvert_edgemask) cvert_edgemask = malloc(width * height * sizeof(unsigned char));
     	if (cvert_edgemask == NULL) {
     		Debug(0, "Could not allocate memory for vertical edgemask\n");
-    		exit(15);
+            comskip::request_exit(15);
     	}
     */
     if(!logoFrameBuffer)
@@ -82,14 +83,14 @@ void InitLogoBuffers(void)
                 if (logoFrameBuffer[i] == NULL)
                 {
                     Debug(0, "Could not allocate memory for logo frame buffer %i\n", i);
-                    exit(16);
+                    comskip::request_exit(16);
                 }
             }
         }
         else
         {
             Debug(0, "Could not allocate memory for logo frame buffers\n");
-            exit(16);
+            comskip::request_exit(16);
         }
     }
 #if MULTI_EDGE_BUFFER
@@ -105,14 +106,14 @@ void InitLogoBuffers(void)
                 if (horiz_edges[i] == NULL)
                 {
                     Debug(0, "Could not allocate memory for horizontal edge buffer %i\n", i);
-                    exit(17);
+                    comskip::request_exit(17);
                 }
             }
         }
         else
         {
             Debug(0, "Could not allocate memory for horizontal edge buffers\n");
-            exit(18);
+            comskip::request_exit(18);
         }
     }
 #else
@@ -120,7 +121,7 @@ void InitLogoBuffers(void)
     	horiz_count = malloc(width * height * sizeof(unsigned char));
     	if (horiz_count == NULL) {
     		Debug(0, "Could not allocate memory for horizontal count buffer\n");
-    		exit(17);
+            comskip::request_exit(17);
     	}
     	memset(horiz_count, 0, width * height * sizeof(unsigned char));
     */
@@ -138,14 +139,14 @@ void InitLogoBuffers(void)
                 if (vert_edges[i] == NULL)
                 {
                     Debug(0, "Could not allocate memory for vertical edge buffer %i\n", i);
-                    exit(19);
+                    comskip::request_exit(19);
                 }
             }
         }
         else
         {
             Debug(0, "Could not allocate memory for vertical edge buffers\n");
-            exit(20);
+            comskip::request_exit(20);
         }
     }
 #else
@@ -153,7 +154,7 @@ void InitLogoBuffers(void)
     	vert_count = malloc(width * height * sizeof(unsigned char));
     	if (vert_count == NULL) {
     		Debug(0, "Could not allocate memory for vertical count buffer\n");
-    		exit(17);
+            comskip::request_exit(17);
     	}
     	memset(vert_count, 0, width * height * sizeof(unsigned char));
     */
@@ -184,7 +185,7 @@ void InitComSkip(void)
         if (frame == NULL)
         {
             Debug(0, "Could not allocate memory for frame array\n");
-            exit(10);
+            comskip::request_exit(10);
         }
     }
 
@@ -197,11 +198,11 @@ void InitComSkip(void)
     if (black == NULL)
     {
         Debug(0, "Could not allocate memory for black frame array\n");
-        exit(11);
+        comskip::request_exit(11);
     }
 //	} else {
 //		Debug(1, "ERROR: ComSkip cannot run without black frames.\n");
-//		exit(100);
+//		comskip::request_exit(100);
 //	}
 
     if (commDetectMethod & LOGO)
@@ -214,7 +215,7 @@ void InitComSkip(void)
         if (logo_block == NULL)
         {
             Debug(0, "Could not allocate memory for logo cblock array\n");
-            exit(13);
+            comskip::request_exit(13);
         }
 
 //		if (!logoInfoAvailable) {
@@ -234,7 +235,7 @@ void InitComSkip(void)
         if (schange == NULL)
         {
             Debug(0, "Could not allocate memory for scene change array\n");
-            exit(12);
+            comskip::request_exit(12);
         }
     }
 
@@ -248,7 +249,7 @@ void InitComSkip(void)
         if (cc_block == NULL)
         {
             Debug(0, "Could not allocate memory for cc blocks\n");
-            exit(22);
+            comskip::request_exit(22);
         }
 
         cc_block[0].start_frame = 0;
@@ -288,7 +289,7 @@ void InitComSkip(void)
         if (cc_text == NULL)
         {
             Debug(0, "Could not allocate memory for cc text groups\n");
-            exit(22);
+            comskip::request_exit(22);
         }
 
         cc_text[0].start_frame = 1;
@@ -315,12 +316,12 @@ void InitComSkip(void)
     if (ar_block == NULL)
     {
         Debug(0, "Could not allocate memory for aspect ratio block array\n");
-        exit(31);
+        comskip::request_exit(31);
     }
     if (ac_block == NULL)
     {
         Debug(0, "Could not allocate memory for audio channel block array\n");
-        exit(31);
+        comskip::request_exit(31);
     }
 //	}
 

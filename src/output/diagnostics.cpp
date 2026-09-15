@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 void FindIniFile(void)
@@ -63,7 +64,7 @@ double FindScoreThreshold(double percentile)
     if ((score == NULL) || (count == NULL) || (start == NULL) || (blocknr == NULL) || (percent == NULL))
     {
         Debug(1, "Could not allocate memory.  Exiting program.\n");
-        exit(21);
+        comskip::request_exit(21);
     }
 
     counter = 0;

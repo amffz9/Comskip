@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 #include "checked_format.h"
 #include "translator.h"
@@ -89,7 +90,7 @@ void LoadIniFile(const comskip::localization::Translator& translator)
             if (*file) LoadCutScene(file);
     } catch (const std::exception& error) {
         fputs(translator.format("invalid_configuration", error.what()).c_str(), stderr);
-        exit(1);
+        comskip::request_exit(1);
     }
     if (added_recording > 0 && giveUpOnLogoSearch < added_recording * 60)
         giveUpOnLogoSearch += added_recording * 60;
@@ -246,7 +247,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
     if (cl_list_decoders->count)
     {
         list_codecs();
-        exit(2);
+        comskip::request_exit(2);
     }
     if (cl_help->count)
     {
@@ -263,7 +264,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         fputs(translator.format("method_silence", SILENCE).c_str(), stdout);
         fputs(translator.format("method_cutscenes", CUTSCENE).c_str(), stdout);
         fputs(translator.text("all_methods"), stdout);
-        exit(2);
+        comskip::request_exit(2);
     }
 
     if (nerrors)
@@ -283,7 +284,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         fputs(translator.text("all_methods"), stdout);
         fputs(translator.text("errors"), stdout);
         arg_print_errors(stdout, end, "ComSkip");
-        exit(2);
+        comskip::request_exit(2);
     }
 
     if (strcmp(in->extension[0], ".csv") != 0 && strcmp(in->extension[0], ".txt") != 0)
@@ -293,7 +294,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
                 fputs(translator.format("opening", in->filename[0]).c_str(), stdout);
         		if (!in_file) {
                     fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-        			exit(3);
+                    comskip::request_exit(3);
         		}
         */
 
@@ -302,7 +303,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         if (i <0)
                {
                    fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-                   exit(3);
+                   comskip::request_exit(3);
 
                }
 */
@@ -320,7 +321,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         if (!test_file)
         {
             fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-            exit(3);
+            comskip::request_exit(3);
         }
 */
         comskip::checked_format(inifilename, "%.*scomskip.ini", i, inbasename);
@@ -333,7 +334,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         if (!in_file)
         {
             fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-            exit(4);
+            comskip::request_exit(4);
         }
 
         comskip::checked_format(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
@@ -397,7 +398,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         if (!in_file)
         {
             fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-            exit(4);
+            comskip::request_exit(4);
         }
         fclose(in_file);
         in_file = 0;
@@ -456,7 +457,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
     else
     {
         fputs(translator.format("unsupported_input", in->extension[0]).c_str(), stdout);
-        exit(5);
+        comskip::request_exit(5);
     }
     if (cl_ini->count)
     {
@@ -865,7 +866,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
             if (!out_file)
             {
                 fputs(translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
-                exit(6);
+                comskip::request_exit(6);
             }
             else
             {
@@ -886,7 +887,7 @@ FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translat
         if (frame_count < 0)
         {
             fputs(translator.text("incompatible_txt"), stdout);
-            exit(2);
+            comskip::request_exit(2);
         }
         framearray = false;
         fputs(translator.text("close_window"), stdout);

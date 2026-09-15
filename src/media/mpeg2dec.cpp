@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 /*
  * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
@@ -1001,7 +1002,7 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     frame_ptr = pFrame->data[0];
     if (frame_ptr == NULL)
     {
-        return(0);; // return; // exit(2);
+        return(0);; // return; // comskip::request_exit(2);
     }
 
     if (pFrame->pict_type == AV_PICTURE_TYPE_B)
@@ -1025,7 +1026,7 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
         else
            Debug( 1,"\nSelftest 2 OK: Reset\n");
 
-        exit(1);
+        comskip::request_exit(1);
     }
 
     if (!reviewing)
@@ -1076,7 +1077,7 @@ void Set_seek(VideoState *is, double pts)
         if (length < 0) {
             is->seek_pos = size*fmax(0,pts-4.0)/(frame_count * get_fps());
 //            Debug(0,"Impossible to reposition this file, aborting\n");
-  //          exit(-1);
+  //          comskip::request_exit(-1);
         } else {
             is->seek_pos = size*fmax(0,pts-4.0)/length;
         }
@@ -1266,7 +1267,7 @@ void raise_exception(void)
 int filter(void)
 {
     printf("Exception raised, Comskip is terminating\n");
-    exit(99);
+    comskip::request_exit(99);
 }
 
 extern char					mpegfilename[];
@@ -1560,7 +1561,7 @@ static int    prev_strange_framenum = 0;
                     selftest = 3;
                     live_tv_retries = 1;
                     pass = 0;
-//                    exit(1);
+//                    comskip::request_exit(1);
                 }
 #endif
                 if (SubmitFrame (is->video_st, is->pFrame.get(), is->video_clock))
@@ -1589,7 +1590,7 @@ static int    prev_strange_framenum = 0;
                     }
                     else
                         Debug( 1,"\nSelftest 3 OK: Reopen\n");
-                    exit(1);
+                    comskip::request_exit(1);
                 }
                 retries = 0;
                 if (SubmitFrame (is->video_st, is->pFrame.get(), is->video_clock))
@@ -1611,14 +1612,14 @@ static int    prev_strange_framenum = 0;
                             is->filename);
                         fclose(sample_file);
                         Debug( 1,"\nSelftest %d FAILED\n", selftest);
-                        exit(1);
+                        comskip::request_exit(1);
                     }
                     goto quit;          //Temporary till the seek error is fixed.
                     retries = 0;
-                    exit(-1);
+                    comskip::request_exit(-1);
                 }
             }
-//            if (selftest == 4) exit(1);
+//            if (selftest == 4) comskip::request_exit(1);
         }
         /* update the video clock */
         is->video_clock += frame_delay;
@@ -2066,7 +2067,7 @@ again:
                 sleep_for_ms(1000L);
                 goto again;
             }
-            exit(-1);
+            comskip::request_exit(-1);
 
         }
         is->seek_by_bytes = !!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is->pFormatCtx->iformat->name);
@@ -2084,7 +2085,7 @@ again:
         if(avformat_find_stream_info(is->pFormatCtx.get(), 0L )<0)
         {
             fprintf(stderr, "%s: Can not find stream info\n", is->filename);
-            exit(-1);
+            comskip::request_exit(-1);
         }
         // Dump information about file onto standard error
         if (retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename, 0);
@@ -2092,7 +2093,7 @@ again:
 
     if (!is->frame.get()) {
         if (!(is->frame = make_frame()))
-            exit(-1);
+            comskip::request_exit(-1);
     }
 
     if ( is->videoStream == -1)
@@ -2106,7 +2107,7 @@ again:
         {
             Debug(0, "Could not open video codec\n");
             fprintf(stderr, "%s: could not open video codec\n", is->filename);
-            exit(-1);
+            comskip::request_exit(-1);
         }
 
         if ( is->video_st->duration == AV_NOPTS_VALUE ||  is->video_st->duration < 0)
@@ -2218,7 +2219,7 @@ void file_close()
     is->frame.reset();
     is->pFrame.reset();
     is->img_convert_ctx.reset();
-    
+
     ac3_packet_index = 0;
     ac3_package_misalignment_count = 0;
 
@@ -2433,7 +2434,7 @@ nextpacket:
                                 fprintf(sample_file, "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", is->filename, is->duration, is->video_clock );
                                 fclose(sample_file);
                                 Debug( 1,"\nSelftest %d FAILED\n", selftest);
-                                exit(1);
+                                comskip::request_exit(1);
                             }
                         }
                         else
@@ -2575,7 +2576,7 @@ nextpacket:
              */
             selftest = 3;
             pass = 0;
-            //exit(1);
+            //comskip::request_exit(1);
         }
 
 

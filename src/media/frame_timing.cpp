@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 double get_fps()
@@ -77,7 +78,7 @@ void SaveVolume (int f,int v)
     if (f > 8 * 60 * 60 * 50)  // max 8 hours with fps of 50
     {
         Debug(0, "Too many volume panic's, protected file?\n");
-        exit(103);   // exit as probably protected file .
+        comskip::request_exit(103);   // exit as probably protected file .
     }
 
     for (i = 0; i < MAX_SAVED_VOLUMES; i++)
@@ -143,7 +144,7 @@ void set_frame_volume(unsigned int f, int volume)
             if (act_framenum  > frame_count + 10000) // too many audio frames without video
             {
                 Debug(0, "Too much audio without video, protected file or bug?\n");
-                exit(103);   // exit as probably protected file .
+                comskip::request_exit(103);   // exit as probably protected file .
             }
         }
 */

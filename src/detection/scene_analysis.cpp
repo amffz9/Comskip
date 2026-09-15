@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 void ProcessARInfoInit(int minY, int maxY, int minX, int maxX)
@@ -337,7 +338,7 @@ void ScanBottom(intptr_t arg)
 #ifdef DEBUG_HERE_BRIGHT_MEM
             if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
             	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-            	exit(1);
+                comskip::request_exit(1);
             }
 #endif
             own_histogram[0][hereBright]++;
@@ -382,7 +383,7 @@ void ScanTop(intptr_t arg)
 #ifdef DEBUG_HERE_BRIGHT_MEM
             if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
             	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-            	exit(1);
+                comskip::request_exit(1);
             }
 #endif
             own_histogram[1][hereBright]++;
@@ -427,7 +428,7 @@ void ScanLeft(intptr_t arg)
 #ifdef DEBUG_HERE_BRIGHT_MEM
             if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
             	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-            	exit(1);
+                comskip::request_exit(1);
             }
 #endif
             own_histogram[2][hereBright]++;
@@ -472,7 +473,7 @@ void ScanRight(intptr_t arg)
 #ifdef DEBUG_HERE_BRIGHT_MEM
             if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
             	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-            	exit(1);
+                comskip::request_exit(1);
             }
 #endif
             own_histogram[3][hereBright]++;

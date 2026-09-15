@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 void PrintArgs(void)
@@ -39,7 +40,7 @@ again:
     if (!in_file)
     {
         Debug(0, "Something went wrong... Exiting...\n");
-        exit(22);
+        comskip::request_exit(22);
     }
     fgets(line, sizeof(line), in_file); // Skip first line
     if (strcmp(line,"sep=,\n")==0)
@@ -123,7 +124,7 @@ again:
                     if (f!= frame_count)
                     {
                         Debug(0, "Shit!!!!\n");
-                        exit(23);
+                        comskip::request_exit(23);
                     }
                     break;
 
@@ -540,6 +541,6 @@ ccagain:
         //		printf(" Press Enter to close debug window\n");
 //		gets(HomeDir);
     }
-    exit(0);
+    comskip::request_exit(0);
 }
 

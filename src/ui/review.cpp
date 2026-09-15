@@ -1,3 +1,4 @@
+#include "exit_requested.h"
 #include "legacy_detection.h"
 
 int oheight = 0;
@@ -673,7 +674,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
     }
     if (key == 27)
     {
-        exit(1);
+        comskip::request_exit(1);
     }
     if (key == 'G')
     {
@@ -713,7 +714,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
             vo_draw(graph);
         if (key == 27)
         {
-            exit(1);
+            comskip::request_exit(1);
         }
         if (key == 'G')
         {
@@ -792,7 +793,7 @@ bool ReviewResult()
 
         if (key != 0)
         {
-            if (key == 27) if (!helpflag) exit(0);
+            if (key == 27) if (!helpflag) comskip::request_exit(0);
             if (key == 112)
             {
                 helpflag = 1;     // F1 Key
