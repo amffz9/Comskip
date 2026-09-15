@@ -1,6 +1,5 @@
 #include "settings_value.h"
 #include "settings_descriptors.h"
-#include "settings.h"
 #include <gtest/gtest.h>
 #include <set>
 #include <limits>
@@ -49,18 +48,17 @@ TEST(SettingsValue, KeepsInterleavedRecordingsAndProfilesIndependent) {
     EXPECT_DOUBLE_EQ(first.commercial_profile.minimum_tolerance, 0.5);
     EXPECT_DOUBLE_EQ(changed_first.commercial_profile.minimum_tolerance, 0.75);
 }
-TEST(SettingsValue, FailureChangesNeitherBaselineNorLegacyState) {
+TEST(SettingsValue, FailureChangesNeitherBaselineNorOtherRecording) {
     const auto baseline = default_settings();
-    const auto legacy_volume = max_volume;
-    const auto legacy_profile = comskip::config::commercial_profile();
+    const auto other = load_settings(Ini("max_volume=700\ncommercial_lengths=18,72"), baseline);
     EXPECT_THROW(load_settings(Ini("max_volume=900\nthread_count=0\ncommercial_lengths=18"), baseline), std::invalid_argument);
     EXPECT_EQ(baseline.max_volume, 500);
-    EXPECT_EQ(max_volume, legacy_volume);
-    EXPECT_EQ(comskip::config::commercial_profile().strict_lengths, legacy_profile.strict_lengths);
+    EXPECT_EQ(other.max_volume, 700);
+    EXPECT_EQ(other.commercial_profile.strict_lengths, (std::vector<int>{18, 72}));
     const auto success = load_settings(Ini("max_volume=800\ncommercial_lengths=72"), baseline);
     EXPECT_EQ(success.max_volume, 800);
-    EXPECT_EQ(max_volume, legacy_volume);
-    EXPECT_EQ(comskip::config::commercial_profile().strict_lengths, legacy_profile.strict_lengths);
+    EXPECT_EQ(other.max_volume, 700);
+    EXPECT_EQ(other.commercial_profile.strict_lengths, (std::vector<int>{18, 72}));
 }
 TEST(SettingsValue, PreservesLegacyValidationAndDelayConvention) {
     const auto base = default_settings();

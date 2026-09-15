@@ -1,13 +1,13 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 
-double get_fps()
+double get_fps(RecordingContext& context)
 {
-    return fps;
+    return context.settings.fps;
 }
 
 
-void set_fps(double fp)
+void set_fps(RecordingContext& context, double fp)
 {
 //    double old_fps = fps;
     double new_fps = (double)1.0 / fp;
@@ -33,10 +33,10 @@ void set_fps(double fp)
                 Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
             }
 #endif
-            if ( new_fps > 9.0 && new_fps < 150 && fabs(new_fps - fps) > 1. )
+            if ( new_fps > 9.0 && new_fps < 150 && fabs(new_fps - context.settings.fps) > 1. )
             {
-                fps = new_fps;
-                Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
+                context.settings.fps = new_fps;
+                Debug(context, 1, "Frame Rate set to %5.3f f/s\n", context.settings.fps);
  //               if (/* old_fps != fps && */ showed_fps < 4)
 //                    Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
             }
@@ -115,27 +115,27 @@ void ClearVolumeBuffer ()
 }
 */
 
-void set_frame_volume(unsigned int f, int volume)
+void set_frame_volume(RecordingContext& context, unsigned int f, int volume)
 {
     int i;
     int act_framenum;
-    if (!initialized) return;
+    if (!context.state.initialized) return;
 
 //	ascr += 1;
     act_framenum = f;
 
     if (act_framenum > 0)
     {
-        if (framearray)
-            if (act_framenum <= frame_count)
+        if (context.state.framearray)
+            if (act_framenum <= context.state.frame_count)
             {
  //               Debug(1, "Audio running after video\n");
-                if (frame[act_framenum].brightness > 5)
-                    frame[act_framenum].volume = volume;
+                if (context.state.frame[act_framenum].brightness > 5)
+                    context.state.frame[act_framenum].volume = volume;
                 if (volume >= 0)
                 {
-                    volumeHistogram[(volume/volumeScale < 255 ? volume/volumeScale : 255)]++;
-                    silenceHistogram[(volume < 255 ? volume : 255)]++;
+                    context.state.volumeHistogram[(volume/context.state.volumeScale < 255 ? volume/context.state.volumeScale : 255)]++;
+                    context.state.silenceHistogram[(volume < 255 ? volume : 255)]++;
                 }
             }
 /*
@@ -148,11 +148,11 @@ void set_frame_volume(unsigned int f, int volume)
             }
         }
 */
-        i = black_count-1;
-        while (i > 0 && black[i].frame > act_framenum)
+        i = context.state.black_count-1;
+        while (i > 0 && context.state.black[i].frame > act_framenum)
             i--;
-        if ( i >= 0 && black[i].frame == act_framenum )
-            if (black[i].brightness > 0) black[i].volume = volume;
+        if ( i >= 0 && context.state.black[i].frame == act_framenum )
+            if (context.state.black[i].brightness > 0) context.state.black[i].volume = volume;
         // Set the zero above to 5 if you do not want the volume to be updated for uniform frames etc.
     }
 //	audio_framenum++;

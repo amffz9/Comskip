@@ -1,112 +1,112 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 
-void OutputCCBlock(long i)
+void OutputCCBlock(RecordingContext& context, long i)
 {
     if (i > 1)
     {
-        Debug(
+        Debug(context,
             11,
             "%i\tStart - %6i\tEnd - %6i\tType - %s\n",
             i - 2,
-            cc_block[i - 2].start_frame,
-            cc_block[i - 2].end_frame,
-            CCTypeToStr(cc_block[i - 2].type)
+            context.state.cc_block[i - 2].start_frame,
+            context.state.cc_block[i - 2].end_frame,
+            CCTypeToStr(context, context.state.cc_block[i - 2].type)
         );
     }
 
     if (i > 0)
     {
-        Debug(
+        Debug(context,
             11,
             "%i\tStart - %6i\tEnd - %6i\tType - %s\n",
             i - 1,
-            cc_block[i - 1].start_frame,
-            cc_block[i - 1].end_frame,
-            CCTypeToStr(cc_block[i - 1].type)
+            context.state.cc_block[i - 1].start_frame,
+            context.state.cc_block[i - 1].end_frame,
+            CCTypeToStr(context, context.state.cc_block[i - 1].type)
         );
     }
 
     if (i <= 0)
     {
-        Debug(
+        Debug(context,
             11,
             "%i\tStart - %6i\tEnd - %6i\tType - %s\n",
             i,
-            cc_block[i].start_frame,
-            cc_block[i].end_frame,
-            CCTypeToStr(cc_block[i - 1].type)
+            context.state.cc_block[i].start_frame,
+            context.state.cc_block[i].end_frame,
+            CCTypeToStr(context, context.state.cc_block[i - 1].type)
         );
     }
 }
 
-void Init_XDS_block()
+void Init_XDS_block(RecordingContext& context)
 {
-    if(!XDS_block)
+    if(!context.state.XDS_block)
     {
-        max_XDS_block_count = 2000;
-        XDS_block = static_cast<XDS_block_info *>( malloc((max_XDS_block_count + 1) * sizeof(XDS_block_info)) );
-        if (XDS_block == NULL)
+        context.state.max_XDS_block_count = 2000;
+        context.state.XDS_block = static_cast<XDS_block_info *>( malloc((context.state.max_XDS_block_count + 1) * sizeof(XDS_block_info)) );
+        if (context.state.XDS_block == NULL)
         {
-            Debug(0, "Could not allocate memory for XDS blocks\n");
+            Debug(context, 0, "Could not allocate memory for XDS blocks\n");
             comskip::request_exit(22);
         }
-        XDS_block_count = 0;
-        XDS_block[XDS_block_count].frame = 0;
-        XDS_block[XDS_block_count].name[0] = 0;
-        XDS_block[XDS_block_count].v_chip = 0;
-        XDS_block[XDS_block_count].duration = 0;
-        XDS_block[XDS_block_count].position = 0;
-        XDS_block[XDS_block_count].composite1 = 0;
-        XDS_block[XDS_block_count].composite2 = 0;
+        context.state.XDS_block_count = 0;
+        context.state.XDS_block[context.state.XDS_block_count].frame = 0;
+        context.state.XDS_block[context.state.XDS_block_count].name[0] = 0;
+        context.state.XDS_block[context.state.XDS_block_count].v_chip = 0;
+        context.state.XDS_block[context.state.XDS_block_count].duration = 0;
+        context.state.XDS_block[context.state.XDS_block_count].position = 0;
+        context.state.XDS_block[context.state.XDS_block_count].composite1 = 0;
+        context.state.XDS_block[context.state.XDS_block_count].composite2 = 0;
     }
 }
 
-void Add_XDS_block()
+void Add_XDS_block(RecordingContext& context)
 {
-    if (XDS_block_count < max_XDS_block_count)
+    if (context.state.XDS_block_count < context.state.max_XDS_block_count)
     {
-        XDS_block_count++;
-        XDS_block[XDS_block_count] = XDS_block[XDS_block_count-1];
-        XDS_block[XDS_block_count].frame = framenum;
-        frame[framenum].xds = XDS_block_count;
+        context.state.XDS_block_count++;
+        context.state.XDS_block[context.state.XDS_block_count] = context.state.XDS_block[context.state.XDS_block_count-1];
+        context.state.XDS_block[context.state.XDS_block_count].frame = context.state.framenum;
+        context.state.frame[context.state.framenum].xds = context.state.XDS_block_count;
 
     }
     else
-        Debug(0, "Too much XDS data, discarded\n");
+        Debug(context, 0, "Too much XDS data, discarded\n");
 }
 
 
-unsigned char XDSbuffer[40][100];
-int lastXDS = 0;
-int firstXDS = 1;
-int startXDS = 1;
-int baseXDS = 0;
 
-const char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
+
+
+
+
+
+
 
 #define MAXXDSBUFFER	1024
-void AddXDS(unsigned char hi, unsigned char lo)
+void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
 {
-    static unsigned char XDSbuf[MAXXDSBUFFER];
-    static int c = 0;
+
+
     int i,j;
     int newXDS = 0;
-    Init_XDS_block();
-    if (startXDS)
+    Init_XDS_block(context);
+    if (context.state.startXDS)
     {
         if ((hi & 0x70) == 0 && hi != 0x8f)
         {
-            startXDS = 0;
-            c = 0;
-            baseXDS = hi & 0x0f;;
+            context.state.startXDS = 0;
+            context.state.AddXDS_c = 0;
+            context.state.baseXDS = hi & 0x0f;;
         }
         else
             return;
     }
     else
     {
-        if ((hi & 0x7f) == baseXDS + 1)
+        if ((hi & 0x7f) == context.state.baseXDS + 1)
             return; // COntinueation code
         if ((hi & 0x70) == 0 && hi != 0x8f)
             return;
@@ -115,39 +115,39 @@ void AddXDS(unsigned char hi, unsigned char lo)
         return;
     if (hi == 0x86 && (lo == 0x02 || lo == 1))
         return;
-    if (c >= MAXXDSBUFFER - 4)
+    if (context.state.AddXDS_c >= MAXXDSBUFFER - 4)
     {
         for (i = 0; i < 256; i++)
-            XDSbuf[i]=0;
-        c = 0;
-        startXDS = 1;
+            context.state.AddXDS_XDSbuf[i]=0;
+        context.state.AddXDS_c = 0;
+        context.state.startXDS = 1;
         return;
     }
-    XDSbuf[c++] = hi;
-    XDSbuf[c++] = lo;
+    context.state.AddXDS_XDSbuf[context.state.AddXDS_c++] = hi;
+    context.state.AddXDS_XDSbuf[context.state.AddXDS_c++] = lo;
     if (hi == 0x8f)
     {
-        startXDS = 1;
+        context.state.startXDS = 1;
         j = 0;
-        for (i = 0; i < c; i++)
-            j += XDSbuf[i];
+        for (i = 0; i < context.state.AddXDS_c; i++)
+            j += context.state.AddXDS_XDSbuf[i];
         if ( (j & 0x7f) != 0)
         {
-            c = 0;
+            context.state.AddXDS_c = 0;
             return;
         }
-        for (i = 0; i < lastXDS; i++)
+        for (i = 0; i < context.state.lastXDS; i++)
         {
-            if (XDSbuffer[i][0] == XDSbuf[0] && XDSbuffer[i][1] == XDSbuf[1])
+            if (context.state.XDSbuffer[i][0] == context.state.AddXDS_XDSbuf[0] && context.state.XDSbuffer[i][1] == context.state.AddXDS_XDSbuf[1])
             {
                 j = 0;
-                while (j < c)
+                while (j < context.state.AddXDS_c)
                 {
-                    if (XDSbuffer[i][j] != XDSbuf[j])
+                    if (context.state.XDSbuffer[i][j] != context.state.AddXDS_XDSbuf[j])
                     {
                         while (j < 100)
                         {
-                            XDSbuffer[i][j] = XDSbuf[j];
+                            context.state.XDSbuffer[i][j] = context.state.AddXDS_XDSbuf[j];
                             j++;
                         }
                         newXDS = 1;
@@ -158,46 +158,46 @@ void AddXDS(unsigned char hi, unsigned char lo)
                 break;
             }
         }
-        if (i == lastXDS && !firstXDS)
+        if (i == context.state.lastXDS && !context.state.firstXDS)
         {
             j = 0;
             while (j < 100)
             {
-                XDSbuffer[i][j] = XDSbuf[j];
+                context.state.XDSbuffer[i][j] = context.state.AddXDS_XDSbuf[j];
                 j++;
             }
             newXDS = 1;
-            lastXDS++;
+            context.state.lastXDS++;
             i++;
         }
-        firstXDS = 0;
+        context.state.firstXDS = 0;
         if (newXDS)
         {
-            Debug(10, "XDS[%i]: %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x ", framenum, XDSbuf[0], XDSbuf[1], XDSbuf[2], XDSbuf[3], XDSbuf[4], XDSbuf[5], XDSbuf[6], XDSbuf[7], XDSbuf[8], XDSbuf[9], XDSbuf[10], XDSbuf[11]);
+            Debug(context, 10, "XDS[%i]: %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x ", context.state.framenum, context.state.AddXDS_XDSbuf[0], context.state.AddXDS_XDSbuf[1], context.state.AddXDS_XDSbuf[2], context.state.AddXDS_XDSbuf[3], context.state.AddXDS_XDSbuf[4], context.state.AddXDS_XDSbuf[5], context.state.AddXDS_XDSbuf[6], context.state.AddXDS_XDSbuf[7], context.state.AddXDS_XDSbuf[8], context.state.AddXDS_XDSbuf[9], context.state.AddXDS_XDSbuf[10], context.state.AddXDS_XDSbuf[11]);
 
-            XDSbuf[c-2] = 0;
-            for (i=2; i < c-2; i++)
-                XDSbuf[i] &= 0x7f;
+            context.state.AddXDS_XDSbuf[context.state.AddXDS_c-2] = 0;
+            for (i=2; i < context.state.AddXDS_c-2; i++)
+                context.state.AddXDS_XDSbuf[i] &= 0x7f;
 
-            if (XDSbuf[0] == 1)
+            if (context.state.AddXDS_XDSbuf[0] == 1)
             {
-                if (XDSbuf[1] == 0x01)
+                if (context.state.AddXDS_XDSbuf[1] == 0x01)
                 {
-                    Debug(10, "XDS[%i]: Program Start Time %02d:%02d %d/%d\n", framenum, XDSbuf[3] & 0x3f, XDSbuf[2] & 0x3f ,  XDSbuf[5] & 0x1f,  XDSbuf[4] & 0x0f);
+                    Debug(context, 10, "XDS[%i]: Program Start Time %02d:%02d %d/%d\n", context.state.framenum, context.state.AddXDS_XDSbuf[3] & 0x3f, context.state.AddXDS_XDSbuf[2] & 0x3f ,  context.state.AddXDS_XDSbuf[5] & 0x1f,  context.state.AddXDS_XDSbuf[4] & 0x0f);
                 }
-                else if (XDSbuf[1] == 0x02)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x02)
                 {
 //					Debug(10, "XDS[%i]: Program Length\n", XDSbuf[2] & 0x38, XDSbuf[2] & 0x4f ,  XDSbuf[3] & 0x4f,  XDSbuf[3] & 0xb0);
-                    Debug(10, "XDS[%i]: Program length %d:%d, elapsed %d:%d:%d.%d\n", framenum, XDSbuf[3] & 0x3f, XDSbuf[2] & 0x3f,  XDSbuf[5] & 0x3f,  XDSbuf[4] & 0x3f ,  XDSbuf[6] & 0x3f);
-                    if ( (XDSbuf[2] << 8) + XDSbuf[3] != XDS_block[XDS_block_count].duration)
+                    Debug(context, 10, "XDS[%i]: Program length %d:%d, elapsed %d:%d:%d.%d\n", context.state.framenum, context.state.AddXDS_XDSbuf[3] & 0x3f, context.state.AddXDS_XDSbuf[2] & 0x3f,  context.state.AddXDS_XDSbuf[5] & 0x3f,  context.state.AddXDS_XDSbuf[4] & 0x3f ,  context.state.AddXDS_XDSbuf[6] & 0x3f);
+                    if ( (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3] != context.state.XDS_block[context.state.XDS_block_count].duration)
                     {
-                        Add_XDS_block();
-                        XDS_block[XDS_block_count].duration = (XDSbuf[3] << 8) + XDSbuf[2];
+                        Add_XDS_block(context);
+                        context.state.XDS_block[context.state.XDS_block_count].duration = (context.state.AddXDS_XDSbuf[3] << 8) + context.state.AddXDS_XDSbuf[2];
                     }
-                    if ( (XDSbuf[4] << 8) + XDSbuf[5] != XDS_block[XDS_block_count].position)
+                    if ( (context.state.AddXDS_XDSbuf[4] << 8) + context.state.AddXDS_XDSbuf[5] != context.state.XDS_block[context.state.XDS_block_count].position)
                     {
-                        Add_XDS_block();
-                        XDS_block[XDS_block_count].position = (XDSbuf[5] << 8) + XDSbuf[4];
+                        Add_XDS_block(context);
+                        context.state.XDS_block[context.state.XDS_block_count].position = (context.state.AddXDS_XDSbuf[5] << 8) + context.state.AddXDS_XDSbuf[4];
                     }
 
 
@@ -225,105 +225,105 @@ void AddXDS(unsigned char hi, unsigned char lo)
                     */
 
                 }
-                else if (XDSbuf[1] == 0x83)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x83)
                 {
-                    size_t n = sizeof(XDS_block[XDS_block_count].name);
-                    if (strncmp((const char*) XDS_block[XDS_block_count].name, (const char*)&XDSbuf[2], n) != 0)
+                    size_t n = sizeof(context.state.XDS_block[context.state.XDS_block_count].name);
+                    if (strncmp((const char*) context.state.XDS_block[context.state.XDS_block_count].name, (const char*)&context.state.AddXDS_XDSbuf[2], n) != 0)
                     {
-                        Add_XDS_block();
-                        strncpy(XDS_block[XDS_block_count].name, (const char*) &XDSbuf[2], n);
+                        Add_XDS_block(context);
+                        strncpy(context.state.XDS_block[context.state.XDS_block_count].name, (const char*) &context.state.AddXDS_XDSbuf[2], n);
                     }
-                    Debug(10, "XDS[%i]: Program Name: %s\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Program Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
 //		XDS_block[XDS_block_count].name[0] = 0;
                 }
-                else if (XDSbuf[1] == 0x04)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x04)
                 {
-                    Debug(10, "XDS[%i]: Program Type: %0x\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Program Type: %0x\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
                 }
-                else if (XDSbuf[1] == 0x85)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x85)
                 {
-                    Debug(10, "XDS[%i]: V-Chip: %2x %2x %2x %2x\n", framenum, XDSbuf[2] & 0x38, XDSbuf[2] & 0x4f ,  XDSbuf[3] & 0x4f,  XDSbuf[3] & 0xb0);
-                    if ( (XDSbuf[2] << 8) + XDSbuf[3] != XDS_block[XDS_block_count].v_chip)
+                    Debug(context, 10, "XDS[%i]: V-Chip: %2x %2x %2x %2x\n", context.state.framenum, context.state.AddXDS_XDSbuf[2] & 0x38, context.state.AddXDS_XDSbuf[2] & 0x4f ,  context.state.AddXDS_XDSbuf[3] & 0x4f,  context.state.AddXDS_XDSbuf[3] & 0xb0);
+                    if ( (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3] != context.state.XDS_block[context.state.XDS_block_count].v_chip)
                     {
-                        Add_XDS_block();
-                        XDS_block[XDS_block_count].v_chip = (XDSbuf[2] << 8) + XDSbuf[3];
+                        Add_XDS_block(context);
+                        context.state.XDS_block[context.state.XDS_block_count].v_chip = (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3];
                     }
 
 //							XDS_block[XDS_block_count].v_chip = 0;
 
                 }
-                else if (XDSbuf[1] == 0x86)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x86)
                 {
-                    Debug(10, "XDS[%i]: Audio Streams \n", framenum);
+                    Debug(context, 10, "XDS[%i]: Audio Streams \n", context.state.framenum);
                 }
-                else if (XDSbuf[1] == 0x07)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x07)
                 {
-                    Debug(10, "XDS[%i]: Caption Stream\n", framenum);
+                    Debug(context, 10, "XDS[%i]: Caption Stream\n", context.state.framenum);
                 }
-                else if (XDSbuf[1] == 0x08)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x08)
                 {
-                    Debug(10, "XDS[%i]: Copy Management\n", framenum);
+                    Debug(context, 10, "XDS[%i]: Copy Management\n", context.state.framenum);
                 }
-                else if (XDSbuf[1] == 0x89)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x89)
                 {
-                    Debug(10, "XDS[%i]: Aspect Ratio\n", framenum);
+                    Debug(context, 10, "XDS[%i]: Aspect Ratio\n", context.state.framenum);
                 }
-                else if (XDSbuf[1] == 0x8c)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x8c)
                 {
-                    Debug(10, "XDS[%i]: Program Data, Name: %s\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Program Data, Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
                 }
-                else if (XDSbuf[1] == 0x0d)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x0d)
                 {
-                    Debug(10, "XDS[%i]: Miscellaneous Data: %s\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Miscellaneous Data: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
                 }
-                else if (XDSbuf[1] == 0x010)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x010)
                 {
-                    Debug(10, "XDS[%i]: Program Description: %s\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Program Description: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
                 }
                 else
-                    Debug(10, "XDS[%i]: Unknown\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Unknown\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
 
             }
-            else if (XDSbuf[0] == 0x85)
+            else if (context.state.AddXDS_XDSbuf[0] == 0x85)
             {
-                if (XDSbuf[1] == 0x01)
+                if (context.state.AddXDS_XDSbuf[1] == 0x01)
                 {
-                    Debug(10, "XDS[%i]: Network Name: %s\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Network Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
                 }
-                else if (XDSbuf[1] == 0x02)
+                else if (context.state.AddXDS_XDSbuf[1] == 0x02)
                 {
-                    Debug(10, "XDS[%i]: Network Call Name: %s\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Network Call Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
                 }
                 else
-                    Debug(10, "XDS[%i]: Unknown\n", framenum, &XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Unknown\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
             }
-            else if (XDSbuf[0] == 0x0d)
+            else if (context.state.AddXDS_XDSbuf[0] == 0x0d)
             {
-                Debug(10, "XDS[%i]: Private Data: %s\n", framenum, &XDSbuf[2]);
+                Debug(context, 10, "XDS[%i]: Private Data: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
             }
             else
             {
                 for (i=0; i < 256; i++)
                 {
-                    XDSbuf[i] &= 0x7f;
-                    if (XDSbuf[i] < 0x20)
-                        XDSbuf[i] = ' ';
-                    else if (XDSbuf[i] == 0x20)
-                        XDSbuf[i] = '_';
+                    context.state.AddXDS_XDSbuf[i] &= 0x7f;
+                    if (context.state.AddXDS_XDSbuf[i] < 0x20)
+                        context.state.AddXDS_XDSbuf[i] = ' ';
+                    else if (context.state.AddXDS_XDSbuf[i] == 0x20)
+                        context.state.AddXDS_XDSbuf[i] = '_';
                 }
-                Debug(10, "XDS[%i]: %s\n", framenum, XDSbuf);
+                Debug(context, 10, "XDS[%i]: %s\n", context.state.framenum, context.state.AddXDS_XDSbuf);
             }
         }
         for (i = 0; i < 256; i++)
-            XDSbuf[i]=0;
-        c = 0;
+            context.state.AddXDS_XDSbuf[i]=0;
+        context.state.AddXDS_c = 0;
     }
 }
 
-void AddCC(int i)
+void AddCC(RecordingContext& context, int i)
 {
     bool			tempBool;
-    long			current_frame = framenum;
+    long			current_frame = context.state.framenum;
     int hi,lo;
 
     unsigned char	charmap[0x60] =
@@ -425,23 +425,23 @@ void AddCC(int i)
         'n',
         '?'
     };
-    cc.cc1[0] &= 0x7f;
-    cc.cc1[1] &= 0x7f;
-    if (cc.cc1[0] == 0 && cc.cc1[1] == 0)
+    context.state.cc.cc1[0] &= 0x7f;
+    context.state.cc.cc1[1] &= 0x7f;
+    if (context.state.cc.cc1[0] == 0 && context.state.cc.cc1[1] == 0)
         return;
 
 
     current_frame++;
     /*
-    	if ((cc.cc1[0] != 0x14 && cc.cc1[0] < 0x20)) {
-    		cc.cc1[0] = ' ';
-    		cc.cc1[1] = 0;
-    	}
+        if ((cc.cc1[0] != 0x14 && cc.cc1[0] < 0x20)) {
+            cc.cc1[0] = ' ';
+            cc.cc1[1] = 0;
+        }
     */
 
 
-    hi = cc.cc1[0];
-    lo = cc.cc1[1];
+    hi = context.state.cc.cc1[0];
+    lo = context.state.cc.cc1[1];
 
 
 //	if (hi == ' ' && lo == 'B')
@@ -459,30 +459,30 @@ void AddCC(int i)
     case 0x11:
         if (lo>=0x20 && lo<=0x2f)
         {
-            cc.cc1[0] = 0x20;
-            cc.cc1[1] = 0x00;
+            context.state.cc.cc1[0] = 0x20;
+            context.state.cc.cc1[1] = 0x00;
         }
 //          handle_text_attr (hi,lo,wb);
         if (lo>=0x30 && lo<=0x3f)
         {
-            cc.cc1[0] = 0x20;
-            cc.cc1[1] = 0x00;
+            context.state.cc.cc1[0] = 0x20;
+            context.state.cc.cc1[1] = 0x00;
 //	wrote_to_screen=1;
 //          handle_double (hi,lo,wb);
         }
         if (lo>=0x40 && lo<=0x7f)
         {
 //          handle_pac (hi,lo,wb);
-            cc.cc1[0] = 0x20;
-            cc.cc1[1] = 0x00;
+            context.state.cc.cc1[0] = 0x20;
+            context.state.cc.cc1[1] = 0x00;
         }
         break;
     case 0x12:
     case 0x13:
         if (lo>=0x20 && lo<=0x3f)
         {
-            cc.cc1[0] = 0x20;
-            cc.cc1[1] = 0x00;
+            context.state.cc.cc1[0] = 0x20;
+            context.state.cc.cc1[1] = 0x00;
 //          handle_extended (hi,lo,wb);
 //			wrote_to_screen=1;
         }
@@ -516,68 +516,68 @@ void AddCC(int i)
 
 
 
-    if ((cc.cc1[0] >= 0x20) && (cc.cc1[0] < 0x80))
+    if ((context.state.cc.cc1[0] >= 0x20) && (context.state.cc.cc1[0] < 0x80))
     {
-        if ((current_cc_type == ROLLUP) || (current_cc_type == PAINTON))
+        if ((context.state.current_cc_type == ROLLUP) || (context.state.current_cc_type == PAINTON))
         {
-            cc_on_screen = true;
+            context.state.cc_on_screen = true;
         }
-        else if (current_cc_type == POPON)
+        else if (context.state.current_cc_type == POPON)
         {
-            cc_in_memory = true;
+            context.state.cc_in_memory = true;
         }
 
-        Debug(11, "%i:%i) %i:'%c':%x\t", cc_text_count, cc_text[cc_text_count].text_len, i, charmap[cc.cc1[0] - 0x20], cc.cc1[0]);
-        cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = charmap[cc.cc1[0] - 0x20];
-        cc_text[cc_text_count].text_len++;
-        cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = '\0';
-        if ((cc.cc1[1] >= 0x20) && (cc.cc1[1] < 0x80))
+        Debug(context, 11, "%i:%i) %i:'%c':%x\t", context.state.cc_text_count, context.state.cc_text[context.state.cc_text_count].text_len, i, charmap[context.state.cc.cc1[0] - 0x20], context.state.cc.cc1[0]);
+        context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = charmap[context.state.cc.cc1[0] - 0x20];
+        context.state.cc_text[context.state.cc_text_count].text_len++;
+        context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = '\0';
+        if ((context.state.cc.cc1[1] >= 0x20) && (context.state.cc.cc1[1] < 0x80))
         {
-            Debug(11, "%i:%i) %i:'%c':%x\t", cc_text_count, cc_text[cc_text_count].text_len, i, charmap[cc.cc1[1] - 0x20], cc.cc1[1]);
-            cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = charmap[cc.cc1[1] - 0x20];
-            cc_text[cc_text_count].text_len++;
-            cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = '\0';
-            if ((last_cc_type == ROLLUP) || (last_cc_type == PAINTON))
+            Debug(context, 11, "%i:%i) %i:'%c':%x\t", context.state.cc_text_count, context.state.cc_text[context.state.cc_text_count].text_len, i, charmap[context.state.cc.cc1[1] - 0x20], context.state.cc.cc1[1]);
+            context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = charmap[context.state.cc.cc1[1] - 0x20];
+            context.state.cc_text[context.state.cc_text_count].text_len++;
+            context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = '\0';
+            if ((context.state.last_cc_type == ROLLUP) || (context.state.last_cc_type == PAINTON))
             {
-                cc_on_screen = true;
+                context.state.cc_on_screen = true;
             }
-            else if (last_cc_type == POPON)
+            else if (context.state.last_cc_type == POPON)
             {
-                cc_in_memory = true;
+                context.state.cc_in_memory = true;
             }
         }
     }
 
-    if (((!isalpha(cc_text[cc_text_count].text[cc_text[cc_text_count].text_len - 1])) && (cc_text[cc_text_count].text_len > 200)) ||
-            (cc_text[cc_text_count].text_len > 245))
+    if (((!isalpha(context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len - 1])) && (context.state.cc_text[context.state.cc_text_count].text_len > 200)) ||
+            (context.state.cc_text[context.state.cc_text_count].text_len > 245))
     {
-        cc_text[cc_text_count].end_frame = current_frame - 1;
-        cc_text_count++;
-        InitializeCCTextArray(cc_text_count);
-        cc_text[cc_text_count].start_frame = current_frame;
-        cc_text[cc_text_count].text_len = 0;
+        context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+        context.state.cc_text_count++;
+        InitializeCCTextArray(context, context.state.cc_text_count);
+        context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+        context.state.cc_text[context.state.cc_text_count].text_len = 0;
     }
 
-    if (cc.cc1[0] == 0x14)
+    if (context.state.cc.cc1[0] == 0x14)
     {
-        if ((cc.cc1[0] == lastcc.cc1[0]) && (cc.cc1[1] == lastcc.cc1[1]))
+        if ((context.state.cc.cc1[0] == context.state.lastcc.cc1[0]) && (context.state.cc.cc1[1] == context.state.lastcc.cc1[1]))
         {
-            Debug(11, "Double code found\n");
+            Debug(context, 11, "Double code found\n");
             return;
         }
 
-        switch (cc.cc1[1])
+        switch (context.state.cc.cc1[1])
         {
         case 0x20:
-            Debug(11, "Frame - %6i Control Code Found:\tResume Caption Loading\n", current_frame);
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            last_cc_type = POPON;
-            current_cc_type = POPON;
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tResume Caption Loading\n", current_frame);
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            context.state.last_cc_type = POPON;
+            context.state.current_cc_type = POPON;
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         case 0x21:
@@ -601,39 +601,39 @@ void AddCC(int i)
             break;
 
         case 0x25:
-            Debug(11, "Frame - %6i Control Code Found:\tRoll Up Captions 2 row\n", current_frame);
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            last_cc_type = ROLLUP;
-            current_cc_type = ROLLUP;
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tRoll Up Captions 2 row\n", current_frame);
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            context.state.last_cc_type = ROLLUP;
+            context.state.current_cc_type = ROLLUP;
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         case 0x26:
-            Debug(11, "Frame - %6i Control Code Found:\tRoll Up Captions 3 row\n", current_frame);
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            last_cc_type = ROLLUP;
-            current_cc_type = ROLLUP;
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tRoll Up Captions 3 row\n", current_frame);
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            context.state.last_cc_type = ROLLUP;
+            context.state.current_cc_type = ROLLUP;
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         case 0x27:
-            Debug(11, "Frame - %6i Control Code Found:\tRoll Up Captions 4 row\n", current_frame);
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            last_cc_type = ROLLUP;
-            current_cc_type = ROLLUP;
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tRoll Up Captions 4 row\n", current_frame);
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            context.state.last_cc_type = ROLLUP;
+            context.state.current_cc_type = ROLLUP;
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         case 0x28:
@@ -642,15 +642,15 @@ void AddCC(int i)
             break;
 
         case 0x29:
-            Debug(11, "Frame - %6i Control Code Found:\tResume Direct Captioning\n", current_frame);
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            last_cc_type = PAINTON;
-            current_cc_type = PAINTON;
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tResume Direct Captioning\n", current_frame);
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            context.state.last_cc_type = PAINTON;
+            context.state.current_cc_type = PAINTON;
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         case 0x2A:
@@ -664,98 +664,98 @@ void AddCC(int i)
             break;
 
         case 0x2C:
-            Debug(11, "Frame - %6i Control Code Found:\tErase Displayed Memory\n", current_frame);
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            cc_on_screen = false;
-            current_cc_type = NONE;
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tErase Displayed Memory\n", current_frame);
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            context.state.cc_on_screen = false;
+            context.state.current_cc_type = NONE;
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         case 0x2D:
             // Debug(11, "Frame - %6i Control Code
             // Found:\tCarriage Return\n", current_frame);
-            if (cc_text[cc_text_count].text_len > 200)
+            if (context.state.cc_text[context.state.cc_text_count].text_len > 200)
             {
-                cc_text[cc_text_count].end_frame = current_frame - 1;
-                cc_text_count++;
-                InitializeCCTextArray(cc_text_count);
-                cc_text[cc_text_count].start_frame = current_frame;
-                cc_text[cc_text_count].text_len = 0;
+                context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+                context.state.cc_text_count++;
+                InitializeCCTextArray(context, context.state.cc_text_count);
+                context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+                context.state.cc_text[context.state.cc_text_count].text_len = 0;
             }
 
-            cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = ' ';
-            cc_text[cc_text_count].text_len++;
-            cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = '\0';
-            Debug(11, "\n");
+            context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = ' ';
+            context.state.cc_text[context.state.cc_text_count].text_len++;
+            context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = '\0';
+            Debug(context, 11, "\n");
             break;
 
         case 0x2E:
-            Debug(11, "Frame - %6i Control Code Found:\tErase Non-Displayed Memory\n", current_frame);
+            Debug(context, 11, "Frame - %6i Control Code Found:\tErase Non-Displayed Memory\n", current_frame);
 
             // cc_text_count++;
             // InitializeCCTextArray(cc_text_count);
-            cc_in_memory = false;
+            context.state.cc_in_memory = false;
             break;
 
         case 0x2F:
-            Debug(
+            Debug(context,
                 11,
                 "Frame - %6i Control Code Found:\tEnd of Caption\tOn Screen - %i\tOff Screen - %i\n",
                 current_frame,
-                cc_in_memory,
-                cc_on_screen
+                context.state.cc_in_memory,
+                context.state.cc_on_screen
             );
-            cc_text[cc_text_count].end_frame = current_frame - 1;
-            cc_text_count++;
-            InitializeCCTextArray(cc_text_count);
-            cc_text[cc_text_count].start_frame = current_frame;
-            cc_text[cc_text_count].text_len = 0;
-            tempBool = cc_in_memory;
-            cc_in_memory = cc_on_screen;
-            cc_on_screen = tempBool;
-            if (!cc_on_screen)
+            context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+            context.state.cc_text_count++;
+            InitializeCCTextArray(context, context.state.cc_text_count);
+            context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+            context.state.cc_text[context.state.cc_text_count].text_len = 0;
+            tempBool = context.state.cc_in_memory;
+            context.state.cc_in_memory = context.state.cc_on_screen;
+            context.state.cc_on_screen = tempBool;
+            if (!context.state.cc_on_screen)
             {
-                current_cc_type = NONE;
+                context.state.current_cc_type = NONE;
             }
             else
             {
-                if ((cc_block_count > 0) && (cc_block[cc_block_count].type == NONE))
+                if ((context.state.cc_block_count > 0) && (context.state.cc_block[context.state.cc_block_count].type == NONE))
                 {
-                    current_cc_type = last_cc_type;
+                    context.state.current_cc_type = context.state.last_cc_type;
                 }
             }
 
-            AddNewCCBlock(current_frame, current_cc_type, cc_on_screen, cc_in_memory);
+            AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
         default:
-            Debug(11, "\nFrame - %6i Control Code Found:\tUnknown code!! - %2X\n", current_frame, cc.cc1[1]);
-            if (cc_text[cc_text_count].text_len > 200)
+            Debug(context, 11, "\nFrame - %6i Control Code Found:\tUnknown code!! - %2X\n", current_frame, context.state.cc.cc1[1]);
+            if (context.state.cc_text[context.state.cc_text_count].text_len > 200)
             {
-                cc_text[cc_text_count].end_frame = current_frame - 1;
-                cc_text_count++;
-                InitializeCCTextArray(cc_text_count);
-                cc_text[cc_text_count].start_frame = current_frame;
-                cc_text[cc_text_count].text_len = 0;
+                context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
+                context.state.cc_text_count++;
+                InitializeCCTextArray(context, context.state.cc_text_count);
+                context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
+                context.state.cc_text[context.state.cc_text_count].text_len = 0;
             }
 
-            cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = ' ';
-            cc_text[cc_text_count].text_len++;
-            cc_text[cc_text_count].text[cc_text[cc_text_count].text_len] = '\0';
+            context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = ' ';
+            context.state.cc_text[context.state.cc_text_count].text_len++;
+            context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = '\0';
             break;
         }
     }
 
-    lastcc.cc1[0] = cc.cc1[0];
-    lastcc.cc1[1] = cc.cc1[1];
+    context.state.lastcc.cc1[0] = context.state.cc.cc1[0];
+    context.state.lastcc.cc1[1] = context.state.cc.cc1[1];
 
 }
 
-void ProcessCCData(void)
+void ProcessCCData(RecordingContext& context)
 {
     int				i;
     int proceed = 0;
@@ -771,22 +771,22 @@ void ProcessCCData(void)
     bool			cc1First = false;
     unsigned char	packetCount;
 
-    if (!initialized) return;
+    if (!context.state.initialized) return;
 
     // Reset state on the first frame
-    if (framenum == 0) {
-        last_cc_type = NONE;
-        current_cc_type = NONE;
-        cc_on_screen = false;
-        cc_in_memory = false;
+    if (context.state.framenum == 0) {
+        context.state.last_cc_type = NONE;
+        context.state.current_cc_type = NONE;
+        context.state.cc_on_screen = false;
+        context.state.cc_in_memory = false;
     }
 
-    if (verbose >= 12)
+    if (context.settings.verbose >= 12)
     {
         p = (unsigned char *)temp;
-        for (i = 0; i < ccDataLen; i++)
+        for (i = 0; i < context.state.ccDataLen; i++)
         {
-            t = ccData[i] & 0x7f;
+            t = context.state.ccData[i] & 0x7f;
             if (t == 0x20)
                 *p++ = '_';
             else if (t > 0x20 && t < 0x7f)
@@ -797,27 +797,27 @@ void ProcessCCData(void)
             *p++ = ' ';
         }
         *p++ = 0;
-        if (ccData[0] == 'G')
+        if (context.state.ccData[0] == 'G')
             temp[7*3] = '0' + (temp[7*3] & 0x03);
-        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, pict_type, ccDataLen, temp);
+        Debug(context, 10, "CCData for framenum %4i%c, length:%4i: %s\n", context.state.framenum, context.state.pict_type, context.state.ccDataLen, temp);
 
         p = (unsigned char *)temp;
-        for (i = 0; i < ccDataLen; i++)
+        for (i = 0; i < context.state.ccDataLen; i++)
         {
-            sprintf(hex, "%2x ",ccData[i]);
+            sprintf(hex, "%2x ",context.state.ccData[i]);
             *p++ = hex[0];
             *p++ = hex[1];
             *p++ = ' ';
         }
         *p++ = 0;
-        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, pict_type, ccDataLen, temp);
+        Debug(context, 10, "CCData for framenum %4i%c, length:%4i: %s\n", context.state.framenum, context.state.pict_type, context.state.ccDataLen, temp);
 
     }
 
-    if ((char)ccData[0] == 'C' && (char)ccData[1] == 'C' && ccData[2] == 0x01 && ccData[3] == 0xf8)
+    if ((char)context.state.ccData[0] == 'C' && (char)context.state.ccData[1] == 'C' && context.state.ccData[2] == 0x01 && context.state.ccData[3] == 0xf8)
     {
-        reorderCC = 0;
-        packetCount = ccData[4];
+        context.state.reorderCC = 0;
+        packetCount = context.state.ccData[4];
         if (packetCount & 0x80)
         {
             cc1First = true;
@@ -830,86 +830,86 @@ void ProcessCCData(void)
         packetCount = (packetCount & 0x1E) / 2;
         if ((!cc1First) || (packetCount != 15))
         {
-            Debug(11, "CC Field Order: %i.  There appear to be %i packets.\n", cc1First, packetCount);
+            Debug(context, 11, "CC Field Order: %i.  There appear to be %i packets.\n", cc1First, packetCount);
         }
         proceed = 1;
         is_CC = 1;
     }
-    else 	if ((char)ccData[0] == 'G' && (char)ccData[1] == 'A' && ccData[2] == '9' && ccData[3] == '4'&& ccData[4] == 0x03)
+    else 	if ((char)context.state.ccData[0] == 'G' && (char)context.state.ccData[1] == 'A' && context.state.ccData[2] == '9' && context.state.ccData[3] == '4'&& context.state.ccData[4] == 0x03)
     {
-        reorderCC = 1;
-        packetCount = ccData[5] & 0x1F;
-        proceed = ( ccData[5] & 0x40) >> 6;
+        context.state.reorderCC = 1;
+        packetCount = context.state.ccData[5] & 0x1F;
+        proceed = ( context.state.ccData[5] & 0x40) >> 6;
         offset = 7;
         is_GA = 1;
     }
-    else 	if (ccData[0] == 0x05 && ccData[1] == 0x02)
+    else 	if (context.state.ccData[0] == 0x05 && context.state.ccData[1] == 0x02)
     {
-        reorderCC = 0;
+        context.state.reorderCC = 0;
         proceed = 0;
         offset = 7;
-        cctype = ccData[offset++];
+        cctype = context.state.ccData[offset++];
         if (cctype == 2)
         {
             offset++;
-            cc.cc1[0] = ccData[offset++];
-            cc.cc1[1] = ccData[offset++];
-            AddCC(1);
-            cctype = ccData[offset++];
-            if (cctype == 4 && ( ccData[offset] & 0x7f) < 32)
+            context.state.cc.cc1[0] = context.state.ccData[offset++];
+            context.state.cc.cc1[1] = context.state.ccData[offset++];
+            AddCC(context, 1);
+            cctype = context.state.ccData[offset++];
+            if (cctype == 4 && ( context.state.ccData[offset] & 0x7f) < 32)
             {
-                cc.cc1[0] = ccData[offset++];
-                cc.cc1[1] = ccData[offset++];
-                AddCC(1);
+                context.state.cc.cc1[0] = context.state.ccData[offset++];
+                context.state.cc.cc1[1] = context.state.ccData[offset++];
+                AddCC(context, 1);
             }
             offset += 3;
         }
         else if (cctype == 4)
         {
             offset++;
-            cc.cc1[0] = ccData[offset++];
-            cc.cc1[1] = ccData[offset++];
-            AddCC(1);
-            cc.cc1[0] = ccData[offset++];
-            cc.cc1[1] = ccData[offset++];
-            AddCC(1);
+            context.state.cc.cc1[0] = context.state.ccData[offset++];
+            context.state.cc.cc1[1] = context.state.ccData[offset++];
+            AddCC(context, 1);
+            context.state.cc.cc1[0] = context.state.ccData[offset++];
+            context.state.cc.cc1[1] = context.state.ccData[offset++];
+            AddCC(context, 1);
             offset += 3;
         }
         else if (cctype == 5)
         {
-            for (i = 0; i < prevccDataLen; i +=2)
+            for (i = 0; i < context.state.prevccDataLen; i +=2)
             {
-                cc.cc1[0] = prevccData[i];
-                cc.cc1[1] = prevccData[i+1];
-                AddCC(i/2);
+                context.state.cc.cc1[0] = context.state.prevccData[i];
+                context.state.cc.cc1[1] = context.state.prevccData[i+1];
+                AddCC(context, i/2);
             }
-            prevccDataLen = 0;
+            context.state.prevccDataLen = 0;
 //			offset += 6;
-            cctype = ccData[offset++] & 0x7f;
-            cctype = ccData[offset++] & 0x7f;
-            cctype = ccData[offset++] & 0x7f;
-            cctype = ccData[offset++] & 0x7f;
-            cctype = ccData[offset++] & 0x7f;
-            cctype = ccData[offset++] & 0x7f;
+            cctype = context.state.ccData[offset++] & 0x7f;
+            cctype = context.state.ccData[offset++] & 0x7f;
+            cctype = context.state.ccData[offset++] & 0x7f;
+            cctype = context.state.ccData[offset++] & 0x7f;
+            cctype = context.state.ccData[offset++] & 0x7f;
+            cctype = context.state.ccData[offset++] & 0x7f;
 //
-            cctype = ccData[offset++];
+            cctype = context.state.ccData[offset++];
             offset++;
-            prevccDataLen = 0;
-            prevccData[prevccDataLen++] = ccData[offset++];
-            prevccData[prevccDataLen++] = ccData[offset++];
+            context.state.prevccDataLen = 0;
+            context.state.prevccData[context.state.prevccDataLen++] = context.state.ccData[offset++];
+            context.state.prevccData[context.state.prevccDataLen++] = context.state.ccData[offset++];
             if (cctype == 2)
             {
-                cctype = ccData[offset++];
-                if (cctype == 4 && ( ccData[offset] & 0x7f) < 32)
+                cctype = context.state.ccData[offset++];
+                if (cctype == 4 && ( context.state.ccData[offset] & 0x7f) < 32)
                 {
-                    prevccData[prevccDataLen++] = ccData[offset++];
-                    prevccData[prevccDataLen++] = ccData[offset++];
+                    context.state.prevccData[context.state.prevccDataLen++] = context.state.ccData[offset++];
+                    context.state.prevccData[context.state.prevccDataLen++] = context.state.ccData[offset++];
                 }
             }
             else
             {
-                prevccData[prevccDataLen++] = ccData[offset++];
-                prevccData[prevccDataLen++] = ccData[offset++];
+                context.state.prevccData[context.state.prevccDataLen++] = context.state.ccData[offset++];
+                context.state.prevccData[context.state.prevccDataLen++] = context.state.ccData[offset++];
             }
             offset += 3;
         }
@@ -926,40 +926,40 @@ void ProcessCCData(void)
             {
                 if (cc1First)
                 {
-                    cc.cc1[0] = CheckOddParity(ccData[(i * 6) + offset + 1]) ? ccData[(i * 6) + offset + 1] & 0x7f : 0x00;
-                    cc.cc1[1] = CheckOddParity(ccData[(i * 6) + offset + 2]) ? ccData[(i * 6) + offset + 2] & 0x7f : 0x00;
+                    context.state.cc.cc1[0] = CheckOddParity(context.state.ccData[(i * 6) + offset + 1]) ? context.state.ccData[(i * 6) + offset + 1] & 0x7f : 0x00;
+                    context.state.cc.cc1[1] = CheckOddParity(context.state.ccData[(i * 6) + offset + 2]) ? context.state.ccData[(i * 6) + offset + 2] & 0x7f : 0x00;
                 }
                 else
                 {
-                    cc.cc1[0] = CheckOddParity(ccData[(i * 6) + offset + 4]) ? ccData[(i * 6) + offset + 4] & 0x7f : 0x00;
-                    cc.cc1[1] = CheckOddParity(ccData[(i * 6) + offset + 5]) ? ccData[(i * 6) + offset + 5] & 0x7f : 0x00;
+                    context.state.cc.cc1[0] = CheckOddParity(context.state.ccData[(i * 6) + offset + 4]) ? context.state.ccData[(i * 6) + offset + 4] & 0x7f : 0x00;
+                    context.state.cc.cc1[1] = CheckOddParity(context.state.ccData[(i * 6) + offset + 5]) ? context.state.ccData[(i * 6) + offset + 5] & 0x7f : 0x00;
                 }
-                AddCC(i);
+                AddCC(context, i);
             }
             if (is_GA)
             {
 
-                if (!(ccData[(i * 3) + offset] & 4) >>2 )
+                if (!(context.state.ccData[(i * 3) + offset] & 4) >>2 )
                     continue;
-                if (ccData[(i * 3) + offset] == 0xfa)
+                if (context.state.ccData[(i * 3) + offset] == 0xfa)
                     continue;
-                if (ccData[(i * 3) + offset + 1]  == 0x80 && ccData[(i * 3) + offset + 2] == 0x80)
+                if (context.state.ccData[(i * 3) + offset + 1]  == 0x80 && context.state.ccData[(i * 3) + offset + 2] == 0x80)
                     continue;
-                if (ccData[(i * 3) + offset + 1]  == 0x00 && ccData[(i * 3) + offset + 2] == 0x00)
+                if (context.state.ccData[(i * 3) + offset + 1]  == 0x00 && context.state.ccData[(i * 3) + offset + 2] == 0x00)
                     continue;
 
-                cctype = (ccData[(i * 3) + offset] & 3);
+                cctype = (context.state.ccData[(i * 3) + offset] & 3);
 //				cc.cc1[0] = CheckOddParity(ccData[(i * 3) + offset + 1]) ? ccData[(i * 3) + offset + 1] & 0x7f : 0x00;
 //				cc.cc1[1] = CheckOddParity(ccData[(i * 3) + offset + 2]) ? ccData[(i * 3) + offset + 2] & 0x7f : 0x00;
-                cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
-                cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
+                context.state.cc.cc1[0] = context.state.ccData[(i * 3) + offset + 1] & 0x7f;
+                context.state.cc.cc1[1] = context.state.ccData[(i * 3) + offset + 2] & 0x7f;
 
                 /*
                 if (cctype == 0)
                     cctype = cctype;
                 */
                 if (cctype == 1)
-                    AddXDS(ccData[(i * 3) + offset + 1], ccData[(i * 3) + offset + 2]);
+                    AddXDS(context, context.state.ccData[(i * 3) + offset + 1], context.state.ccData[(i * 3) + offset + 2]);
                 /*
                 if (cctype == 2)
                     cctype = cctype;
@@ -972,28 +972,28 @@ void ProcessCCData(void)
                 {
 //					cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
 //					cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
-                    AddCC(i);
+                    AddCC(context, i);
 
                 }
                 else
                 {
-                    cc.cc1[0] = 0;
-                    cc.cc1[1] = 0;
+                    context.state.cc.cc1[0] = 0;
+                    context.state.cc.cc1[1] = 0;
                 }
             }
             /*
-            			if (is_dish) {
+                        if (is_dish) {
 
-            				if (cctype == 2 || cctype == 4) {
-            					cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
-            					cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
-            					offset = offset - 1;
-            					AddCC(i);
+                            if (cctype == 2 || cctype == 4) {
+                                cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
+                                cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
+                                offset = offset - 1;
+                                AddCC(i);
 
-            				} else
-            					continue;
+                            } else
+                                continue;
 
-            			}
+                        }
             */
         }
     }
@@ -1020,104 +1020,104 @@ bool CheckOddParity(unsigned char ch)
     }
 }
 
-void AddNewCCBlock(long current_frame, int type, bool cc_on_screen, bool cc_in_memory)
+void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool cc_on_screen, bool cc_in_memory)
 {
-    if (cc_block[cc_block_count].type == type)
+    if (context.state.cc_block[context.state.cc_block_count].type == type)
     {
-        cc_block[cc_block_count].end_frame = current_frame;
+        context.state.cc_block[context.state.cc_block_count].end_frame = current_frame;
     }
     else
     {
-        Debug(11, "\nFrame - %6i\t%s captions start\n", current_frame, CCTypeToStr(type));
-        if (cc_block[cc_block_count].end_frame == -1)
+        Debug(context, 11, "\nFrame - %6i\t%s captions start\n", current_frame, CCTypeToStr(context, type));
+        if (context.state.cc_block[context.state.cc_block_count].end_frame == -1)
         {
-            Debug(11, "New cblock found\n");
-            cc_block[cc_block_count].end_frame = current_frame - 1;
-            cc_block_count++;
-            InitializeCCBlockArray(cc_block_count);
-            cc_block[cc_block_count].start_frame = current_frame;
-            cc_block[cc_block_count].type = type;
-            if (cc_block_count > 1)
+            Debug(context, 11, "New cblock found\n");
+            context.state.cc_block[context.state.cc_block_count].end_frame = current_frame - 1;
+            context.state.cc_block_count++;
+            InitializeCCBlockArray(context, context.state.cc_block_count);
+            context.state.cc_block[context.state.cc_block_count].start_frame = current_frame;
+            context.state.cc_block[context.state.cc_block_count].type = type;
+            if (context.state.cc_block_count > 1)
             {
-                if ((F2L(cc_block[cc_block_count - 1].end_frame, cc_block[cc_block_count - 1].start_frame) < 1.0) &&
-                        (cc_block[cc_block_count].type == cc_block[cc_block_count - 2].type) &&
-                        (cc_block[cc_block_count].type != NONE))
+                if ((F2L(context.state.cc_block[context.state.cc_block_count - 1].end_frame, context.state.cc_block[context.state.cc_block_count - 1].start_frame) < 1.0) &&
+                        (context.state.cc_block[context.state.cc_block_count].type == context.state.cc_block[context.state.cc_block_count - 2].type) &&
+                        (context.state.cc_block[context.state.cc_block_count].type != NONE))
                 {
-                    cc_block_count -= 2;
-                    cc_block[cc_block_count].end_frame = -1;
+                    context.state.cc_block_count -= 2;
+                    context.state.cc_block[context.state.cc_block_count].end_frame = -1;
                 }
             }
         }
         else
         {
-            cc_block_count++;
-            InitializeCCBlockArray(cc_block_count);
-            cc_block[cc_block_count].start_frame = current_frame;
-            cc_block[cc_block_count].type = type;
+            context.state.cc_block_count++;
+            InitializeCCBlockArray(context, context.state.cc_block_count);
+            context.state.cc_block[context.state.cc_block_count].start_frame = current_frame;
+            context.state.cc_block[context.state.cc_block_count].type = type;
         }
 
-        OutputCCBlock(cc_block_count);
+        OutputCCBlock(context, context.state.cc_block_count);
     }
 }
 
-char* CCTypeToStr(int type)
+char* CCTypeToStr(RecordingContext& context, int type)
 {
-    if (processCC)
+    if (context.state.processCC)
     {
         switch (type)
         {
         case NONE:
-            sprintf(tempString, "NONE");
+            sprintf(context.state.tempString, "NONE");
             break;
 
         case ROLLUP:
-            sprintf(tempString, "ROLLUP");
+            sprintf(context.state.tempString, "ROLLUP");
             break;
 
         case PAINTON:
-            sprintf(tempString, "PAINTON");
+            sprintf(context.state.tempString, "PAINTON");
             break;
 
         case POPON:
-            sprintf(tempString, "POPON");
+            sprintf(context.state.tempString, "POPON");
             break;
 
         case COMMERCIAL:
-            sprintf(tempString, "COMMERCIAL");
+            sprintf(context.state.tempString, "COMMERCIAL");
             break;
 
         default:
-            sprintf(tempString, "%d",type);
+            sprintf(context.state.tempString, "%d",type);
             break;
         }
     }
     else
     {
-        tempString[0]=0; // was: sprintf(tempString, "");
+        context.state.tempString[0]=0; // was: sprintf(tempString, "");
     }
 
-    return (tempString);
+    return (context.state.tempString);
 }
 
-int DetermineCCTypeForBlock(long start, long end)
+int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
 {
     int type = NONE;
     int i = 0;
     int j = 0;
-    int cc_block_first = cc_block_count;
+    int cc_block_first = context.state.cc_block_count;
     int cc_block_last = 0;
     int cc_type_count[5] = { 0, 0, 0, 0, 0 };
-    while (cc_block[cc_block_first].start_frame > start) cc_block_first--;
-    while (cc_block[cc_block_last].end_frame < end) cc_block_last++;
+    while (context.state.cc_block[cc_block_first].start_frame > start) cc_block_first--;
+    while (context.state.cc_block[cc_block_last].end_frame < end) cc_block_last++;
 
     // Look for the PAINTON then POPON pattern that is common in commercials
     for (i = cc_block_first; i <= cc_block_last; i++)
     {
-        if (cc_block[i].type != NONE)
+        if (context.state.cc_block[i].type != NONE)
         {
             if (i > 0)
             {
-                if ((cc_block[i - 1].type == PAINTON) && (cc_block[i].type == POPON))
+                if ((context.state.cc_block[i - 1].type == PAINTON) && (context.state.cc_block[i].type == POPON))
                 {
  //                   type = COMMERCIAL;
                     break;
@@ -1126,10 +1126,10 @@ int DetermineCCTypeForBlock(long start, long end)
 
             if (i > 1)
             {
-                if ((cc_block[i - 2].type == PAINTON) &&
-                        (cc_block[i - 1].type == NONE) &&
-                        (F2L(cc_block[i - 1].end_frame, cc_block[i - 1].start_frame) <= 1.5) &&
-                        (cc_block[i].type == POPON))
+                if ((context.state.cc_block[i - 2].type == PAINTON) &&
+                        (context.state.cc_block[i - 1].type == NONE) &&
+                        (F2L(context.state.cc_block[i - 1].end_frame, context.state.cc_block[i - 1].start_frame) <= 1.5) &&
+                        (context.state.cc_block[i].type == POPON))
                 {
  //                   type = COMMERCIAL;
                     break;
@@ -1143,11 +1143,11 @@ int DetermineCCTypeForBlock(long start, long end)
     {
         for (i = start; i <= end; i++)
         {
-            for (j = 0; j < cc_block_count; j++)
+            for (j = 0; j < context.state.cc_block_count; j++)
             {
-                if ((i > cc_block[j].start_frame) && (i < cc_block[j].end_frame))
+                if ((i > context.state.cc_block[j].start_frame) && (i < context.state.cc_block[j].end_frame))
                 {
-                    cc_type_count[cc_block[j].type]++;
+                    cc_type_count[context.state.cc_block[j].type]++;
                     break;
                 }
             }
@@ -1163,59 +1163,59 @@ int DetermineCCTypeForBlock(long start, long end)
         }
     }
 
-    Debug(4, "Start - %6i\tEnd - %6i\tCCF - %2i\tCCL - %2i\tType - %s\n", start, end, cc_block_first, cc_block_last, CCTypeToStr(type));
+    Debug(context, 4, "Start - %6i\tEnd - %6i\tCCF - %2i\tCCL - %2i\tType - %s\n", start, end, cc_block_first, cc_block_last, CCTypeToStr(context, type));
 
     return (type);
 }
 
 
 
-void SetARofBlocks(void)
+void SetARofBlocks(RecordingContext& context)
 {
     int		i, j,k;
     double	sumAR = 0.0;
     int		frameCount = 0;
-    if (!(commDetectMethod & AR))
+    if (!(context.settings.commDetectMethod & AR))
         return;
     k = 0;
-    for (i = 0; i < block_count; i++)
+    for (i = 0; i < context.state.block_count; i++)
     {
         sumAR = 0.0;
         frameCount = 0; // To prevent divide by zero error
-        for (j = cblock[i].f_start + cblock[i].b_head;
-                j < cblock[i].f_end - (int) cblock[i].b_tail; j++)
+        for (j = context.state.cblock[i].f_start + context.state.cblock[i].b_head;
+                j < context.state.cblock[i].f_end - (int) context.state.cblock[i].b_tail; j++)
         {
-            if ( k < ar_block_count && j >= ar_block[k].end )
+            if ( k < context.state.ar_block_count && j >= context.state.ar_block[k].end )
                 k++;
-            if (ar_block[k].ar_ratio > 1)
+            if (context.state.ar_block[k].ar_ratio > 1)
             {
-                sumAR += ar_block[k].ar_ratio;
+                sumAR += context.state.ar_block[k].ar_ratio;
                 frameCount++;
             }
         }
         if (frameCount == 0)
-            cblock[i].ar_ratio = 1.0;
+            context.state.cblock[i].ar_ratio = 1.0;
         else
-            cblock[i].ar_ratio = sumAR / (frameCount);
+            context.state.cblock[i].ar_ratio = sumAR / (frameCount);
     }
 }
 
 
 
-bool ProcessCCDict(void)
+bool ProcessCCDict(RecordingContext& context)
 {
     int		i, j;
     char*	ptr;
     char	phrase[1024];
     bool	goodPhrase = true;
     FILE*	dict = NULL;
-    dict = myfopen(dictfilename, "r");
+    dict = myfopen(context.state.dictfilename, "r");
     if (dict == NULL)
     {
         return (false);
     }
 
-    Debug(2, "\n\nStarting to process dictionary\n-------------------------------------\n");
+    Debug(context, 2, "\n\nStarting to process dictionary\n-------------------------------------\n");
     while (fgets(phrase, sizeof(phrase), dict) != NULL)
     {
         ptr = strchr(phrase, '\n');
@@ -1223,44 +1223,44 @@ bool ProcessCCDict(void)
         if (strstr(phrase, "-----") != NULL)
         {
             goodPhrase = false;
-            Debug(3, "Finished with good phrases.  Now starting bad phrases.\n");
+            Debug(context, 3, "Finished with good phrases.  Now starting bad phrases.\n");
             continue;
         }
         // just in case the line is empty
         if (strlen(phrase) < 1) continue;
 
-        Debug(3, "Searching for: %s\n", phrase);
-        for (i = 0; i < cc_text_count; i++)
+        Debug(context, 3, "Searching for: %s\n", phrase);
+        for (i = 0; i < context.state.cc_text_count; i++)
         {
-            if (strstr(_strupr((char*)cc_text[i].text), _strupr((char*)phrase)) != NULL)
+            if (strstr(_strupr((char*)context.state.cc_text[i].text), _strupr((char*)phrase)) != NULL)
             {
-                Debug(2, "%s found in cc_text_block %i\n", phrase, i);
+                Debug(context, 2, "%s found in cc_text_block %i\n", phrase, i);
                 if (goodPhrase)
                 {
-                    j = FindBlock((cc_text[i].start_frame + cc_text[i].end_frame) / 2);
+                    j = FindBlock(context, (context.state.cc_text[i].start_frame + context.state.cc_text[i].end_frame) / 2);
                     if (j == -1)
                     {
-                        Debug(1, "There was an error finding the correct cblock for cc text cblock %i.\n", i);
+                        Debug(context, 1, "There was an error finding the correct cblock for cc text cblock %i.\n", i);
                     }
                     else
                     {
-                        Debug(3, "Block %i score:\tBefore - %.2f\t", j, cblock[j].score);
-                        cblock[j].score /= dictionary_modifier;
-                        Debug(3, "After - %.2f\n", cblock[j].score);
+                        Debug(context, 3, "Block %i score:\tBefore - %.2f\t", j, context.state.cblock[j].score);
+                        context.state.cblock[j].score /= context.state.dictionary_modifier;
+                        Debug(context, 3, "After - %.2f\n", context.state.cblock[j].score);
                     }
                 }
                 else
                 {
-                    j = FindBlock((cc_text[i].start_frame + cc_text[i].end_frame) / 2);
+                    j = FindBlock(context, (context.state.cc_text[i].start_frame + context.state.cc_text[i].end_frame) / 2);
                     if (j == -1)
                     {
-                        Debug(1, "There was an error finding the correct cblock for cc text cblock %i.\n", i);
+                        Debug(context, 1, "There was an error finding the correct cblock for cc text cblock %i.\n", i);
                     }
                     else
                     {
-                        Debug(3, "Block %i score:\tBefore - %.2f\t", j, cblock[j].score);
-                        cblock[j].score *= dictionary_modifier;
-                        Debug(3, "After - %.2f\n", cblock[j].score);
+                        Debug(context, 3, "Block %i score:\tBefore - %.2f\t", j, context.state.cblock[j].score);
+                        context.state.cblock[j].score *= context.state.dictionary_modifier;
+                        Debug(context, 3, "After - %.2f\n", context.state.cblock[j].score);
                     }
                 }
             }

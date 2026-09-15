@@ -40,11 +40,16 @@ than redefine completion around whichever subset currently passes tests.
   failures propagate to the caller. Workers support captured recording dependencies.
 - English/Spanish primary CLI catalogs, external editable catalogs, and real CLI
   selection tests are integrated. Decoder/detector/output/review messages remain.
-- Pure Settings values own every committed configuration field and regional
-  profile, with full-schema and independent-load tests. Application callsites still
-  use the legacy globals; this requirement is not complete.
+- Settings values own every committed configuration field and regional profile;
+  application callsites now receive an explicit recording context. Detection,
+  media, output, and review state have moved into that context. Legacy raw buffer
+  and file ownership still needs completion, and repeated analyses need tests.
+- The portable review backend is integrated with explicit event state and
+  English/Spanish help and labels. Both backend variants pass their six tests;
+  SDL rendering verification currently uses the dummy driver on Windows.
 - Pure timed EDL serialization is integrated for standard/live/plus output, with
   boundary/offset/locale/error tests. Other serializer families remain.
-- The current Windows build passes 56 tests. Linux/macOS and SDL verification,
-  repeated full analyses, seeking/reopening, damaged media, and format changes
-  still require evidence.
+- The current Windows headless application build passes 66 tests, including
+  seeking/reopening, damaged/truncated media, and stream format changes.
+  Linux/macOS, interactive SDL application verification, sanitizers, and repeated
+  full analyses within one process still require evidence.

@@ -3,12 +3,15 @@
 #include <stdio.h>
 
 #include <gtest/gtest.h>
-#include "settings.h"
+#include "settings_value.h"
 #include <fstream>
 #include <iterator>
+#include <limits>
 
 TEST(CommercialLength, PreservesDetectionPolicy)
 {
+    const auto settings = comskip::config::default_settings();
+    const auto& profile = settings.commercial_profile;
     CommercialLengthPolicy policy = { 25.0, -1.0, 120.0 };
     CommercialLengthMatch match;
     const double rates[] = { 23.976, 25.0, 29.97, 50.0, 59.94 };
@@ -16,8 +19,8 @@ TEST(CommercialLength, PreservesDetectionPolicy)
 
     for (i = 0; i < sizeof(rates) / sizeof(rates[0]); ++i) {
         policy.fps = rates[i];
-        EXPECT_TRUE(commercial_length_match(30.0, 0.5, 1, &policy, &match));
-        EXPECT_TRUE(!commercial_length_match(32.0, 0.5, 1, &policy, &match));
+        EXPECT_TRUE(commercial_length_match(30.0, 0.5, 1, profile, policy, match));
+        EXPECT_TRUE(!commercial_length_match(32.0, 0.5, 1, profile, policy, match));
     }
     policy.fps = 25.0;
     /* Inclusive tolerance, with the existing whole-frame truncation. */
@@ -26,32 +29,32 @@ TEST(CommercialLength, PreservesDetectionPolicy)
     EXPECT_TRUE(commercial_length_within_tolerance(29.52, 30.0, 0.5, 25.0));
     EXPECT_TRUE(!commercial_length_within_tolerance(29.48, 30.0, 0.5, 25.0));
 
-    EXPECT_TRUE(!commercial_length_match(5.0, 0.5, 1, &policy, &match));
-    EXPECT_TRUE(commercial_length_match(5.0, 0.5, 0, &policy, &match));
-    EXPECT_TRUE(!commercial_length_match(35.0, 0.5, 1, &policy, &match));
-    EXPECT_TRUE(commercial_length_match(35.0, 0.5, 0, &policy, &match));
-    EXPECT_TRUE(!commercial_length_match(18.0, 0.5, 1, &policy, &match));
-    EXPECT_TRUE(!commercial_length_match(72.0, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(!commercial_length_match(5.0, 0.5, 1, profile, policy, match));
+    EXPECT_TRUE(commercial_length_match(5.0, 0.5, 0, profile, policy, match));
+    EXPECT_TRUE(!commercial_length_match(35.0, 0.5, 1, profile, policy, match));
+    EXPECT_TRUE(commercial_length_match(35.0, 0.5, 0, profile, policy, match));
+    EXPECT_TRUE(!commercial_length_match(18.0, 0.5, 1, profile, policy, match));
+    EXPECT_TRUE(!commercial_length_match(72.0, 0.5, 1, profile, policy, match));
 
-    EXPECT_TRUE(commercial_length_match(29.89, 0.0, 1, &policy, &match));
+    EXPECT_TRUE(commercial_length_match(29.89, 0.0, 1, profile, policy, match));
     EXPECT_TRUE(fabs(match.adjusted_length - 30.0) < 0.000001);
     EXPECT_TRUE(fabs(match.delta) < 0.000001);
     EXPECT_TRUE(match.tolerance == 0.5);
-    EXPECT_TRUE(commercial_length_match(30.7, 9.0, 1, &policy, &match));
+    EXPECT_TRUE(commercial_length_match(30.7, 9.0, 1, profile, policy, match));
     EXPECT_TRUE(match.tolerance == 1.0);
-    EXPECT_TRUE(!commercial_length_match(31.2, 9.0, 1, &policy, &match));
+    EXPECT_TRUE(!commercial_length_match(31.2, 9.0, 1, profile, policy, match));
 
     policy.tolerance_override = 0.5;
-    EXPECT_TRUE(!commercial_length_match(30.7, 1.0, 1, &policy, &match));
+    EXPECT_TRUE(!commercial_length_match(30.7, 1.0, 1, profile, policy, match));
     policy.tolerance_override = 1.0;
-    EXPECT_TRUE(commercial_length_match(30.7, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(commercial_length_match(30.7, 0.5, 1, profile, policy, match));
 
     policy.min_show_segment_length = 33.0;
-    EXPECT_TRUE(!commercial_length_match(30.0, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(!commercial_length_match(30.0, 0.5, 1, profile, policy, match));
     policy.min_show_segment_length = 33.01;
-    EXPECT_TRUE(commercial_length_match(30.0, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(commercial_length_match(30.0, 0.5, 1, profile, policy, match));
     match.adjusted_length = -123.0;
-    EXPECT_TRUE(!commercial_length_match(200.0, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(!commercial_length_match(200.0, 0.5, 1, profile, policy, match));
     EXPECT_TRUE(match.adjusted_length == -123.0);
 
 }
@@ -61,11 +64,20 @@ TEST(CommercialLength, LoadsRegionalProfileWithoutRecompilation) {
     std::ifstream file(std::string(COMSKIP_SOURCE_DIR) + "/config/profiles/china.ini");
     ASSERT_TRUE(file.good());
     std::string text((std::istreambuf_iterator<char>(file)), {});
-    apply_settings(Ini(text));
+    const auto original = default_settings();
+    const auto regional = load_settings(Ini(text), original);
+    const auto& profile = regional.commercial_profile;
     CommercialLengthPolicy policy{25, -1, 120};
     CommercialLengthMatch match{};
-    EXPECT_TRUE(commercial_length_match(18, 0.5, 1, &policy, &match));
-    EXPECT_TRUE(commercial_length_match(72, 0.5, 1, &policy, &match));
-    apply_settings(defaults());
-    EXPECT_FALSE(commercial_length_match(18, 0.5, 1, &policy, &match));
+    EXPECT_TRUE(commercial_length_match(18, 0.5, 1, profile, policy, match));
+    EXPECT_TRUE(commercial_length_match(72, 0.5, 1, profile, policy, match));
+    EXPECT_FALSE(commercial_length_match(18, 0.5, 1, original.commercial_profile, policy, match));
+    EXPECT_TRUE(commercial_length_match(18, 0.5, 1, regional.commercial_profile, policy, match));
+}
+TEST(CommercialLength, RejectsInvalidTimingAndHandlesLargeFrameCounts) {
+    EXPECT_FALSE(commercial_length_within_tolerance(30, 30, 1, 0));
+    EXPECT_FALSE(commercial_length_within_tolerance(30, 30, -1, 25));
+    EXPECT_FALSE(commercial_length_within_tolerance(std::numeric_limits<double>::quiet_NaN(), 30, 1, 25));
+    EXPECT_TRUE(commercial_length_within_tolerance(100000000, 100000000, 0.5, 25));
+    EXPECT_FALSE(commercial_length_within_tolerance(100000000, 30, 0.5, 25));
 }

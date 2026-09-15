@@ -1,3 +1,4 @@
+#include "recording_context.h"
 #include "exit_requested.h"
 /*
  * mpeg2dec.c
@@ -44,8 +45,8 @@ using namespace comskip::media;
 #include <argtable2.h>
 #define SELFTEST
 
-int pass = 0;
-double test_pts = 0.0;
+
+
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -82,13 +83,6 @@ static InputStream *ist = &inputs;
 #endif
 
 
-extern int      hardware_decode;
-extern int      use_cuvid;
-extern int      use_vdpau;
-extern int      use_dxva2;
-extern int      use_qsv;
-int av_log_level=AV_LOG_INFO;
-
 
 #define SDL_AUDIO_BUFFER_SIZE 1024
 #define MAX_AUDIOQ_SIZE (5 * 16 * 1024)
@@ -118,65 +112,12 @@ typedef struct VideoPicture
     double pts;
 } VideoPicture;
 
-typedef struct VideoState
-{
-    InputPtr pFormatCtx;
-    CodecPtr dec_ctx, audio_ctx, subtitle_ctx;
-    // AVCodecContext.ticks_per_frame was removed in FFmpeg 8. It used to be
-    // set by the decoder itself: 1 for MPEG1VIDEO, 2 for everything else this
-    // code cared about (MPEG2's field-time timebase convention). Comskip
-    // already overrode the MPEG1 case explicitly below, so that is the only
-    // distinction that ever mattered here; this field reproduces it locally
-    // instead of asking the decoder for a value it no longer exposes.
-    int             ticks_per_frame;
-    int             videoStream, audioStream, subtitleStream;
-
-    int             av_sync_type;
-//     double          external_clock; /* external clock base */
-//     int64_t         external_clock_time;
-    int             seek_req;
-    int             seek_by_bytes;
-    int             seek_no_flush;
-    double           seek_pts;
-    int             seek_flags;
-    int64_t          seek_pos;
-    double          audio_clock;
-    AVStream        *audio_st;
-    AVStream        *subtitle_st;
-
-    //DECLARE_ALIGNED(16, uint8_t, audio_buf[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2]);
-    unsigned int    audio_buf_size;
-    unsigned int    audio_buf_index;
-    AVPacket        audio_pkt;
-    AVPacket        audio_pkt_temp;
-//  uint8_t         *audio_pkt_data;
-//  int             audio_pkt_size;
-    int             audio_hw_buf_size;
-    double          audio_diff_cum; /* used for AV difference average computation */
-    double          audio_diff_avg_coef;
-    double          audio_diff_threshold;
-    int             audio_diff_avg_count;
-    double          frame_timer;
-    double          frame_last_pts;
-    double          frame_last_delay;
-    double          video_clock; ///<pts of last decoded frame / predicted pts of next decoded frame
-    double          video_clock_submitted;
-    double          video_current_pts; ///<current displayed pts (different from video_clock if frame fifos are used)
-    int64_t         video_current_pts_time;  ///<time (av_gettime) at which we updated video_current_pts - used to have running video pts
-    AVStream        *video_st;
-    FramePtr pFrame;
-    char            filename[1024];
-    int             quit;
-    FramePtr frame;
-    double			 duration;
-    double			 fps;
-    ScalerPtr img_convert_ctx;
-} VideoState;
-
-VideoState      *is;
 
 
-DictionaryPtr myoptions;
+
+
+
+
 
 enum
 {
@@ -188,22 +129,22 @@ enum
 
 /* Since we only have one decoding thread, the Big Struct
    can be global in case we need it. */
-std::unique_ptr<VideoState> video_owner;
-VideoState *global_video_state;
 
 
 
-int64_t pev_best_effort_timestamp = 0;
 
 
-int video_stream_index = -1;
-int audio_stream_index = -1;
+
+
+
+
+
 // int width, height;
-int have_frame_rate ;
-int stream_index;
 
 
-int64_t best_effort_timestamp;
+
+
+
 
 
 
@@ -220,62 +161,56 @@ using namespace comskip::media;
 #include <algorithm>
 #include <limits>
 
-extern int coding_type;
-extern int audio_channels;
-
-void InitComSkip(void);
-void BuildCommListAsYouGo(void);
-bool ReviewResult(void);
-int video_packet_process(VideoState *is,AVPacket *packet);
 
 
 
-static FILE * in_file;
-static FILE * sample_file;
-static FILE * timing_file = 0;
+void InitComSkip(RecordingContext& context);
+void BuildCommListAsYouGo(RecordingContext& context);
+bool ReviewResult(RecordingContext& context);
+int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet);
 
-extern long lastFrameCommCalculated;
 
-extern int thread_count;
-int is_AC3;
-int AC3_rate;
-int AC3_mode;
-int is_h264=0;
-int is_AAC=0;
-extern unsigned int AC3_sampling_rate; //AC3
-extern int AC3_byterate;
-int demux_pid=0;
-int demux_asf=0;
-int last_pid;
+
+
+
+
+
+
+
+
+ //AC3
+
+
+
+
 #define PIDS	100
 #define PID_MASK	0x1fff
-int pids[PIDS];
-int pid_type[PIDS];
-int pid_pcr[PIDS];
-int pid_pid[PIDS];
-int top_pid_count[PID_MASK+1];
-int top_pid_pid;
-int pid;
-int selected_video_pid=0;
-int selected_audio_pid=0;
-int selected_subtitle_pid=0;
-int selection_restart_count = 0;
-int found_pids=0;
 
-int64_t pts;
-double initial_pts = 0.0;
-int64_t final_pts;
-double pts_offset = 0.0;
 
-int initial_pts_set = 0;
-double initial_apts;
-double apts_offset = 0.0;
-int initial_apts_set = 0;
-int do_audio_repair = 1;
-extern int timeline_repair;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //int bitrate;
-int muxrate,byterate=10000;
+
 //#define PTS_FRAME (double)(1.0 / get_fps())
 //#define PTS_FRAME (int) (90000 / get_fps())
 //#define SAMPLE_TO_FRAME 2.8125
@@ -290,130 +225,72 @@ int muxrate,byterate=10000;
 //extern int  _fseeki64(FILE *, int64_t, int);
 //extern int64_t _ftelli64(FILE *);
 
-int soft_seeking=0;
-extern char	inbasename[];
 
-char pict_type;
 
-char tempstring[512];
+
+
+
+
 //test
 
-#define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", inbasename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
-#define DUMP_HEADER if (timing_file) fprintf(timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
-#define DUMP_TIMING(T, D, P, C, O, S) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
-	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O), (S));
-#define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
+#define DUMP_OPEN if (context.settings.output_timing) { sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename); context.state.timing_file = myfopen(context.state.tempstring, "w"); DUMP_HEADER }
+#define DUMP_HEADER if (context.state.timing_file) fprintf(context.state.timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
+#define DUMP_TIMING(T, D, P, C, O, S) if (context.state.timing_file && !context.state.csStepping && !context.state.csJumping && !context.state.csStartJump) fprintf(context.state.timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+    T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O), (S));
+#define DUMP_CLOSE if (context.state.timing_file) { fclose(context.state.timing_file); context.state.timing_file = NULL; }
 
 
-extern int skip_B_frames;
-extern int lowres;
 
-static int sigint = 0;
 
-static int decoder_verbose = 0;
 
-extern int selftest;
-double selftest_target = 0.0;
 
-extern long frame_count;
-int	framenum;
 
-fpos_t		filepos;
-extern int		standoff;
-int64_t			goppos,infopos,packpos,ptspos,headerpos,frompos,SeekPos;
 
-extern int max_repair_size;
-extern int variable_bitrate;
-int max_internal_repair_size = 40;
-int reviewing = 0;
-int count=0;
-int currentSecond=0;
-int cur_hour = 0;
-int cur_minute = 0;
-int cur_second = 0;
 
-extern char HomeDir[256];
-extern bool processCC;
-int	reorderCC = 0;
 
-extern bool live_tv;
-int csRestart;
-int csStartJump;
-int csStepping;
-int csJumping;
-int csFound;
-int	seekIter = 0;
-int	seekDirection = 0;
-
-extern FILE * out_file;
-extern uint8_t ccData[500];
-extern int ccDataLen;
-
-extern int height,width, videowidth;
-extern bool output_debugwindow;
-extern bool output_console;
-extern bool output_timing;
-extern bool output_srt;
-extern bool output_smi;
-
-extern unsigned char *frame_ptr;
-extern int lastFrameWasSceneChange;
-extern int live_tv_retries;
-extern int dvrms_live_tv_retries;
-int retries;
 
 //extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
-extern void set_fps(double frame_delay);
-extern void dump_video (char *start, char *end);
-extern void dump_audio (char *start, char *end);
-extern void	Debug(int level, const char * fmt, ...);
-extern void dump_video_start(void);
-extern void dump_audio_start(void);
-void file_open();
-int DetectCommercials(int, double);
-bool BuildMasterCommList(void);
-FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translator& translator);
-void ProcessCCData(void);
-void dump_data(char *start, int length);
-void close_data();
-
-static void signal_handler (int sig)
-{
-    sigint = 1;
-    signal (sig, SIG_DFL);
-    //return (RETSIGTYPE)0;
-    return;
-}
+extern void set_fps(RecordingContext& context, double frame_delay);
+extern void dump_video (RecordingContext& context, char *start, char *end);
+extern void dump_audio (RecordingContext& context, char *start, char *end);
+extern void	Debug(RecordingContext& context, int level, const char * fmt, ...);
+extern void dump_video_start(RecordingContext& context);
+extern void dump_audio_start(RecordingContext& context);
+void file_open(RecordingContext& context);
+int DetectCommercials(RecordingContext& context, int, double);
+bool BuildMasterCommList(RecordingContext& context);
+FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator);
+void ProcessCCData(RecordingContext& context);
+void dump_data(RecordingContext& context, char *start, int length);
+void close_data(RecordingContext& context);
 
 
 
 #define AUDIOBUFFER	1600000
 
-static double base_apts = 0.0, apts, top_apts = 0.0;
-static short audio_buffer[AUDIOBUFFER];
-static short *audio_buffer_ptr = audio_buffer;
-static int audio_samples = 0;
+
+
+
+
 #define ISSAME(T1,T2) (fabs((T1) - (T2)) < 0.001)
 
 //extern double fps;
-static int sound_frame_counter = 0;
-extern double get_fps();
+
+extern double get_fps(RecordingContext& context);
 extern int get_samplerate();
 extern int get_channels();
 extern void add_volumes(int *volumes, int nr_frames);
-extern void set_frame_volume(uint32_t framenr, int volume);
+extern void set_frame_volume(RecordingContext& context, uint32_t framenr, int volume);
 
-extern double get_frame_pts(int f);
+extern double get_frame_pts(RecordingContext& context, int f);
 
 
 
-static int max_volume_found = 0;
 
-extern int ms_audio_delay;
-int tracks_without_sound = 0;
-int frames_without_sound = 0;
+
+
 #define MAX_FRAMES_WITHOUT_SOUND	100
-int frames_with_loud_sound = 0;
+
 
 
 void list_codecs()
@@ -441,39 +318,39 @@ void list_codecs()
 }
 
 
-int retreive_frame_volume(double from_pts, double to_pts)
+int retreive_frame_volume(RecordingContext& context, double from_pts, double to_pts)
 {
     short *buffer;
     int volume = -1;
-    VideoState *is = global_video_state;
+    VideoState *is = context.state.global_video_state;
     int i;
     double calculated_delay;
     const int sample_rate = is->audio_st->codecpar->sample_rate;
     if (sample_rate <= 0 || !std::isfinite(from_pts) || !std::isfinite(to_pts))
         return -1;
-    const double sample_offset = (from_pts - base_apts) * sample_rate;
+    const double sample_offset = (from_pts - context.state.base_apts) * sample_rate;
     const double sample_count = (to_pts - from_pts) * sample_rate;
-    if (sample_offset < -0.5 || sample_offset > audio_samples
-        || sample_count < 0 || sample_count > audio_samples)
+    if (sample_offset < -0.5 || sample_offset > context.state.audio_samples
+        || sample_count < 0 || sample_count > context.state.audio_samples)
         return -1;
     const int first_sample = static_cast<int>(std::llround(sample_offset));
     const int s_per_frame = static_cast<int>(std::llround(sample_count));
 
 
-    if (s_per_frame > 1 && first_sample >= 0 && first_sample <= audio_samples
-        && s_per_frame <= audio_samples - first_sample)
+    if (s_per_frame > 1 && first_sample >= 0 && first_sample <= context.state.audio_samples
+        && s_per_frame <= context.state.audio_samples - first_sample)
     {
         calculated_delay = 0.0;
 
 
  //       Debug(1,"fame=%d, =base=%6.3f, from=%6.3f, samples=%d, to=%6.3f, top==%6.3f\n", -1, base_apts, from_pts, s_per_frame, to_pts, top_apts);
-        buffer = &audio_buffer[first_sample];
+        buffer = &context.state.audio_buffer[first_sample];
 
         volume = 0;
-        if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter);
+        if (context.state.sample_file) fprintf(context.state.sample_file, "Frame %i\n", context.state.sound_frame_counter);
         for (i = 0; i < s_per_frame; i++)
         {
-            if (sample_file) fprintf(sample_file, "%i\n", *buffer);
+            if (context.state.sample_file) fprintf(context.state.sample_file, "%i\n", *buffer);
             volume += (*buffer>0 ? *buffer : - *buffer);
             buffer++;
         }
@@ -481,59 +358,59 @@ int retreive_frame_volume(double from_pts, double to_pts)
         DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume, s_per_frame);
 
         const int consumed_samples = first_sample + s_per_frame;
-        audio_samples -= consumed_samples;
+        context.state.audio_samples -= consumed_samples;
 
 
         if (volume == 0)
         {
-            frames_without_sound++;
+            context.state.frames_without_sound++;
         }
         else if (volume > 20000)
         {
             if (volume > 256000)
                 volume = 220000;
-            frames_with_loud_sound++;
+            context.state.frames_with_loud_sound++;
             volume = -1;
         }
         else
         {
-            frames_without_sound = 0;
+            context.state.frames_without_sound = 0;
         }
 
-        if (max_volume_found < volume)
-            max_volume_found = volume;
+        if (context.state.max_volume_found < volume)
+            context.state.max_volume_found = volume;
 
         // Remove use samples
-        audio_buffer_ptr = audio_buffer;
-        if (audio_samples > 0)
+        context.state.audio_buffer_ptr = context.state.audio_buffer;
+        if (context.state.audio_samples > 0)
         {
-            for (i = 0; i < audio_samples; i++)
+            for (i = 0; i < context.state.audio_samples; i++)
             {
-                *audio_buffer_ptr++ = *buffer++;
+                *context.state.audio_buffer_ptr++ = *buffer++;
             }
         }
-        base_apts += static_cast<double>(consumed_samples) / sample_rate;
-        top_apts = base_apts + audio_samples / (double)(is->audio_st->codecpar->sample_rate);
-        sound_frame_counter++;
+        context.state.base_apts += static_cast<double>(consumed_samples) / sample_rate;
+        context.state.top_apts = context.state.base_apts + context.state.audio_samples / (double)(is->audio_st->codecpar->sample_rate);
+        context.state.sound_frame_counter++;
     }
     return(volume);
 }
 
-void backfill_frame_volumes()
+void backfill_frame_volumes(RecordingContext& context)
 {
     int f;
     int volume;
-    double local_initial_pts = initial_pts;
-    if (framenum < 3)
+    double local_initial_pts = context.state.initial_pts;
+    if (context.state.framenum < 3)
         return;
-    f = framenum-2;
+    f = context.state.framenum-2;
     if (fabs(local_initial_pts) > 200)
         local_initial_pts = 0;
-    while (get_frame_pts(f) + local_initial_pts > base_apts && f > 1) // Find first frame with samples available, could be incomplete
+    while (get_frame_pts(context, f) + local_initial_pts > context.state.base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && (get_frame_pts(f+1) + local_initial_pts )<= top_apts && (top_apts - base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
-        volume = retreive_frame_volume(get_frame_pts(f) + local_initial_pts, get_frame_pts(f+1) + local_initial_pts);
-        if (volume > -1) set_frame_volume(f, volume);
+    while (f < context.state.framenum-1 && (get_frame_pts(context, f+1) + local_initial_pts )<= context.state.top_apts && (context.state.top_apts - context.state.base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
+        volume = retreive_frame_volume(context, get_frame_pts(context, f) + local_initial_pts, get_frame_pts(context, f+1) + local_initial_pts);
+        if (volume > -1) set_frame_volume(context, f, volume);
         f++;
     }
 }
@@ -541,72 +418,72 @@ void backfill_frame_volumes()
 
 
 
-void sound_to_frames(VideoState *is, const AVFrame& frame)
+void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& frame)
 {
     const int s = frame.nb_samples;
     const int c = frame.ch_layout.nb_channels;
     if (s <= 0 || c <= 0) return;
     const auto samples = comskip::media::normalize_audio(frame);
-    static int old_c = 0;
+
     double old_base_apts;
-    static double old_audio_clock=0.0;
+
     double calculated_delay = 0.0;
     double avg_volume = 0.0;
-    static int old_sample_rate = 0;
 
-    audio_samples = (audio_buffer_ptr - audio_buffer);
 
-    if (old_sample_rate == is->audio_st->codecpar->sample_rate &&
-        ((audio_buffer_ptr - audio_buffer) < 0 || (audio_buffer_ptr - audio_buffer) >= AUDIOBUFFER
-        || (top_apts - base_apts) * (is->audio_st->codecpar->sample_rate+0.5) > AUDIOBUFFER
-        || (top_apts < base_apts)
-        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate+0.5))+ base_apts, top_apts)
-        || audio_samples < 0
-        || audio_samples >= AUDIOBUFFER)) {
-       Debug(1, "Panic: Audio buffering corrupt\n");
-       audio_buffer_ptr = audio_buffer;
-       top_apts = base_apts = 0;
-       audio_samples=0;
+    context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
+
+    if (context.state.sound_to_frames_old_sample_rate == is->audio_st->codecpar->sample_rate &&
+        ((context.state.audio_buffer_ptr - context.state.audio_buffer) < 0 || (context.state.audio_buffer_ptr - context.state.audio_buffer) >= AUDIOBUFFER
+        || (context.state.top_apts - context.state.base_apts) * (is->audio_st->codecpar->sample_rate+0.5) > AUDIOBUFFER
+        || (context.state.top_apts < context.state.base_apts)
+        || !ISSAME(((double)context.state.audio_samples /(double)(is->audio_st->codecpar->sample_rate+0.5))+ context.state.base_apts, context.state.top_apts)
+        || context.state.audio_samples < 0
+        || context.state.audio_samples >= AUDIOBUFFER)) {
+       Debug(context, 1, "Panic: Audio buffering corrupt\n");
+       context.state.audio_buffer_ptr = context.state.audio_buffer;
+       context.state.top_apts = context.state.base_apts = 0;
+       context.state.audio_samples=0;
        return;
     }
 
-    if (old_c != 0 && old_c != c) {
-        Debug(5, "Audio channels switched at pts=%6.5f from %d to %d\n", base_apts, old_c, c);
+    if (context.state.sound_to_frames_old_c != 0 && context.state.sound_to_frames_old_c != c) {
+        Debug(context, 5, "Audio channels switched at pts=%6.5f from %d to %d\n", context.state.base_apts, context.state.sound_to_frames_old_c, c);
 //        InsertBlackFrame()
     }
-    audio_channels = c;
-    old_c = c;
-    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codecpar->sample_rate) {
-         Debug(5, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codecpar->sample_rate );
+    context.state.audio_channels = c;
+    context.state.sound_to_frames_old_c = c;
+    if (context.state.sound_to_frames_old_sample_rate != 0 && context.state.sound_to_frames_old_sample_rate != is->audio_st->codecpar->sample_rate) {
+         Debug(context, 5, "Audio samplerate switched from %d to %d\n", context.state.sound_to_frames_old_sample_rate, is->audio_st->codecpar->sample_rate );
     }
-    old_sample_rate = is->audio_st->codecpar->sample_rate;
+    context.state.sound_to_frames_old_sample_rate = is->audio_st->codecpar->sample_rate;
 
-    old_base_apts = base_apts;
+    old_base_apts = context.state.base_apts;
     // Preserve the sample-derived timeline across sub-millisecond container
     // timestamp rounding. Reanchoring the retained buffer on every packet can
     // make a previously consumed video interval appear available again.
     const double timestamp_precision = std::max(
-        av_q2d(is->audio_st->time_base), 1.0 / old_sample_rate);
-    if (audio_samples == 0 || fabs(top_apts - is->audio_clock) > timestamp_precision * 1.1)
-        base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate)));
-        if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-                    if (   ISSAME(base_apts - old_base_apts, 0.032)
-                        || ISSAME(base_apts - old_base_apts, -0.032)
-                        || ISSAME(base_apts - old_base_apts, 0.064)
-                        || ISSAME(base_apts - old_base_apts, -0.064)
-                        || ISSAME(base_apts - old_base_apts, -0.096)
+        av_q2d(is->audio_st->time_base), 1.0 / context.state.sound_to_frames_old_sample_rate);
+    if (context.state.audio_samples == 0 || fabs(context.state.top_apts - is->audio_clock) > timestamp_precision * 1.1)
+        context.state.base_apts = (is->audio_clock - ((double)context.state.audio_samples /(double)(is->audio_st->codecpar->sample_rate)));
+        if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+                    if (   ISSAME(context.state.base_apts - old_base_apts, 0.032)
+                        || ISSAME(context.state.base_apts - old_base_apts, -0.032)
+                        || ISSAME(context.state.base_apts - old_base_apts, 0.064)
+                        || ISSAME(context.state.base_apts - old_base_apts, -0.064)
+                        || ISSAME(context.state.base_apts - old_base_apts, -0.096)
                         )
-                        old_base_apts = base_apts; // Ignore AC3 packet jitter
+                        old_base_apts = context.state.base_apts; // Ignore AC3 packet jitter
             }
-    if (old_base_apts != 0.0 && (fabs(base_apts - old_base_apts)>0.01)) {
-        Debug(8, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, base_apts, base_apts -old_base_apts);
+    if (old_base_apts != 0.0 && (fabs(context.state.base_apts - old_base_apts)>0.01)) {
+        Debug(context, 8, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, context.state.base_apts, context.state.base_apts -old_base_apts);
     }
 
-    if (s+audio_samples > AUDIOBUFFER ) {
-        Debug(1,"Panic: Audio buffer overflow, resetting audio buffer\n");
-       audio_buffer_ptr = audio_buffer;
-       top_apts = base_apts = 0;
-       audio_samples=0;
+    if (s+context.state.audio_samples > AUDIOBUFFER ) {
+        Debug(context, 1,"Panic: Audio buffer overflow, resetting audio buffer\n");
+       context.state.audio_buffer_ptr = context.state.audio_buffer;
+       context.state.top_apts = context.state.base_apts = 0;
+       context.state.audio_samples=0;
        return;
     }
 
@@ -624,29 +501,29 @@ void sound_to_frames(VideoState *is, const AVFrame& frame)
         const auto value = static_cast<short>(std::clamp(volume,
             static_cast<double>(std::numeric_limits<short>::lowest()),
             static_cast<double>(std::numeric_limits<short>::max())));
-        *audio_buffer_ptr++ = value;
+        *context.state.audio_buffer_ptr++ = value;
         avg_volume += std::abs(static_cast<int>(value));
     }
     avg_volume /= s;
-    audio_samples = (audio_buffer_ptr - audio_buffer);
-    top_apts = base_apts + audio_samples / (double)(is->audio_st->codecpar->sample_rate);
+    context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
+    context.state.top_apts = context.state.base_apts + context.state.audio_samples / (double)(is->audio_st->codecpar->sample_rate);
 
-    calculated_delay = is->audio_clock - old_audio_clock;
-    DUMP_TIMING("a frame", is->audio_clock, top_apts, base_apts, avg_volume,s);
-    old_audio_clock = is->audio_clock;
+    calculated_delay = is->audio_clock - context.state.sound_to_frames_old_audio_clock;
+    DUMP_TIMING("a frame", is->audio_clock, context.state.top_apts, context.state.base_apts, avg_volume,s);
+    context.state.sound_to_frames_old_audio_clock = is->audio_clock;
 
-    backfill_frame_volumes();
+    backfill_frame_volumes(context);
 }
 
 
 #define AC3_BUFFER_SIZE 100000
-static uint8_t ac3_packet[AC3_BUFFER_SIZE];
-static int ac3_packet_index = 0;
-int data_size;
 
-int ac3_package_misalignment_count = 0;
 
-void audio_packet_process(VideoState *is, AVPacket *pkt)
+
+
+
+
+void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
     int len1, data_size;
@@ -657,40 +534,40 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     AVPacket *pkt_temp = &is->audio_pkt_temp;
 
     int got_frame;
-    if (!reviewing)
+    if (!context.state.reviewing)
     {
-        dump_audio_start();
-        dump_audio((char *)pkt->data,(char *) (pkt->data + pkt->size));
+        dump_audio_start(context);
+        dump_audio(context, (char *)pkt->data,(char *) (pkt->data + pkt->size));
     }
 
 
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
 
-    if ( !ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
+    if ( !context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
         && (pkt_temp->size < 2 || pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77))
     {
 //        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
-        ac3_package_misalignment_count++;
+        context.state.ac3_package_misalignment_count++;
     } else {
-        ac3_package_misalignment_count = 0;
+        context.state.ac3_package_misalignment_count = 0;
     }
-    if (!ALIGN_AC3_PACKETS && ac3_package_misalignment_count > 4) {
-        Debug(8, "AC3 packets misaligned, enabling AC3 re-alignment\n");
-        ALIGN_AC3_PACKETS = 1;
+    if (!context.settings.ALIGN_AC3_PACKETS && context.state.ac3_package_misalignment_count > 4) {
+        Debug(context, 8, "AC3 packets misaligned, enabling AC3 re-alignment\n");
+        context.settings.ALIGN_AC3_PACKETS = 1;
     }
 
-    if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-        if (pkt_temp->size < 0 || pkt_temp->size > AC3_BUFFER_SIZE - ac3_packet_index)
+    if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+        if (pkt_temp->size < 0 || pkt_temp->size > AC3_BUFFER_SIZE - context.state.ac3_packet_index)
         {
-            Debug(8,"AC3 sync error\n");
-            ac3_packet_index = 0;
+            Debug(context, 8,"AC3 sync error\n");
+            context.state.ac3_packet_index = 0;
             return;
         }
-        memcpy(&ac3_packet[ac3_packet_index], pkt_temp->data, pkt_temp->size);
-        pkt_temp->data = ac3_packet;
-        pkt_temp->size += ac3_packet_index;
-        ac3_packet_index = pkt_temp->size;
+        memcpy(&context.state.ac3_packet[context.state.ac3_packet_index], pkt_temp->data, pkt_temp->size);
+        pkt_temp->data = context.state.ac3_packet;
+        pkt_temp->size += context.state.ac3_packet_index;
+        context.state.ac3_packet_index = pkt_temp->size;
         ps = 0;
         while (pkt_temp->size >= 2 && (pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77) ) {
             pkt_temp->data++;
@@ -700,13 +577,13 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         if (pkt_temp->size < 2) {
             // Keep only the possible first byte of a sync word split across packets.
             const bool partial_sync = pkt_temp->size == 1 && pkt_temp->data[0] == 0x0b;
-            ac3_packet_index = partial_sync ? 1 : 0;
+            context.state.ac3_packet_index = partial_sync ? 1 : 0;
             if (partial_sync)
-                ac3_packet[0] = 0x0b;
+                context.state.ac3_packet[0] = 0x0b;
             return;
         }
         if (ps>0)
-            Debug(8,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, framenum);
+            Debug(context, 8,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, context.state.framenum);
         pp = pkt_temp->data;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
@@ -719,12 +596,12 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         else
         {
             // Retain the candidate frame, discarding bytes before its sync word.
-            memmove(ac3_packet, pkt_temp->data, pkt_temp->size);
-            ac3_packet_index = pkt_temp->size;
+            memmove(context.state.ac3_packet, pkt_temp->data, pkt_temp->size);
+            context.state.ac3_packet_index = pkt_temp->size;
             return;
         }
         if ( (pkt_temp->size % 768 ) != 0)
-            Debug(8,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, framenum);
+            Debug(context, 8,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, context.state.framenum);
 
     }
 
@@ -736,8 +613,8 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     if (pkt->pts != AV_NOPTS_VALUE)
     {
         prev_audio_clock = is->audio_clock;
-        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->audio_st->start_time != AV_NOPTS_VALUE ? is->audio_st->start_time : 0)) - apts_offset;
-            if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->audio_st->start_time != AV_NOPTS_VALUE ? is->audio_st->start_time : 0)) - context.state.apts_offset;
+            if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(is->audio_clock - prev_audio_clock, 0.032)
                         || ISSAME(is->audio_clock - prev_audio_clock, -0.032)
                         || ISSAME(is->audio_clock - prev_audio_clock, 0.064)
@@ -747,26 +624,26 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                         prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
             }
 
-        if ( initial_apts_set && is->audio_clock != 0.0 && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
-            if (do_audio_repair && fabs( is->audio_clock - prev_audio_clock) < 1) {
+        if ( context.state.initial_apts_set && is->audio_clock != 0.0 && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
+            if (context.state.do_audio_repair && fabs( is->audio_clock - prev_audio_clock) < 1) {
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {
-                Debug(8 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
-                if (do_audio_repair) {
+                Debug(context, 8 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , context.state.framenum);
+                if (context.state.do_audio_repair) {
 //                    apts_offset += is->audio_clock - prev_audio_clock ;
 //                    is->audio_clock = prev_audio_clock;
                 }
             }
         }
-        if (!initial_apts_set) {
-            initial_apts = is->audio_clock;
-            Debug( 10,"\nInitial audio pts = %10.3f\n", initial_apts);
+        if (!context.state.initial_apts_set) {
+            context.state.initial_apts = is->audio_clock;
+            Debug(context,  10,"\nInitial audio pts = %10.3f\n", context.state.initial_apts);
 
         }
     }
 
-    initial_apts_set = 1;
+    context.state.initial_apts_set = 1;
 
     int send_result;
     int received_frames;
@@ -776,7 +653,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     AVPacket decoder_packet{};
     decoder_packet.data = pkt_temp->data;
     decoder_packet.size = pkt_temp->size;
-    if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+    if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         padded_audio.resize(pkt_temp->size + AV_INPUT_BUFFER_PADDING_SIZE, 0);
         std::copy_n(pkt_temp->data, pkt_temp->size, padded_audio.data());
         decoder_packet.data = padded_audio.data();
@@ -791,7 +668,7 @@ retry_audio_send:
         pkt_temp->data += pkt_temp->size;
         pkt_temp->size = 0;
     } else if (send_result != AVERROR(EAGAIN)) {
-        if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+        if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
             const int skipped = pkt_temp->size < 2 ? pkt_temp->size : 2;
             pkt_temp->data += skipped;
             pkt_temp->size -= skipped;
@@ -808,7 +685,7 @@ retry_audio_send:
 
         if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
         {
-            Debug(2 ,"Audio format change\n");
+            Debug(context, 2 ,"Audio format change\n");
         }
         prev_codec_id = is->audio_st->codecpar->codec_id;
         if (len1 < 0)
@@ -828,7 +705,7 @@ retry_audio_send:
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(is, *is->frame.get());
+            sound_to_frames(context, is, *is->frame.get());
         }
         is->audio_clock += (double)data_size /
                            (is->frame->ch_layout.nb_channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
@@ -852,43 +729,43 @@ retry_audio_send:
     if (send_result == AVERROR(EAGAIN)) {
         if (received_frames > 0)
             goto retry_audio_send;
-        Debug(1, "Audio decoder refused input without producing a frame\n");
+        Debug(context, 1, "Audio decoder refused input without producing a frame\n");
     }
 
-    if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+    if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         ps = 0;
-        rps = (pkt_temp->data - ac3_packet);
-        while (0 < ac3_packet_index - rps)
+        rps = (pkt_temp->data - context.state.ac3_packet);
+        while (0 < context.state.ac3_packet_index - rps)
         {
-            ac3_packet[ps] = ac3_packet[rps];
+            context.state.ac3_packet[ps] = context.state.ac3_packet[rps];
             ps++;
             rps++;
         }
-        ac3_packet_index = ps;
+        context.state.ac3_packet_index = ps;
     }
 }
 
-static double print_fps (int final)
+static double print_fps (RecordingContext& context, int final)
 {
-    static uint32_t frame_counter = 0;
-    static struct timeval tv_beg, tv_start;
-    static int total_elapsed;
-    static int last_count = 0;
+
+
+
+
     struct timeval tv_end;
     double fps, tfps;
     int frames, elapsed;
     char cur_pos[100] = "0:00:00";
 
-    if (decoder_verbose)
+    if (context.state.decoder_verbose)
         return 0.0;
 
-    if(csStepping)
+    if(context.state.csStepping)
         return 0.0;
 
     if(final < 0)
     {
-        frame_counter = 0;
-        last_count = 0;
+        context.state.print_fps_frame_counter = 0;
+        context.state.print_fps_last_count = 0;
         return 0.0;
     }
 #ifdef DONATOR
@@ -899,31 +776,30 @@ again:
 #endif
     gettimeofday (&tv_end, NULL);
 
-    if (!frame_counter)
+    if (!context.state.print_fps_frame_counter)
     {
-        tv_start = tv_beg = tv_end;
-        signal (SIGINT, signal_handler);
+        context.state.print_fps_tv_start = context.state.print_fps_tv_beg = tv_end;
     }
 
-    elapsed = (tv_end.tv_sec - tv_beg.tv_sec) * 100 + (tv_end.tv_usec - tv_beg.tv_usec) / 10000;
-    total_elapsed = (tv_end.tv_sec - tv_start.tv_sec) * 100 + (tv_end.tv_usec - tv_start.tv_usec) / 10000;
+    elapsed = (tv_end.tv_sec - context.state.print_fps_tv_beg.tv_sec) * 100 + (tv_end.tv_usec - context.state.print_fps_tv_beg.tv_usec) / 10000;
+    context.state.print_fps_total_elapsed = (tv_end.tv_sec - context.state.print_fps_tv_start.tv_sec) * 100 + (tv_end.tv_usec - context.state.print_fps_tv_start.tv_usec) / 10000;
 
     if (final)
     {
-        if (total_elapsed)
-            tfps = frame_counter * 100.0 / total_elapsed;
+        if (context.state.print_fps_total_elapsed)
+            tfps = context.state.print_fps_frame_counter * 100.0 / context.state.print_fps_total_elapsed;
         else
             tfps = 0;
 
         fprintf (stderr,"\n%d frames decoded in %.2f seconds (%.2f fps)\n",
-                 frame_counter, total_elapsed / 100.0, tfps);
+                 context.state.print_fps_frame_counter, context.state.print_fps_total_elapsed / 100.0, tfps);
         fflush(stderr);
         return tfps;
     }
 
-    frame_counter++;
+    context.state.print_fps_frame_counter++;
 
-    frames = frame_counter - last_count;
+    frames = context.state.print_fps_frame_counter - context.state.print_fps_last_count;
 
 #ifdef DONATOR
 #else
@@ -939,27 +815,27 @@ again:
     if (elapsed < 100)	/* only display every 1.00 seconds */
         return 0.0;
 
-    tv_beg = tv_end;
+    context.state.print_fps_tv_beg = tv_end;
 
 //    cur_second = (int)(get_frame_pts(framenum));
-    cur_second = (int)((framenum)/get_fps());
-    cur_hour = cur_second / (60 * 60);
-    cur_second -= cur_hour * 60 * 60;
-    cur_minute = cur_second / 60;
-    cur_second -= cur_minute * 60;
+    context.state.cur_second = (int)((context.state.framenum)/get_fps(context));
+    context.state.cur_hour = context.state.cur_second / (60 * 60);
+    context.state.cur_second -= context.state.cur_hour * 60 * 60;
+    context.state.cur_minute = context.state.cur_second / 60;
+    context.state.cur_second -= context.state.cur_minute * 60;
 
 
-    sprintf(cur_pos, "%2i:%.2i:%.2i", cur_hour, cur_minute, cur_second);
+    sprintf(cur_pos, "%2i:%.2i:%.2i", context.state.cur_hour, context.state.cur_minute, context.state.cur_second);
 
     fps = frames * 100.0 / elapsed;
-    tfps = frame_counter * 100.0 / total_elapsed;
+    tfps = context.state.print_fps_frame_counter * 100.0 / context.state.print_fps_total_elapsed;
 
     fprintf (stderr, "%s - %d frames in %.2f sec(%.2f fps), "
-             "%.2f sec(%.2f fps), %d%%\r", cur_pos, frame_counter,
+             "%.2f sec(%.2f fps), %d%%\r", cur_pos, context.state.print_fps_frame_counter,
 //             total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * get_frame_pts(framenum) / global_video_state->duration));
-             total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * (framenum)/get_fps() / global_video_state->duration));
+             context.state.print_fps_total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * (context.state.framenum)/get_fps(context) / context.state.global_video_state->duration));
     fflush(stderr);
-    last_count = frame_counter;
+    context.state.print_fps_last_count = context.state.print_fps_frame_counter;
     return tfps;
 }
 
@@ -969,7 +845,7 @@ extern "C" long process_block (unsigned char *data, long length);
 #endif
 
 
-int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
+int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame         *pFrame , double pts)
 {
     int res=0;
     int changed = 0;
@@ -977,83 +853,83 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
 //	bitrate = pFrame->bit_rate;
     if (pFrame->linesize[0] > MAXWIDTH || pFrame->height > MAXHEIGHT || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
-        Debug(1, "Panic: illegal height (%d), width (%d) or frame period (%d)\n",
+        Debug(context, 1, "Panic: illegal height (%d), width (%d) or frame period (%d)\n",
               pFrame->height, pFrame->width, pFrame->linesize[0]);
-        frame_ptr = NULL;
+        context.state.frame_ptr = NULL;
         return(0);
     }
-    if (height != pFrame->height && pFrame->height > 100 && pFrame->height < MAXHEIGHT)
+    if (context.state.height != pFrame->height && pFrame->height > 100 && pFrame->height < MAXHEIGHT)
     {
-        height= pFrame->height;
+        context.state.height= pFrame->height;
         changed = 1;
     }
-    if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < MAXWIDTH)
+    if (context.state.width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < MAXWIDTH)
     {
-        width= pFrame->linesize[0];
+        context.state.width= pFrame->linesize[0];
         changed = 1;
     }
-    if (videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < MAXWIDTH)
+    if (context.state.videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < MAXWIDTH)
     {
-        videowidth= pFrame->width;
+        context.state.videowidth= pFrame->width;
         changed = 1;
     }
-    if (changed) Debug(5, "Format changed to [%d : %d]\n", videowidth, height);
-    infopos = headerpos;
-    frame_ptr = pFrame->data[0];
-    if (frame_ptr == NULL)
+    if (changed) Debug(context, 5, "Format changed to [%d : %d]\n", context.state.videowidth, context.state.height);
+    context.state.infopos = context.state.headerpos;
+    context.state.frame_ptr = pFrame->data[0];
+    if (context.state.frame_ptr == NULL)
     {
         return(0);; // return; // comskip::request_exit(2);
     }
 
     if (pFrame->pict_type == AV_PICTURE_TYPE_B)
-        pict_type = 'B';
+        context.state.pict_type = 'B';
     else if (pFrame->pict_type == AV_PICTURE_TYPE_I)
-        pict_type = 'I';
+        context.state.pict_type = 'I';
     else
-        pict_type = 'P';
+        context.state.pict_type = 'P';
 
-    if (selftest == 2 && framenum == 0 && pass == 0 && test_pts == 0.0) //Reset file test
-        test_pts = pts;
-    if (selftest == 2 && pass > 0) //Reset file test
+    if (context.state.selftest == 2 && context.state.framenum == 0 && context.state.pass == 0 && context.state.test_pts == 0.0) //Reset file test
+        context.state.test_pts = pts;
+    if (context.state.selftest == 2 && context.state.pass > 0) //Reset file test
     {
-        if (test_pts != pts)
+        if (context.state.test_pts != pts)
         {
-               sample_file = fopen("seektest.log", "a+");
-                fprintf(sample_file, "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", test_pts, pts, pass+1, is->filename);
-                fclose(sample_file);
-                Debug( 1,"\nSelftest %d FAILED: Reset\n", selftest);
+               context.state.sample_file = fopen("seektest.log", "a+");
+                fprintf(context.state.sample_file, "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.is->filename);
+                fclose(context.state.sample_file);
+                Debug(context,  1,"\nSelftest %d FAILED: Reset\n", context.state.selftest);
         }
         else
-           Debug( 1,"\nSelftest 2 OK: Reset\n");
+           Debug(context,  1,"\nSelftest 2 OK: Reset\n");
 
         comskip::request_exit(1);
     }
 
-    if (!reviewing)
+    if (!context.state.reviewing)
     {
 
-        print_fps (0);
-        res = DetectCommercials((int)framenum, pts);
-        framenum++;
+        print_fps (context, 0);
+        res = DetectCommercials(context, (int)context.state.framenum, pts);
+        context.state.framenum++;
 #ifdef SELFTEST
-    if (selftest == 2 && pass == 0 && framenum > 20) //Reset input file
+    if (context.state.selftest == 2 && context.state.pass == 0 && context.state.framenum > 20) //Reset input file
     {
         res = true;
-        pass++;
+        context.state.pass++;
     }
 #endif
         if (res) {
-            framenum = 0;
-            sound_frame_counter = 0;
-            is->seek_req = 1;
-            is->seek_pos = 0;
-            is->seek_pts = 0.0;
+            context.state.framenum = 0;
+            context.state.sound_frame_counter = 0;
+            context.state.is->seek_req = 1;
+            context.state.is->seek_pos = 0;
+            context.state.is->seek_pts = 0.0;
         }
     }
     return (res);
 }
 
-void Set_seek(VideoState *is, double pts)
+void Set_seek(RecordingContext& context, VideoState *is, double pts)
 {
     AVFormatContext *ic = is->pFormatCtx.get();
 
@@ -1075,7 +951,7 @@ void Set_seek(VideoState *is, double pts)
 //                            pos = avio_tell(is->pFormatCtx->pb);
       uint64_t size =  avio_size(ic->pb);
         if (length < 0) {
-            is->seek_pos = size*fmax(0,pts-4.0)/(frame_count * get_fps());
+            is->seek_pos = size*fmax(0,pts-4.0)/(context.state.frame_count * get_fps(context));
 //            Debug(0,"Impossible to reposition this file, aborting\n");
   //          comskip::request_exit(-1);
         } else {
@@ -1083,7 +959,7 @@ void Set_seek(VideoState *is, double pts)
         }
         is->seek_flags |= AVSEEK_FLAG_BYTE;
     } else {
-        pts = fmax(0,pts+initial_pts);
+        pts = fmax(0,pts+context.state.initial_pts);
         is->seek_pos = pts / av_q2d(is->video_st->time_base);
         if (is->video_st->start_time != AV_NOPTS_VALUE)
         {
@@ -1092,15 +968,15 @@ void Set_seek(VideoState *is, double pts)
     }
 }
 
-void DoSeekRequest(VideoState *is)
+void DoSeekRequest(RecordingContext& context, VideoState *is)
 {
     int ret;
 again:
 //           ret = avformat_seek_file(is->pFormatCtx.get(), is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
     ret = av_seek_frame(is->pFormatCtx.get(), is->videoStream,  is->seek_pos,  is->seek_flags);
 //            ret = av_seek_frame(is->pFormatCtx.get(), -1,  is->seek_pos,  is->seek_flags);
-    pev_best_effort_timestamp = 0;
-    best_effort_timestamp = 0;
+    context.state.pev_best_effort_timestamp = 0;
+    context.state.best_effort_timestamp = 0;
     is->video_clock = 0.0;
     is->audio_clock = 0.0;
     if(ret < 0)
@@ -1126,17 +1002,17 @@ again:
 
         fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
 
-        if (selftest)
+        if (context.state.selftest)
         {
-            sample_file = fopen("seektest.log", "a+");
-            fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
-            fclose(sample_file);
+            context.state.sample_file = fopen("seektest.log", "a+");
+            fprintf(context.state.sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
+            fclose(context.state.sample_file);
         }
 
         if (!is->seek_by_bytes)
         {
             is->seek_by_bytes = 1; // Fall back to byte seek
-            Set_seek(is, is->seek_pts);
+            Set_seek(context, is, is->seek_pts);
             goto again;
         }
     }
@@ -1154,26 +1030,26 @@ again:
     is->seek_no_flush = 0;
 }
 
-void DecodeOnePicture(FILE * f, double pts)
+void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
 {
-    VideoState *is = global_video_state;
+    VideoState *is = context.state.global_video_state;
     AVPacket *packet;
 //    int ret;
 
 //    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
 
-    file_open();
-    is = global_video_state;
+    file_open(context);
+    is = context.state.global_video_state;
 
-    reviewing = 1;
-    Set_seek(is, pts);
+    context.state.reviewing = 1;
+    Set_seek(context, is, pts);
 
-    pev_best_effort_timestamp = 0;
-    best_effort_timestamp = 0;
-    pts_offset = 0.0;
+    context.state.pev_best_effort_timestamp = 0;
+    context.state.best_effort_timestamp = 0;
+    context.state.pts_offset = 0.0;
 
 //     Debug ( 5,  "Seek to %f\n", pts);
-    frame_ptr = NULL;
+    context.state.frame_ptr = NULL;
     packet = &(is->audio_pkt);
 
     for(;;)
@@ -1185,7 +1061,7 @@ void DecodeOnePicture(FILE * f, double pts)
         // seek stuff goes here
         if(is->seek_req)
         {
-again:      DoSeekRequest(is);
+again:      DoSeekRequest(context, is);
         }
 nextpacket:
         if(av_read_frame(is->pFormatCtx.get(), packet) < 0)
@@ -1217,11 +1093,11 @@ nextpacket:
             comp_pts += packet->duration;
  */
  //           pass = 0;
-            retries = 1; // once a frame has been decoded this will be set to zero
-            if (video_packet_process(is, packet) )
+            context.state.retries = 1; // once a frame has been decoded this will be set to zero
+            if (video_packet_process(context, is, packet) )
             {
 
-                if (retries == 0) // A frame has been decoded so stop reading packets.
+                if (context.state.retries == 0) // A frame has been decoded so stop reading packets.
                 {
 #ifdef DEBUG
     printf("Seek landed at %8.2f\n", is->video_clock);
@@ -1255,7 +1131,7 @@ nextpacket:
         }
         av_packet_unref(packet);
     }
-    reviewing = 0;
+    context.state.reviewing = 0;
 }
 
 void raise_exception(void)
@@ -1270,11 +1146,11 @@ int filter(void)
     comskip::request_exit(99);
 }
 
-extern char					mpegfilename[];
 
 
 
-int video_packet_process(VideoState *is,AVPacket *packet)
+
+int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet)
 {
     double frame_delay;
     int len1, frameFinished = 0;
@@ -1282,29 +1158,29 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     double pts;
 //    double dts;
     double real_pts;
-static int find_29fps = 0;
-static int force_29fps = 0;
-static int find_25fps = 0;
-static int force_25fps = 0;
-static int find_24fps = 0;
-static int force_24fps = 0;
-static double prev_pts = 0.0;
-static double prev_real_pts = 0.0;
-static double prev_strange_step = 0.0;
-static int    prev_strange_framenum = 0;
+
+
+
+
+
+
+
+
+
+
 //static double prev_frame_delay = 0.0;
 
     double calculated_delay;
 
-    if (packet && !reviewing)
+    if (packet && !context.state.reviewing)
     {
-        dump_video_start();
-        dump_video((char *)packet->data,(char *) (packet->data + packet->size));
+        dump_video_start(context);
+        dump_video(context, (char *)packet->data,(char *) (packet->data + packet->size));
     }
     real_pts = 0.0;
     pts = 0;
     //is->dec_ctx.get().thread_type
-    if (!hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
+    if (!context.settings.hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_send_packet(is->dec_ctx.get(), packet);
 
@@ -1334,7 +1210,7 @@ static int    prev_strange_framenum = 0;
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
             if (convert_frame_to_8bit_owned(is->pFrame.get(), is->img_convert_ctx) < 0) {
-                Debug(1, "Could not convert the decoded 10-bit frame to 8-bit\n");
+                Debug(context, 1, "Could not convert the decoded 10-bit frame to 8-bit\n");
                 av_frame_unref(is->pFrame.get());
                 continue;
             }
@@ -1360,104 +1236,104 @@ static int    prev_strange_framenum = 0;
 
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
  //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
-        pev_best_effort_timestamp = best_effort_timestamp;
-        if (use_cuvid)
+        context.state.pev_best_effort_timestamp = context.state.best_effort_timestamp;
+        if (context.state.use_cuvid)
             is->pFrame->best_effort_timestamp = is->pFrame->pts;
-        best_effort_timestamp = is->pFrame->best_effort_timestamp;
-        calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
+        context.state.best_effort_timestamp = is->pFrame->best_effort_timestamp;
+        calculated_delay = (context.state.best_effort_timestamp - context.state.pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
-        if (best_effort_timestamp == AV_NOPTS_VALUE)
+        if (context.state.best_effort_timestamp == AV_NOPTS_VALUE)
             real_pts = 0;
         else
         {
-            headerpos = avio_tell(is->pFormatCtx->pb);
-            if ((initial_pts_set < 3 && !reviewing) || (reviewing && initial_pts_set < 2)  )
+            context.state.headerpos = avio_tell(is->pFormatCtx->pb);
+            if ((context.state.initial_pts_set < 3 && !context.state.reviewing) || (context.state.reviewing && context.state.initial_pts_set < 2)  )
             {
 //              if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
-                if (!ISSAME(initial_pts, (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum) )) {
-                    initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
-                    Debug( 10,"\nInitial video pts = %10.3f\n", initial_pts);
+                if (!ISSAME(context.state.initial_pts, (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum) )) {
+                    context.state.initial_pts = (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum);
+                    Debug(context,  10,"\nInitial video pts = %10.3f\n", context.state.initial_pts);
 //                    if (timeline_repair<2)
 //                        initial_pts = 0.0;
                 }
-                initial_pts_set++;
-                final_pts = 0;
-                pts_offset = 0.0;
+                context.state.initial_pts_set++;
+                context.state.final_pts = 0;
+                context.state.pts_offset = 0.0;
 
             }
-            real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0))  - initial_pts;
-            final_pts = best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+            real_pts = av_q2d(is->video_st->time_base)* ( context.state.best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0))  - context.state.initial_pts;
+            context.state.final_pts = context.state.best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
         }
 
 //        dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
 
 
-        calculated_delay = real_pts - prev_real_pts;
+        calculated_delay = real_pts - context.state.video_packet_process_prev_real_pts;
 
-        if (framenum < 500)
+        if (context.state.framenum < 500)
         {
             if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
             ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
             (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) )
             {
-                find_29fps++;
+                context.state.video_packet_process_find_29fps++;
             }
             else
-                find_29fps = 0;
-            if (force_29fps == 0 && find_29fps == 5)
+                context.state.video_packet_process_find_29fps = 0;
+            if (context.state.video_packet_process_force_29fps == 0 && context.state.video_packet_process_find_29fps == 5)
             {
-                force_29fps = 1;
-                force_25fps = 0;
-                force_24fps = 0;
+                context.state.video_packet_process_force_29fps = 1;
+                context.state.video_packet_process_force_25fps = 0;
+                context.state.video_packet_process_force_24fps = 0;
             }
 
             if ( (!(fabs(frame_delay - 0.040) < 0.001 )) &&
                     (((fabs(calculated_delay - 0.04) < 0.0001)) || (fabs(calculated_delay - 0.039) < 0.0001) || (fabs(calculated_delay - 0.041) < 0.0001)) )
             {
-                find_25fps++;
+                context.state.video_packet_process_find_25fps++;
             }
             else
-                find_25fps = 0;
-            if (force_25fps == 0 && find_25fps == 5)
+                context.state.video_packet_process_find_25fps = 0;
+            if (context.state.video_packet_process_force_25fps == 0 && context.state.video_packet_process_find_25fps == 5)
             {
-                force_29fps = 0;
-                force_25fps = 1;
-                force_24fps = 0;
+                context.state.video_packet_process_force_29fps = 0;
+                context.state.video_packet_process_force_25fps = 1;
+                context.state.video_packet_process_force_24fps = 0;
             }
 
-            if ( ((find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 )) ||
-                    ((find_24fps & 1 ) == 1 && (fabs(calculated_delay - 0.033) < 0.001 ))
+            if ( ((context.state.video_packet_process_find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 )) ||
+                    ((context.state.video_packet_process_find_24fps & 1 ) == 1 && (fabs(calculated_delay - 0.033) < 0.001 ))
                )
             {
-                find_24fps++;
+                context.state.video_packet_process_find_24fps++;
             }
             else
-                find_24fps = 0;
-            if (force_24fps == 0 && find_24fps == 5)
+                context.state.video_packet_process_find_24fps = 0;
+            if (context.state.video_packet_process_force_24fps == 0 && context.state.video_packet_process_find_24fps == 5)
             {
-                force_29fps = 0;
-                force_25fps = 0;
-                force_24fps = 1;
+                context.state.video_packet_process_force_29fps = 0;
+                context.state.video_packet_process_force_25fps = 0;
+                context.state.video_packet_process_force_24fps = 1;
             }
         }
 
-        if (force_29fps && find_29fps == 5)
+        if (context.state.video_packet_process_force_29fps && context.state.video_packet_process_find_29fps == 5)
         {
             frame_delay=0.033366666666666669;
-            Debug(1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, frame_count);
-            set_fps(frame_delay);
+            Debug(context, 1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, context.state.frame_count);
+            set_fps(context, frame_delay);
         }
-        if (force_25fps && find_25fps == 5)
+        if (context.state.video_packet_process_force_25fps && context.state.video_packet_process_find_25fps == 5)
         {
             frame_delay=0.04;
-            Debug(1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, frame_count);
-            set_fps(frame_delay);
+            Debug(context, 1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, context.state.frame_count);
+            set_fps(context, frame_delay);
         }
-        if (force_24fps && find_24fps == 5)
+        if (context.state.video_packet_process_force_24fps && context.state.video_packet_process_find_24fps == 5)
         {
             frame_delay=0.0416666666666667;
-            Debug(1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, frame_count);
-            set_fps(frame_delay);
+            Debug(context, 1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, context.state.frame_count);
+            set_fps(context, frame_delay);
         }
 
 //#define SHOW_VIDEO_TIMING
@@ -1469,36 +1345,36 @@ static int    prev_strange_framenum = 0;
 #endif // SHOW_VIDEO_TIMING
 
 
-        pts_offset *= 0.9;
-        if (!reviewing && timeline_repair) {
-            if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
+        context.state.pts_offset *= 0.9;
+        if (!context.state.reviewing && context.settings.timeline_repair) {
+            if (context.state.framenum > 1 && fabs(calculated_delay - context.state.pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
                 if (!ISSAME(3*frame_delay/ is->ticks_per_frame, calculated_delay))
                     if (!ISSAME(1*frame_delay/ is->ticks_per_frame, calculated_delay))
-                        pts_offset = pts_offset + frame_delay - calculated_delay;
+                        context.state.pts_offset = context.state.pts_offset + frame_delay - calculated_delay;
             }
         }
         else
-            do_audio_repair = 0;
+            context.state.do_audio_repair = 0;
 
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->dec_ctxpar->ticks_per_frame);
 
-        pts = real_pts + pts_offset;
+        pts = real_pts + context.state.pts_offset;
 
-        calculated_delay = pts - prev_pts;
+        calculated_delay = pts - context.state.video_packet_process_prev_pts;
 
-        if (!reviewing
-            && framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
+        if (!context.state.reviewing
+            && context.state.framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
             && !ISSAME(3*frame_delay/ is->ticks_per_frame, calculated_delay)
             && !ISSAME(2*frame_delay/ is->ticks_per_frame, calculated_delay)
             && !ISSAME(1*frame_delay/ is->ticks_per_frame, calculated_delay)
             ){
-            if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
-                Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, framenum); // Unknown strange step
+            if ( (context.state.video_packet_process_prev_strange_framenum + 1 != context.state.framenum) &&( context.state.video_packet_process_prev_strange_step < fabs(calculated_delay - frame_delay))) {
+                Debug(context, 8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, context.state.framenum); // Unknown strange step
                 if (calculated_delay < -0.5)
-                    do_audio_repair = 0;        // Disable audio repair with messed up video timeline
+                    context.state.do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }
-            prev_strange_framenum = framenum;
-            prev_strange_step = fabs(calculated_delay - frame_delay);
+            context.state.video_packet_process_prev_strange_framenum = context.state.framenum;
+            context.state.video_packet_process_prev_strange_step = fabs(calculated_delay - frame_delay);
         }
 
         // set_fps(calculated_delay, is->fps, repeat, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
@@ -1506,12 +1382,12 @@ static int    prev_strange_framenum = 0;
         if(pts != 0)
         {
             is->video_clock = pts;
-            DUMP_TIMING("v   set", real_pts, pts, is->video_clock, pts_offset, repeat);
+            DUMP_TIMING("v   set", real_pts, pts, is->video_clock, context.state.pts_offset, repeat);
         }
         else
         {
             /* if we aren't given a pts, set it to the clock */
-            DUMP_TIMING("v clock", real_pts, pts, is->video_clock, pts_offset, repeat);
+            DUMP_TIMING("v clock", real_pts, pts, is->video_clock, context.state.pts_offset, repeat);
             pts = is->video_clock;
         }
         is->video_clock_submitted = is->video_clock;
@@ -1527,44 +1403,44 @@ static int    prev_strange_framenum = 0;
 
 
 
-        if (retries == 0)
+        if (context.state.retries == 0)
         {
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
             {
 
 #ifdef SELFTEST
-                if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) //Seek test
+                if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) //Seek test
                 {
-                   if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
+                   if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
                    {
-                    sample_file = fopen("seektest.log", "a+");
-                    fprintf(sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                    context.state.sample_file = fopen("seektest.log", "a+");
+                    fprintf(context.state.sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
-                    fclose(sample_file);
-                        Debug( 1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
+                    fclose(context.state.sample_file);
+                        Debug(context,  1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
                    }
                     else
-                        Debug( 1,"\nSelftest 1 OK: Seektest\nStarting test 3\n");
+                        Debug(context,  1,"\nSelftest 1 OK: Seektest\nStarting test 3\n");
                     /*
                                     if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
-                     				   is->seek_req=1;
-                    				   is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
-                    				   is->seek_flags = AVSEEK_FLAG_BYTE;
-                    				   tries++;
+                                       is->seek_req=1;
+                                       is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
+                                       is->seek_flags = AVSEEK_FLAG_BYTE;
+                                       tries++;
                                    } else
                      */
-                    selftest = 3;
-                    live_tv_retries = 1;
-                    pass = 0;
+                    context.state.selftest = 3;
+                    context.settings.live_tv_retries = 1;
+                    context.state.pass = 0;
 //                    comskip::request_exit(1);
                 }
 #endif
-                if (SubmitFrame (is->video_st, is->pFrame.get(), is->video_clock))
+                if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
                 {
                     goto quit;
                 }
@@ -1573,49 +1449,49 @@ static int    prev_strange_framenum = 0;
         else {
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
             {
-                if (selftest == 3) //Reopen at same location
+                if (context.state.selftest == 3) //Reopen at same location
                 {
-                    if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
+                    if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
                     {
-                        sample_file = fopen("seektest.log", "a+");
-                        fprintf(sample_file, "Reopen error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        context.state.sample_file = fopen("seektest.log", "a+");
+                        fprintf(context.state.sample_file, "Reopen error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
-                        fclose(sample_file);
-                        Debug( 1,"\nSelftest 3 FAILED: Reopen\n");
+                        fclose(context.state.sample_file);
+                        Debug(context,  1,"\nSelftest 3 FAILED: Reopen\n");
                     }
                     else
-                        Debug( 1,"\nSelftest 3 OK: Reopen\n");
+                        Debug(context,  1,"\nSelftest 3 OK: Reopen\n");
                     comskip::request_exit(1);
                 }
-                retries = 0;
-                if (SubmitFrame (is->video_st, is->pFrame.get(), is->video_clock))
+                context.state.retries = 0;
+                if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
                 {
                     goto quit;
                 }
             } else {
                 if (fabs(is->seek_pts - is->video_clock) > 80 ) {
-                    Debug(1,"Positioning file failing with pts=%6.2f\n", is->video_clock );
-                    if (selftest == 1 || selftest == 3)
+                    Debug(context, 1,"Positioning file failing with pts=%6.2f\n", is->video_clock );
+                    if (context.state.selftest == 1 || context.state.selftest == 3)
                     {
-                        sample_file = fopen("seektest.log", "a+");
-                        fprintf(sample_file, "Seek error : target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        context.state.sample_file = fopen("seektest.log", "a+");
+                        fprintf(context.state.sample_file, "Seek error : target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
-                        fclose(sample_file);
-                        Debug( 1,"\nSelftest %d FAILED\n", selftest);
+                        fclose(context.state.sample_file);
+                        Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                         comskip::request_exit(1);
                     }
                     goto quit;          //Temporary till the seek error is fixed.
-                    retries = 0;
+                    context.state.retries = 0;
                     comskip::request_exit(-1);
                 }
             }
@@ -1623,8 +1499,8 @@ static int    prev_strange_framenum = 0;
         }
         /* update the video clock */
         is->video_clock += frame_delay;
-        prev_pts = pts;
-        prev_real_pts = real_pts;
+        context.state.video_packet_process_prev_pts = pts;
+        context.state.video_packet_process_prev_real_pts = real_pts;
 //        prev_frame_delay = frame_delay;
 
 #ifdef PROCESS_CC
@@ -1633,19 +1509,19 @@ static int    prev_strange_framenum = 0;
             for (i = 0; i < is->pFrame->nb_side_data; i++) {
                 AVFrameSideData *sd = is->pFrame->side_data[i];
                 if (sd->type != AV_FRAME_DATA_A53_CC) continue;
-                ccDataLen = sd->size + 7;
-                ccData[0] = 'G';
-                ccData[1] = 'A';
-                ccData[2] = '9';
-                ccData[3] = '4';
-                ccData[4] = 3;
-                ccData[5] = sd->size / 3 + 64;
+                context.state.ccDataLen = sd->size + 7;
+                context.state.ccData[0] = 'G';
+                context.state.ccData[1] = 'A';
+                context.state.ccData[2] = '9';
+                context.state.ccData[3] = '4';
+                context.state.ccData[4] = 3;
+                context.state.ccData[5] = sd->size / 3 + 64;
                 for (i=0; i<sd->size; i++) {
-                  ccData[i+7] = sd->data[i];
+                  context.state.ccData[i+7] = sd->data[i];
                 }
-                dump_data((char *)ccData, (int)ccDataLen);
-                if (processCC) ProcessCCData();
-                if (output_srt) process_block(ccData, (int)ccDataLen);
+                dump_data(context, (char *)context.state.ccData, (int)context.state.ccDataLen);
+                if (context.state.processCC) ProcessCCData(context);
+                if (context.settings.output_srt) process_block(context.state.ccData, (int)context.state.ccDataLen);
             }
         }
 #endif
@@ -1718,7 +1594,7 @@ static int get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 }
 #endif
 
-int stream_component_open(VideoState *is, int stream_index)
+int stream_component_open(RecordingContext& context, VideoState *is, int stream_index)
 {
     AVFormatContext *pFormatCtx = is->pFormatCtx.get();
     AVCodecParameters *codecPar = NULL;
@@ -1734,57 +1610,57 @@ int stream_component_open(VideoState *is, int stream_index)
     }
 
     if (strcmp(pFormatCtx->iformat->name, "mpegts")==0)
-        demux_pid = 1;
+        context.state.demux_pid = 1;
 
     // Get a pointer to the codec context for the video stream
 
     codecPar = pFormatCtx->streams[stream_index]->codecpar;
 
-	codec = avcodec_find_decoder(codecPar->codec_id);
+    codec = avcodec_find_decoder(codecPar->codec_id);
 
-    if (use_qsv && !codec_hw) {
-		if (codecPar->codec_id == AV_CODEC_ID_MJPEG) codec_hw = avcodec_find_decoder_by_name("mjpeg_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_VP8) codec_hw = avcodec_find_decoder_by_name("vp8_qsv");
-		if (codecPar->codec_id == AV_CODEC_ID_VP9) codec_hw = avcodec_find_decoder_by_name("vp9_qsv");
+    if (context.state.use_qsv && !codec_hw) {
+        if (codecPar->codec_id == AV_CODEC_ID_MJPEG) codec_hw = avcodec_find_decoder_by_name("mjpeg_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_VP8) codec_hw = avcodec_find_decoder_by_name("vp8_qsv");
+        if (codecPar->codec_id == AV_CODEC_ID_VP9) codec_hw = avcodec_find_decoder_by_name("vp9_qsv");
     }
 
-    if (use_dxva2 && !codec_hw) {
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
-		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
-		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
-		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
-		if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_dxva2");
+    if (context.state.use_dxva2 && !codec_hw) {
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
+        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
+        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
+        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
+        if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_dxva2");
     }
 
-    if (use_vdpau && !codec_hw) {
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
-		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
-		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
-		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_vdpau");
+    if (context.state.use_vdpau && !codec_hw) {
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
+        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
+        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
+        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_vdpau");
     }
 
-    if (use_cuvid && !codec_hw) {
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
-		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
-		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
-		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_cuvid");
-		if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_cuvid");
+    if (context.state.use_cuvid && !codec_hw) {
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
+        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
+        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
+        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_cuvid");
+        if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_cuvid");
     }
 
-	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
-    if (hardware_decode && !codec_hw) {
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
-		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
-		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
-		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
+    // If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
+    if (context.settings.hardware_decode && !codec_hw) {
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
+        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
+        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
+        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
     }
 
 
@@ -1800,7 +1676,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
-        if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
+        if (!context.settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 
 #ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
@@ -1826,14 +1702,14 @@ int stream_component_open(VideoState *is, int stream_index)
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 
 #ifdef DONATOR
-           codecCtx->thread_count= thread_count;
+           codecCtx->thread_count= context.settings.thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
         }
 
         if (codecCtx->codec_id == AV_CODEC_ID_H264) {
-            is_h264 = 1;
+            context.state.is_h264 = 1;
 #ifdef DONATOR
 #else
             Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
@@ -1843,12 +1719,12 @@ int stream_component_open(VideoState *is, int stream_index)
         {
 #ifdef DONATOR
             int w;
-            if (lowres == 10) {
+            if (context.settings.lowres == 10) {
                 w = codecCtx->width;
-                lowres = 0;
+                context.settings.lowres = 0;
                 while (w > 600) {
                     w = w >> 1;
-                    lowres++;
+                    context.settings.lowres++;
                 }
             }
  //           codecCtx->lowres = lowres;
@@ -1859,21 +1735,21 @@ int stream_component_open(VideoState *is, int stream_index)
 
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
-           codecCtx->thread_count= thread_count;
+           codecCtx->thread_count= context.settings.thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
         }
     }
 
-    if (!hardware_decode) av_dict_set_int(std::inout_ptr(myoptions), "gray", 1, 0);
+    if (!context.settings.hardware_decode) av_dict_set_int(std::inout_ptr(context.state.myoptions), "gray", 1, 0);
 
 
  //       av_dict_set_int(std::inout_ptr(myoptions), "fastint", 1, 0);
  //       av_dict_set_int(std::inout_ptr(myoptions), "skip_alpha", 1, 0);
 //        av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
 
-    if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(myoptions)) < 0))
+    if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(context.state.myoptions)) < 0))
     {
         fprintf(stderr, "Unsupported codec!\n");
         return -1;
@@ -1885,8 +1761,8 @@ int stream_component_open(VideoState *is, int stream_index)
         is->subtitleStream = stream_index;
         is->subtitle_st = pFormatCtx->streams[stream_index];
         is->subtitle_ctx = std::move(codec_owner);
-        if (demux_pid)
-            selected_subtitle_pid = is->subtitle_st->id;
+        if (context.state.demux_pid)
+            context.state.selected_subtitle_pid = is->subtitle_st->id;
         break;
     case AVMEDIA_TYPE_AUDIO:
         is->audioStream = stream_index;
@@ -1900,8 +1776,8 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->audio_diff_avg_count = 0;
         /* Correct audio only if larger error than this */
 //          is->audio_diff_threshold = 2.0 * SDL_AUDIO_BUFFER_SIZE / codecCtx->sample_rate;
-        if (demux_pid)
-            selected_audio_pid = is->audio_st->id;
+        if (context.state.demux_pid)
+            context.state.selected_audio_pid = is->audio_st->id;
 
 
  //       memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
@@ -1916,12 +1792,12 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->video_current_pts_time = av_gettime();
 
         is->pFrame = make_frame();
-        if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
+        if (!context.settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 //       codecCtx->thread_type = 1; // Frame based threading
-        codecCtx->lowres = min(codecCtx->codec->max_lowres, lowres);
+        codecCtx->lowres = min(codecCtx->codec->max_lowres, context.settings.lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
-            is_h264 = 1;
+            context.state.is_h264 = 1;
 #ifdef DONATOR
 #else
             Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
@@ -1931,7 +1807,7 @@ int stream_component_open(VideoState *is, int stream_index)
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
-           codecCtx->thread_count= thread_count;
+           codecCtx->thread_count= context.settings.thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
@@ -1940,8 +1816,8 @@ int stream_component_open(VideoState *is, int stream_index)
         // before ticks_per_frame was removed: 2 for MPEG2's field-time
         // timebase convention, 1 for MPEG1's frame-time one.
         is->ticks_per_frame = (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO) ? 1 : 2;
-        if (demux_pid)
-            selected_video_pid = is->video_st->id;
+        if (context.state.demux_pid)
+            context.state.selected_video_pid = is->video_st->id;
         /*
         MPEG
                         if(  (codecCtx->skip_frame >= AVDISCARD_NONREF && s2->pict_type==FF_B_TYPE)
@@ -1965,7 +1841,7 @@ int stream_component_open(VideoState *is, int stream_index)
                             break;
 
         */
-        if (skip_B_frames)
+        if (context.settings.skip_B_frames)
             codecCtx->skip_frame = AVDISCARD_NONREF;
         //          codecCtx->skip_loop_filter = AVDISCARD_NONKEY;
 //           codecCtx->skip_idct = AVDISCARD_NONKEY;
@@ -1978,66 +1854,44 @@ int stream_component_open(VideoState *is, int stream_index)
     return(0);
 }
 
-static void log_callback_report(void *ptr, int level, const char *fmt, va_list vl)
-{
-    va_list vl2;
-//    int l;
-    char line[1024];
-    static int print_prefix = 1;
-
-    if (reviewing)
-        return;
-    av_log_get_level();
-    if (level > av_log_level)
-        return;
-    va_copy(vl2, vl);
- //   av_log_default_callback(ptr, level, fmt, vl);
-    av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
-    va_end(vl2);
-        Debug(10, "%s", line);
-
- //   fputs(line, report_file);
- //   fflush(report_file);
-}
-
 /* av_dict_set(&options, "video_size", "640x480", 0);
  * if (avformat_open_input(&s, url, NULL, &options) < 0)
  *     abort();
  * av_dict_free(&options);
  */
 
-void file_open()
+void file_open(RecordingContext& context)
 {
     VideoState *is;
     int subtitle_index= -1, audio_index= -1, video_index = -1;
     int openretries = 0;
 
-    if (global_video_state == NULL)
+    if (context.state.global_video_state == NULL)
     {
-        video_owner = std::make_unique<VideoState>();
-        is = video_owner.get();
+        context.state.video_owner = std::make_unique<VideoState>();
+        is = context.state.video_owner.get();
         memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
-        strcpy(is->filename, mpegfilename);
+        strcpy(is->filename, context.state.mpegfilename);
         // Register all formats and codecs
-        av_log_level=AV_LOG_INFO;
-        av_log_set_callback(log_callback_report);
+        context.state.av_log_level=AV_LOG_INFO;
+
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
         avformat_network_init();
-        global_video_state = is;
+        context.state.global_video_state = is;
         is->videoStream=-1;
         is->audioStream=-1;
         is->subtitleStream = -1;
         is->pFormatCtx.reset();
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
-        if (!hardware_decode) {
+        if (!context.settings.hardware_decode) {
 //            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-            av_dict_set_int(std::inout_ptr(myoptions), "gray", 1, 0);
+            av_dict_set_int(std::inout_ptr(context.state.myoptions), "gray", 1, 0);
         }
 #ifdef DONATOR
 //        if (thread_count == 1)
-                av_dict_set_int(std::inout_ptr(myoptions), "threads", thread_count, 0);
+                av_dict_set_int(std::inout_ptr(context.state.myoptions), "threads", context.settings.thread_count, 0);
 //        else
 //            av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
 //           codecCtx->thread_count= thread_count;
@@ -2045,12 +1899,12 @@ void file_open()
             av_dict_set_int(std::inout_ptr(myoptions), "threads", 1, 0);
 //            codecCtx->thread_count= 1;
 #endif
-        av_dict_set_int(std::inout_ptr(myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
+        av_dict_set_int(std::inout_ptr(context.state.myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
 
 
     }
     else
-        is = global_video_state;
+        is = context.state.global_video_state;
     // Open video file
     if ( is->pFormatCtx.get() == NULL)
     {
@@ -2059,10 +1913,10 @@ void file_open()
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename, NULL,std::inout_ptr(myoptions))!=0)
+        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename, NULL,std::inout_ptr(context.state.myoptions))!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
-            if (openretries++ < live_tv_retries)
+            if (openretries++ < context.settings.live_tv_retries)
             {
                 sleep_for_ms(1000L);
                 goto again;
@@ -2088,7 +1942,7 @@ again:
             comskip::request_exit(-1);
         }
         // Dump information about file onto standard error
-        if (retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename, 0);
+        if (context.state.retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename, 0);
     }
 
     if (!is->frame.get()) {
@@ -2101,11 +1955,11 @@ again:
         video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
         if(video_index >= 0)
         {
-            stream_component_open(is, video_index);
+            stream_component_open(context, is, video_index);
         }
         if(is->videoStream < 0)
         {
-            Debug(0, "Could not open video codec\n");
+            Debug(context, 0, "Could not open video codec\n");
             fprintf(stderr, "%s: could not open video codec\n", is->filename);
             comskip::request_exit(-1);
         }
@@ -2115,8 +1969,8 @@ again:
         else
             is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
 
-        if (is->duration < 0 && (live_tv_retries > 0)) {
-           Debug(0, "Could not establish duration, live TV decoding may fail\n");
+        if (is->duration < 0 && (context.settings.live_tv_retries > 0)) {
+           Debug(context, 0, "Could not establish duration, live TV decoding may fail\n");
         }
 
 
@@ -2127,10 +1981,10 @@ again:
         }
         else
         {
-            Debug(10, "Warning, no stream frame rate, deriving from codec\n");
+            Debug(context, 10, "Warning, no stream frame rate, deriving from codec\n");
             is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame );
         }
-        set_fps( 1.0 / is->fps);
+        set_fps(context,  1.0 / is->fps);
 //        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
 
 
@@ -2142,13 +1996,13 @@ again:
         audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, NULL, 0);
         if(audio_index >= 0)
         {
-            stream_component_open(is, audio_index);
+            stream_component_open(context, is, audio_index);
             if (is->audio_st)
-                audio_channels = is->audio_st->codecpar->ch_layout.nb_channels;
+                context.state.audio_channels = is->audio_st->codecpar->ch_layout.nb_channels;
 
             if (is->audioStream < 0)
             {
-                Debug(1,"Could not open audio decoder or no audio present\n");
+                Debug(context, 1,"Could not open audio decoder or no audio present\n");
             }
         }
 
@@ -2160,30 +2014,30 @@ again:
         if(subtitle_index >= 0)
         {
             is->subtitle_st = is->pFormatCtx->streams[subtitle_index];
-            if (demux_pid)
-                selected_subtitle_pid = is->subtitle_st->id;
+            if (context.state.demux_pid)
+                context.state.selected_subtitle_pid = is->subtitle_st->id;
         }
 
     }
-    av_log_level=AV_LOG_ERROR;
+    context.state.av_log_level=AV_LOG_ERROR;
 
 
                     is->seek_req = 0;
 //                    framenum = 0;
-                    pts_offset = 0.0;
+                    context.state.pts_offset = 0.0;
                     is->video_clock = 0.0;
                     is->audio_clock = 0.0;
 //                    sound_frame_counter = 0;
 //                    initial_pts = 0.0;
 //                    initial_pts_set = 0;
 //                    initial_apts_set = 0;
-                    initial_apts = 0;
-                    apts_offset = 0.0;
-                    base_apts = 0.0;
-                    top_apts = 0.0;
-                    apts = 0.0;
-                    audio_buffer_ptr = audio_buffer;
-                    audio_samples = 0;
+                    context.state.initial_apts = 0;
+                    context.state.apts_offset = 0.0;
+                    context.state.base_apts = 0.0;
+                    context.state.top_apts = 0.0;
+                    context.state.apts = 0.0;
+                    context.state.audio_buffer_ptr = context.state.audio_buffer;
+                    context.state.audio_samples = 0;
 //                    DUMP_CLOSE
 //                    DUMP_OPEN
 //                    DUMP_HEADER
@@ -2196,32 +2050,32 @@ again:
 
 
 
-void file_close()
+void file_close(RecordingContext& context)
 {
-    is = global_video_state;
+    context.state.is = context.state.global_video_state;
 
 //    av_freep(&ist->hwaccel_device);
 
 
-    if (is->dec_ctx.get()) is->dec_ctx.reset();
-    is->videoStream = -1;
+    if (context.state.is->dec_ctx.get()) context.state.is->dec_ctx.reset();
+    context.state.is->videoStream = -1;
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 
-    if (is->audio_ctx.get()) is->audio_ctx.reset();
-    is->audioStream = -1;
-    if (is->subtitle_ctx.get())  is->subtitle_ctx.reset();
-    is->subtitleStream = -1;
+    if (context.state.is->audio_ctx.get()) context.state.is->audio_ctx.reset();
+    context.state.is->audioStream = -1;
+    if (context.state.is->subtitle_ctx.get())  context.state.is->subtitle_ctx.reset();
+    context.state.is->subtitleStream = -1;
 //    is->pFormatCtx.reset();
 
 
-    is->pFormatCtx.reset();
+    context.state.is->pFormatCtx.reset();
 
-    is->frame.reset();
-    is->pFrame.reset();
-    is->img_convert_ctx.reset();
+    context.state.is->frame.reset();
+    context.state.is->pFrame.reset();
+    context.state.is->img_convert_ctx.reset();
 
-    ac3_packet_index = 0;
-    ac3_package_misalignment_count = 0;
+    context.state.ac3_packet_index = 0;
+    context.state.ac3_package_misalignment_count = 0;
 
 #ifdef HARDWARE_DECODE
     ist->hwaccel_ctx = NULL;
@@ -2232,7 +2086,7 @@ void file_close()
 };
 
 
-int comskip_main (int argc, char ** argv)
+int comskip_main (RecordingContext& context, int argc, char ** argv)
 {
     auto packet_owner = make_packet();
     AVPacket* packet = packet_owner.get();
@@ -2249,7 +2103,7 @@ int comskip_main (int argc, char ** argv)
 #ifdef SELFTEST
     //int tries = 0;
 #endif
-    retries = 0;
+    context.state.retries = 0;
 
 
 #ifndef _DEBUG
@@ -2261,7 +2115,7 @@ int comskip_main (int argc, char ** argv)
 //		output_debugwindow = 1;
 
         if (strstr(argv[0],"comskipGUI"))
-            output_debugwindow = 1;
+            context.settings.output_debugwindow = 1;
         else
         {
 #ifdef _WIN32
@@ -2274,7 +2128,7 @@ int comskip_main (int argc, char ** argv)
             reinterpret_cast<const char8_t*>(argv[0]))).parent_path();
         if (executable_directory.empty()) executable_directory = ".";
         const auto directory_utf8 = executable_directory.u8string();
-        comskip::checked_format(HomeDir, "%s",
+        comskip::checked_format(context.state.HomeDir, "%s",
             reinterpret_cast<const char*>(directory_utf8.c_str()));
 
         fprintf (stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);
@@ -2315,83 +2169,83 @@ int comskip_main (int argc, char ** argv)
 
 //        av_log_set_level(AV_LOG_WARNING);
 //        av_log_set_flags(AV_LOG_SKIP_REPEATED);
-//        av_log_set_callback(log_callback_report);
+//
 //        av_log_set_level(AV_LOG_WARNING);
-        const auto translator = comskip::localization::Translator::from_arguments(argc, argv);
-        in_file = LoadSettings(argc, argv, translator);
+        context.translator = comskip::localization::Translator::from_arguments(argc, argv);
+        context.state.mpeg2dec_in_file = LoadSettings(context, argc, argv, context.translator);
 
-        file_open();
+        file_open(context);
 
 
 
-        csRestart = 0;
-        framenum = 0;
+        context.state.csRestart = 0;
+        context.state.framenum = 0;
 
 //        DUMP_OPEN
 
-        if (output_timing)
+        if (context.settings.output_timing)
         {
-            sprintf(tempstring, "%s.timing.csv", inbasename);
-            timing_file = myfopen(tempstring, "w");
+            sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename);
+            context.state.timing_file = myfopen(context.state.tempstring, "w");
             DUMP_HEADER
         }
 
         av_log_set_level(AV_LOG_INFO);
 //        av_log_set_flags(AV_LOG_SKIP_REPEATED);
-//        av_log_set_callback(log_callback_report);
-        is = global_video_state;
-        packet = &(is->audio_pkt);
+//
+        context.state.is = context.state.global_video_state;
+        packet = &(context.state.is->audio_pkt);
 
         // main decode loop
 again:
         for(;;)
         {
-            if(is->quit)
+            if(context.state.is->quit)
             {
                 break;
             }
             // seek stuff goes here
-            if(is->seek_req)
+            if(context.state.is->seek_req)
             {
-                if (is->seek_pts > 0.0)
+                if (context.state.is->seek_pts > 0.0)
                 {
-                    DoSeekRequest(is);
+                    DoSeekRequest(context, context.state.is);
                 }
                 else
                 {
-                    is->seek_req = 0;
-                    file_close();
-                    file_open();
+                    context.state.is->seek_req = 0;
+                    file_close(context);
+                    file_open(context);
 
                     DUMP_CLOSE
                     DUMP_OPEN
                     DUMP_HEADER
-                    close_data();
+                    close_data(context);
 #ifdef PROCESS_CC
-                    if (output_srt || output_smi) CEW_reinit();
+                    if (context.settings.output_srt || context.settings.output_smi) CEW_reinit();
 #endif
                 }
             }
 nextpacket:
-            ret=av_read_frame(is->pFormatCtx.get(), packet);
+            ret=av_read_frame(context.state.is->pFormatCtx.get(), packet);
 
-            if (ret>=0 && is->seek_req)
+            if (ret>=0 && context.state.is->seek_req)
             {
-                double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
+                double packet_time = (packet->pts - (context.state.is->video_st->start_time != AV_NOPTS_VALUE ? context.state.is->video_st->start_time : 0)) * av_q2d(context.state.is->video_st->time_base);
                 if (packet->pts==AV_NOPTS_VALUE || packet->pts == 0 )
                 {
                     av_packet_unref(packet);
                     goto nextpacket;
                 }
-                if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req))
+                if (context.state.is->seek_req < 6 && (context.state.is->seek_flags & AVSEEK_FLAG_BYTE) &&  context.state.is->duration > 0 && fabs(packet_time - (context.state.is->seek_pts - 2.5) ) < context.state.is->duration / (10 * context.state.is->seek_req))
                 {
-                    is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 0.9;
-                    is->seek_req++;
+                    context.state.is->seek_pos += ((context.state.is->seek_pts - 2.5 - packet_time) / context.state.is->duration ) * avio_size(context.state.is->pFormatCtx->pb) * 0.9;
+                    context.state.is->seek_req++;
                     goto again;
                 }
-                if (retries)
-                    Debug( 9,"Retry t_pos=%" PRId64 ", l_pos=%" PRId64 ", t_pts=%" PRId64 ", l_pts=%" PRId64 "\n", last_packet_pos, packet->pos, last_packet_pts, packet->pts);
-                is->seek_req = 0;
+                if (context.state.retries)
+                    Debug(context,  9,"Retry t_pos=%" PRId64 ", l_pos=%" PRId64 ", t_pts=%" PRId64 ", l_pts=%" PRId64 "\n", last_packet_pos, packet->pos, last_packet_pts, packet->pts);
+                context.state.is->seek_req = 0;
             }
             /*
                     if (ret < 0 && is->seek_req && !is->seek_by_bytes) {
@@ -2400,90 +2254,90 @@ nextpacket:
                         goto again;
                     }
             */
-            is->seek_req = 0;
+            context.state.is->seek_req = 0;
 
 
 
 #define REOPEN_TIME 500.0
 
-            if ((selftest == 3 && retries==0 && is->video_clock >=REOPEN_TIME))
+            if ((context.state.selftest == 3 && context.state.retries==0 && context.state.is->video_clock >=REOPEN_TIME))
             {
                 ret=AVERROR_EOF;  // Simulate EOF
-                live_tv = 1;
-                live_tv_retries = 2;
+                context.settings.live_tv = 1;
+                context.settings.live_tv_retries = 2;
 
             }
-            if ((selftest == 4 && retries==0 && framenum > 0 && (framenum % 500) == 0)) // Test reopen every 500 frames
+            if ((context.state.selftest == 4 && context.state.retries==0 && context.state.framenum > 0 && (context.state.framenum % 500) == 0)) // Test reopen every 500 frames
             {
                 ret=AVERROR_EOF;  // Simulate EOF
-                live_tv = 1;
-                live_tv_retries = 2;
+                context.settings.live_tv = 1;
+                context.settings.live_tv_retries = 2;
 
             }
             if(ret < 0 )
             {
-                if (ret == AVERROR_EOF || is->pFormatCtx->pb->eof_reached)
+                if (ret == AVERROR_EOF || context.state.is->pFormatCtx->pb->eof_reached)
                 {
-                    if (selftest == 3)   // Either simulated EOF or real EOF before REOPEN_TIME
+                    if (context.state.selftest == 3)   // Either simulated EOF or real EOF before REOPEN_TIME
                     {
-                        if (retries > 0)
+                        if (context.state.retries > 0)
                         {
-                            if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
+                            if (context.state.is->video_clock < context.state.selftest_target - 0.05 || context.state.is->video_clock > context.state.selftest_target + 0.05)
                             {
-                                sample_file = fopen("seektest.log", "a+");
-                                fprintf(sample_file, "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", is->filename, is->duration, is->video_clock );
-                                fclose(sample_file);
-                                Debug( 1,"\nSelftest %d FAILED\n", selftest);
+                                context.state.sample_file = fopen("seektest.log", "a+");
+                                fprintf(context.state.sample_file, "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.is->filename, context.state.is->duration, context.state.is->video_clock );
+                                fclose(context.state.sample_file);
+                                Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                                 comskip::request_exit(1);
                             }
                         }
                         else
                         {
-                            if (is->video_clock < REOPEN_TIME)
+                            if (context.state.is->video_clock < REOPEN_TIME)
                             {
-                                selftest_target = is->video_clock - 2.0;
+                                context.state.selftest_target = context.state.is->video_clock - 2.0;
                             }
                             else
                             {
-                                selftest_target = REOPEN_TIME;
+                                context.state.selftest_target = REOPEN_TIME;
                             }
-                            Debug( 1,"\nSelftest %d starting: Reopen\n", selftest);
-                            selftest_target = fmax(selftest_target,0.5);
-                            live_tv = 1;
-                            live_tv_retries = 2;
+                            Debug(context,  1,"\nSelftest %d starting: Reopen\n", context.state.selftest);
+                            context.state.selftest_target = fmax(context.state.selftest_target,0.5);
+                            context.settings.live_tv = 1;
+                            context.settings.live_tv_retries = 2;
 
                         }
                     }
 
-                    if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)
+                    if ((context.settings.live_tv && context.state.retries < context.settings.live_tv_retries) /* || (selftest == 3 && retries == 0) */)
                     {
-                        double frame_delay = av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame;
+                        double frame_delay = av_q2d(context.state.is->dec_ctx->time_base) * context.state.is->ticks_per_frame;
 //                    uint64_t retry_target;
-                        if (retries == 0)
+                        if (context.state.retries == 0)
                         {
-                            if (selftest == 3)
-                                retry_target = selftest_target;
+                            if (context.state.selftest == 3)
+                                retry_target = context.state.selftest_target;
 //                        retry_target = avio_tell(is->pFormatCtx->pb);
                             else
-                                retry_target = is->video_clock + frame_delay;
+                                retry_target = context.state.is->video_clock + frame_delay;
                         }
-                        file_close();
-                        Debug( 1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", retries, framenum, retry_target);
-                        Debug( 9,"Retry target pos=%" PRId64 ", pts=%" PRId64 "\n", last_packet_pos, last_packet_pts);
+                        file_close(context);
+                        Debug(context,  1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", context.state.retries, context.state.framenum, retry_target);
+                        Debug(context,  9,"Retry target pos=%" PRId64 ", pts=%" PRId64 "\n", last_packet_pos, last_packet_pts);
 
-                        if (selftest == 0) sleep_for_ms(4000L);
-                        file_open();
-                        Set_seek(is, retry_target);
+                        if (context.state.selftest == 0) sleep_for_ms(4000L);
+                        file_open(context);
+                        Set_seek(context, context.state.is, retry_target);
 
-                        retries++;
+                        context.state.retries++;
                         goto again;
                     }
 
                     // Frame-threaded decoders retain output until an explicit
                     // end-of-input packet. Drain it before finalizing detection.
-                    if (is->dec_ctx.get())
-                        video_packet_process(is, NULL);
-                    backfill_frame_volumes();
+                    if (context.state.is->dec_ctx.get())
+                        video_packet_process(context, context.state.is, NULL);
+                    backfill_frame_volumes(context);
                     break;
                 }
 
@@ -2499,104 +2353,104 @@ nextpacket:
                 last_packet_pos = packet->pos;
             }
 
-            if(packet->stream_index == is->videoStream)
+            if(packet->stream_index == context.state.is->videoStream)
             {
                 if (packet->size > 0 && packet->data != NULL)
-                    video_packet_process(is, packet);
+                    video_packet_process(context, context.state.is, packet);
             }
-            else if(packet->stream_index == is->audioStream)
+            else if(packet->stream_index == context.state.is->audioStream)
             {
                 if (packet->size > 0 && packet->data != NULL)
-                    audio_packet_process(is, packet);
+                    audio_packet_process(context, context.state.is, packet);
             }
             else
             {
                 /*
-                			  ccDataLen = (int)packet->size;
-                			  for (i=0; i<ccDataLen; i++) {
-                				  ccData[i] = packet->data[i];
-                			  }
-                			  dump_data((char *)ccData, (int)ccDataLen);
-                					if (output_srt)
-                						process_block(ccData, (int)ccDataLen);
-                					if (processCC) ProcessCCData();
+                              ccDataLen = (int)packet->size;
+                              for (i=0; i<ccDataLen; i++) {
+                                  ccData[i] = packet->data[i];
+                              }
+                              dump_data((char *)ccData, (int)ccDataLen);
+                                    if (output_srt)
+                                        process_block(ccData, (int)ccDataLen);
+                                    if (processCC) ProcessCCData();
                 */
             }
             av_packet_unref(packet);
-            if (is->video_clock == old_clock)
+            if (context.state.is->video_clock == old_clock)
             {
                 empty_packet_count++;
                 if (empty_packet_count > 1000)
-                    Debug(0, "Empty input\n");
+                    Debug(context, 0, "Empty input\n");
                 empty_packet_count = 0;
             }
             else
             {
-                old_clock = is->video_clock;
+                old_clock = context.state.is->video_clock;
                 empty_packet_count = 0;
             }
 #ifdef SELFTEST
-            if (selftest == 1 && pass == 0 && is->seek_req == 0 && framenum == 50) //Seek test
+            if (context.state.selftest == 1 && context.state.pass == 0 && context.state.is->seek_req == 0 && context.state.framenum == 50) //Seek test
             {
-                if (is->duration > 2) {
-                    selftest_target = fmin(450.0, is->duration - 2);
+                if (context.state.is->duration > 2) {
+                    context.state.selftest_target = fmin(450.0, context.state.is->duration - 2);
                 } else {
-                    selftest_target = 1.0;
+                    context.state.selftest_target = 1.0;
                 }
-                Set_seek(is, selftest_target);
-                pass = 1;
-                framenum++;
+                Set_seek(context, context.state.is, context.state.selftest_target);
+                context.state.pass = 1;
+                context.state.framenum++;
             }
 #endif
         }
 
-        if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
+        if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
         {
-            if (is->video_clock < selftest_target - 0.08 || is->video_clock > selftest_target + 0.08)
+            if (context.state.is->video_clock < context.state.selftest_target - 0.08 || context.state.is->video_clock > context.state.selftest_target + 0.08)
             {
-                sample_file = fopen("seektest.log", "a+");
-                fprintf(sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
-                        is->seek_pts,
-                        is->video_clock,
-                        is->video_clock - is->seek_pts,
-                        is->duration,
-                        (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                        is->filename);
-                fclose(sample_file);
+                context.state.sample_file = fopen("seektest.log", "a+");
+                fprintf(context.state.sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
+                        context.state.is->seek_pts,
+                        context.state.is->video_clock,
+                        context.state.is->video_clock - context.state.is->seek_pts,
+                        context.state.is->duration,
+                        (context.state.is->seek_by_bytes ? "byteseek": "timeseek" ),
+                        context.state.is->filename);
+                fclose(context.state.sample_file);
             } else
-                Debug( 1,"\nSelftest 1 OK: Seektest\n");
+                Debug(context,  1,"\nSelftest 1 OK: Seektest\n");
 
             /*
                             if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
-             				   is->seek_req=1;
-            				   is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
-            				   is->seek_flags = AVSEEK_FLAG_BYTE;
-            				   tries++;
+                               is->seek_req=1;
+                               is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
+                               is->seek_flags = AVSEEK_FLAG_BYTE;
+                               tries++;
                            } else
              */
-            selftest = 3;
-            pass = 0;
+            context.state.selftest = 3;
+            context.state.pass = 0;
             //comskip::request_exit(1);
         }
 
 
 
-        if (live_tv)
+        if (context.settings.live_tv)
         {
-            lastFrameCommCalculated = 0;
-            BuildCommListAsYouGo();
+            context.state.lastFrameCommCalculated = 0;
+            BuildCommListAsYouGo(context);
         }
 
-        tfps = print_fps (1);
+        tfps = print_fps (context, 1);
 
-        Debug( 10,"\nParsed %d video frames and %d audio frames at %8.2f fps\n", framenum, sound_frame_counter, tfps);
-        Debug( 10,"\nMaximum Volume found is %d\n", max_volume_found);
+        Debug(context,  10,"\nParsed %d video frames and %d audio frames at %8.2f fps\n", context.state.framenum, context.state.sound_frame_counter, tfps);
+        Debug(context,  10,"\nMaximum Volume found is %d\n", context.state.max_volume_found);
 
 
-        in_file = 0;
-        if (framenum>0)
+        context.state.mpeg2dec_in_file = 0;
+        if (context.state.framenum>0)
         {
-            if(BuildMasterCommList())
+            if(BuildMasterCommList(context))
             {
                 result = 1;
                 printf("Commercials were found.\n");
@@ -2606,22 +2460,22 @@ nextpacket:
                 result = 0;
                 printf("Commercials were not found.\n");
             }
-            if (output_debugwindow)
+            if (context.settings.output_debugwindow)
             {
-                processCC = 0;
+                context.state.processCC = 0;
                 printf("Close window when done\n");
 
                 DUMP_CLOSE
-                if (output_timing)
+                if (context.settings.output_timing)
                 {
-                    output_timing = 0;
+                    context.settings.output_timing = 0;
                 }
 
 #if defined(_WIN32) || defined(HAVE_SDL)
                 while(1)
                 {
-                    ReviewResult();
-                    vo_refresh();
+                    ReviewResult(context);
+                    context.window.refresh();
                     sleep_for_ms(100L);
                 }
 #endif

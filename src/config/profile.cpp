@@ -2,12 +2,6 @@
 #include <sstream>
 #include <utility>
 namespace comskip::config {
-namespace {
-CommercialProfile& active() {
-    static CommercialProfile profile = read_profile(defaults(), {});
-    return profile;
-}
-}
 CommercialProfile read_profile(const Ini& ini, CommercialProfile base) {
     auto lengths = [&](const char* key, std::vector<int>& target) {
         if (const auto* text = ini.find(key)) {
@@ -35,6 +29,4 @@ CommercialProfile read_profile(const Ini& ini, CommercialProfile base) {
         throw std::invalid_argument("Invalid commercial-length tolerance or show margin");
     return base;
 }
-const CommercialProfile& commercial_profile() { return active(); }
-void set_commercial_profile(CommercialProfile profile) { active() = std::move(profile); }
 }

@@ -1,17 +1,17 @@
 #include "legacy_detection.h"
 
-bool LengthWithinTolerance(double test_length, double expected_length, double tolerance)
+bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance)
 {
-    return commercial_length_within_tolerance(test_length, expected_length, tolerance, fps);
+    return commercial_length_within_tolerance(test_length, expected_length, tolerance, context.settings.fps);
 }
 
-bool IsStandardCommercialLength(double length, double tolerance, bool strict)
+bool IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict)
 {
-    CommercialLengthPolicy policy = { fps, div5_tolerance, min_show_segment_length };
+    CommercialLengthPolicy policy = { context.settings.fps, context.settings.div5_tolerance, context.settings.min_show_segment_length };
     CommercialLengthMatch match;
-    if (!commercial_length_match(length, tolerance, strict, &policy, &match))
+    if (!commercial_length_match(length, tolerance, strict, context.settings.commercial_profile, policy, match))
         return false;
-    OutputStrict(match.adjusted_length, match.delta, match.tolerance);
+    OutputStrict(context, match.adjusted_length, match.delta, match.tolerance);
     return true;
 }
 

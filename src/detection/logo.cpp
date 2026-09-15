@@ -1,172 +1,172 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 
-void PrintLogoFrameGroups(void)
+void PrintLogoFrameGroups(RecordingContext& context)
 {
     int		i,l;
     double  cl;
     int		f,t;
     int		count = 0;
 
-    Debug(2, "\nLogos detected on the following frames\n--------------------------------------\n");
+    Debug(context, 2, "\nLogos detected on the following frames\n--------------------------------------\n");
     count = 0;
-    for (i = 0; i < logo_block_count; i++)
+    for (i = 0; i < context.state.logo_block_count; i++)
     {
-        f = FindBlock(logo_block[i].start);
-        t = FindBlock(logo_block[i].end-2);
+        f = FindBlock(context, context.state.logo_block[i].start);
+        t = FindBlock(context, context.state.logo_block[i].end-2);
         if (f<0) f = 0;
         if (t<0) t = 0;
         if (t < 0)
         {
-            Debug (2, "Panic\n");
+            Debug (context, 2, "Panic\n");
             break;
         }
         if (f < 0)
         {
-            Debug (2, "Panic\n");
+            Debug (context, 2, "Panic\n");
             break;
         }
-        Debug(
+        Debug(context,
             2,
             "Logo start - %6i\tend - %6i\tlength - %s\tbefore:%.1f s\t after:%.1f s\n",
-            logo_block[i].start,
-            logo_block[i].end,
-            dblSecondsToStrMinutes(F2L(logo_block[i].end, logo_block[i].start)),
-            F2L(logo_block[i].start, cblock[f].f_start),
-            F2L(cblock[t].f_end, logo_block[i].end)
+            context.state.logo_block[i].start,
+            context.state.logo_block[i].end,
+            dblSecondsToStrMinutes(context, F2L(context.state.logo_block[i].end, context.state.logo_block[i].start)),
+            F2L(context.state.logo_block[i].start, context.state.cblock[f].f_start),
+            F2L(context.state.cblock[t].f_end, context.state.logo_block[i].end)
         );
 
-        count += logo_block[i].end - logo_block[i].start + 1;
+        count += context.state.logo_block[i].end - context.state.logo_block[i].start + 1;
 
     }
-    for (i = 0; i < logo_block_count-1; i++)
+    for (i = 0; i < context.state.logo_block_count-1; i++)
     {
-        f = logo_block[i].end;
-        t = logo_block[i+1].start;
-        if (max_logo_gap < F2L(t,f))
-            max_logo_gap = F2L(t,f);
-        f = FindBlock(logo_block[i].end);
-        t = FindBlock(logo_block[i+1].start);
+        f = context.state.logo_block[i].end;
+        t = context.state.logo_block[i+1].start;
+        if (context.state.max_logo_gap < F2L(t,f))
+            context.state.max_logo_gap = F2L(t,f);
+        f = FindBlock(context, context.state.logo_block[i].end);
+        t = FindBlock(context, context.state.logo_block[i+1].start);
         for (l = f+1; l < t; l++)
         {
-            if (max_nonlogo_block_length < cblock[l].length)
-                max_nonlogo_block_length = cblock[l].length;
+            if (context.state.max_nonlogo_block_length < context.state.cblock[l].length)
+                context.state.max_nonlogo_block_length = context.state.cblock[l].length;
         }
     }
-    for (i = 0; i < logo_block_count-1; i++)
+    for (i = 0; i < context.state.logo_block_count-1; i++)
     {
-        f = FindBlock(logo_block[i].start);
-        t = FindBlock(logo_block[i].end);
-        if (F2L(logo_block[i].end, logo_block[i].start) > max_nonlogo_block_length )
+        f = FindBlock(context, context.state.logo_block[i].start);
+        t = FindBlock(context, context.state.logo_block[i].end);
+        if (F2L(context.state.logo_block[i].end, context.state.logo_block[i].start) > context.state.max_nonlogo_block_length )
         {
-            cl = F2L(cblock[f].f_end, logo_block[i].start);
-            if (cl < cblock[f].length / 10 )
+            cl = F2L(context.state.cblock[f].f_end, context.state.logo_block[i].start);
+            if (cl < context.state.cblock[f].length / 10 )
             {
-                if (cl > logo_overshoot )
-                    logo_overshoot = cl;
+                if (cl > context.state.logo_overshoot )
+                    context.state.logo_overshoot = cl;
             }
-            cl = F2L(logo_block[i].end, cblock[t].f_start);
-            if (cl < cblock[t].length / 10 )
+            cl = F2L(context.state.logo_block[i].end, context.state.cblock[t].f_start);
+            if (cl < context.state.cblock[t].length / 10 )
             {
-                if (cl > logo_overshoot)
-                    logo_overshoot = cl;
+                if (cl > context.state.logo_overshoot)
+                    context.state.logo_overshoot = cl;
             }
         }
     }
-    if (logo_overshoot > 0)
-        logo_overshoot = logo_overshoot + 1 + shrink_logo;
+    if (context.state.logo_overshoot > 0)
+        context.state.logo_overshoot = context.state.logo_overshoot + 1 + context.settings.shrink_logo;
     else
-        logo_overshoot = shrink_logo;
+        context.state.logo_overshoot = context.settings.shrink_logo;
 }
 
-void PrintCCBlocks(void)
+void PrintCCBlocks(RecordingContext& context)
 {
     int i, j;
-    Debug(2, "Combining CC Blocks...\n");
-    for (i = cc_block_count - 1; i > 0; i--)
+    Debug(context, 2, "Combining CC Blocks...\n");
+    for (i = context.state.cc_block_count - 1; i > 0; i--)
     {
-        if (F2L(cc_block[i].end_frame, cc_block[i].start_frame) < 1.0)
+        if (F2L(context.state.cc_block[i].end_frame, context.state.cc_block[i].start_frame) < 1.0)
         {
-            Debug(
+            Debug(context,
                 4,
                 "Removing cc cblock %i because the length is %.2f.\n",
                 i,
-                F2L(cc_block[i].end_frame, cc_block[i].start_frame)
+                F2L(context.state.cc_block[i].end_frame, context.state.cc_block[i].start_frame)
             );
-            for (j = i; j < cc_block_count - 1; j++)
+            for (j = i; j < context.state.cc_block_count - 1; j++)
             {
-                cc_block[j].start_frame = cc_block[j + 1].start_frame;
-                cc_block[j].end_frame = cc_block[j + 1].end_frame;
-                cc_block[j].type = cc_block[j + 1].type;
+                context.state.cc_block[j].start_frame = context.state.cc_block[j + 1].start_frame;
+                context.state.cc_block[j].end_frame = context.state.cc_block[j + 1].end_frame;
+                context.state.cc_block[j].type = context.state.cc_block[j + 1].type;
             }
 
-            cc_block_count--;
+            context.state.cc_block_count--;
         }
     }
 
-    Debug(2, "CC's detected on the following frames - %i total blocks\n--------------------------------------\n", cc_block_count);
-    Debug(
+    Debug(context, 2, "CC's detected on the following frames - %i total blocks\n--------------------------------------\n", context.state.cc_block_count);
+    Debug(context,
         2,
         " 0 - CC start - %6i\tend - %6i\ttype - %s",
-        cc_block[0].start_frame,
-        cc_block[0].end_frame,
-        CCTypeToStr(cc_block[0].type)
+        context.state.cc_block[0].start_frame,
+        context.state.cc_block[0].end_frame,
+        CCTypeToStr(context, context.state.cc_block[0].type)
     );
-    Debug(2, "\tlength - %s\n", dblSecondsToStrMinutes(F2L(cc_block[0].end_frame, cc_block[0].start_frame)));
-    cc_count[cc_block[0].type] += cc_block[0].end_frame - cc_block[0].start_frame + 1;
+    Debug(context, 2, "\tlength - %s\n", dblSecondsToStrMinutes(context, F2L(context.state.cc_block[0].end_frame, context.state.cc_block[0].start_frame)));
+    context.state.cc_count[context.state.cc_block[0].type] += context.state.cc_block[0].end_frame - context.state.cc_block[0].start_frame + 1;
 
-    for (i = 1; i < cc_block_count; i++)
+    for (i = 1; i < context.state.cc_block_count; i++)
     {
-        Debug(
+        Debug(context,
             2,
             "%2i - CC start - %6i\tend - %6i\ttype - %s",
             i,
-            cc_block[i].start_frame,
-            cc_block[i].end_frame,
-            CCTypeToStr(cc_block[i].type)
+            context.state.cc_block[i].start_frame,
+            context.state.cc_block[i].end_frame,
+            CCTypeToStr(context, context.state.cc_block[i].type)
         );
-        Debug(2, "\tlength - %s\n", dblSecondsToStrMinutes(F2L(cc_block[i].end_frame, cc_block[i].start_frame)));
-        cc_count[cc_block[i].type] += cc_block[i].end_frame - cc_block[i].start_frame + 1;
+        Debug(context, 2, "\tlength - %s\n", dblSecondsToStrMinutes(context, F2L(context.state.cc_block[i].end_frame, context.state.cc_block[i].start_frame)));
+        context.state.cc_count[context.state.cc_block[i].type] += context.state.cc_block[i].end_frame - context.state.cc_block[i].start_frame + 1;
     }
 
-    Debug(2, "\nCaption sums\n---------------------------\n");
-    Debug(
+    Debug(context, 2, "\nCaption sums\n---------------------------\n");
+    Debug(context,
         2,
         "Pop on captions:   %6i:%5.2f - %s\n",
-        cc_count[POPON],
-        ((double)cc_count[POPON] / (double)framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(cc_count[POPON] / fps)
+        context.state.cc_count[POPON],
+        ((double)context.state.cc_count[POPON] / (double)context.state.framesprocessed) * 100.0,
+        dblSecondsToStrMinutes(context, context.state.cc_count[POPON] / context.settings.fps)
     );
-    Debug(
+    Debug(context,
         2,
         "Roll up captions:  %6i:%5.2f - %s\n",
-        cc_count[ROLLUP],
-        ((double)cc_count[ROLLUP] / (double)framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(cc_count[ROLLUP] / fps)
+        context.state.cc_count[ROLLUP],
+        ((double)context.state.cc_count[ROLLUP] / (double)context.state.framesprocessed) * 100.0,
+        dblSecondsToStrMinutes(context, context.state.cc_count[ROLLUP] / context.settings.fps)
     );
-    Debug(
+    Debug(context,
         2,
         "Paint on captions: %6i:%5.2f - %s\n",
-        cc_count[PAINTON],
-        ((double)cc_count[PAINTON] / (double)framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(cc_count[PAINTON] / fps)
+        context.state.cc_count[PAINTON],
+        ((double)context.state.cc_count[PAINTON] / (double)context.state.framesprocessed) * 100.0,
+        dblSecondsToStrMinutes(context, context.state.cc_count[PAINTON] / context.settings.fps)
     );
-    Debug(
+    Debug(context,
         2,
         "No captions:       %6i:%5.2f - %s\n",
-        cc_count[NONE],
-        ((double)cc_count[NONE] / (double)framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(cc_count[NONE] / fps)
+        context.state.cc_count[NONE],
+        ((double)context.state.cc_count[NONE] / (double)context.state.framesprocessed) * 100.0,
+        dblSecondsToStrMinutes(context, context.state.cc_count[NONE] / context.settings.fps)
     );
     for (i = 0; i <= 4; i++)
     {
-        if (cc_count[i] > cc_count[most_cc_type])
+        if (context.state.cc_count[i] > context.state.cc_count[context.state.most_cc_type])
         {
-            most_cc_type = i;
+            context.state.most_cc_type = i;
         }
     }
 
-    Debug(2, "The %s type of closed captions were determined to be the most common.\n", CCTypeToStr(most_cc_type));
+    Debug(context, 2, "The %s type of closed captions were determined to be the most common.\n", CCTypeToStr(context, context.state.most_cc_type));
 }
 
 /*
@@ -175,259 +175,259 @@ static edge_dec = 20;
 
 
 void EdgeCount(unsigned char* frame_ptr) {
-	int				i,index;
-	int				x;
-	int				y;
-	unsigned char	herePixel;
-	static int framecnt;
+    int				i,index;
+    int				x;
+    int				y;
+    unsigned char	herePixel;
+    static int framecnt;
 
-	edge_count = 0;
-	if (aggressive_logo_rejection) {
-		for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
-			for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
-				herePixel = frame_ptr[y * width + x];
-				if (
-					(abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold)
-					) {
-					if (hor_edgecount[y * width + x] <= num_logo_buffers)
-						hor_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					hor_edgecount[y * width + x] = 0;
+    edge_count = 0;
+    if (aggressive_logo_rejection) {
+        for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
+            for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
+                herePixel = frame_ptr[y * width + x];
+                if (
+                    (abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold)
+                    ) {
+                    if (hor_edgecount[y * width + x] <= num_logo_buffers)
+                        hor_edgecount[y * width + x]++;
+                    else
+                        edge_count++;
+                } else
+                    hor_edgecount[y * width + x] = 0;
 
-				if (
-					(abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold)
-					) {
-					if (ver_edgecount[y * width + x] <= num_logo_buffers)
-						ver_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					ver_edgecount[y * width + x] = 0;
-			}
-		}
-	} else {
-		for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
-			for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
-				herePixel = frame_ptr[y * width + x];
-				if (
-					(abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold) ||
-					(abs(frame_ptr[y * width + (x + edge_radius)] - herePixel) >= edge_level_threshold)
-					) {
-					if (hor_edgecount[y * width + x] < num_logo_buffers)
-						hor_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					hor_edgecount[y * width + x] = 0;
+                if (
+                    (abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold)
+                    ) {
+                    if (ver_edgecount[y * width + x] <= num_logo_buffers)
+                        ver_edgecount[y * width + x]++;
+                    else
+                        edge_count++;
+                } else
+                    ver_edgecount[y * width + x] = 0;
+            }
+        }
+    } else {
+        for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
+            for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
+                herePixel = frame_ptr[y * width + x];
+                if (
+                    (abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold) ||
+                    (abs(frame_ptr[y * width + (x + edge_radius)] - herePixel) >= edge_level_threshold)
+                    ) {
+                    if (hor_edgecount[y * width + x] < num_logo_buffers)
+                        hor_edgecount[y * width + x]++;
+                    else
+                        edge_count++;
+                } else
+                    hor_edgecount[y * width + x] = 0;
 
-				if (
-					(abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold) ||
-					(abs(frame_ptr[(y + edge_radius) * width + x] - herePixel) >= edge_level_threshold)
-					) {
-					if (ver_edgecount[y * width + x] < num_logo_buffers)
-						ver_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					ver_edgecount[y * width + x] = 0;
-			}
-		}
-	}
-	if (edge_count > 350)
-		logoBuffersFull = true;
+                if (
+                    (abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold) ||
+                    (abs(frame_ptr[(y + edge_radius) * width + x] - herePixel) >= edge_level_threshold)
+                    ) {
+                    if (ver_edgecount[y * width + x] < num_logo_buffers)
+                        ver_edgecount[y * width + x]++;
+                    else
+                        edge_count++;
+                } else
+                    ver_edgecount[y * width + x] = 0;
+            }
+        }
+    }
+    if (edge_count > 350)
+        logoBuffersFull = true;
 }
 
 */
 
-#define TEST_HEDGE1(FRAME,X,Y)	(abs(FRAME[(Y) * width + (X) - edge_radius]   - FRAME[(Y) * width + (X) + edge_radius]  ) >= edge_level_threshold)
-#define TEST_VEDGE1(FRAME,X,Y)	(abs(FRAME[((Y) - edge_radius) * width + (X)] - FRAME[((Y) + edge_radius) * width + (X)]) >= edge_level_threshold)
+#define TEST_HEDGE1(FRAME,X,Y)	(abs(FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius]   - FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius]  ) >= context.settings.edge_level_threshold)
+#define TEST_VEDGE1(FRAME,X,Y)	(abs(FRAME[((Y) - context.settings.edge_radius) * context.state.width + (X)] - FRAME[((Y) + context.settings.edge_radius) * context.state.width + (X)]) >= context.settings.edge_level_threshold)
 
-#define TEST_HEDGE0(FRAME,X,Y)  (abs(FRAME[(Y) * width + (X) - edge_radius]   - FRAME[(Y) * width + (X)]  ) >= edge_level_threshold) || \
-								(abs(FRAME[(Y) * width + (X) + edge_radius]   - FRAME[(Y) * width + (X)]  ) >= edge_level_threshold)
+#define TEST_HEDGE0(FRAME,X,Y)  (abs(FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius]   - FRAME[(Y) * context.state.width + (X)]  ) >= context.settings.edge_level_threshold) || \
+                                (abs(FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius]   - FRAME[(Y) * context.state.width + (X)]  ) >= context.settings.edge_level_threshold)
 
-#define TEST_VEDGE0(FRAME,X,Y)	(abs(FRAME[((Y) - edge_radius) * width + (X)] - FRAME[((Y)) * width + (X)]) >= edge_level_threshold) || \
-								(abs(FRAME[((Y) + edge_radius) * width + (X)] - FRAME[((Y)) * width + (X)]) >= edge_level_threshold)
+#define TEST_VEDGE0(FRAME,X,Y)	(abs(FRAME[((Y) - context.settings.edge_radius) * context.state.width + (X)] - FRAME[((Y)) * context.state.width + (X)]) >= context.settings.edge_level_threshold) || \
+                                (abs(FRAME[((Y) + context.settings.edge_radius) * context.state.width + (X)] - FRAME[((Y)) * context.state.width + (X)]) >= context.settings.edge_level_threshold)
 
-#define TEST_HEDGE2(FRAME,X,Y)  (abs((FRAME[(Y) * width + (X) - edge_radius - 1] + FRAME[(Y) * width + (X) - edge_radius] + FRAME[(Y) * width + (X) - edge_radius + 1]) - \
-									 (FRAME[(Y) * width + (X) + edge_radius - 1] + FRAME[(Y) * width + (X) + edge_radius] + FRAME[(Y) * width + (X) + edge_radius + 1])   )/3 >= edge_level_threshold)
+#define TEST_HEDGE2(FRAME,X,Y)  (abs((FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius - 1] + FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius] + FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius + 1]) - \
+                                     (FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius - 1] + FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius] + FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius + 1])   )/3 >= context.settings.edge_level_threshold)
 
-#define TEST_VEDGE2(FRAME,X,Y)	(abs((FRAME[((Y) - edge_radius - 1) * width + (X)] + FRAME[((Y) - edge_radius) * width + (X)] + FRAME[((Y) - edge_radius + 1) * width + (X)]) - \
-									 (FRAME[((Y) + edge_radius - 1) * width + (X)] + FRAME[((Y) + edge_radius) * width + (X)] + FRAME[((Y) + edge_radius + 1) * width + (X)])   )/3 >= edge_level_threshold)
+#define TEST_VEDGE2(FRAME,X,Y)	(abs((FRAME[((Y) - context.settings.edge_radius - 1) * context.state.width + (X)] + FRAME[((Y) - context.settings.edge_radius) * context.state.width + (X)] + FRAME[((Y) - context.settings.edge_radius + 1) * context.state.width + (X)]) - \
+                                     (FRAME[((Y) + context.settings.edge_radius - 1) * context.state.width + (X)] + FRAME[((Y) + context.settings.edge_radius) * context.state.width + (X)] + FRAME[((Y) + context.settings.edge_radius + 1) * context.state.width + (X)])   )/3 >= context.settings.edge_level_threshold)
 
 
 #define TEST_HEDGE3(FRAME,X,Y)	(abs((\
-FRAME[((Y)-edge_radius)*width+(X)-edge_radius]-FRAME[((Y)-edge_radius)*width+(X)+edge_radius] +\
-FRAME[((Y)            )*width+(X)-edge_radius]-FRAME[((Y)            )*width+(X)+edge_radius] +\
-FRAME[((Y)+edge_radius)*width+(X)-edge_radius]-FRAME[((Y)+edge_radius)*width+(X)+edge_radius])\
-) >= edge_level_threshold)
+FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius] +\
+FRAME[((Y)            )*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)            )*context.state.width+(X)+context.settings.edge_radius] +\
+FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius])\
+) >= context.settings.edge_level_threshold)
 
 #define TEST_VEDGE3(FRAME,X,Y)	(abs((\
-FRAME[((Y)-edge_radius)*width+(X)-edge_radius]-FRAME[((Y)+edge_radius)*width+(X)-edge_radius] +\
-FRAME[((Y)-edge_radius)*width+(X)            ]-FRAME[((Y)+edge_radius)*width+(X)            ] +\
-FRAME[((Y)-edge_radius)*width+(X)+edge_radius]-FRAME[((Y)+edge_radius)*width+(X)+edge_radius])\
-) >= edge_level_threshold)
+FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius] +\
+FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)            ]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)            ] +\
+FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius])\
+) >= context.settings.edge_level_threshold)
 
 
 #define AR_DIST	20
 
 
-void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
+void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNumber)
 {
     int				x;
     int				y;
     //	unsigned char	temp[MAXWIDTH * MAXHEIGHT];
 //	memset(for (i = 0; i <= (width * height); i++) temp[i] = 0;
-    hedge_count = 0;
-    vedge_count = 0;
+    context.state.hedge_count = 0;
+    context.state.vedge_count = 0;
 #ifdef MAXMIN_LOGO_SEARCH
     if (maskNumber == 0)
     {
         memset(max_br, 0, sizeof(max_br));
         memset(min_br, 255, sizeof(max_br));
     }
-    for (y = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore)); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++)
+    for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
     {
-        for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x++)
+        for (x = max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
         {
-            herePixel = frame_ptr[y * width + x];
-            if (herePixel < min_br[y * width + x])
-                min_br[y * width + x] = herePixel;
-            if (herePixel > max_br[y * width + x])
-                max_br[y * width + x] = herePixel;
+            herePixel = frame_ptr[y * context.state.width + x];
+            if (herePixel < min_br[y * context.state.width + x])
+                min_br[y * context.state.width + x] = herePixel;
+            if (herePixel > max_br[y * context.state.width + x])
+                max_br[y * context.state.width + x] = herePixel;
         }
     }
 #endif
 #if MULTI_EDGE_BUFFER
-    memset(horiz_edges[maskNumber], 0, width * height);
-    memset(vert_edges[maskNumber], 0, width * height);
-    for (y = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore)); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++)
+    memset(horiz_edges[maskNumber], 0, context.state.width * context.state.height);
+    memset(vert_edges[maskNumber], 0, context.state.width * context.state.height);
+    for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
     {
-        for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x++)
+        for (x = max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
         {
-            herePixel = frame_ptr[y * width + x];
-            if ((abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold) ||
-                    (abs(frame_ptr[y * width + (x + edge_radius)] - herePixel) >= edge_level_threshold))
+            herePixel = frame_ptr[y * context.state.width + x];
+            if ((abs(frame_ptr[y * context.state.width + (x - context.settings.edge_radius)] - herePixel) >= context.settings.edge_level_threshold) ||
+                    (abs(frame_ptr[y * context.state.width + (x + context.settings.edge_radius)] - herePixel) >= context.settings.edge_level_threshold))
             {
-                horiz_edges[maskNumber][y * width + x] = 1;
+                horiz_edges[maskNumber][y * context.state.width + x] = 1;
             }
 
-            if ((abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold) ||
-                    (abs(frame_ptr[(y + edge_radius) * width + x] - herePixel) >= edge_level_threshold))
+            if ((abs(frame_ptr[(y - context.settings.edge_radius) * context.state.width + x] - herePixel) >= context.settings.edge_level_threshold) ||
+                    (abs(frame_ptr[(y + context.settings.edge_radius) * context.state.width + x] - herePixel) >= context.settings.edge_level_threshold))
             {
-                vert_edges[maskNumber][y * width + x] = 1;
+                vert_edges[maskNumber][y * context.state.width + x] = 1;
             }
         }
     }
 #else
-    if (aggressive_logo_rejection==1)
+    if (context.settings.aggressive_logo_rejection==1)
     {
         LOGO_X_LOOP
         {
             LOGO_Y_LOOP {
                 if (TEST_HEDGE1(frame_ptr,x,y))
                 {
-                    if (hor_edgecount[y * width + x] < num_logo_buffers)
-                        hor_edgecount[y * width + x]++;
+                    if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                        context.state.hor_edgecount[y * context.state.width + x]++;
                     else
-                        edge_count++;
+                        context.state.edge_count++;
                 }
                 else
-                    hor_edgecount[y * width + x] = 0;
+                    context.state.hor_edgecount[y * context.state.width + x] = 0;
                 if (TEST_VEDGE1(frame_ptr,x,y))
                 {
-                    if (ver_edgecount[y * width + x] < num_logo_buffers)
-                        ver_edgecount[y * width + x]++;
+                    if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                        context.state.ver_edgecount[y * context.state.width + x]++;
                     else
-                        edge_count++;
+                        context.state.edge_count++;
                 }
                 else
-                    ver_edgecount[y * width + x] = 0;
+                    context.state.ver_edgecount[y * context.state.width + x] = 0;
             }
         }
     }
-    else if (aggressive_logo_rejection==2)
+    else if (context.settings.aggressive_logo_rejection==2)
     {
         LOGO_X_LOOP
         {
             LOGO_Y_LOOP {
                 if (TEST_HEDGE2(frame_ptr,x,y))
                 {
-                    if (hor_edgecount[y * width + x] < num_logo_buffers)
-                        hor_edgecount[y * width + x]++;
+                    if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                        context.state.hor_edgecount[y * context.state.width + x]++;
                     else
-                        edge_count++;
+                        context.state.edge_count++;
                 }
                 else
-                    hor_edgecount[y * width + x] = 0;
+                    context.state.hor_edgecount[y * context.state.width + x] = 0;
                 if (TEST_VEDGE2(frame_ptr,x,y))
                 {
-                    if (ver_edgecount[y * width + x] < num_logo_buffers)
-                        ver_edgecount[y * width + x]++;
+                    if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                        context.state.ver_edgecount[y * context.state.width + x]++;
                     else
-                        edge_count++;
+                        context.state.edge_count++;
                 }
                 else
-                    ver_edgecount[y * width + x] = 0;
+                    context.state.ver_edgecount[y * context.state.width + x] = 0;
             }
         }
 //	printf("%6d %6d\n", hedge_count, vedge_count);
     }
-    else if (aggressive_logo_rejection==3)
+    else if (context.settings.aggressive_logo_rejection==3)
     {
         LOGO_X_LOOP
         {
             LOGO_Y_LOOP {
                 if (TEST_HEDGE3(frame_ptr,x,y))
                 {
-                    if (hor_edgecount[y * width + x] < num_logo_buffers)
-                        hor_edgecount[y * width + x]++;
+                    if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                        context.state.hor_edgecount[y * context.state.width + x]++;
                     else
-                        edge_count++;
+                        context.state.edge_count++;
                 }
                 else
-                    hor_edgecount[y * width + x] = 0;
+                    context.state.hor_edgecount[y * context.state.width + x] = 0;
                 if (TEST_VEDGE3(frame_ptr,x,y))
                 {
-                    if (ver_edgecount[y * width + x] < num_logo_buffers)
-                        ver_edgecount[y * width + x]++;
+                    if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                        context.state.ver_edgecount[y * context.state.width + x]++;
                     else
-                        edge_count++;
+                        context.state.edge_count++;
                 }
                 else
-                    ver_edgecount[y * width + x] = 0;
+                    context.state.ver_edgecount[y * context.state.width + x] = 0;
             }
         }
     }
-    else if (aggressive_logo_rejection==4)
+    else if (context.settings.aggressive_logo_rejection==4)
     {
         LOGO_X_LOOP
         {
             LOGO_Y_LOOP {
-                if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * width + x - edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * width + x + edge_radius] < 200) )
+                if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
                     if (TEST_HEDGE0(frame_ptr,x,y))
                     {
-                        if (hor_edgecount[y * width + x] < num_logo_buffers)
-                            hor_edgecount[y * width + x]++;
+                        if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                            context.state.hor_edgecount[y * context.state.width + x]++;
                         else
-                            edge_count++;
+                            context.state.edge_count++;
                     }
-                    else if (frame_ptr[y * width + x] < 200)
-                        hor_edgecount[y * width + x] = 0;
+                    else if (frame_ptr[y * context.state.width + x] < 200)
+                        context.state.hor_edgecount[y * context.state.width + x] = 0;
                 }
-                if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- edge_radius) * width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ edge_radius) * width + x ] < 200) )
+                if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
                 {
                     if (TEST_VEDGE0(frame_ptr,x,y))
                     {
-                        if (ver_edgecount[y * width + x] < num_logo_buffers)
-                            ver_edgecount[y * width + x]++;
+                        if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                            context.state.ver_edgecount[y * context.state.width + x]++;
                         else
-                            edge_count++;
+                            context.state.edge_count++;
                     }
-                    else if (frame_ptr[y * width + x] < 200)
-                        ver_edgecount[y * width + x] = 0;
+                    else if (frame_ptr[y * context.state.width + x] < 200)
+                        context.state.ver_edgecount[y * context.state.width + x] = 0;
                 }
             }
         }
@@ -437,29 +437,29 @@ void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
         LOGO_X_LOOP
         {
             LOGO_Y_LOOP {
-                if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * width + x - edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * width + x + edge_radius] < 200) )
+                if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
                     if (TEST_HEDGE0(frame_ptr,x,y))
                     {
-                        if (hor_edgecount[y * width + x] < num_logo_buffers)
-                            hor_edgecount[y * width + x]++;
+                        if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                            context.state.hor_edgecount[y * context.state.width + x]++;
                         else
-                            edge_count++;
+                            context.state.edge_count++;
                     }
                     else
-                        hor_edgecount[y * width + x] = 0;
+                        context.state.hor_edgecount[y * context.state.width + x] = 0;
                 }
-                if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- edge_radius) * width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ edge_radius) * width + x ] < 200) )
+                if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
                 {
                     if (TEST_VEDGE0(frame_ptr,x,y))
                     {
-                        if (ver_edgecount[y * width + x] < num_logo_buffers)
-                            ver_edgecount[y * width + x]++;
+                        if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
+                            context.state.ver_edgecount[y * context.state.width + x]++;
                         else
-                            edge_count++;
+                            context.state.edge_count++;
                     }
                     else
-                        ver_edgecount[y * width + x] = 0;
+                        context.state.ver_edgecount[y * context.state.width + x] = 0;
                 }
             }
         }
@@ -469,7 +469,7 @@ void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
 
 
 
-double CheckStationLogoEdge(unsigned char* testFrame)
+double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
 {
     int		index;
     int		x;
@@ -478,19 +478,19 @@ double CheckStationLogoEdge(unsigned char* testFrame)
 
     int goodEdges = 0;
 
-    currentGoodEdge = 0.0;
-    if (videowidth < clogoMinX || height < clogoMinY)
+    context.state.currentGoodEdge = 0.0;
+    if (context.state.videowidth < context.state.clogoMinX || context.state.height < context.state.clogoMinY)
     {
         // No logo possible as frame size if different from where logo was found
     }
-    else if (aggressive_logo_rejection == 1)
+    else if (context.settings.aggressive_logo_rejection == 1)
     {
-        for (y = clogoMinY; y <= clogoMaxY; y += edge_step)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y += context.settings.edge_step)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x += edge_step)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (choriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.choriz_edgemask[index])
                 {
                     if (TEST_HEDGE1(testFrame,x,y))
                     {
@@ -498,7 +498,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (cvert_edgemask[index])
+                if (context.state.cvert_edgemask[index])
                 {
                     if (TEST_VEDGE1(testFrame,x,y))
                     {
@@ -510,14 +510,14 @@ double CheckStationLogoEdge(unsigned char* testFrame)
             }
         }
     }
-    else if (aggressive_logo_rejection == 2)
+    else if (context.settings.aggressive_logo_rejection == 2)
     {
-        for (y = clogoMinY; y <= clogoMaxY; y += edge_step)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y += context.settings.edge_step)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x += edge_step)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (choriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.choriz_edgemask[index])
                 {
                     if (TEST_HEDGE2(testFrame,x,y))
                     {
@@ -525,7 +525,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (cvert_edgemask[index])
+                if (context.state.cvert_edgemask[index])
                 {
                     if (TEST_VEDGE2(testFrame,x,y))
                     {
@@ -537,14 +537,14 @@ double CheckStationLogoEdge(unsigned char* testFrame)
             }
         }
     }
-    else if (aggressive_logo_rejection == 3)
+    else if (context.settings.aggressive_logo_rejection == 3)
     {
-        for (y = clogoMinY; y <= clogoMaxY; y += edge_step)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y += context.settings.edge_step)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x += edge_step)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (choriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.choriz_edgemask[index])
                 {
                     if (TEST_HEDGE3(testFrame,x,y))
                     {
@@ -552,7 +552,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (cvert_edgemask[index])
+                if (context.state.cvert_edgemask[index])
                 {
                     if (TEST_VEDGE3(testFrame,x,y))
                     {
@@ -564,14 +564,14 @@ double CheckStationLogoEdge(unsigned char* testFrame)
             }
         }
     }
-    else if (aggressive_logo_rejection == 4)
+    else if (context.settings.aggressive_logo_rejection == 4)
     {
-        for (y = clogoMinY; y <= clogoMaxY; y += edge_step)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y += context.settings.edge_step)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x += edge_step)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (choriz_edgemask[index] && testFrame[index] < 200)
+                index = y * context.state.width + x;
+                if (context.state.choriz_edgemask[index] && testFrame[index] < 200)
                 {
                     if (TEST_HEDGE0(testFrame,x,y))
                     {
@@ -579,7 +579,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (cvert_edgemask[index] && testFrame[index] < 200)
+                if (context.state.cvert_edgemask[index] && testFrame[index] < 200)
                 {
                     if (TEST_VEDGE0(testFrame,x,y))
                     {
@@ -592,12 +592,12 @@ double CheckStationLogoEdge(unsigned char* testFrame)
     }
     else
     {
-        for (y = clogoMinY; y <= clogoMaxY; y += edge_step)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y += context.settings.edge_step)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x += edge_step)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (choriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.choriz_edgemask[index])
                 {
                     if (TEST_HEDGE0(testFrame,x,y))
                     {
@@ -605,7 +605,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (cvert_edgemask[index])
+                if (context.state.cvert_edgemask[index])
                 {
                     if (TEST_VEDGE0(testFrame,x,y))
                     {
@@ -622,7 +622,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
     return (((double)goodEdges / (double)testEdges));
 }
 
-double DoubleCheckStationLogoEdge(unsigned char* testFrame)
+double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
 {
     int		index;
     int		x;
@@ -631,15 +631,15 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
 
     int goodEdges = 0;
 
-    currentGoodEdge = 0.0;
-    if (aggressive_logo_rejection == 1)
+    context.state.currentGoodEdge = 0.0;
+    if (context.settings.aggressive_logo_rejection == 1)
     {
-        for (y = tlogoMinY; y <= tlogoMaxY; y += edge_step)
+        for (y = context.state.tlogoMinY; y <= context.state.tlogoMaxY; y += context.settings.edge_step)
         {
-            for (x = tlogoMinX; x <= tlogoMaxX; x += edge_step)
+            for (x = context.state.tlogoMinX; x <= context.state.tlogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (thoriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.thoriz_edgemask[index])
                 {
                     if (TEST_HEDGE1(testFrame,x,y))
                     {
@@ -647,7 +647,7 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (tvert_edgemask[index])
+                if (context.state.tvert_edgemask[index])
                 {
                     if (TEST_VEDGE1(testFrame,x,y))
                     {
@@ -659,14 +659,14 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
             }
         }
     }
-    else if (aggressive_logo_rejection == 2)
+    else if (context.settings.aggressive_logo_rejection == 2)
     {
-        for (y = tlogoMinY; y <= tlogoMaxY; y += edge_step)
+        for (y = context.state.tlogoMinY; y <= context.state.tlogoMaxY; y += context.settings.edge_step)
         {
-            for (x = tlogoMinX; x <= tlogoMaxX; x += edge_step)
+            for (x = context.state.tlogoMinX; x <= context.state.tlogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (thoriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.thoriz_edgemask[index])
                 {
                     if (TEST_HEDGE2(testFrame,x,y))
                     {
@@ -674,7 +674,7 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (tvert_edgemask[index])
+                if (context.state.tvert_edgemask[index])
                 {
                     if (TEST_VEDGE2(testFrame,x,y))
                     {
@@ -686,14 +686,14 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
             }
         }
     }
-    else if (aggressive_logo_rejection == 3)
+    else if (context.settings.aggressive_logo_rejection == 3)
     {
-        for (y = tlogoMinY; y <= tlogoMaxY; y += edge_step)
+        for (y = context.state.tlogoMinY; y <= context.state.tlogoMaxY; y += context.settings.edge_step)
         {
-            for (x = tlogoMinX; x <= tlogoMaxX; x += edge_step)
+            for (x = context.state.tlogoMinX; x <= context.state.tlogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (thoriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.thoriz_edgemask[index])
                 {
                     if (TEST_HEDGE3(testFrame,x,y))
                     {
@@ -701,7 +701,7 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (tvert_edgemask[index])
+                if (context.state.tvert_edgemask[index])
                 {
                     if (TEST_VEDGE3(testFrame,x,y))
                     {
@@ -713,14 +713,14 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
             }
         }
     }
-    else if (aggressive_logo_rejection == 4)
+    else if (context.settings.aggressive_logo_rejection == 4)
     {
-        for (y = tlogoMinY; y <= tlogoMaxY; y += edge_step)
+        for (y = context.state.tlogoMinY; y <= context.state.tlogoMaxY; y += context.settings.edge_step)
         {
-            for (x = tlogoMinX; x <= tlogoMaxX; x += edge_step)
+            for (x = context.state.tlogoMinX; x <= context.state.tlogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (thoriz_edgemask[index] && testFrame[index] < 200)
+                index = y * context.state.width + x;
+                if (context.state.thoriz_edgemask[index] && testFrame[index] < 200)
                 {
                     if (TEST_HEDGE0(testFrame,x,y))
                     {
@@ -728,7 +728,7 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (tvert_edgemask[index] && testFrame[index] < 200)
+                if (context.state.tvert_edgemask[index] && testFrame[index] < 200)
                 {
                     if (TEST_VEDGE0(testFrame,x,y))
                     {
@@ -741,12 +741,12 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
     }
     else
     {
-        for (y = tlogoMinY; y <= tlogoMaxY; y += edge_step)
+        for (y = context.state.tlogoMinY; y <= context.state.tlogoMaxY; y += context.settings.edge_step)
         {
-            for (x = tlogoMinX; x <= tlogoMaxX; x += edge_step)
+            for (x = context.state.tlogoMinX; x <= context.state.tlogoMaxX; x += context.settings.edge_step)
             {
-                index = y * width + x;
-                if (thoriz_edgemask[index])
+                index = y * context.state.width + x;
+                if (context.state.thoriz_edgemask[index])
                 {
                     if (TEST_HEDGE0(testFrame,x,y))
                     {
@@ -754,7 +754,7 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
                     }
                     testEdges++;
                 }
-                if (tvert_edgemask[index])
+                if (context.state.tvert_edgemask[index])
                 {
                     if (TEST_VEDGE0(testFrame,x,y))
                     {
@@ -771,19 +771,19 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
     return (((double)goodEdges / (double)testEdges));
 }
 
-void InitProcessLogoTest()
+void InitProcessLogoTest(RecordingContext& context)
 {
-    logo_block_count = 0;
-    logoTrendCounter = 0;
-    frames_with_logo = 0;
-    lastLogoTest = false;
-    curLogoTest = false;
+    context.state.logo_block_count = 0;
+    context.state.logoTrendCounter = 0;
+    context.state.frames_with_logo = 0;
+    context.state.lastLogoTest = false;
+    context.state.curLogoTest = false;
 }
 
 
-#define LOGO_SAMPLE (int)(fps * logoFreq)
+#define LOGO_SAMPLE (int)(context.settings.fps * context.state.logoFreq)
 
-bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
+bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close)
 {
 
 
@@ -791,110 +791,110 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
     int i;
     double s1,s2;
 
-    if (logo_filter > 0)
+    if (context.settings.logo_filter > 0)
     {
         if (!close)
         {
 
-            if (framenum_real > logo_filter * 2 * LOGO_SAMPLE)
+            if (framenum_real > context.settings.logo_filter * 2 * LOGO_SAMPLE)
             {
                 s1 = s2 = 0.0;
-                for ( i = 0; i < logo_filter; i++)
+                for ( i = 0; i < context.settings.logo_filter; i++)
                 {
-                    s1 += (frame[framenum_real - i * LOGO_SAMPLE - logo_filter * LOGO_SAMPLE].currentGoodEdge - logo_threshold > 0 ? 1 : -1);
-                    s2 += (frame[framenum_real - i * LOGO_SAMPLE].currentGoodEdge - logo_threshold > 0 ? 1 : -1);
+                    s1 += (context.state.frame[framenum_real - i * LOGO_SAMPLE - context.settings.logo_filter * LOGO_SAMPLE].currentGoodEdge - context.settings.logo_threshold > 0 ? 1 : -1);
+                    s2 += (context.state.frame[framenum_real - i * LOGO_SAMPLE].currentGoodEdge - context.settings.logo_threshold > 0 ? 1 : -1);
                 }
-                s1 /= logo_filter;
-                s2 /= logo_filter;
+                s1 /= context.settings.logo_filter;
+                s2 /= context.settings.logo_filter;
                 for (i = 0; i < LOGO_SAMPLE; i++)
                 {
-                    frame[framenum_real - logo_filter * LOGO_SAMPLE - i].logo_filter = (s1 + s2);
+                    context.state.frame[framenum_real - context.settings.logo_filter * LOGO_SAMPLE - i].logo_filter = (s1 + s2);
                 }
             }
             for (i = 0; i < LOGO_SAMPLE; i++)
             {
-                frame[framenum_real - i].logo_filter = 0.0;
+                context.state.frame[framenum_real - i].logo_filter = 0.0;
             }
 
-            framenum_real -= logo_filter*LOGO_SAMPLE;
+            framenum_real -= context.settings.logo_filter*LOGO_SAMPLE;
             if (framenum_real < 0) framenum_real= 1;
 
-            curLogoTest = (frame[framenum_real].logo_filter > 0.0 ? 1 : 0);
+            curLogoTest = (context.state.frame[framenum_real].logo_filter > 0.0 ? 1 : 0);
         }
         else
             curLogoTest = false;
     }
 
-    if (curLogoTest != lastLogoTest)
+    if (curLogoTest != context.state.lastLogoTest)
     {
         if (!curLogoTest)
         {
             // Logo disappeared
-            lastLogoTest = false;
-            logoTrendCounter = 0;
-            logo_block[logo_block_count].end = framenum_real - 1 * (int)(fps * logoFreq);
-            if (logo_block[logo_block_count].end - logo_block[logo_block_count].start >
-                    2*(int)(shrink_logo*fps) + (shrink_logo_tail*fps) )
+            context.state.lastLogoTest = false;
+            context.state.logoTrendCounter = 0;
+            context.state.logo_block[context.state.logo_block_count].end = framenum_real - 1 * (int)(context.settings.fps * context.state.logoFreq);
+            if (context.state.logo_block[context.state.logo_block_count].end - context.state.logo_block[context.state.logo_block_count].start >
+                    2*(int)(context.settings.shrink_logo*context.settings.fps) + (context.settings.shrink_logo_tail*context.settings.fps) )
             {
-                logo_block[logo_block_count].end -= (int)(shrink_logo*fps) + (int)(shrink_logo_tail*fps);
-                logo_block[logo_block_count].start += (int)(shrink_logo*fps);
-                frames_with_logo -= 2 * (int)(fps * logoFreq) + 2*(int)(shrink_logo*fps) + (int)(shrink_logo_tail*fps);
-                if (framearray)
+                context.state.logo_block[context.state.logo_block_count].end -= (int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
+                context.state.logo_block[context.state.logo_block_count].start += (int)(context.settings.shrink_logo*context.settings.fps);
+                context.state.frames_with_logo -= 2 * (int)(context.settings.fps * context.state.logoFreq) + 2*(int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
+                if (context.state.framearray)
                 {
-                    i = logo_block[logo_block_count].end;
+                    i = context.state.logo_block[context.state.logo_block_count].end;
                     if (i<0) i = 0;
                     for (; i < framenum_real; i++)
-                        frame[i].logo_present = false;
+                        context.state.frame[i].logo_present = false;
                 }
                 Debug
-                (3,
+                (context, 3,
                  "\nEnd logo block %i\tframe %i\tLength - %s\n",
-                 logo_block_count,
-                 logo_block[logo_block_count].end,
-                 dblSecondsToStrMinutes(F2L(logo_block[logo_block_count].end, logo_block[logo_block_count].start))
+                 context.state.logo_block_count,
+                 context.state.logo_block[context.state.logo_block_count].end,
+                 dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].end, context.state.logo_block[context.state.logo_block_count].start))
                 );
-                logo_block_count++;
-                InitializeLogoBlockArray( logo_block_count);
+                context.state.logo_block_count++;
+                InitializeLogoBlockArray(context,  context.state.logo_block_count);
             }
             else
             {
-                logo_block[logo_block_count].start = -1; // else discard logo cblock
+                context.state.logo_block[context.state.logo_block_count].start = -1; // else discard logo cblock
             }
         }
         else
         {
             // real change or false change?
-            logoTrendCounter++;
-            if (logoTrendCounter == minHitsForTrend)
+            context.state.logoTrendCounter++;
+            if (context.state.logoTrendCounter == context.state.minHitsForTrend)
             {
-                lastLogoTest = true;
-                logoTrendCounter = 0;
-                InitializeLogoBlockArray(logo_block_count + 2);
-                logo_block[logo_block_count + 1].start = -1;
-                logo_block[logo_block_count].start = max(framenum_real - ((int)(fps * logoFreq) * (minHitsForTrend - 1)),0);
-                frames_with_logo +=((int)(fps * logoFreq) * (minHitsForTrend - 1));
-                if (framearray)
+                context.state.lastLogoTest = true;
+                context.state.logoTrendCounter = 0;
+                InitializeLogoBlockArray(context, context.state.logo_block_count + 2);
+                context.state.logo_block[context.state.logo_block_count + 1].start = -1;
+                context.state.logo_block[context.state.logo_block_count].start = max(framenum_real - ((int)(context.settings.fps * context.state.logoFreq) * (context.state.minHitsForTrend - 1)),0);
+                context.state.frames_with_logo +=((int)(context.settings.fps * context.state.logoFreq) * (context.state.minHitsForTrend - 1));
+                if (context.state.framearray)
                 {
-                    for (i = logo_block[logo_block_count].start; i < framenum_real; i++)
-                        frame[i].logo_present = true;
+                    for (i = context.state.logo_block[context.state.logo_block_count].start; i < framenum_real; i++)
+                        context.state.frame[i].logo_present = true;
                 }
-                if (!logo_block_count)
+                if (!context.state.logo_block_count)
                 {
-                    Debug(
+                    Debug(context,
                         3,
                         "\t\t\t\tStart logo cblock %i\tframe %i\n",
-                        logo_block_count,
-                        logo_block[logo_block_count].start
+                        context.state.logo_block_count,
+                        context.state.logo_block[context.state.logo_block_count].start
                     );
                 }
                 else
                 {
-                    Debug(
+                    Debug(context,
                         3,
                         "\n\t\t\t\tNonlogo Length - %s\nStart logo cblock %i\tframe %i\n",
-                        dblSecondsToStrMinutes(F2L(logo_block[logo_block_count].start, logo_block[logo_block_count - 1].end)),
-                        logo_block_count,
-                        logo_block[logo_block_count].start
+                        dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].start, context.state.logo_block[context.state.logo_block_count - 1].end)),
+                        context.state.logo_block_count,
+                        context.state.logo_block[context.state.logo_block_count].start
                     );
                 }
 
@@ -903,21 +903,21 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
     }
     else
     {
-        logoTrendCounter = 0;
+        context.state.logoTrendCounter = 0;
     }
 
 
-    return(lastLogoTest);
+    return(context.state.lastLogoTest);
 }
 
 
-void ResetLogoBuffers(void)
+void ResetLogoBuffers(RecordingContext& context)
 {
-    newestLogoBuffer = oldestLogoBuffer = 0;
-    if (logoFrameNum) {
-        if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
-        logoFrameNum[newestLogoBuffer] = framenum_real;
-        oldestLogoBuffer = 0;
+    context.state.newestLogoBuffer = context.state.oldestLogoBuffer = 0;
+    if (context.state.logoFrameNum) {
+        if (context.state.newestLogoBuffer == context.settings.num_logo_buffers) context.state.newestLogoBuffer = 0; // rotates buffer
+        context.state.logoFrameNum[context.state.newestLogoBuffer] = context.state.framenum_real;
+        context.state.oldestLogoBuffer = 0;
     /*
          for (i = 0; i < num_logo_buffers; i++) {
               free(logoFrameBuffer[i]);
@@ -932,20 +932,20 @@ void ResetLogoBuffers(void)
     }
 }
 
-void FillLogoBuffer(void)
+void FillLogoBuffer(RecordingContext& context)
 {
     int i;
-    newestLogoBuffer++;
-    if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
-    logoFrameNum[newestLogoBuffer] = framenum_real;
-    oldestLogoBuffer = 0;
-    for (i = 0; i < num_logo_buffers; i++)
+    context.state.newestLogoBuffer++;
+    if (context.state.newestLogoBuffer == context.settings.num_logo_buffers) context.state.newestLogoBuffer = 0; // rotates buffer
+    context.state.logoFrameNum[context.state.newestLogoBuffer] = context.state.framenum_real;
+    context.state.oldestLogoBuffer = 0;
+    for (i = 0; i < context.settings.num_logo_buffers; i++)
     {
-        if (logoFrameNum[i]  && logoFrameNum[i] < logoFrameNum[oldestLogoBuffer]) oldestLogoBuffer = i;
+        if (context.state.logoFrameNum[i]  && context.state.logoFrameNum[i] < context.state.logoFrameNum[context.state.oldestLogoBuffer]) context.state.oldestLogoBuffer = i;
     }
 
-    i = min((unsigned int)logoFrameBufferSize, width * height * sizeof(frame_ptr[0]));
-    memcpy(logoFrameBuffer[newestLogoBuffer], frame_ptr, i);
+    i = min((unsigned int)context.state.logoFrameBufferSize, context.state.width * context.state.height * sizeof(context.state.frame_ptr[0]));
+    memcpy(context.state.logoFrameBuffer[context.state.newestLogoBuffer], context.state.frame_ptr, i);
 
 //	for (y = 0; y < height; y++) {
 //		for (x = 0; x < width; x++) {
@@ -953,16 +953,16 @@ void FillLogoBuffer(void)
 //		}
 //	}
 
-    EdgeDetect(logoFrameBuffer[newestLogoBuffer], newestLogoBuffer);
-    if ((!logoBuffersFull) && (newestLogoBuffer == num_logo_buffers - 1)) logoBuffersFull = true;
+    EdgeDetect(context, context.state.logoFrameBuffer[context.state.newestLogoBuffer], context.state.newestLogoBuffer);
+    if ((!context.state.logoBuffersFull) && (context.state.newestLogoBuffer == context.settings.num_logo_buffers - 1)) context.state.logoBuffersFull = true;
 }
 
-bool SearchForLogoEdges(void)
+bool SearchForLogoEdges(RecordingContext& context)
 {
     int		i;
     int		x;
     int		y;
-    double scale = ((double)height / 572) * ( (double) videowidth / 720 );
+    double scale = ((double)context.state.height / 572) * ( (double) context.state.videowidth / 720 );
     double	logoPercentageOfScreen;
     bool	LogoIsThere;
     int		sum;
@@ -972,37 +972,37 @@ bool SearchForLogoEdges(void)
     int		tempMaxY;
     int		last_non_logo_frame;
     int		logoFound = false;
-    tlogoMinX = edge_radius + border;
-    tlogoMaxX = videowidth - edge_radius - border;
-    tlogoMinY = edge_radius + border;
-    tlogoMaxY = height - edge_radius - border;
+    context.state.tlogoMinX = context.settings.edge_radius + context.settings.border;
+    context.state.tlogoMaxX = context.state.videowidth - context.settings.edge_radius - context.settings.border;
+    context.state.tlogoMinY = context.settings.edge_radius + context.settings.border;
+    context.state.tlogoMaxY = context.state.height - context.settings.edge_radius - context.settings.border;
 #if MULTI_EDGE_BUFFER
-    memset(thoriz_edgemask, 1, width * height);
-    memset(ttvert_edgemask, 1, width * height);
+    memset(thoriz_edgemask, 1, context.state.width * context.state.height);
+    memset(ttvert_edgemask, 1, context.state.width * context.state.height);
     for (i = 0; i < 1; i++)
     {
-        for (y = border; y < height - border; y++)
+        for (y = border; y < context.state.height - border; y++)
         {
-            for (x = border; x < videowidth - border; x++)
+            for (x = border; x < context.state.videowidth - border; x++)
             {
-                if (!thoriz_edgemask[y * width + x] || !horiz_edges[i][y * width + x])
+                if (!thoriz_edgemask[y * context.state.width + x] || !horiz_edges[i][y * context.state.width + x])
                 {
-                    thoriz_edgemask[y * width + x] = 0;
+                    thoriz_edgemask[y * context.state.width + x] = 0;
                 }
 
-                if (!tvert_edgemask[y * width + x] || !vert_edges[i][y * width + x])
+                if (!tvert_edgemask[y * context.state.width + x] || !vert_edges[i][y * context.state.width + x])
                 {
-                    tvert_edgemask[y * width + x] = 0;
+                    tvert_edgemask[y * context.state.width + x] = 0;
                 }
             }
         }
     }
 #if 0
-    for (y = border; y < height - border; y++)
+    for (y = border; y < context.state.height - border; y++)
     {
-        for (x = border; x < videowidth - border; x++)
+        for (x = border; x < context.state.videowidth - border; x++)
         {
-            index = y * width + x;
+            index = y * context.state.width + x;
             for (i = 1; i < num_logo_buffers; i++)
             {
                 if (!thoriz_edgemask[index] || !horiz_edges[i][index])
@@ -1024,26 +1024,26 @@ bool SearchForLogoEdges(void)
 #else
     for (i = 1; i < num_logo_buffers; i++)
     {
-        for (y = border; y < height - border; y++)
+        for (y = border; y < context.state.height - border; y++)
         {
-            for (x = border; x < videowidth - border; x++)
+            for (x = border; x < context.state.videowidth - border; x++)
             {
-                if (!thoriz_edgemask[y * width + x] || !horiz_edges[i][y * width + x])
+                if (!thoriz_edgemask[y * context.state.width + x] || !horiz_edges[i][y * context.state.width + x])
                 {
-                    thoriz_edgemask[y * width + x] = 0;
+                    thoriz_edgemask[y * context.state.width + x] = 0;
                 }
 
-                if (!tvert_edgemask[y * width + x] || !vert_edges[i][y * width + x])
+                if (!tvert_edgemask[y * context.state.width + x] || !vert_edges[i][y * context.state.width + x])
                 {
-                    tvert_edgemask[y * width + x] = 0;
+                    tvert_edgemask[y * context.state.width + x] = 0;
                 }
             }
         }
     }
 #endif
 #else
-    memset(thoriz_edgemask, 0, width * height);
-    memset(tvert_edgemask, 0, width * height);
+    memset(context.state.thoriz_edgemask, 0, context.state.width * context.state.height);
+    memset(context.state.tvert_edgemask, 0, context.state.width * context.state.height);
 //	minY = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore));
 //	if (framearray) minY = max(minY, frame[frame_count].minY);
 //	maxY = (subtitles? height/2 : height - edge_radius - (int)(height * borderIgnore));
@@ -1054,39 +1054,39 @@ bool SearchForLogoEdges(void)
         LOGO_Y_LOOP {
 //	for (y = minY; y < maxY; y++) {
 //		for (x = edge_radius + (int)(width * borderIgnore); x < videowidth - edge_radius + (int)(width * borderIgnore); x++) {
-            if (hor_edgecount[y * width + x] >= num_logo_buffers * 0.95 )
+            if (context.state.hor_edgecount[y * context.state.width + x] >= context.settings.num_logo_buffers * 0.95 )
             {
-                thoriz_edgemask[y * width + x] = 1;
+                context.state.thoriz_edgemask[y * context.state.width + x] = 1;
             }
-            if (ver_edgecount[y * width + x] >= num_logo_buffers * 0.95 )
+            if (context.state.ver_edgecount[y * context.state.width + x] >= context.settings.num_logo_buffers * 0.95 )
             {
-                tvert_edgemask[y * width + x] = 1;
+                context.state.tvert_edgemask[y * context.state.width + x] = 1;
             }
         }
     }
 #endif
 
-    ClearEdgeMaskArea(thoriz_edgemask, tvert_edgemask);
-    ClearEdgeMaskArea(tvert_edgemask, thoriz_edgemask);
+    ClearEdgeMaskArea(context, context.state.thoriz_edgemask, context.state.tvert_edgemask);
+    ClearEdgeMaskArea(context, context.state.tvert_edgemask, context.state.thoriz_edgemask);
 
 
-    SetEdgeMaskArea(thoriz_edgemask);
-    tempMinX = tlogoMinX;
-    tempMaxX = tlogoMaxX;
-    tempMinY = tlogoMinY;
-    tempMaxY = tlogoMaxY;
-    tlogoMinX = edge_radius + border;
-    tlogoMaxX = videowidth - edge_radius - border;
-    tlogoMinY = edge_radius + border;
-    tlogoMaxY = height - edge_radius - border;
-    SetEdgeMaskArea(tvert_edgemask);
-    if (tempMinX < tlogoMinX) tlogoMinX = tempMinX;
-    if (tempMaxX > tlogoMaxX) tlogoMaxX = tempMaxX;
-    if (tempMinY < tlogoMinY) tlogoMinY = tempMinY;
-    if (tempMaxY > tlogoMaxY) tlogoMaxY = tempMaxY;
-    edgemask_filled = 1;
-    logoPercentageOfScreen = (double)((tlogoMaxY - tlogoMinY) * (tlogoMaxX - tlogoMinX)) / (double)(height * width);
-    if (logoPercentageOfScreen > logo_max_percentage_of_screen)
+    SetEdgeMaskArea(context, context.state.thoriz_edgemask);
+    tempMinX = context.state.tlogoMinX;
+    tempMaxX = context.state.tlogoMaxX;
+    tempMinY = context.state.tlogoMinY;
+    tempMaxY = context.state.tlogoMaxY;
+    context.state.tlogoMinX = context.settings.edge_radius + context.settings.border;
+    context.state.tlogoMaxX = context.state.videowidth - context.settings.edge_radius - context.settings.border;
+    context.state.tlogoMinY = context.settings.edge_radius + context.settings.border;
+    context.state.tlogoMaxY = context.state.height - context.settings.edge_radius - context.settings.border;
+    SetEdgeMaskArea(context, context.state.tvert_edgemask);
+    if (tempMinX < context.state.tlogoMinX) context.state.tlogoMinX = tempMinX;
+    if (tempMaxX > context.state.tlogoMaxX) context.state.tlogoMaxX = tempMaxX;
+    if (tempMinY < context.state.tlogoMinY) context.state.tlogoMinY = tempMinY;
+    if (tempMaxY > context.state.tlogoMaxY) context.state.tlogoMaxY = tempMaxY;
+    context.state.edgemask_filled = 1;
+    logoPercentageOfScreen = (double)((context.state.tlogoMaxY - context.state.tlogoMinY) * (context.state.tlogoMaxX - context.state.tlogoMinX)) / (double)(context.state.height * context.state.width);
+    if (logoPercentageOfScreen > context.settings.logo_max_percentage_of_screen)
     {
 //			Debug(
 //				3,
@@ -1100,15 +1100,15 @@ bool SearchForLogoEdges(void)
 //        if (tempMaxY < tlogoMaxY-50) tlogoMaxY = tempMaxY;
     }
 
-    i = CountEdgePixels();
+    i = CountEdgePixels(context);
 //printf("Edges=%d\n",i);
 //	if (i > 350/(lowres+1)/(edge_step)) {
-    if ( i > 150 * scale /edge_step)
+    if ( i > 150 * scale /context.settings.edge_step)
     {
-        logoPercentageOfScreen = (double)((tlogoMaxY - tlogoMinY) * (tlogoMaxX - tlogoMinX)) / (double)(height * width);
-        if (i > 40000 || logoPercentageOfScreen > logo_max_percentage_of_screen)
+        logoPercentageOfScreen = (double)((context.state.tlogoMaxY - context.state.tlogoMinY) * (context.state.tlogoMaxX - context.state.tlogoMinX)) / (double)(context.state.height * context.state.width);
+        if (i > 40000 || logoPercentageOfScreen > context.settings.logo_max_percentage_of_screen)
         {
-            Debug(
+            Debug(context,
                 3,
                 "Edge count - %i\tPercentage of screen - %.2f%% TOO BIG, CAN'T BE A LOGO.\n",
                 i,
@@ -1118,21 +1118,21 @@ bool SearchForLogoEdges(void)
         }
         else
         {
-            Debug(3, "Edge count - %i\tPercentage of screen - %.2f%%, Check: %i\n", i, logoPercentageOfScreen * 100,doublCheckLogoCount);
+            Debug(context, 3, "Edge count - %i\tPercentage of screen - %.2f%%, Check: %i\n", i, logoPercentageOfScreen * 100,context.state.doublCheckLogoCount);
 //			logoInfoAvailable = true;
             logoFound = true;
         }
     }
     else
-        Debug(3, "Not enough edge count - %i\n", i);
+        Debug(context, 3, "Not enough edge count - %i\n", i);
 
 
     if (logoFound)
     {
-        doublCheckLogoCount++;
-        Debug(3, "Double checking - %i\n", doublCheckLogoCount );
+        context.state.doublCheckLogoCount++;
+        Debug(context, 3, "Double checking - %i\n", context.state.doublCheckLogoCount );
 
-        if (doublCheckLogoCount > 1)
+        if (context.state.doublCheckLogoCount > 1)
         {
             // Final check done, found
         }
@@ -1141,29 +1141,29 @@ bool SearchForLogoEdges(void)
     }
     else
     {
-        doublCheckLogoCount = 0;
+        context.state.doublCheckLogoCount = 0;
     }
 
 
     sum = 0;
-    oldestLogoBuffer = 0;
-    for (i = 0; i < num_logo_buffers; i++)
+    context.state.oldestLogoBuffer = 0;
+    for (i = 0; i < context.settings.num_logo_buffers; i++)
     {
-        if (logoFrameNum[i]  && logoFrameNum[i] < logoFrameNum[oldestLogoBuffer]) oldestLogoBuffer = i;
+        if (context.state.logoFrameNum[i]  && context.state.logoFrameNum[i] < context.state.logoFrameNum[context.state.oldestLogoBuffer]) context.state.oldestLogoBuffer = i;
     }
-    last_non_logo_frame = logoFrameNum[oldestLogoBuffer];
+    last_non_logo_frame = context.state.logoFrameNum[context.state.oldestLogoBuffer];
     if (logoFound)
     {
-        Debug(3, "Doublechecking frames %i to %i for logo.\n", logoFrameNum[oldestLogoBuffer], logoFrameNum[newestLogoBuffer]);
-        for (i = 0; i < num_logo_buffers; i++)
+        Debug(context, 3, "Doublechecking frames %i to %i for logo.\n", context.state.logoFrameNum[context.state.oldestLogoBuffer], context.state.logoFrameNum[context.state.newestLogoBuffer]);
+        for (i = 0; i < context.settings.num_logo_buffers; i++)
         {
-            currentGoodEdge = DoubleCheckStationLogoEdge(logoFrameBuffer[i]);
-            LogoIsThere = (currentGoodEdge > logo_threshold);
+            context.state.currentGoodEdge = DoubleCheckStationLogoEdge(context, context.state.logoFrameBuffer[i]);
+            LogoIsThere = (context.state.currentGoodEdge > context.settings.logo_threshold);
 
-            for (x = logoFrameNum[i]; x < logoFrameNum[i] + (int)( logoFreq * fps ); x++)
+            for (x = context.state.logoFrameNum[i]; x < context.state.logoFrameNum[i] + (int)( context.state.logoFreq * context.settings.fps ); x++)
             {
-                frame[x].currentGoodEdge = currentGoodEdge;
-                frame[x].logo_present = LogoIsThere;
+                context.state.frame[x].currentGoodEdge = context.state.currentGoodEdge;
+                context.state.frame[x].logo_present = LogoIsThere;
                 if (!LogoIsThere)
                 {
                     if (x > last_non_logo_frame)
@@ -1177,29 +1177,29 @@ bool SearchForLogoEdges(void)
             }
             else
             {
-                Debug(7, "Logo not present in frame %i.\n", logoFrameNum[i]);
+                Debug(context, 7, "Logo not present in frame %i.\n", context.state.logoFrameNum[i]);
             }
         }
     }
 
 
-    if (logoFound && (sum >= (int)(num_logo_buffers * .9)))
+    if (logoFound && (sum >= (int)(context.settings.num_logo_buffers * .9)))
     {
 
-        clogoMinX = tlogoMinX;
-        clogoMaxX = tlogoMaxX;
-        clogoMinY = tlogoMinY;
-        clogoMaxY = tlogoMaxY;
-        memcpy(choriz_edgemask, thoriz_edgemask, width * height);
-        memcpy(cvert_edgemask, tvert_edgemask, width * height);
+        context.state.clogoMinX = context.state.tlogoMinX;
+        context.state.clogoMaxX = context.state.tlogoMaxX;
+        context.state.clogoMinY = context.state.tlogoMinY;
+        context.state.clogoMaxY = context.state.tlogoMaxY;
+        memcpy(context.state.choriz_edgemask, context.state.thoriz_edgemask, context.state.width * context.state.height);
+        memcpy(context.state.cvert_edgemask, context.state.tvert_edgemask, context.state.width * context.state.height);
 
 
-        logoTrendCounter = num_logo_buffers;
-        lastLogoTest = true;
-        curLogoTest = true;
+        context.state.logoTrendCounter = context.settings.num_logo_buffers;
+        context.state.lastLogoTest = true;
+        context.state.curLogoTest = true;
 
-        logo_block[logo_block_count].start = last_non_logo_frame+1;
-        DumpEdgeMasks();
+        context.state.logo_block[context.state.logo_block_count].start = last_non_logo_frame+1;
+        DumpEdgeMasks(context);
 //		DumpEdgeMask(choriz_edgemask, HORIZ);
 //		DumpEdgeMask(cvert_edgemask, VERT);
 //		for (i = 0; i < num_logo_buffers; i++) {
@@ -1222,30 +1222,30 @@ bool SearchForLogoEdges(void)
 #endif
 //		free(logoFrameBuffer);
 //		logoFrameBuffer = NULL;
-        InitScanLines();
-        InitHasLogo();
+        InitScanLines(context);
+        InitHasLogo(context);
 
-        logoInfoAvailable = true; //xxxxxxx
+        context.state.logoInfoAvailable = true; //xxxxxxx
     }
     else
     {
 //		logoInfoAvailable = false; //xxxxxxx
-        currentGoodEdge = 0.0;
+        context.state.currentGoodEdge = 0.0;
     }
 
-    if (!logoInfoAvailable && startOverAfterLogoInfoAvail && (framenum_real > (int)(giveUpOnLogoSearch * fps)))
+    if (!context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail && (context.state.framenum_real > (int)(context.settings.giveUpOnLogoSearch * context.settings.fps)))
     {
-        Debug(1, "No logo was found after %i frames.\nGiving up", framenum_real);
-        commDetectMethod -= LOGO;
+        Debug(context, 1, "No logo was found after %i frames.\nGiving up", context.state.framenum_real);
+        context.settings.commDetectMethod -= LOGO;
     }
-    if (added_recording > 0)
-        giveUpOnLogoSearch += added_recording * 60;
+    if (context.settings.added_recording > 0)
+        context.settings.giveUpOnLogoSearch += context.settings.added_recording * 60;
 
-    if (logoInfoAvailable && startOverAfterLogoInfoAvail)
+    if (context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail)
     {
-        Debug(3, "Logo found at frame %i\tlogoMinX=%i\tlogoMaxX=%i\tlogoMinY=%i\tlogoMaxY=%i\n", framenum_real, clogoMinX, clogoMaxX, clogoMinY, clogoMaxY);
-        SaveLogoMaskData();
-        Debug(3, "******************* End of Logo Processing ***************\n");
+        Debug(context, 3, "Logo found at frame %i\tlogoMinX=%i\tlogoMaxX=%i\tlogoMinY=%i\tlogoMaxY=%i\n", context.state.framenum_real, context.state.clogoMinX, context.state.clogoMaxX, context.state.clogoMinY, context.state.clogoMaxY);
+        SaveLogoMaskData(context);
+        Debug(context, 3, "******************* End of Logo Processing ***************\n");
         return false;
     }
 
@@ -1255,7 +1255,7 @@ bool SearchForLogoEdges(void)
 
 #define MAX_SEARCH_FRACTION 0.02
 
-int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
+int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned char* test)
 {
     int x;
     int y;
@@ -1269,41 +1269,41 @@ int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
         LOGO_Y_LOOP
         {
             count = 0;
-            if (temp[y * width + x] == 1)
+            if (temp[y * context.state.width + x] == 1)
             {
-                if (test[y * width + x] == 1)
+                if (test[y * context.state.width + x] == 1)
 //					goto found;
                     count++;
 
-                for (offset = edge_step; offset < (int) (MAX_SEARCH_FRACTION * width); offset += edge_step)
+                for (offset = context.settings.edge_step; offset < (int) (MAX_SEARCH_FRACTION * context.state.width); offset += context.settings.edge_step)
                 {
-                    iy = min(y+offset,height-1);
-                    for (ix= max(x-offset,0); ix <= min(x+offset, width-1); ix += edge_step)
-                        if (test[iy * width + ix] == 1)
+                    iy = min(y+offset,context.state.height-1);
+                    for (ix= max(x-offset,0); ix <= min(x+offset, context.state.width-1); ix += context.settings.edge_step)
+                        if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
 
                     iy = max(y-offset,0);
-                    for (ix= max(x-offset,0); ix <= min(x+offset, width-1); ix += edge_step)
-                        if (test[iy * width + ix] == 1)
+                    for (ix= max(x-offset,0); ix <= min(x+offset, context.state.width-1); ix += context.settings.edge_step)
+                        if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
 
-                    ix = min(x+offset, width-1);
-                    for (iy= max(y-offset+edge_step,0); iy <=  min(y+offset-edge_step,height-1); iy += edge_step)
-                        if (test[iy * width + ix] == 1)
+                    ix = min(x+offset, context.state.width-1);
+                    for (iy= max(y-offset+context.settings.edge_step,0); iy <=  min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
+                        if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
 
                     ix = max(x-offset,0);
-                    for (iy= max(y-offset+edge_step,0); iy <=  min(y+offset-edge_step,height-1); iy += edge_step)
-                        if (test[iy * width + ix] == 1)
+                    for (iy= max(y-offset+context.settings.edge_step,0); iy <=  min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
+                        if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
-                    if (count >= edge_weight)
+                    if (count >= context.settings.edge_weight)
                         goto found;
                 }
-                temp[y * width + x] = 0;
+                temp[y * context.state.width + x] = 0;
                 continue;
 found:
                 valid++;
@@ -1313,49 +1313,49 @@ found:
     return(valid);
 }
 
-void SetEdgeMaskArea(unsigned char* temp)
+void SetEdgeMaskArea(RecordingContext& context, unsigned char* temp)
 {
     int x;
     int y;
-    tlogoMinX = videowidth - 1;
-    tlogoMaxX = 0;
-    tlogoMinY = height - 1;
-    tlogoMaxY = 0;
+    context.state.tlogoMinX = context.state.videowidth - 1;
+    context.state.tlogoMaxX = 0;
+    context.state.tlogoMinY = context.state.height - 1;
+    context.state.tlogoMaxY = 0;
     LOGO_X_LOOP
 //    for (y = (logo_at_bottom ? height/2 : border + edge_radius); y < (subtitles? height/2 : height - border - edge_radius); y++)
     {
         LOGO_Y_LOOP
 //        for (x = border+edge_radius; x < videowidth - border - edge_radius; x++)
         {
-            if (temp[y * width + x] == 1)
+            if (temp[y * context.state.width + x] == 1)
             {
-                if (x - LOGOBORDER < tlogoMinX) tlogoMinX = x - LOGOBORDER;
-                if (y - LOGOBORDER < tlogoMinY) tlogoMinY = y - LOGOBORDER;
-                if (x + LOGOBORDER > tlogoMaxX) tlogoMaxX = x + LOGOBORDER;
-                if (y + LOGOBORDER > tlogoMaxY) tlogoMaxY = y + LOGOBORDER;
+                if (x - LOGOBORDER < context.state.tlogoMinX) context.state.tlogoMinX = x - LOGOBORDER;
+                if (y - LOGOBORDER < context.state.tlogoMinY) context.state.tlogoMinY = y - LOGOBORDER;
+                if (x + LOGOBORDER > context.state.tlogoMaxX) context.state.tlogoMaxX = x + LOGOBORDER;
+                if (y + LOGOBORDER > context.state.tlogoMaxY) context.state.tlogoMaxY = y + LOGOBORDER;
             }
         }
     }
 
-    if (tlogoMinX < edge_radius) tlogoMinX = edge_radius;
-    if (tlogoMaxX > (videowidth - edge_radius)) tlogoMaxX = (videowidth - edge_radius);
-    if (tlogoMinY < edge_radius) tlogoMinY = edge_radius;
-    if (tlogoMaxY > (height - edge_radius)) tlogoMaxY = (height - edge_radius);
+    if (context.state.tlogoMinX < context.settings.edge_radius) context.state.tlogoMinX = context.settings.edge_radius;
+    if (context.state.tlogoMaxX > (context.state.videowidth - context.settings.edge_radius)) context.state.tlogoMaxX = (context.state.videowidth - context.settings.edge_radius);
+    if (context.state.tlogoMinY < context.settings.edge_radius) context.state.tlogoMinY = context.settings.edge_radius;
+    if (context.state.tlogoMaxY > (context.state.height - context.settings.edge_radius)) context.state.tlogoMaxY = (context.state.height - context.settings.edge_radius);
 }
 
-int CountEdgePixels(void)
+int CountEdgePixels(RecordingContext& context)
 {
     int x;
     int y;
     int count = 0;
     int hcount = 0;
     int vcount = 0;
-    for (y = tlogoMinY; y <= tlogoMaxY; y++)
+    for (y = context.state.tlogoMinY; y <= context.state.tlogoMaxY; y++)
     {
-        for (x = tlogoMinX; x <= tlogoMaxX; x++)
+        for (x = context.state.tlogoMinX; x <= context.state.tlogoMaxX; x++)
         {
-            if (thoriz_edgemask[y * width + x]) hcount++;
-            if (tvert_edgemask[y * width + x]) vcount++;
+            if (context.state.thoriz_edgemask[y * context.state.width + x]) hcount++;
+            if (context.state.tvert_edgemask[y * context.state.width + x]) vcount++;
         }
     }
     count = hcount + vcount;
@@ -1366,7 +1366,7 @@ int CountEdgePixels(void)
     return (count);
 }
 
-void DumpEdgeMask(unsigned char* buffer, int direction)
+void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int direction)
 {
     int x;
     int y;
@@ -1374,103 +1374,103 @@ void DumpEdgeMask(unsigned char* buffer, int direction)
     switch (direction)
     {
     case HORIZ:
-        Debug(1, "\nHorizontal Logo Mask \n     ");
+        Debug(context, 1, "\nHorizontal Logo Mask \n     ");
         break;
 
     case VERT:
-        Debug(1, "\nVertical Logo Mask \n     ");
+        Debug(context, 1, "\nVertical Logo Mask \n     ");
         break;
 
     case DIAG1:
-        Debug(1, "\nDiagonal 1 Logo Mask \n     ");
+        Debug(context, 1, "\nDiagonal 1 Logo Mask \n     ");
         break;
 
     case DIAG2:
-        Debug(1, "\nDiagonal 2 Logo Mask \n     ");
+        Debug(context, 1, "\nDiagonal 2 Logo Mask \n     ");
         break;
     }
 
-    for (x = clogoMinX; x <= clogoMaxX; x++)
+    for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
     {
-        outbuf[x-clogoMinX] = '0'+ (x % 10);
+        outbuf[x-context.state.clogoMinX] = '0'+ (x % 10);
     }
-    outbuf[x-clogoMinX] = 0;
-    Debug(1, "%s\n",outbuf);
+    outbuf[x-context.state.clogoMinX] = 0;
+    Debug(context, 1, "%s\n",outbuf);
 
 
-    Debug(1, "\n");
-    for (y = clogoMinY; y <= clogoMaxY; y++)
+    Debug(context, 1, "\n");
+    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
     {
-        Debug(1, "%3d: ", y);
-        for (x = clogoMinX; x <= clogoMaxX; x++)
+        Debug(context, 1, "%3d: ", y);
+        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
         {
-            switch (buffer[y * width + x])
+            switch (buffer[y * context.state.width + x])
             {
             case 0:
-                outbuf[x-clogoMinX] = ' ';
+                outbuf[x-context.state.clogoMinX] = ' ';
                 break;
 
             case 1:
-                outbuf[x-clogoMinX] = '*';
+                outbuf[x-context.state.clogoMinX] = '*';
                 break;
             }
         }
-        outbuf[x-clogoMinX] = 0;
-        Debug(1, "%s\n",outbuf);
+        outbuf[x-context.state.clogoMinX] = 0;
+        Debug(context, 1, "%s\n",outbuf);
 
     }
 }
 
-void DumpEdgeMasks(void)
+void DumpEdgeMasks(RecordingContext& context)
 {
     int x;
     int y;
     char outbuf[MAXWIDTH+1];
 
-    for (x = clogoMinX; x <= clogoMaxX; x++)
+    for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
     {
-        outbuf[x-clogoMinX] = '0'+ (x % 10);
+        outbuf[x-context.state.clogoMinX] = '0'+ (x % 10);
     }
-    outbuf[x-clogoMinX] = 0;
-    Debug(1, "%s\n",outbuf);
+    outbuf[x-context.state.clogoMinX] = 0;
+    Debug(context, 1, "%s\n",outbuf);
 
-    for (y = clogoMinY; y <= clogoMaxY; y++)
+    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
     {
-        Debug(1, "%3d: ", y);
-        for (x = clogoMinX; x <= clogoMaxX; x++)
+        Debug(context, 1, "%3d: ", y);
+        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
         {
-            switch (choriz_edgemask[y * width + x])
+            switch (context.state.choriz_edgemask[y * context.state.width + x])
             {
             case 0:
-                if (cvert_edgemask[y * width + x] == 1)
-                    outbuf[x-clogoMinX] =  '-';
+                if (context.state.cvert_edgemask[y * context.state.width + x] == 1)
+                    outbuf[x-context.state.clogoMinX] =  '-';
                 else
-                    outbuf[x-clogoMinX] =  ' ';
+                    outbuf[x-context.state.clogoMinX] =  ' ';
                 break;
 
             case 1:
-                if (cvert_edgemask[y * width + x] == 1)
-                    outbuf[x-clogoMinX] =  '+';
+                if (context.state.cvert_edgemask[y * context.state.width + x] == 1)
+                    outbuf[x-context.state.clogoMinX] =  '+';
                 else
-                    outbuf[x-clogoMinX] =  '|';
+                    outbuf[x-context.state.clogoMinX] =  '|';
                 break;
             }
         }
-        outbuf[x-clogoMinX] = 0;
-        Debug(1, "%s\n",outbuf);
+        outbuf[x-context.state.clogoMinX] = 0;
+        Debug(context, 1, "%s\n",outbuf);
     }
 }
 
-bool CheckFramesForLogo(int start, int end)
+bool CheckFramesForLogo(RecordingContext& context, int start, int end)
 {
     int		i;
 #ifdef OLD_LIVE_TV
     int		j;
     for (i = start; i <= end; i++)
     {
-        for (j = 0; j < logo_block_count; j++)
+        for (j = 0; j < context.state.logo_block_count; j++)
         {
-            if (i > logo_block[j].start && i < logo_block[j].end)
+            if (i > context.state.logo_block[j].start && i < context.state.logo_block[j].end)
             {
                 return (!reverseLogoLogic);
             }
@@ -1481,10 +1481,10 @@ bool CheckFramesForLogo(int start, int end)
 #else
     double sum = 0.0;
     for (i = start; i <= end; i++)
-        sum += (frame[i].currentGoodEdge > logo_threshold ? 1 : 0);
+        sum += (context.state.frame[i].currentGoodEdge > context.settings.logo_threshold ? 1 : 0);
 
     sum = sum / (end - start + 1);
-    if (sum > logo_percentage_threshold)
+    if (sum > context.settings.logo_percentage_threshold)
         return(true);
     return(false);
 
@@ -1492,116 +1492,116 @@ bool CheckFramesForLogo(int start, int end)
 
 }
 
-double CalculateLogoFraction(int start, int end)
+double CalculateLogoFraction(RecordingContext& context, int start, int end)
 {
     int		i,j;
     int		count=0;
     j = 0;
     for (i = start; i <= end; i++)
     {
-        while (j < logo_block_count && i > logo_block[j].end) j++;
-        if (j < logo_block_count && i >= logo_block[j].start && i <= logo_block[j].end )
+        while (j < context.state.logo_block_count && i > context.state.logo_block[j].end) j++;
+        if (j < context.state.logo_block_count && i >= context.state.logo_block[j].start && i <= context.state.logo_block[j].end )
             count++;
     }
-    if (reverseLogoLogic)
+    if (context.state.reverseLogoLogic)
         return (1.0 - (double) count / (double)(end - start + 1));
     return ((double) count / (double)(end - start + 1));
 }
 
-bool CheckFrameForLogo(int i)
+bool CheckFrameForLogo(RecordingContext& context, int i)
 {
     int		j=0;
-    while (j < logo_block_count && i > logo_block[j].end) j++;
-    if (j < logo_block_count && i <= logo_block[j].end && i >= logo_block[j].start )
+    while (j < context.state.logo_block_count && i > context.state.logo_block[j].end) j++;
+    if (j < context.state.logo_block_count && i <= context.state.logo_block[j].end && i >= context.state.logo_block[j].start )
     {
-        return(!reverseLogoLogic);
+        return(!context.state.reverseLogoLogic);
     }
-    return (reverseLogoLogic);
+    return (context.state.reverseLogoLogic);
 }
 
 
 
-char CheckFramesForCommercial(int start, int end)
+char CheckFramesForCommercial(RecordingContext& context, int start, int end)
 {
     int		i;
     if (start >= end )
         return ('0');						// Too short to decide
     i = 0;
-    while (i <= commercial_count && start > commercial[i].end_frame)
+    while (i <= context.state.commercial_count && start > context.state.commercial[i].end_frame)
         i++;
-    if (i <= commercial_count)  			// Now start <= commercial[i].end_frame
+    if (i <= context.state.commercial_count)  			// Now start <= commercial[i].end_frame
     {
-        if (end < commercial[i].start_frame)
+        if (end < context.state.commercial[i].start_frame)
             return('+');
-        if (start < commercial[i].start_frame)
+        if (start < context.state.commercial[i].start_frame)
             return('0');
         return('-');
     }
     return('+');
 }
 
-char CheckFramesForReffer(int start, int end)
+char CheckFramesForReffer(RecordingContext& context, int start, int end)
 {
     int		i;
-    if (reffer_count < 0)
+    if (context.state.reffer_count < 0)
         return(' ');
     if (start >= end )
         return ('0');						// Too short to decide
     i = 0;
-    while (i <= reffer_count &&  reffer[i].end_frame < start + fps)
+    while (i <= context.state.reffer_count &&  context.state.reffer[i].end_frame < start + context.settings.fps)
         i++;
-    if (i <= reffer_count)  			// Now start <= reffer[i].end_frame
+    if (i <= context.state.reffer_count)  			// Now start <= reffer[i].end_frame
     {
-        if (reffer[i].start_frame < start + fps)
+        if (context.state.reffer[i].start_frame < start + context.settings.fps)
             return('-');
-        if (reffer[i].start_frame > end - fps)
+        if (context.state.reffer[i].start_frame > end - context.settings.fps)
             return('+');
-        if ( reffer[i].start_frame < end + fps)
+        if ( context.state.reffer[i].start_frame < end + context.settings.fps)
             return('0');
         return('-');
     }
     return('+');
 }
 
-void SaveLogoMaskData(void)
+void SaveLogoMaskData(RecordingContext& context)
 {
     FILE*	logo_file;
     int		x;
     int		y;
-    logo_file = myfopen(logofilename, "w");
+    logo_file = myfopen(context.state.logofilename, "w");
     if (!logo_file)
     {
-        fprintf(stderr, "%s - could not create file %s\n", strerror(errno), logofilename);
-        Debug(1, "%s - could not create file %s\n", strerror(errno), logofilename);
-        if(startOverAfterLogoInfoAvail)
+        fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.logofilename);
+        Debug(context, 1, "%s - could not create file %s\n", strerror(errno), context.state.logofilename);
+        if(context.settings.startOverAfterLogoInfoAvail)
             comskip::request_exit(7);
     }
 
-    fprintf(logo_file, "logoMinX=%i\n", clogoMinX);
-    fprintf(logo_file, "logoMaxX=%i\n", clogoMaxX);
-    fprintf(logo_file, "logoMinY=%i\n", clogoMinY);
-    fprintf(logo_file, "logoMaxY=%i\n", clogoMaxY);
-    fprintf(logo_file, "picWidth=%i\n", width);
-    fprintf(logo_file, "picHeight=%i\n", height);
+    fprintf(logo_file, "logoMinX=%i\n", context.state.clogoMinX);
+    fprintf(logo_file, "logoMaxX=%i\n", context.state.clogoMaxX);
+    fprintf(logo_file, "logoMinY=%i\n", context.state.clogoMinY);
+    fprintf(logo_file, "logoMaxY=%i\n", context.state.clogoMaxY);
+    fprintf(logo_file, "picWidth=%i\n", context.state.width);
+    fprintf(logo_file, "picHeight=%i\n", context.state.height);
     if (1)
     {
         fprintf(logo_file, "\nCombined Logo Mask\n");
         fprintf(logo_file, "\202\n");
-        for (y = clogoMinY; y <= clogoMaxY; y++)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x++)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
             {
-                switch (choriz_edgemask[y * width + x])
+                switch (context.state.choriz_edgemask[y * context.state.width + x])
                 {
                 case 0:
-                    if (cvert_edgemask[y * width + x] == 1)
+                    if (context.state.cvert_edgemask[y * context.state.width + x] == 1)
                         fprintf(logo_file, "-");
                     else
                         fprintf(logo_file, " ");
                     break;
 
                 case 1:
-                    if (cvert_edgemask[y * width + x] == 1)
+                    if (context.state.cvert_edgemask[y * context.state.width + x] == 1)
                         fprintf(logo_file, "+");
                     else
                         fprintf(logo_file, "|");
@@ -1617,11 +1617,11 @@ void SaveLogoMaskData(void)
     {
         fprintf(logo_file, "\nHorizonatal Logo Mask\n");
         fprintf(logo_file, "\200\n");
-        for (y = clogoMinY; y <= clogoMaxY; y++)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x++)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
             {
-                switch (choriz_edgemask[y * width + x])
+                switch (context.state.choriz_edgemask[y * context.state.width + x])
                 {
                 case 0:
                     fprintf(logo_file, " ");
@@ -1638,11 +1638,11 @@ void SaveLogoMaskData(void)
 
         fprintf(logo_file, "\nVertical Logo Mask\n");
         fprintf(logo_file, "\201\n");
-        for (y = clogoMinY; y <= clogoMaxY; y++)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x++)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
             {
-                switch (cvert_edgemask[y * width + x])
+                switch (context.state.cvert_edgemask[y * context.state.width + x])
                 {
                 case 0:
                     fprintf(logo_file, " ");
@@ -1661,7 +1661,7 @@ void SaveLogoMaskData(void)
     fclose(logo_file);
 }
 
-void LoadLogoMaskData(void)
+void LoadLogoMaskData(RecordingContext& context)
 {
     FILE*	logo_file = NULL;
     FILE*	txt_file;
@@ -1674,95 +1674,95 @@ void LoadLogoMaskData(void)
     long	tmpLong = 0;
     size_t	len = 0;
 
-    logo_file = myfopen(logofilename, "r");
+    logo_file = myfopen(context.state.logofilename, "r");
     if (logo_file)
     {
-        Debug(1, "Using %s for logo data.\n", logofilename);
+        Debug(context, 1, "Using %s for logo data.\n", context.state.logofilename);
         len = fread(data, 1, 1999, logo_file);
         fclose(logo_file);
         data[len] = '\0';
-        if ((tmp = FindNumber(data, "picWidth=", (double) width)) > -1) videowidth = width = (int)tmp;
-        if ((tmp = FindNumber(data, "picHeight=", (double) height)) > -1) height = (int)tmp;
-        if ((tmp = FindNumber(data, "logoMinX=", (double) clogoMinX)) > -1) clogoMinX = (int)tmp;
-        if ((tmp = FindNumber(data, "logoMaxX=", (double) clogoMaxX)) > -1) clogoMaxX = (int)tmp;
-        if ((tmp = FindNumber(data, "logoMinY=", (double) clogoMinY)) > -1) clogoMinY = (int)tmp;
-        if ((tmp = FindNumber(data, "logoMaxY=", (double) clogoMaxY)) > -1) clogoMaxY = (int)tmp;
+        if ((tmp = FindNumber(context, data, "picWidth=", (double) context.state.width)) > -1) context.state.videowidth = context.state.width = (int)tmp;
+        if ((tmp = FindNumber(context, data, "picHeight=", (double) context.state.height)) > -1) context.state.height = (int)tmp;
+        if ((tmp = FindNumber(context, data, "logoMinX=", (double) context.state.clogoMinX)) > -1) context.state.clogoMinX = (int)tmp;
+        if ((tmp = FindNumber(context, data, "logoMaxX=", (double) context.state.clogoMaxX)) > -1) context.state.clogoMaxX = (int)tmp;
+        if ((tmp = FindNumber(context, data, "logoMinY=", (double) context.state.clogoMinY)) > -1) context.state.clogoMinY = (int)tmp;
+        if ((tmp = FindNumber(context, data, "logoMaxY=", (double) context.state.clogoMaxY)) > -1) context.state.clogoMaxY = (int)tmp;
     }
     else
     {
-        Debug(0, "Could not find the logo file.\n");
-        logoInfoAvailable = false;
+        Debug(context, 0, "Could not find the logo file.\n");
+        context.state.logoInfoAvailable = false;
         return;
     }
 
-    logo_file = myfopen(logofilename, "r");
+    logo_file = myfopen(context.state.logofilename, "r");
     /*
-    	choriz_edgemask = malloc(width * height * sizeof(unsigned char));
-    	if (choriz_edgemask == NULL) {
-    		Debug(0, "Could not allocate memory for horizontal edgemask\n");
+        choriz_edgemask = malloc(width * height * sizeof(unsigned char));
+        if (choriz_edgemask == NULL) {
+            Debug(0, "Could not allocate memory for horizontal edgemask\n");
             comskip::request_exit(8);
-    	}
+        }
 
-    	cvert_edgemask = malloc(width * height * sizeof(unsigned char));
-    	if (cvert_edgemask == NULL) {
-    		Debug(0, "Could not allocate memory for vertical edgemask\n");
+        cvert_edgemask = malloc(width * height * sizeof(unsigned char));
+        if (cvert_edgemask == NULL) {
+            Debug(0, "Could not allocate memory for vertical edgemask\n");
             comskip::request_exit(9);
-    	}
-    	memset(choriz_edgemask, 0, width * height);
-    	memset(cvert_edgemask, 0, width * height);
+        }
+        memset(choriz_edgemask, 0, width * height);
+        memset(cvert_edgemask, 0, width * height);
     */
     do
     {
         temp = getc(logo_file);
     }
     while ((temp != '\200') && !feof(logo_file));
-    for (y = clogoMinY; y <= clogoMaxY; y++)
+    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
     {
-        for (x = clogoMinX; x <= clogoMaxX; x++)
+        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
         {
             temp = getc(logo_file);
             if (temp == '\n') temp = getc(logo_file);				// If a carrage return was retrieved, get the next character
             switch (temp)
             {
             case ' ':
-                choriz_edgemask[y * width + x] = 0;
+                context.state.choriz_edgemask[y * context.state.width + x] = 0;
                 break;
 
             case '|':
-                choriz_edgemask[y * width + x] = 1;
+                context.state.choriz_edgemask[y * context.state.width + x] = 1;
                 break;
             }
         }
     }
 
     fclose(logo_file);
-    logo_file = myfopen(logofilename, "r");
+    logo_file = myfopen(context.state.logofilename, "r");
     do
     {
         temp = getc(logo_file);
     }
     while ((temp != '\201') && !feof(logo_file));
-    for (y = clogoMinY; y <= clogoMaxY; y++)
+    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
     {
-        for (x = clogoMinX; x <= clogoMaxX; x++)
+        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
         {
             temp = getc(logo_file);
             if (temp == '\n') temp = getc(logo_file);				// If a carrage return was retrieved, get the next character
             switch (temp)
             {
             case ' ':
-                cvert_edgemask[y * width + x] = 0;
+                context.state.cvert_edgemask[y * context.state.width + x] = 0;
                 break;
 
             case '-':
-                cvert_edgemask[y * width + x] = 1;
+                context.state.cvert_edgemask[y * context.state.width + x] = 1;
                 break;
             }
         }
     }
     fclose(logo_file);
 
-    logo_file = myfopen(logofilename, "r");
+    logo_file = myfopen(context.state.logofilename, "r");
     do
     {
         temp = getc(logo_file);
@@ -1770,32 +1770,32 @@ void LoadLogoMaskData(void)
     while ((temp != '\202') && !feof(logo_file));
     if (!feof(logo_file))
     {
-        for (y = clogoMinY; y <= clogoMaxY; y++)
+        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
         {
-            for (x = clogoMinX; x <= clogoMaxX; x++)
+            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
             {
                 temp = getc(logo_file);
                 if (temp == '\n') temp = getc(logo_file);				// If a carrage return was retrieved, get the next character
                 switch (temp)
                 {
                 case ' ':
-                    choriz_edgemask[y * width + x] = 0;
-                    cvert_edgemask[y * width + x] = 0;
+                    context.state.choriz_edgemask[y * context.state.width + x] = 0;
+                    context.state.cvert_edgemask[y * context.state.width + x] = 0;
                     break;
 
                 case '-':
-                    choriz_edgemask[y * width + x] = 0;
-                    cvert_edgemask[y * width + x] = 1;
+                    context.state.choriz_edgemask[y * context.state.width + x] = 0;
+                    context.state.cvert_edgemask[y * context.state.width + x] = 1;
                     break;
 
                 case '|':
-                    choriz_edgemask[y * width + x] = 1;
-                    cvert_edgemask[y * width + x] = 0;
+                    context.state.choriz_edgemask[y * context.state.width + x] = 1;
+                    context.state.cvert_edgemask[y * context.state.width + x] = 0;
                     break;
 
                 case '+':
-                    choriz_edgemask[y * width + x] = 1;
-                    cvert_edgemask[y * width + x] = 1;
+                    context.state.choriz_edgemask[y * context.state.width + x] = 1;
+                    context.state.cvert_edgemask[y * context.state.width + x] = 1;
                     break;
 
                 }
@@ -1805,31 +1805,31 @@ void LoadLogoMaskData(void)
     fclose(logo_file);
 
 
-    logoInfoAvailable = true;
-    startOverAfterLogoInfoAvail = true; // prevent continuous searching for logo when a logo file is specified
-    secondLogoSearch = true;
-    InitScanLines();
-    InitHasLogo();
-    isSecondPass = true;
-    if (!loadingCSV)
+    context.state.logoInfoAvailable = true;
+    context.settings.startOverAfterLogoInfoAvail = true; // prevent continuous searching for logo when a logo file is specified
+    context.state.secondLogoSearch = true;
+    InitScanLines(context);
+    InitHasLogo(context);
+    context.state.isSecondPass = true;
+    if (!context.state.loadingCSV)
     {
 //		DumpEdgeMask(choriz_edgemask, HORIZ);
 //		DumpEdgeMask(cvert_edgemask, VERT);
-        DumpEdgeMasks();
+        DumpEdgeMasks(context);
     }
     memset(data, 0, sizeof(data));
     _flushall();
-    if (output_default)
+    if (context.settings.output_default)
     {
-        txt_file = myfopen(out_filename, "r");
+        txt_file = myfopen(context.state.out_filename, "r");
         if (!txt_file)
         {
             sleep_for_ms(50L);
-            txt_file = myfopen(out_filename, "r");
+            txt_file = myfopen(context.state.out_filename, "r");
             if (!txt_file)
             {
-                Debug(0, "ERROR reading from %s\n", out_filename);
-                isSecondPass = false;
+                Debug(context, 0, "ERROR reading from %s\n", context.state.out_filename);
+                context.state.isSecondPass = false;
                 return;
             }
         }
@@ -1837,7 +1837,7 @@ void LoadLogoMaskData(void)
 
         if(fseek( txt_file, 0L, SEEK_SET ))
         {
-            Debug(0, "ERROR SEEKING\n");
+            Debug(context, 0, "ERROR SEEKING\n");
         }
 
 
@@ -1845,7 +1845,7 @@ void LoadLogoMaskData(void)
         {
             if (strstr(data, "FILE PROCESSING COMPLETE") != NULL)
             {
-                lastFrame = 0;
+                context.state.lastFrame = 0;
                 break;
             }
             ptr = strchr(data, '\t');
@@ -1853,13 +1853,13 @@ void LoadLogoMaskData(void)
             {
                 ptr++;
                 tmpLong = strtol(ptr, NULL, 10);
-                if (tmpLong > lastFrame)
+                if (tmpLong > context.state.lastFrame)
                 {
-                    lastFrame = tmpLong;
+                    context.state.lastFrame = tmpLong;
                 }
             }
         }
         fclose(txt_file);
     }
-    Debug(10, "The last frame found in %s was %i\n", out_filename, lastFrame);
+    Debug(context, 10, "The last frame found in %s was %i\n", context.state.out_filename, context.state.lastFrame);
 }

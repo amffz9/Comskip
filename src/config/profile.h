@@ -10,7 +10,5 @@ struct CommercialProfile {
     double maximum_tolerance;
     double show_margin;
 };
-const CommercialProfile& commercial_profile();
 CommercialProfile read_profile(const Ini&, CommercialProfile base);
-void set_commercial_profile(CommercialProfile);
 }

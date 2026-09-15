@@ -2,12 +2,12 @@
 #include "checked_format.h"
 #include "legacy_detection.h"
 
-int FindBlock(long frame)
+int FindBlock(RecordingContext& context, long frame)
 {
     int i;
-    for (i = 0; i < block_count; i++)
+    for (i = 0; i < context.state.block_count; i++)
     {
-        if ((frame >= cblock[i].f_start) && (frame < cblock[i].f_end))
+        if ((frame >= context.state.cblock[i].f_start) && (frame < context.state.cblock[i].f_end))
         {
             return (i);
         }
@@ -16,7 +16,7 @@ int FindBlock(long frame)
     return (-1);
 }
 
-void BuildCommListAsYouGo(void)
+void BuildCommListAsYouGo(RecordingContext& context)
 {
     long		c_start[MAX_COMMERCIALS];
     long		c_end[MAX_COMMERCIALS];
@@ -41,7 +41,7 @@ void BuildCommListAsYouGo(void)
     int*		onTheFlyBlackFrame;
     int			onTheFlyBlackCount = 0;
 
-    if (framenum_real - lastFrameCommCalculated <= 15 * fps) return;
+    if (context.state.framenum_real - context.state.lastFrameCommCalculated <= 15 * context.settings.fps) return;
 
 #ifdef OLD_LIVE_TV
     local_blacklevel = min_brightness_found + brightness_buffer;
@@ -50,53 +50,53 @@ void BuildCommListAsYouGo(void)
         local_blacklevel = max_avg_brightness;
 #endif
 
-    if (black_count > 0
+    if (context.state.black_count > 0
 #ifdef OLD_LIVE_TV
-        && (black[black_count-1].brightness <= local_blacklevel)
-         &&   (framenum_real > lastFrame)
+        && (context.state.black[context.state.black_count-1].brightness <= local_blacklevel)
+         &&   (context.state.framenum_real > lastFrame)
 #endif
             /*(black[black_count-1].frame == framenum_real) &&*/
         )
     {
 
-        lastFrameCommCalculated = framenum_real;
+        context.state.lastFrameCommCalculated = context.state.framenum_real;
 
-        onTheFlyBlackFrame = static_cast<int *>( calloc(black_count, sizeof(int)) );
+        onTheFlyBlackFrame = static_cast<int *>( calloc(context.state.black_count, sizeof(int)) );
         if (onTheFlyBlackFrame == NULL)
         {
-            Debug(0, "Could not allocate memory for onTheFlyBlackFrame\n");
+            Debug(context, 0, "Could not allocate memory for onTheFlyBlackFrame\n");
             comskip::request_exit(8);
         }
 
 #ifdef OLD_LIVE_TV
         Debug(7, "Building list of all frames with a brightness less than %i.\n", local_blacklevel);
 #endif
-        for (i = 1; i < black_count; i++) // Skip first black frame
+        for (i = 1; i < context.state.black_count; i++) // Skip first black frame
         {
 #ifdef OLD_LIVE_TV
-            if (black[i].brightness <= local_blacklevel)
+            if (context.state.black[i].brightness <= local_blacklevel)
 #else
             k = false;
-            if ((black[i].cause & C_v) || (black[i].cause & C_b) || (black[i].cause & C_u) )
+            if ((context.state.black[i].cause & C_v) || (context.state.black[i].cause & C_b) || (context.state.black[i].cause & C_u) )
             {
 
-                for (j=max(1,black[i].frame - shrink_logo * fps); j < min(framenum_real, black[i].frame + shrink_logo * fps ); j++ )
+                for (j=max(1,context.state.black[i].frame - context.settings.shrink_logo * context.settings.fps); j < min(context.state.framenum_real, context.state.black[i].frame + context.settings.shrink_logo * context.settings.fps ); j++ )
                 {
 
-                    if (!frame[j].logo_present)
+                    if (!context.state.frame[j].logo_present)
                     {
                         k = true;
-                        Debug(11, "[%d] Cutpoint %s without logo\n",black[i].frame, CauseString(black[i].cause));
+                        Debug(context, 11, "[%d] Cutpoint %s without logo\n",context.state.black[i].frame, CauseString(context, context.state.black[i].cause));
                         break;
                     }
                 }
-                if (k == false && (black[i].cause & C_v) )
+                if (k == false && (context.state.black[i].cause & C_v) )
                 {
-                    for (j=max(1,black[i].frame - volume_slip * fps); j < min(framenum_real, black[i].frame + volume_slip * fps ); j++ )
+                    for (j=max(1,context.state.black[i].frame - context.settings.volume_slip * context.settings.fps); j < min(context.state.framenum_real, context.state.black[i].frame + context.settings.volume_slip * context.settings.fps ); j++ )
                     {
-                        if (frame[j].isblack & C_b)
+                        if (context.state.frame[j].isblack & C_b)
                         {
-                            Debug(11, "[%d] Silence and dark\n",black[i].frame);
+                            Debug(context, 11, "[%d] Silence and dark\n",context.state.black[i].frame);
                             k = true;
                         }
                     }
@@ -106,15 +106,15 @@ void BuildCommListAsYouGo(void)
 //            if (!frame[black[i].frame].logo_present)
 #endif
                 {
-                    onTheFlyBlackFrame[onTheFlyBlackCount] = black[i].frame;
+                    onTheFlyBlackFrame[onTheFlyBlackCount] = context.state.black[i].frame;
                     onTheFlyBlackCount++;
                 }
             }
         }
 
-        useLogo = commDetectMethod & LOGO;
+        useLogo = context.settings.commDetectMethod & LOGO;
 
-        if ((logo_block_count == -1) || (!logoInfoAvailable)) useLogo = false;
+        if ((context.state.logo_block_count == -1) || (!context.state.logoInfoAvailable)) useLogo = false;
 
         // detect individual commercials from black frames
         for (i = 0; i < onTheFlyBlackCount; i++)
@@ -122,32 +122,32 @@ void BuildCommListAsYouGo(void)
             for (x = i + 1; x < onTheFlyBlackCount; x++)
             {
                 int gap_length = onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i];
-                if (gap_length < min_commercial_size * fps)
+                if (gap_length < context.settings.min_commercial_size * context.settings.fps)
                 {
                     continue;
                 }
-                oldbreak = commercials > 0 && ((onTheFlyBlackFrame[i] - c_end[commercials - 1]) < 10 * fps);
-                if (gap_length > max_commercialbreak * fps ||
-                        (!oldbreak && gap_length > max_commercial_size * fps) ||
-                        (oldbreak && (onTheFlyBlackFrame[x] - c_end[commercials - 1] > max_commercial_size * fps)))
+                oldbreak = commercials > 0 && ((onTheFlyBlackFrame[i] - c_end[commercials - 1]) < 10 * context.settings.fps);
+                if (gap_length > context.settings.max_commercialbreak * context.settings.fps ||
+                        (!oldbreak && gap_length > context.settings.max_commercial_size * context.settings.fps) ||
+                        (oldbreak && (onTheFlyBlackFrame[x] - c_end[commercials - 1] > context.settings.max_commercial_size * context.settings.fps)))
                 {
                     break;
                 }
-                added = gap_length / fps + div5_tolerance;
+                added = gap_length / context.settings.fps + context.settings.div5_tolerance;
                 remainder = added - 5 * ((int)(added / 5.0));
-                if ((require_div5 != 1) || (remainder >= 0 && remainder <= 2 * div5_tolerance))
+                if ((context.settings.require_div5 != 1) || (remainder >= 0 && remainder <= 2 * context.settings.div5_tolerance))
                 {
                     // look for segments in multiples of 5 seconds
                     if (oldbreak)
                     {
-                        if (CheckFramesForLogo(onTheFlyBlackFrame[x - 1], onTheFlyBlackFrame[x]) && useLogo && logo_present_modifier != 1)
+                        if (CheckFramesForLogo(context, onTheFlyBlackFrame[x - 1], onTheFlyBlackFrame[x]) && useLogo && context.settings.logo_present_modifier != 1)
                         {
 
                             c_end[commercials - 1] = onTheFlyBlackFrame[x - 1];
 #ifdef ADAPT_LIVE_COMMERCIAL
                             ic_end[commercials - 1] = x - 1;
 #endif
-                            Debug(
+                            Debug(context,
                                 10,
                                 "Logo detected between frames %i and %i.  Setting commercial to %i to %i.\n",
                                 onTheFlyBlackFrame[x - 1],
@@ -156,27 +156,27 @@ void BuildCommListAsYouGo(void)
                                 c_end[commercials - 1]
                             );
                         }
-                        else if (onTheFlyBlackFrame[x] > c_end[commercials - 1] + fps)
+                        else if (onTheFlyBlackFrame[x] > c_end[commercials - 1] + context.settings.fps)
                         {
                             c_end[commercials - 1] = onTheFlyBlackFrame[x];
 #ifdef ADAPT_LIVE_COMMERCIAL
                             ic_end[commercials - 1] = x;
 #endif
-                            Debug(
+                            Debug(context,
                                 5,
                                 "--start: %i, end: %i, len: %.2fs\t%.2fs\n",
                                 onTheFlyBlackFrame[i],
                                 onTheFlyBlackFrame[x],
-                                (onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / fps,
-                                (c_end[commercials - 1] - c_start[commercials - 1]) / fps
+                                (onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / context.settings.fps,
+                                (c_end[commercials - 1] - c_start[commercials - 1]) / context.settings.fps
                             );
                         }
                     }
                     else
                     {
-                        if (CheckFramesForLogo(onTheFlyBlackFrame[i], onTheFlyBlackFrame[x]) && useLogo && logo_present_modifier != 1)
+                        if (CheckFramesForLogo(context, onTheFlyBlackFrame[i], onTheFlyBlackFrame[x]) && useLogo && context.settings.logo_present_modifier != 1)
                         {
-                            Debug(
+                            Debug(context,
                                 11,
                                 "Logo detected between frames %i and %i.  Skipping to next i.\n",
                                 onTheFlyBlackFrame[i],
@@ -187,12 +187,12 @@ void BuildCommListAsYouGo(void)
                         }
                         else
                         {
-                            Debug(
+                            Debug(context,
                                 1,
                                 "\n  start: %i, end: %i, len: %.2fs\n",
                                 onTheFlyBlackFrame[i],
                                 onTheFlyBlackFrame[x],
-                                ((onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / fps)
+                                ((onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / context.settings.fps)
                             );
 #ifdef ADAPT_LIVE_COMMERCIAL
                             ic_start[commercials] = i;
@@ -201,12 +201,12 @@ void BuildCommListAsYouGo(void)
                             c_start[commercials] = onTheFlyBlackFrame[i];
                             c_end[commercials++] = onTheFlyBlackFrame[x];
 
-                            Debug(
+                            Debug(context,
                                 1,
                                 "\n  start: %i, end: %i, len: %is\n",
                                 c_start[commercials - 1],
                                 c_end[commercials - 1],
-                                (int)((c_end[commercials - 1] - c_start[commercials - 1]) / fps)
+                                (int)((c_end[commercials - 1] - c_start[commercials - 1]) / context.settings.fps)
                             );
                         }
                     }
@@ -215,66 +215,66 @@ void BuildCommListAsYouGo(void)
                 }
             }
         }
-        Debug(1, "\n");
+        Debug(context, 1, "\n");
 
 
         // print out commercial breaks skipping those that are too small or too large
-        if (output_default || output_edl || output_live || output_dvrmstb)
+        if (context.settings.output_default || context.settings.output_edl || context.settings.output_live || context.settings.output_dvrmstb)
         {
-            if (output_default)
+            if (context.settings.output_default)
             {
-                out_file = myfopen(out_filename, "w");
-                if (!out_file)
+                context.state.out_file = myfopen(context.state.out_filename, "w");
+                if (!context.state.out_file)
                 {
                     sleep_for_ms(50L);
-                    out_file = myfopen(out_filename, "w");
-                    if (!out_file)
+                    context.state.out_file = myfopen(context.state.out_filename, "w");
+                    if (!context.state.out_file)
                     {
-                        Debug(0, "ERROR writing to %s\n", out_filename);
+                        Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename);
                         comskip::request_exit(103);
                     }
                 }
 //				fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %4i\n-------------------\n",frame_count-1, (int)(fps*100));
             }
-            if (output_edl)
+            if (context.settings.output_edl)
             {
-                comskip::checked_format(filename, "%s.edl", outbasename);
-                edl_file = myfopen(filename, "wb");
-                if (!edl_file)
+                comskip::checked_format(filename, "%s.edl", context.state.outbasename);
+                context.state.edl_file = myfopen(filename, "wb");
+                if (!context.state.edl_file)
                 {
                     sleep_for_ms(50L);
-                    edl_file = myfopen(filename, "wb");
-                    if (!edl_file)
+                    context.state.edl_file = myfopen(filename, "wb");
+                    if (!context.state.edl_file)
                     {
-                        Debug(0, "ERROR writing to %s\n", filename);
+                        Debug(context, 0, "ERROR writing to %s\n", filename);
                         comskip::request_exit(103);
                     }
                 }
             }
-            if (output_live)
+            if (context.settings.output_live)
             {
-                comskip::checked_format(filename, "%s.live", outbasename);
-                live_file = myfopen(filename, "wb");
-                if (!live_file)
+                comskip::checked_format(filename, "%s.live", context.state.outbasename);
+                context.state.live_file = myfopen(filename, "wb");
+                if (!context.state.live_file)
                 {
                     sleep_for_ms(50L);
-                    live_file = myfopen(filename, "wb");
-                    if (!live_file)
+                    context.state.live_file = myfopen(filename, "wb");
+                    if (!context.state.live_file)
                     {
-                        Debug(0, "ERROR writing to %s\n", filename);
+                        Debug(context, 0, "ERROR writing to %s\n", filename);
                         comskip::request_exit(103);
                     }
                 }
             }
-            dvrmstb_file = 0;
-            if (output_dvrmstb)
+            context.state.dvrmstb_file = 0;
+            if (context.settings.output_dvrmstb)
             {
-                comskip::checked_format(filename, "%s.xml", outbasename);
-                dvrmstb_file = myfopen(filename, "w");
-                if (dvrmstb_file)
+                comskip::checked_format(filename, "%s.xml", context.state.outbasename);
+                context.state.dvrmstb_file = myfopen(filename, "w");
+                if (context.state.dvrmstb_file)
                 {
                     //			fclose(dvrmstb_file);
-                    fprintf(dvrmstb_file, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
+                    fprintf(context.state.dvrmstb_file, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
                 }
                 else
                 {
@@ -282,12 +282,12 @@ void BuildCommListAsYouGo(void)
                     comskip::request_exit(6);
                 }
             }
-            reffer_count = -1;
-            commercial_count = -1;
+            context.state.reffer_count = -1;
+            context.state.commercial_count = -1;
             for (i = 0; i < commercials; i++)
             {
                 len = c_end[i] - c_start[i];
-                if ((len >= (int)min_commercialbreak * fps) && (len <= (int)max_commercialbreak * fps))
+                if ((len >= (int)context.settings.min_commercialbreak * context.settings.fps) && (len <= (int)context.settings.max_commercialbreak * context.settings.fps))
                 {
 #ifdef ADAPT_LIVE_COMMERCIAL
                     // find the middle of the scene change, max 3 seconds.
@@ -303,7 +303,7 @@ void BuildCommListAsYouGo(void)
                     {
 
                         // find end
-                        if ((onTheFlyBlackFrame[k] - onTheFlyBlackFrame[j]) > (int)(3 * fps))
+                        if ((onTheFlyBlackFrame[k] - onTheFlyBlackFrame[j]) > (int)(3 * context.settings.fps))
                         {
                             break;
                         }
@@ -325,7 +325,7 @@ void BuildCommListAsYouGo(void)
                     {
 
                         // find start
-                        if (onTheFlyBlackFrame[j] - (onTheFlyBlackFrame[k]) > (int)(3 * fps))
+                        if (onTheFlyBlackFrame[j] - (onTheFlyBlackFrame[k]) > (int)(3 * context.settings.fps))
                         {
                             break;
                         }
@@ -333,63 +333,63 @@ void BuildCommListAsYouGo(void)
                     x = k + (int)((j - k) / 2);
                     c_end[i] = onTheFlyBlackFrame[x] - 1;
 #endif
-                    Debug(2, "Output: %i - start: %i   end: %i\n", i, c_start[i], c_end[i]);
-                    commercial_count++;
-                    if (commercial_count >= MAX_COMMERCIALS)
+                    Debug(context, 2, "Output: %i - start: %i   end: %i\n", i, c_start[i], c_end[i]);
+                    context.state.commercial_count++;
+                    if (context.state.commercial_count >= MAX_COMMERCIALS)
                     {
-                        Debug(0, "Insufficient memory to manage live_tv commercials\n");
+                        Debug(context, 0, "Insufficient memory to manage live_tv commercials\n");
                         comskip::request_exit(8);
                     }
-                    commercial[commercial_count].start_frame = c_start[i] + padding*fps - remove_before*fps;
-                    commercial[commercial_count].end_frame = c_end[i] - padding*fps + remove_after*fps;
-                    commercial[commercial_count].length = c_end[i]-2*padding - c_start[i] + remove_before + remove_after;
+                    context.state.commercial[context.state.commercial_count].start_frame = c_start[i] + context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
+                    context.state.commercial[context.state.commercial_count].end_frame = c_end[i] - context.settings.padding*context.settings.fps + context.settings.remove_after*context.settings.fps;
+                    context.state.commercial[context.state.commercial_count].length = c_end[i]-2*context.settings.padding - c_start[i] + context.settings.remove_before + context.settings.remove_after;
 
-                    if (output_live) {
-                        reffer_count++;
-                        reffer[reffer_count].start_frame = commercial[reffer_count].start_frame;
-                        reffer[reffer_count].end_frame = commercial[reffer_count].end_frame;
+                    if (context.settings.output_live) {
+                        context.state.reffer_count++;
+                        context.state.reffer[context.state.reffer_count].start_frame = context.state.commercial[context.state.reffer_count].start_frame;
+                        context.state.reffer[context.state.reffer_count].end_frame = context.state.commercial[context.state.reffer_count].end_frame;
                     }
 
-                    if (out_file)
-                        fprintf(out_file, "%li\t%li\n", c_start[i] + padding, c_end[i] - padding);
-                    if (edl_file)
-                        fprintf(edl_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + padding - edl_offset,0) / fps , (double) max(c_end[i] - padding - edl_offset,0) / fps, edl_skip_field );
-                    if (live_file)
-                        fprintf(live_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + padding - edl_offset,0) / fps , (double) max(c_end[i] - padding - edl_offset,0) / fps, edl_skip_field );
-                    if (dvrmstb_file)
-                        fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + padding) / fps , (double) (c_end[i] - padding) / fps);
+                    if (context.state.out_file)
+                        fprintf(context.state.out_file, "%li\t%li\n", c_start[i] + context.settings.padding, c_end[i] - context.settings.padding);
+                    if (context.state.edl_file)
+                        fprintf(context.state.edl_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                    if (context.state.live_file)
+                        fprintf(context.state.live_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                    if (context.state.dvrmstb_file)
+                        fprintf(context.state.dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + context.settings.padding) / context.settings.fps , (double) (c_end[i] - context.settings.padding) / context.settings.fps);
                 }
             }
-            if (out_file) fflush(out_file);
-            if (out_file) fclose(out_file);
-            out_file = 0;
-            if (edl_file) fflush(edl_file);
-            if (edl_file) fclose(edl_file);
-            edl_file = 0;
-            if (live_file) fflush(live_file);
-            if (live_file) fclose(live_file);
-            live_file = 0;
-            if (dvrmstb_file)
+            if (context.state.out_file) fflush(context.state.out_file);
+            if (context.state.out_file) fclose(context.state.out_file);
+            context.state.out_file = 0;
+            if (context.state.edl_file) fflush(context.state.edl_file);
+            if (context.state.edl_file) fclose(context.state.edl_file);
+            context.state.edl_file = 0;
+            if (context.state.live_file) fflush(context.state.live_file);
+            if (context.state.live_file) fclose(context.state.live_file);
+            context.state.live_file = 0;
+            if (context.state.dvrmstb_file)
             {
-                fprintf(dvrmstb_file, " </root>\n");
-                fclose(dvrmstb_file);
-                dvrmstb_file = 0;
+                fprintf(context.state.dvrmstb_file, " </root>\n");
+                fclose(context.state.dvrmstb_file);
+                context.state.dvrmstb_file = 0;
             }
 
-            if (output_incommercial)
+            if (context.settings.output_incommercial)
             {
-                comskip::checked_format(filename, "%s.incommercial", workbasename);
-                incommercial_file = myfopen(filename, "w");
-                if (!incommercial_file)
+                comskip::checked_format(filename, "%s.incommercial", context.state.workbasename);
+                context.state.incommercial_file = myfopen(filename, "w");
+                if (!context.state.incommercial_file)
                 {
                     fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
                     goto skipit;
                 }
-                if(commercial[commercial_count].end_frame > framenum_real - incommercial_frames)
-                    fprintf(incommercial_file, "1\n");
+                if(context.state.commercial[context.state.commercial_count].end_frame > context.state.framenum_real - context.settings.incommercial_frames)
+                    fprintf(context.state.incommercial_file, "1\n");
                 else
-                    fprintf(incommercial_file, "0\n");
-                fclose(incommercial_file);
+                    fprintf(context.state.incommercial_file, "0\n");
+                fclose(context.state.incommercial_file);
 skipit:
                 ;
             }

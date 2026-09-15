@@ -1,17 +1,17 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 
-int CountSceneChanges(int StartFrame, int EndFrame)
+int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
 {
     int i;
     double p = 0;
     int count = 0;
-    for (i = 0; i < schange_count; i++)
+    for (i = 0; i < context.state.schange_count; i++)
     {
-        if ((schange[i].frame > StartFrame) && (schange[i].frame < EndFrame))
+        if ((context.state.schange[i].frame > StartFrame) && (context.state.schange[i].frame < EndFrame))
         {
             count++;
-            p += (double)(100 - schange[i].percentage)  / (100 - schange_threshold);
+            p += (double)(100 - context.state.schange[i].percentage)  / (100 - context.state.schange_threshold);
         }
     }
     count = (int) p;
@@ -19,77 +19,77 @@ int CountSceneChanges(int StartFrame, int EndFrame)
     return (count);
 }
 
-void Debug(int level, const char * fmt, ...)
+void Debug(RecordingContext& context, int level, const char * fmt, ...)
 {
     va_list	ap;
     FILE *log_file = NULL;
-    if(verbose < level) return;
+    if(context.settings.verbose < level) return;
 
     va_start(ap, fmt);
-    vsnprintf(debugText, sizeof(debugText), fmt, ap);
+    vsnprintf(context.state.debugText, sizeof(context.state.debugText), fmt, ap);
     va_end(ap);
 
-    if (output_console)	_cprintf("%s", debugText);
+    if (context.state.output_console)	_cprintf("%s", context.state.debugText);
 
     if (!log_file)
-        log_file = myfopen(logfilename, "a+");
+        log_file = myfopen(context.state.logfilename, "a+");
 
     if (log_file)
     {
-        fprintf(log_file, "%s", debugText);
+        fprintf(log_file, "%s", context.state.debugText);
         fclose(log_file);
         log_file = NULL;
     }
 
 
-    debugText[0] = '\0';
+    context.state.debugText[0] = '\0';
 }
 
-void InitLogoBuffers(void)
+void InitLogoBuffers(RecordingContext& context)
 {
     int i;
-    if(!logoFrameNum) logoFrameNum = static_cast<int *>( malloc(num_logo_buffers * sizeof(int)) );
-    if (logoFrameNum == NULL)
+    if(!context.state.logoFrameNum) context.state.logoFrameNum = static_cast<int *>( malloc(context.settings.num_logo_buffers * sizeof(int)) );
+    if (context.state.logoFrameNum == NULL)
     {
-        Debug(0, "Could not allocate memory for logo buffer frame number array\n");
+        Debug(context, 0, "Could not allocate memory for logo buffer frame number array\n");
         comskip::request_exit(14);
     }
-    memset(logoFrameNum, 0,num_logo_buffers*sizeof(int));
+    memset(context.state.logoFrameNum, 0,context.settings.num_logo_buffers*sizeof(int));
     /*
-    	if(!choriz_edgemask) choriz_edgemask = malloc(width * height * sizeof(unsigned char));
-    	if (choriz_edgemask == NULL) {
-    		Debug(0, "Could not allocate memory for horizontal edgemask\n");
+        if(!choriz_edgemask) choriz_edgemask = malloc(width * height * sizeof(unsigned char));
+        if (choriz_edgemask == NULL) {
+            Debug(0, "Could not allocate memory for horizontal edgemask\n");
             comskip::request_exit(14);
-    	}
+        }
 
-    	if(!cvert_edgemask) cvert_edgemask = malloc(width * height * sizeof(unsigned char));
-    	if (cvert_edgemask == NULL) {
-    		Debug(0, "Could not allocate memory for vertical edgemask\n");
+        if(!cvert_edgemask) cvert_edgemask = malloc(width * height * sizeof(unsigned char));
+        if (cvert_edgemask == NULL) {
+            Debug(0, "Could not allocate memory for vertical edgemask\n");
             comskip::request_exit(15);
-    	}
+        }
     */
-    if(!logoFrameBuffer)
+    if(!context.state.logoFrameBuffer)
     {
-        logoFrameBuffer = static_cast<unsigned char **>( malloc(num_logo_buffers * sizeof(unsigned char *)) );
-        if (!(logoFrameBuffer == NULL))
+        context.state.logoFrameBuffer = static_cast<unsigned char **>( malloc(context.settings.num_logo_buffers * sizeof(unsigned char *)) );
+        if (!(context.state.logoFrameBuffer == NULL))
         {
 
-            lheight = MAXHEIGHT;
-            lwidth = MAXWIDTH;
-            logoFrameBufferSize = lwidth * lheight * sizeof(frame_ptr[0]);
-            for (i = 0; i < num_logo_buffers; i++)
+            context.state.lheight = MAXHEIGHT;
+            context.state.lwidth = MAXWIDTH;
+            context.state.logoFrameBufferSize = context.state.lwidth * context.state.lheight * sizeof(context.state.frame_ptr[0]);
+            for (i = 0; i < context.settings.num_logo_buffers; i++)
             {
-                logoFrameBuffer[i] = static_cast<unsigned char *>( malloc(logoFrameBufferSize) );
-                if (logoFrameBuffer[i] == NULL)
+                context.state.logoFrameBuffer[i] = static_cast<unsigned char *>( malloc(context.state.logoFrameBufferSize) );
+                if (context.state.logoFrameBuffer[i] == NULL)
                 {
-                    Debug(0, "Could not allocate memory for logo frame buffer %i\n", i);
+                    Debug(context, 0, "Could not allocate memory for logo frame buffer %i\n", i);
                     comskip::request_exit(16);
                 }
             }
         }
         else
         {
-            Debug(0, "Could not allocate memory for logo frame buffers\n");
+            Debug(context, 0, "Could not allocate memory for logo frame buffers\n");
             comskip::request_exit(16);
         }
     }
@@ -118,12 +118,12 @@ void InitLogoBuffers(void)
     }
 #else
     /*
-    	horiz_count = malloc(width * height * sizeof(unsigned char));
-    	if (horiz_count == NULL) {
-    		Debug(0, "Could not allocate memory for horizontal count buffer\n");
+        horiz_count = malloc(width * height * sizeof(unsigned char));
+        if (horiz_count == NULL) {
+            Debug(0, "Could not allocate memory for horizontal count buffer\n");
             comskip::request_exit(17);
-    	}
-    	memset(horiz_count, 0, width * height * sizeof(unsigned char));
+        }
+        memset(horiz_count, 0, width * height * sizeof(unsigned char));
     */
 #endif
 
@@ -151,53 +151,53 @@ void InitLogoBuffers(void)
     }
 #else
     /*
-    	vert_count = malloc(width * height * sizeof(unsigned char));
-    	if (vert_count == NULL) {
-    		Debug(0, "Could not allocate memory for vertical count buffer\n");
+        vert_count = malloc(width * height * sizeof(unsigned char));
+        if (vert_count == NULL) {
+            Debug(0, "Could not allocate memory for vertical count buffer\n");
             comskip::request_exit(17);
-    	}
-    	memset(vert_count, 0, width * height * sizeof(unsigned char));
+        }
+        memset(vert_count, 0, width * height * sizeof(unsigned char));
     */
 #endif
 }
 
-void Init_XDS_block();
+void Init_XDS_block(RecordingContext& context);
 
-void InitComSkip(void)
+void InitComSkip(RecordingContext& context)
 {
     int i, j;
-    min_brightness_found = 255;
-    max_logo_gap = -1;
-    max_nonlogo_block_length = -1;
-    logo_overshoot = 0.0;
-    for (i = 0; i < 256; i++) brightHistogram[i] = 0;
-    for (i = 0; i < 256; i++) uniformHistogram[i] = 0;
-    for (i = 0; i < 256; i++) volumeHistogram[i] = 0;
-    for (i = 0; i < 256; i++) silenceHistogram[i] = 0;
+    context.state.min_brightness_found = 255;
+    context.state.max_logo_gap = -1;
+    context.state.max_nonlogo_block_length = -1;
+    context.state.logo_overshoot = 0.0;
+    for (i = 0; i < 256; i++) context.state.brightHistogram[i] = 0;
+    for (i = 0; i < 256; i++) context.state.uniformHistogram[i] = 0;
+    for (i = 0; i < 256; i++) context.state.volumeHistogram[i] = 0;
+    for (i = 0; i < 256; i++) context.state.silenceHistogram[i] = 0;
 
-    if (framearray)
+    if (context.state.framearray)
     {
-        if(!initialized)
+        if(!context.state.initialized)
         {
-            max_frame_count = (int)(60 * 60 * fps) + 1;
-            frame = static_cast<frame_info *>( malloc((int)((max_frame_count + 1) * sizeof(frame_info))) );
+            context.state.max_frame_count = (int)(60 * 60 * context.settings.fps) + 1;
+            context.state.frame = static_cast<frame_info *>( malloc((int)((context.state.max_frame_count + 1) * sizeof(frame_info))) );
         }
-        if (frame == NULL)
+        if (context.state.frame == NULL)
         {
-            Debug(0, "Could not allocate memory for frame array\n");
+            Debug(context, 0, "Could not allocate memory for frame array\n");
             comskip::request_exit(10);
         }
     }
 
 //	if (commDetectMethod & BLACK_FRAME) {
-    if(!initialized)
+    if(!context.state.initialized)
     {
-        max_black_count = 500;
-        black = static_cast<black_frame_info *>( malloc((int)((max_black_count + 1) * sizeof(black_frame_info))) );
+        context.state.max_black_count = 500;
+        context.state.black = static_cast<black_frame_info *>( malloc((int)((context.state.max_black_count + 1) * sizeof(black_frame_info))) );
     }
-    if (black == NULL)
+    if (context.state.black == NULL)
     {
-        Debug(0, "Could not allocate memory for black frame array\n");
+        Debug(context, 0, "Could not allocate memory for black frame array\n");
         comskip::request_exit(11);
     }
 //	} else {
@@ -205,167 +205,167 @@ void InitComSkip(void)
 //		comskip::request_exit(100);
 //	}
 
-    if (commDetectMethod & LOGO)
+    if (context.settings.commDetectMethod & LOGO)
     {
-        if(!initialized)
+        if(!context.state.initialized)
         {
-            max_logo_block_count = 1000;
-            logo_block = static_cast<logo_block_info *>( malloc((int)((max_logo_block_count + 1) * sizeof(logo_block_info))) );
+            context.state.max_logo_block_count = 1000;
+            context.state.logo_block = static_cast<logo_block_info *>( malloc((int)((context.state.max_logo_block_count + 1) * sizeof(logo_block_info))) );
         }
-        if (logo_block == NULL)
+        if (context.state.logo_block == NULL)
         {
-            Debug(0, "Could not allocate memory for logo cblock array\n");
+            Debug(context, 0, "Could not allocate memory for logo cblock array\n");
             comskip::request_exit(13);
         }
 
 //		if (!logoInfoAvailable) {
-        InitLogoBuffers();
+        InitLogoBuffers(context);
 //		}
-        memset(max_br,   0, sizeof(max_br));
-        memset(min_br, 255, sizeof(min_br));
+        memset(context.state.max_br,   0, sizeof(context.state.max_br));
+        memset(context.state.min_br, 255, sizeof(context.state.min_br));
     }
 
-    if (commDetectMethod & SCENE_CHANGE)
+    if (context.settings.commDetectMethod & SCENE_CHANGE)
     {
-        if(!initialized)
+        if(!context.state.initialized)
         {
-            max_schange_count = 2000;
-            schange = static_cast<schange_info *>( malloc((int)((max_schange_count + 1) * sizeof(schange_info))) );
+            context.state.max_schange_count = 2000;
+            context.state.schange = static_cast<schange_info *>( malloc((int)((context.state.max_schange_count + 1) * sizeof(schange_info))) );
         }
-        if (schange == NULL)
+        if (context.state.schange == NULL)
         {
-            Debug(0, "Could not allocate memory for scene change array\n");
+            Debug(context, 0, "Could not allocate memory for scene change array\n");
             comskip::request_exit(12);
         }
     }
 
-    if (processCC)
+    if (context.state.processCC)
     {
-        if(!initialized)
+        if(!context.state.initialized)
         {
-            max_cc_block_count = 500;
-            cc_block = static_cast<cc_block_info *>( malloc((max_cc_block_count + 1) * sizeof(cc_block_info)) );
+            context.state.max_cc_block_count = 500;
+            context.state.cc_block = static_cast<cc_block_info *>( malloc((context.state.max_cc_block_count + 1) * sizeof(cc_block_info)) );
         }
-        if (cc_block == NULL)
+        if (context.state.cc_block == NULL)
         {
-            Debug(0, "Could not allocate memory for cc blocks\n");
+            Debug(context, 0, "Could not allocate memory for cc blocks\n");
             comskip::request_exit(22);
         }
 
-        cc_block[0].start_frame = 0;
-        cc_block[0].end_frame = -1;
-        cc_block[0].type = NONE;
-        for (i = 1; i < max_cc_block_count; i++)
+        context.state.cc_block[0].start_frame = 0;
+        context.state.cc_block[0].end_frame = -1;
+        context.state.cc_block[0].type = NONE;
+        for (i = 1; i < context.state.max_cc_block_count; i++)
         {
-            cc_block[i].start_frame = -1;
-            cc_block[i].end_frame = -1;
-            cc_block[i].type = NONE;
+            context.state.cc_block[i].start_frame = -1;
+            context.state.cc_block[i].end_frame = -1;
+            context.state.cc_block[i].type = NONE;
         }
 
-        if(!initialized)
+        if(!context.state.initialized)
         {
-            cc_memory = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
-            cc_screen = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
+            context.state.cc_memory = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
+            context.state.cc_screen = static_cast<unsigned char **>( malloc(15 * sizeof(unsigned char *)) );
             for (i = 0; i < 15; i++)
             {
-                cc_memory[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
-                cc_screen[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
+                context.state.cc_memory[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
+                context.state.cc_screen[i] = static_cast<unsigned char *>( malloc(32 * sizeof(unsigned char)) );
             }
         }
         for(i=0; i<15; i++)
         {
             for (j = 0; j < 32; j++)
             {
-                cc_memory[i][j] = 0;
-                cc_screen[i][j] = 0;
+                context.state.cc_memory[i][j] = 0;
+                context.state.cc_screen[i][j] = 0;
             }
         }
 
-        if(!initialized)
+        if(!context.state.initialized)
         {
-            max_cc_text_count = 1;
-            cc_text = static_cast<cc_text_info *>( malloc((max_cc_text_count + 1) * sizeof(cc_text_info)) );
+            context.state.max_cc_text_count = 1;
+            context.state.cc_text = static_cast<cc_text_info *>( malloc((context.state.max_cc_text_count + 1) * sizeof(cc_text_info)) );
         }
-        if (cc_text == NULL)
+        if (context.state.cc_text == NULL)
         {
-            Debug(0, "Could not allocate memory for cc text groups\n");
+            Debug(context, 0, "Could not allocate memory for cc text groups\n");
             comskip::request_exit(22);
         }
 
-        cc_text[0].start_frame = 1;
-        cc_text[0].end_frame = -1;
-        cc_text[0].text[0] = '\0';
-        cc_text[0].text_len = 0;
-        for (i = 1; i < max_cc_text_count; i++)
+        context.state.cc_text[0].start_frame = 1;
+        context.state.cc_text[0].end_frame = -1;
+        context.state.cc_text[0].text[0] = '\0';
+        context.state.cc_text[0].text_len = 0;
+        for (i = 1; i < context.state.max_cc_text_count; i++)
         {
-            cc_text[i].start_frame = -1;
-            cc_text[i].end_frame = -1;
-            cc_text[i].text[0] = '\0';
-            cc_text[i].text_len = 0;
+            context.state.cc_text[i].start_frame = -1;
+            context.state.cc_text[i].end_frame = -1;
+            context.state.cc_text[i].text[0] = '\0';
+            context.state.cc_text[i].text_len = 0;
         }
     }
 
 //	if (commDetectMethod & AR) {
-    if(!initialized)
+    if(!context.state.initialized)
     {
-        max_ar_block_count = 100;
-        ar_block = static_cast<ar_block_info *>( malloc((int)((max_ar_block_count + 1) * sizeof(ar_block_info))) );
-        max_ac_block_count = 100;
-        ac_block = static_cast<ac_block_info *>( malloc((int)((max_ac_block_count + 1) * sizeof(ac_block_info))) );
+        context.state.max_ar_block_count = 100;
+        context.state.ar_block = static_cast<ar_block_info *>( malloc((int)((context.state.max_ar_block_count + 1) * sizeof(ar_block_info))) );
+        context.state.max_ac_block_count = 100;
+        context.state.ac_block = static_cast<ac_block_info *>( malloc((int)((context.state.max_ac_block_count + 1) * sizeof(ac_block_info))) );
     }
-    if (ar_block == NULL)
+    if (context.state.ar_block == NULL)
     {
-        Debug(0, "Could not allocate memory for aspect ratio block array\n");
+        Debug(context, 0, "Could not allocate memory for aspect ratio block array\n");
         comskip::request_exit(31);
     }
-    if (ac_block == NULL)
+    if (context.state.ac_block == NULL)
     {
-        Debug(0, "Could not allocate memory for audio channel block array\n");
+        Debug(context, 0, "Could not allocate memory for audio channel block array\n");
         comskip::request_exit(31);
     }
 //	}
 
-    cc.cc1[0] = 0;
-    cc.cc1[1] = 0;
-    cc.cc2[0] = 0;
-    cc.cc2[1] = 0;
-    lastcc.cc1[0] = 0;
-    lastcc.cc1[1] = 0;
-    lastcc.cc2[0] = 0;
-    lastcc.cc2[1] = 0;
+    context.state.cc.cc1[0] = 0;
+    context.state.cc.cc1[1] = 0;
+    context.state.cc.cc2[0] = 0;
+    context.state.cc.cc2[1] = 0;
+    context.state.lastcc.cc1[0] = 0;
+    context.state.lastcc.cc1[1] = 0;
+    context.state.lastcc.cc2[0] = 0;
+    context.state.lastcc.cc2[1] = 0;
 
-    Init_XDS_block();
+    Init_XDS_block(context);
 
-    if (max_avg_brightness == 0)
+    if (context.settings.max_avg_brightness == 0)
     {
-        if (fps == 25.00)
-            max_avg_brightness = 19;
+        if (context.settings.fps == 25.00)
+            context.settings.max_avg_brightness = 19;
         else
-            max_avg_brightness = 19;
+            context.settings.max_avg_brightness = 19;
     }
-    schange_count = 0;
-    frame_count	= 0;
-    framesprocessed =0;
-    black_count = 0;
-    block_count = 0;
-    ar_block_count = 0;
-    ac_block_count = 0;
-    framenum_real = 0;
-    frames_with_logo = 0;
-    framenum = 0;
-    lastLogoTest = false;
-    commercial_count = -1;
+    context.state.schange_count = 0;
+    context.state.frame_count	= 0;
+    context.state.framesprocessed =0;
+    context.state.black_count = 0;
+    context.state.block_count = 0;
+    context.state.ar_block_count = 0;
+    context.state.ac_block_count = 0;
+    context.state.framenum_real = 0;
+    context.state.frames_with_logo = 0;
+    context.state.framenum = 0;
+    context.state.lastLogoTest = false;
+    context.state.commercial_count = -1;
 
-    logoTrendCounter = 0;
+    context.state.logoTrendCounter = 0;
 //	audio_framenum = 0;
-    cc_block_count = 0;
-    cc_text_count = 0;
-    logo_block_count = 0;
+    context.state.cc_block_count = 0;
+    context.state.cc_text_count = 0;
+    context.state.logo_block_count = 0;
 //	pts = 0;
-    ascr=scr=0;
-    InitScanLines();
-    InitHasLogo();
-    initialized = true;
-    close_dump();
+    context.state.ascr=context.state.scr=0;
+    InitScanLines(context);
+    InitHasLogo(context);
+    context.state.initialized = true;
+    close_dump(context);
 }
 
