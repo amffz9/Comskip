@@ -4,9 +4,10 @@ bin_PROGRAMS = comskip
 if BUILD_GUI
     bin_PROGRAMS += comskip-gui
 endif
-check_PROGRAMS = votest
+check_PROGRAMS = votest commercial-length-test commercial-length-chinese-test
+TESTS = commercial-length-test commercial-length-chinese-test
 
-base_sources = comskip.c comskip.h mpeg2dec.c platform.c platform.h video_out_dx.c vo.h \
+base_sources = comskip.c comskip.h commercial_length.c commercial_length.h mpeg2dec.c platform.c platform.h video_out_dx.c vo.h \
     ccextratorwin/608.c ccextratorwin/608.h \
     ccextratorwin/ccextractor.c ccextratorwin/ccextractor.h \
     ccextratorwin/encoding.c \
@@ -16,6 +17,10 @@ base_sources = comskip.c comskip.h mpeg2dec.c platform.c platform.h video_out_dx
 comskip_SOURCES = $(base_sources)
 comskip_gui_SOURCES = $(base_sources) video_out_sdl.c
 votest_SOURCES = video_out_dx.c video_out_sdl.c
+commercial_length_test_SOURCES = tests/commercial_length_test.c commercial_length.c commercial_length.h
+commercial_length_test_CPPFLAGS = -I$(srcdir)
+commercial_length_chinese_test_SOURCES = $(commercial_length_test_SOURCES)
+commercial_length_chinese_test_CPPFLAGS = -I$(srcdir) -DCHINESE_SIZE_TABLE
 
 DEFINES = -DPROCESS_CC
 if ENABLE_DONATOR

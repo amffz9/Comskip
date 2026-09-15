@@ -33,6 +33,7 @@
 #endif
 
 #include "comskip.h"
+#include "commercial_length.h"
 
 
 // Define detection methods
@@ -8204,68 +8205,17 @@ bool OutputCleanMpg()
 
 bool LengthWithinTolerance(double test_length, double expected_length, double tolerance)
 {
-    return (abs((int)(test_length * fps) - (int)(expected_length * fps)) <= (int)(tolerance * fps));
+    return commercial_length_within_tolerance(test_length, expected_length, tolerance, fps);
 }
 
 bool IsStandardCommercialLength(double length, double tolerance, bool strict)
 {
-    int		i;
-    double	local_tolerance;
-    int		length_count;
-    double	delta;
-#ifdef CHINESE_SIZE_TABLE
-    int		standard_length[] = { 10, 15, 18, 20, 25, 30,  36,  45, 60, 72, 90, 108, 120, 126, 150, 180,  5, 35, 40, 50, 70, 75};
-    if (strict)
-    {
-        length_count = 16;
-    }
-    else
-    {
-        length_count = 22;
-    }
-#else
-    int		standard_length[] = { 10, 15, 20, 25, 30,  45, 60, 90, 120, 150, 180,  5, 35, 40, 50, 70, 75};
-    if (strict)
-    {
-        length_count = 11;
-    }
-    else
-    {
-        length_count = 17;
-    }
-#endif
-    if (div5_tolerance >= 0)
-    {
-        local_tolerance = div5_tolerance;
-    }
-    else
-    {
-        local_tolerance = tolerance;
-    }
-
-    if (local_tolerance < 0.5)
-        local_tolerance = 0.5;
-
-    if (local_tolerance > 1.0)
-        local_tolerance = 1.0;
-
-//	length += 0.22;		// Correction for standard error
-    length += 0.11;		// Correction for standard error
-
-//	length -= 0.1;		// Correction for standard error
-
-    for (i = 0; i < length_count; i++)
-    {
-        if ( standard_length[i] < min_show_segment_length - 3)
-            if (LengthWithinTolerance(length, standard_length[i], local_tolerance))
-            {
-                delta = length - standard_length[i];
-                OutputStrict(length, delta, local_tolerance);
-                return (true);
-            }
-    }
-
-    return (false);
+    CommercialLengthPolicy policy = { fps, div5_tolerance, min_show_segment_length };
+    CommercialLengthMatch match;
+    if (!commercial_length_match(length, tolerance, strict, &policy, &match))
+        return false;
+    OutputStrict(match.adjusted_length, match.delta, match.tolerance);
+    return true;
 }
 
 double FindNumber(char* str1, char* str2, double v)

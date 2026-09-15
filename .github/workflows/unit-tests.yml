@@ -1,0 +1,19 @@
+name: Portable unit tests
+on: [push, pull_request]
+
+jobs:
+  commercial-length:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test both commercial length tables
+        shell: bash
+        run: |
+          mkdir -p bin
+          clang -std=c11 -Wall -Wextra -Werror -I. commercial_length.c tests/commercial_length_test.c -o bin/commercial-length-test.exe
+          ./bin/commercial-length-test.exe
+          clang -std=c11 -Wall -Wextra -Werror -DCHINESE_SIZE_TABLE -I. commercial_length.c tests/commercial_length_test.c -o bin/commercial-length-chinese-test.exe
+          ./bin/commercial-length-chinese-test.exe

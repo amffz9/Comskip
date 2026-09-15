@@ -9,6 +9,10 @@
 /ffmpeg/
 /votest
 /votest.exe
+/commercial-length-test
+/commercial-length-test.exe
+/commercial-length-chinese-test
+/commercial-length-chinese-test.exe
 /*.dSYM
 /ccextratorwin/.dirstamp
 
