@@ -49,7 +49,26 @@ if(COMSKIP_BUILD_APP)
     add_library(captions STATIC third_party/ccextractor/608.c third_party/ccextractor/ccextractor.c
         third_party/ccextractor/encoding.c third_party/ccextractor/general_loop.c third_party/ccextractor/myth.c)
     target_include_directories(captions PRIVATE src/platform)
-    add_executable(comskip src/detection/comskip.cpp src/media/mpeg2dec.cpp src/platform/platform.cpp src/ui/video_out_dx.c)
+    add_executable(comskip 
+        src/detection/state.cpp
+        src/detection/blocks.cpp
+        src/detection/detection.cpp
+        src/detection/scoring.cpp
+        src/detection/length_matching.cpp
+        src/detection/scene_analysis.cpp
+        src/detection/logo.cpp
+        src/detection/storage.cpp
+        src/detection/captions.cpp
+        src/detection/live.cpp
+        src/ui/review.cpp
+        src/config/legacy_settings.cpp
+        src/app/runtime.cpp
+        src/app/csv_input.cpp
+        src/output/cutlists.cpp
+        src/output/diagnostics.cpp
+        src/output/media_dump.cpp
+        src/media/frame_timing.cpp
+        src/media/mpeg2dec.cpp src/platform/platform.cpp src/ui/video_out_dx.c)
     target_include_directories(comskip PRIVATE src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
     target_link_libraries(comskip PRIVATE commercial_length comskip_config captions ${FFMPEG_LIBRARIES}
@@ -68,5 +87,12 @@ if(COMSKIP_BUILD_APP)
         target_sources(comskip PRIVATE src/ui/video_out_sdl.c)
         target_compile_definitions(comskip PRIVATE HAVE_SDL)
         target_link_libraries(comskip PRIVATE SDL2::SDL2)
+    endif()
+    if(BUILD_TESTING)
+        find_package(Python3 COMPONENTS Interpreter REQUIRED)
+        add_test(NAME media_smoke COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/media_smoke.py" $<TARGET_FILE:comskip>
+            "${CMAKE_CURRENT_BINARY_DIR}/integration")
+        set_tests_properties(media_smoke PROPERTIES TIMEOUT 120)
     endif()
 endif()
