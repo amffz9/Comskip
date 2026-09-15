@@ -327,11 +327,11 @@ ccagain:
 
         if (context.state.frame[i].brightness > 0)
         {
-            context.state.brightHistogram[context.state.frame[i].brightness]++;
+            context.state.brightHistogram[std::clamp(context.state.frame[i].brightness, 0, 255)]++;
 
             if (context.state.frame[i].brightness < context.state.min_brightness_found) context.state.min_brightness_found = context.state.frame[i].brightness;
 
-            context.state.uniformHistogram[(context.state.frame[i].uniform / UNIFORMSCALE < 255 ? context.state.frame[i].uniform / UNIFORMSCALE : 255)]++;
+            context.state.uniformHistogram[std::clamp(context.state.frame[i].uniform / UNIFORMSCALE, 0, 255)]++;
         }
 
         if (context.state.frame[i].volume >= 0)

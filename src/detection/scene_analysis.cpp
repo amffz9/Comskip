@@ -742,8 +742,8 @@ bool CheckSceneHasChanged(RecordingContext& context)
         }
     */
     if (context.state.framearray) context.state.frame[context.state.frame_count].brightness = context.state.brightness;
-    context.state.brightHistogram[context.state.brightness]++;
-    context.state.uniformHistogram[(uniform/UNIFORMSCALE < 255 ? uniform/UNIFORMSCALE : 255)]++;
+    context.state.brightHistogram[std::clamp(context.state.brightness, 0, 255)]++;
+    context.state.uniformHistogram[std::clamp(uniform / UNIFORMSCALE, 0, 255)]++;
     if ((dimCount > (int)(.05 * context.state.width * context.state.height)) && (dimCount < (int)(.35 * context.state.width * context.state.height))) isDim = true;
 
     context.state.sceneChangePercent = (int)(100.0 * similar / pixels);
