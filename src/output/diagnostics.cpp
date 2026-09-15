@@ -1,44 +1,36 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "weighted_scores.h"
+#include "search_path.h"
+#include "checked_format.h"
+#include <cstdlib>
 
 void FindIniFile(RecordingContext& context)
 {
+    const auto* environment = std::getenv("PATH");
+    const std::string_view paths = environment ? environment : "";
+    const auto working_directory = std::filesystem::current_path();
 #ifdef _WIN32
-    char	searchinifile[] = "comskip.ini";
-    char	searchexefile[] = "comskip.exe";
-    char	searchdictfile[] = "comskip.dictionary";
-    char	envvar[] = "PATH";
-    _searchenv(searchinifile, envvar, context.state.inifilename);
-    if (*context.state.inifilename != '\0')
-    {
-        Debug(context, 1, "Path for %s: %s\n", searchinifile, context.state.inifilename);
-    }
-    else
-    {
-        Debug(context, 1, "%s not found\n", searchinifile);
-    }
-
-    _searchenv(searchdictfile, envvar, context.state.dictfilename);
-    if (*context.state.dictfilename != '\0')
-    {
-        Debug(context, 1, "Path for %s: %s\n", searchdictfile, context.state.dictfilename);
-    }
-    else
-    {
-        Debug(context, 1, "%s not found\n", searchdictfile);
-    }
-
-    _searchenv(searchexefile, envvar, context.state.exefilename);
-    if (*context.state.exefilename != '\0')
-    {
-        Debug(context, 1, "Path for %s: %s\n", searchexefile, context.state.exefilename);
-    }
-    else
-    {
-        Debug(context, 1, "%s not found\n", searchexefile);
-    }
+    constexpr char separator = ';';
+    constexpr std::string_view executable = "comskip.exe";
+#else
+    constexpr char separator = ':';
+    constexpr std::string_view executable = "comskip";
 #endif
+    const auto search = [&](std::string_view name, auto& destination) {
+        const auto found = comskip::platform::find_in_search_path(name, paths, working_directory, separator);
+        if (found) {
+            const auto bytes = found->u8string();
+            comskip::checked_format(destination, "%s", reinterpret_cast<const char*>(bytes.c_str()));
+            Debug(context, 1, "Path for %s: %s\n", std::string(name).c_str(), destination);
+        } else {
+            destination[0] = '\0';
+            Debug(context, 1, "%s not found\n", std::string(name).c_str());
+        }
+    };
+    search("comskip.ini", context.state.inifilename);
+    search("comskip.dictionary", context.state.dictfilename);
+    search(executable, context.state.exefilename);
 }
 
 double FindScoreThreshold(RecordingContext& context, double percentile)

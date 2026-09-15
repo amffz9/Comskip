@@ -4,12 +4,11 @@
 
 void dump_audio_start(RecordingContext& context)
 {
-    char temp[256];
     if (!context.settings.output_demux) return;
     if (!context.state.dump_audio_file.get())
     {
-        sprintf(temp, "%s.mp2", context.state.workbasename);
-        context.state.dump_audio_file.reset(myfopen(temp, "wb"));
+        const auto filename = std::string(context.state.workbasename) + ".mp2";
+        context.state.dump_audio_file.reset(myfopen(filename.c_str(), "wb"));
     }
 }
 
@@ -26,12 +25,11 @@ void dump_audio (RecordingContext& context, char *start, char *end)
 
 void dump_video_start(RecordingContext& context)
 {
-    char temp[256];
     if (!context.settings.output_demux) return;
     if (!context.state.dump_video_file.get())
     {
-        sprintf(temp, "%s.m2v", context.state.workbasename);
-        context.state.dump_video_file.reset(myfopen(temp, "wb"));
+        const auto filename = std::string(context.state.workbasename) + ".m2v";
+        context.state.dump_video_file.reset(myfopen(filename.c_str(), "wb"));
     }
 }
 void dump_video (RecordingContext& context, char *start, char *end)

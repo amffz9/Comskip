@@ -395,15 +395,6 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.cuttermaran_file.reset(myfopen(context.state.filename, "w"));
         if (context.state.cuttermaran_file.get())
         {
-            if (context.state.mpegfilename[1] == ':' || context.state.mpegfilename[0] == PATH_SEPARATOR)
-            {
-                strcpy(tempstr, context.state.inbasename);
-            }
-            else
-            {
-                _getcwd(cwd, 256);
-                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, context.state.inbasename);
-            }
             fprintf(context.state.cuttermaran_file.get(), "<?xml version=\"1.0\" standalone=\"yes\"?>\n");
             fprintf(context.state.cuttermaran_file.get(), "<StateData xmlns=\"http://cuttermaran.kickme.to/StateData.xsd\">\n");
             fprintf(context.state.cuttermaran_file.get(), "<usedVideoFiles FileID=\"0\" FileName=\"%s.M2V\" />\n",context.state.inbasename);
@@ -423,15 +414,6 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.vcf_file.reset(myfopen(context.state.filename, "w"));
         if (context.state.vcf_file.get())
         {
-            if (context.state.mpegfilename[1] == ':' || context.state.mpegfilename[0] == PATH_SEPARATOR)
-            {
-                strcpy(tempstr, context.state.inbasename);
-            }
-            else
-            {
-                _getcwd(cwd, 256);
-                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, context.state.inbasename);
-            }
             fprintf(context.state.vcf_file.get(), "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vcf_file);
         }
@@ -448,15 +430,6 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.vdr_file.reset(myfopen(context.state.filename, "w"));
         if (context.state.vdr_file.get())
         {
-            if (context.state.mpegfilename[1] == ':' || context.state.mpegfilename[0] == PATH_SEPARATOR)
-            {
-                strcpy(tempstr, context.state.inbasename);
-            }
-            else
-            {
-                _getcwd(cwd, 256);
-                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, context.state.inbasename);
-            }
 //			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vdr_file);
         }
