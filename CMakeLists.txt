@@ -25,12 +25,26 @@ target_link_libraries(comskip_localization PUBLIC comskip_config)
 add_library(output_text src/output/xml_filename.cpp src/output/edl.cpp)
 target_include_directories(output_text PUBLIC src/output)
 
+add_library(review_window src/ui/review_window.cpp)
+target_include_directories(review_window PUBLIC src/ui)
+target_compile_definitions(review_window PUBLIC
+    COMSKIP_BUILD_GUI=$<BOOL:${COMSKIP_BUILD_GUI}>
+    COMSKIP_DEFAULT_FONT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/NotoSans.ttf")
+if(COMSKIP_BUILD_GUI)
+    find_package(SDL2 CONFIG REQUIRED)
+    find_package(SDL2_ttf CONFIG REQUIRED)
+    target_link_libraries(review_window PRIVATE SDL2::SDL2 SDL2_ttf::SDL2_ttf)
+endif()
+
 add_library(commercial_length src/detection/commercial_length.cpp)
 target_include_directories(commercial_length PUBLIC src/detection)
 target_link_libraries(commercial_length PUBLIC comskip_config)
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     include(GoogleTest)
+    add_executable(review_window_test tests/ui/review_window_test.cpp)
+    target_link_libraries(review_window_test PRIVATE review_window GTest::gtest_main)
+    gtest_discover_tests(review_window_test PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
     add_executable(translator_test tests/localization/translator_test.cpp)
     target_link_libraries(translator_test PRIVATE comskip_localization GTest::gtest_main)
     target_compile_definitions(translator_test PRIVATE COMSKIP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
@@ -149,6 +163,10 @@ if(COMSKIP_BUILD_APP)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/media_formats.py" $<TARGET_FILE:comskip>
                 "${FFMPEG_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/formats")
             set_tests_properties(media_formats PROPERTIES TIMEOUT 180)
+            add_test(NAME media_recovery COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/media_recovery.py" $<TARGET_FILE:comskip>
+                "${FFMPEG_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/recovery")
+            set_tests_properties(media_recovery PROPERTIES TIMEOUT 180)
         else()
             message(STATUS "ffmpeg executable unavailable: media_formats test disabled")
         endif()
