@@ -215,8 +215,13 @@ void ReviewWindow::present()
         fail_sdl("Cannot draw review image");
     if (!implementation_->text.empty()) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        const SDL_Rect background{0, 24, window_width_, std::max(window_height_ - 24, 0)};
-        SDL_RenderFillRect(renderer, &background);
+        int text_bottom = 24;
+        for (const auto& rectangle : implementation_->text_rectangles)
+            text_bottom = std::max(text_bottom, rectangle.y + rectangle.h);
+        const SDL_Rect background{0, 24, window_width_,
+            std::max(std::min(text_bottom + 6, window_height_) - 24, 0)};
+        if (SDL_RenderFillRect(renderer, &background) != 0)
+            fail_sdl("Cannot draw review text background");
         for (std::size_t index = 0; index < implementation_->text.size(); ++index)
             if (SDL_RenderCopy(renderer, implementation_->text[index].get(), nullptr,
                                &implementation_->text_rectangles[index]) != 0)

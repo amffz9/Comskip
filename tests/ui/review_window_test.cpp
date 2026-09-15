@@ -126,6 +126,14 @@ TEST(ReviewWindow, DummyDriverSupportsLifecycleRenderingEventsAndText)
     EXPECT_EQ(window.overlay_text(), "Review help\n\nW saves the cutlist");
     window.show_details("Frame 25\nBrightness 127");
     EXPECT_EQ(window.overlay_text(), "Frame 25\nBrightness 127");
+    window.show_details("Frame 25");
+    auto* renderer = SDL_GetRenderer(SDL_GetWindowFromID(window.window_id()));
+    ASSERT_NE(renderer, nullptr);
+    const SDL_Rect bottom_pixel{80, 115, 1, 1};
+    std::array<std::uint8_t, 3> visible_pixel{};
+    ASSERT_EQ(SDL_RenderReadPixels(renderer, &bottom_pixel, SDL_PIXELFORMAT_RGB24,
+        visible_pixel.data(), 3), 0) << SDL_GetError();
+    EXPECT_EQ(visible_pixel, (std::array<std::uint8_t, 3>{127, 127, 127}));
     window.clear_text();
     EXPECT_TRUE(window.overlay_text().empty());
 #endif
