@@ -30,14 +30,16 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
                              capture_output=True, text=True, timeout=45)
         # Existing Unix/Windows versions invert the 0/1 commercial-found status.
         assert run.returncode in (0, 1), run.stdout + run.stderr
-        assert "Commercials were not found." in run.stdout, run.stdout + run.stderr
+        assert "Commercials were found." in run.stdout, run.stdout + run.stderr
         files = {extension: (destination / f"sample.{extension}").read_bytes()
                  for extension in ("txt", "edl", "csv")}
         rows = list(csv.reader(files["csv"].decode().splitlines()[2:]))
-        assert len(rows) >= 200, f"Only {len(rows)} analyzed frames"
+        assert len(rows) == 249, f"Expected 249 analyzed frames, got {len(rows)}"
         timestamps = [float(row[16]) for row in rows if len(row) > 16]
         assert timestamps and timestamps == sorted(timestamps)
-        assert files["edl"] == b"", "Unexpected commercial intervals"
+        # With the correct 25fps timeline and EOF drain, this short synthetic
+        # recording matches a commercial block under the default length policy.
+        assert files["edl"] == b"0.00\t9.92\t0\n", "Unexpected commercial intervals"
         results.append(files)
     assert results[0] == results[1], "Serial and parallel outputs differ"
 print("Media decode, INI loading, serial/parallel analysis, and output checks passed")

@@ -33,7 +33,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>        // needed for sleep command
+#include <windows.h>        // needed for the legacy Windows review interface
 #include <direct.h>         // needed for getcwd
 #include <process.h>
 #include <io.h>
@@ -78,16 +78,7 @@
 #include "portable_threads.h"
 #endif
 
-#if defined(__MINGW32__) || defined(__MINGW64__)
 typedef FILE* fileh;
-typedef struct _stati64* stath;
-#elif defined(_WIN32)
-typedef FILE* fileh;
-typedef struct _stati64* stath;
-#else
-typedef FILE* fileh;
-typedef struct stat* stath;
-#endif
 
 #ifdef _WIN32
 #define PATH_SEPARATOR '\\'
@@ -98,9 +89,9 @@ typedef struct stat* stath;
 #ifdef __cplusplus
 extern "C" {
 #endif
-int mystat(char * f, stath s);
 fileh myfopen(const char * f, const char * m);
-int myremove(char * f);
+int myremove(const char * f);
+void sleep_for_ms(long milliseconds);
 #ifdef __cplusplus
 }
 #endif
@@ -112,15 +103,11 @@ int myremove(char * f);
 #define _cprintf printf
 #define _flushall() fflush(NULL)
 #define _getcwd(x, y) getcwd(x, y)
-#define Sleep(x) usleep((x)*1000L)
 
 char *_strupr(char *string);
 #endif
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-#include <sys/timeb.h>
-
-
 void gettimeofday (struct timeval * tp, void * dummy);
 #endif
 

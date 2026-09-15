@@ -431,16 +431,26 @@ int retreive_frame_volume(double from_pts, double to_pts)
     VideoState *is = global_video_state;
     int i;
     double calculated_delay;
-    int s_per_frame = (to_pts - from_pts) * (double)(is->audio_st->codecpar->sample_rate+1);
+    const int sample_rate = is->audio_st->codecpar->sample_rate;
+    if (sample_rate <= 0 || !std::isfinite(from_pts) || !std::isfinite(to_pts))
+        return -1;
+    const double sample_offset = (from_pts - base_apts) * sample_rate;
+    const double sample_count = (to_pts - from_pts) * sample_rate;
+    if (sample_offset < -0.5 || sample_offset > audio_samples
+        || sample_count < 0 || sample_count > audio_samples)
+        return -1;
+    const int first_sample = static_cast<int>(std::llround(sample_offset));
+    const int s_per_frame = static_cast<int>(std::llround(sample_count));
 
 
-    if (s_per_frame > 1 && base_apts <= from_pts && to_pts < top_apts )
+    if (s_per_frame > 1 && first_sample >= 0 && first_sample <= audio_samples
+        && s_per_frame <= audio_samples - first_sample)
     {
         calculated_delay = 0.0;
 
 
  //       Debug(1,"fame=%d, =base=%6.3f, from=%6.3f, samples=%d, to=%6.3f, top==%6.3f\n", -1, base_apts, from_pts, s_per_frame, to_pts, top_apts);
-        buffer = & audio_buffer[(int)((from_pts - base_apts) * ((double)is->audio_st->codecpar->sample_rate+0.5) )];
+        buffer = &audio_buffer[first_sample];
 
         volume = 0;
         if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter);
@@ -453,8 +463,8 @@ int retreive_frame_volume(double from_pts, double to_pts)
         volume = volume/s_per_frame;
         DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume, s_per_frame);
 
-        audio_samples -= (int)((from_pts - base_apts) * (is->audio_st->codecpar->sample_rate+0.5)); // incomplete frame before complete frame
-        audio_samples -= s_per_frame;
+        const int consumed_samples = first_sample + s_per_frame;
+        audio_samples -= consumed_samples;
 
 
         if (volume == 0)
@@ -485,7 +495,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
                 *audio_buffer_ptr++ = *buffer++;
             }
         }
-        base_apts = to_pts;
+        base_apts += static_cast<double>(consumed_samples) / sample_rate;
         top_apts = base_apts + audio_samples / (double)(is->audio_st->codecpar->sample_rate);
         sound_frame_counter++;
     }
@@ -505,7 +515,7 @@ void backfill_frame_volumes()
     while (get_frame_pts(f) + local_initial_pts > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
     while (f < framenum-1 && (get_frame_pts(f+1) + local_initial_pts )<= top_apts && (top_apts - base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
-        volume = retreive_frame_volume(fmax(get_frame_pts(f) + local_initial_pts , base_apts), get_frame_pts(f+1) + local_initial_pts);
+        volume = retreive_frame_volume(get_frame_pts(f) + local_initial_pts, get_frame_pts(f+1) + local_initial_pts);
         if (volume > -1) set_frame_volume(f, volume);
         f++;
     }
@@ -555,7 +565,12 @@ void sound_to_frames(VideoState *is, const AVFrame& frame)
     old_sample_rate = is->audio_st->codecpar->sample_rate;
 
     old_base_apts = base_apts;
-    if (fabs(base_apts - (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate))))> 0.0001)
+    // Preserve the sample-derived timeline across sub-millisecond container
+    // timestamp rounding. Reanchoring the retained buffer on every packet can
+    // make a previously consumed video interval appear available again.
+    const double timestamp_precision = std::max(
+        av_q2d(is->audio_st->time_base), 1.0 / old_sample_rate);
+    if (audio_samples == 0 || fabs(top_apts - is->audio_clock) > timestamp_precision * 1.1)
         base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate)));
         if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(base_apts - old_base_apts, 0.032)
@@ -738,9 +753,20 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
     int send_result;
     int received_frames;
+    // The realignment buffer may contain a following frame immediately after
+    // this packet. FFmpeg requires zero padding at the submitted packet end.
+    std::vector<uint8_t> padded_audio;
+    AVPacket decoder_packet{};
+    decoder_packet.data = pkt_temp->data;
+    decoder_packet.size = pkt_temp->size;
+    if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+        padded_audio.resize(pkt_temp->size + AV_INPUT_BUFFER_PADDING_SIZE, 0);
+        std::copy_n(pkt_temp->data, pkt_temp->size, padded_audio.data());
+        decoder_packet.data = padded_audio.data();
+    }
 retry_audio_send:
     received_frames = 0;
-    send_result = avcodec_send_packet(is->audio_ctx, pkt_temp);
+    send_result = avcodec_send_packet(is->audio_ctx, &decoder_packet);
 
     // send_packet consumes the whole packet on success. receive_frame returns
     // zero on success, rather than the number of input bytes consumed.
@@ -887,7 +913,7 @@ again:
 #ifndef DEBUG
     if (is_h264 && frames > 15 &&  elapsed < 100)
     {
-        Sleep(100L);
+        sleep_for_ms(100L);
         goto again;
     }
 #endif
@@ -1253,7 +1279,7 @@ static int    prev_strange_framenum = 0;
 
     double calculated_delay;
 
-    if (!reviewing)
+    if (packet && !reviewing)
     {
         dump_video_start();
         dump_video((char *)packet->data,(char *) (packet->data + packet->size));
@@ -1303,7 +1329,13 @@ static int    prev_strange_framenum = 0;
         }
         else
         {
-           frame_delay = av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame ;
+           // Codec time_base is not necessarily a field duration (FFV1, for
+           // example). Prefer the demuxer's actual frame rate before applying
+           // the legacy MPEG field-time fallback.
+           const AVRational rate = av_guess_frame_rate(is->pFormatCtx, is->video_st, is->pFrame);
+           frame_delay = rate.num > 0 && rate.den > 0
+               ? av_q2d(av_inv_q(rate))
+               : av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame;
         }
 
 //        frame_delay = av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame ;
@@ -1943,7 +1975,7 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
  //   av_log_default_callback(ptr, level, fmt, vl);
     av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
     va_end(vl2);
-        Debug(10, line);
+        Debug(10, "%s", line);
 
  //   fputs(line, report_file);
  //   fflush(report_file);
@@ -2011,7 +2043,7 @@ again:
             fprintf(stderr, "%s: Can not open file\n", is->filename);
             if (openretries++ < live_tv_retries)
             {
-                Sleep(1000L);
+                sleep_for_ms(1000L);
                 goto again;
             }
             exit(-1);
@@ -2021,7 +2053,7 @@ again:
 // #if def _DEBUG
 //        if (is->duration < 5*60 && retries++ < live_tv_retries)
 //        {
-//            Sleep(4000L);
+//            sleep_for_ms(4000L);
 //            goto again;
 //        }
 // #en dif
@@ -2090,6 +2122,8 @@ again:
         if(audio_index >= 0)
         {
             stream_component_open(is, audio_index);
+            if (is->audio_st)
+                audio_channels = is->audio_st->codecpar->ch_layout.nb_channels;
 
             if (is->audioStream < 0)
             {
@@ -2414,7 +2448,7 @@ nextpacket:
                         Debug( 1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", retries, framenum, retry_target);
                         Debug( 9,"Retry target pos=%" PRId64 ", pts=%" PRId64 "\n", last_packet_pos, last_packet_pts);
 
-                        if (selftest == 0) Sleep(4000L);
+                        if (selftest == 0) sleep_for_ms(4000L);
                         file_open();
                         Set_seek(is, retry_target);
 
@@ -2422,6 +2456,11 @@ nextpacket:
                         goto again;
                     }
 
+                    // Frame-threaded decoders retain output until an explicit
+                    // end-of-input packet. Drain it before finalizing detection.
+                    if (is->dec_ctx)
+                        video_packet_process(is, NULL);
+                    backfill_frame_volumes();
                     break;
                 }
 
@@ -2560,7 +2599,7 @@ nextpacket:
                 {
                     ReviewResult();
                     vo_refresh();
-                    Sleep(100L);
+                    sleep_for_ms(100L);
                 }
 #endif
                 //		printf(" Press Enter to close debug window\n");

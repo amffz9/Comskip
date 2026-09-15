@@ -37,6 +37,10 @@ if(BUILD_TESTING)
     target_include_directories(checked_format_test PRIVATE src/app)
     target_link_libraries(checked_format_test PRIVATE GTest::gtest_main)
     gtest_discover_tests(checked_format_test)
+    add_executable(platform_test tests/platform_test.cpp src/platform/platform.cpp)
+    target_include_directories(platform_test PRIVATE src/platform)
+    target_link_libraries(platform_test PRIVATE Threads::Threads GTest::gtest_main)
+    gtest_discover_tests(platform_test)
     if(WIN32)
         add_executable(arguments_test tests/arguments_test.cpp)
         target_include_directories(arguments_test PRIVATE src/app)
@@ -113,5 +117,16 @@ if(COMSKIP_BUILD_APP)
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/media_smoke.py" $<TARGET_FILE:comskip>
             "${CMAKE_CURRENT_BINARY_DIR}/integration")
         set_tests_properties(media_smoke PROPERTIES TIMEOUT 120)
+        find_program(FFMPEG_EXECUTABLE NAMES ffmpeg
+            HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg"
+            PATH_SUFFIXES tools/ffmpeg)
+        if(FFMPEG_EXECUTABLE)
+            add_test(NAME media_formats COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/media_formats.py" $<TARGET_FILE:comskip>
+                "${FFMPEG_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/formats")
+            set_tests_properties(media_formats PROPERTIES TIMEOUT 180)
+        else()
+            message(STATUS "ffmpeg executable unavailable: media_formats test disabled")
+        endif()
     endif()
 endif()

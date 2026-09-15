@@ -10,8 +10,8 @@ legacy functions still share globals through legacy_detection.h.
 
 CMake is the supported build system. vcpkg supplies FFmpeg, argtable2, SimpleIni,
 and Google Test. Unit tests cover commercial-length policy, validated settings,
-and standard C++ scan workers. A generated-video integration test compares
-single-worker and multi-worker CSV/EDL output. CI is configured for Windows,
+standard C++ scan workers, Unicode filesystem paths, and FFmpeg audio/video conversion. Generated-video integration tests compare
+single-worker and multi-worker CSV/EDL output for PCM audio, AC3, and 10-bit video. CI is configured for Windows,
 Linux, and macOS; only Windows has been verified locally.
 
 ## Configuration and localization
@@ -28,22 +28,23 @@ should preserve machine-readable output syntax and configuration keys.
 
 ## Supporting libraries
 
-- FFmpeg owns media demuxing and decoding. Its libswresample is the appropriate
-  library for normalizing audio formats before volume analysis; the legacy audio
-  analysis path still needs that integration and regression coverage.
+- FFmpeg owns media demuxing and decoding. libswresample normalizes decoded
+  audio formats before the detector averages channels and measures volume.
+  Existing S16 and float scales are retained; out-of-range samples are saturated.
 - SimpleIni owns configuration syntax, and argtable2 owns command-line options.
 - Google Test provides unit tests. Generated fixtures avoid committing recordings.
 - Standard C++ threads, condition variables, and jthread replace the old pthread
-  compatibility implementation. Prefer standard ownership and filesystem tools
+  compatibility implementation. Standard filesystem paths, removal, sleep, and
+  clocks replace several native helpers. Prefer standard ownership tools
   as further code is modernized.
 - The optional SDL interface is a path toward portable review UI. The Windows
   review interface still uses DirectDraw and other native APIs.
 
 ## Remaining work
 
-Known review findings still require fixes and targeted tests: Windows argument
-buffering, audio sample-format assumptions, AC3 packet consumption, and 10-bit
-frame ownership. Expand media coverage for seeking, audio, and 10-bit video.
-Replace shared globals with explicit settings and per-recording state, and give
-FFmpeg resources automatic ownership. Test output serializers against expected
-files. Existing tests do not establish complete detection equivalence.
+The reviewed argument/configuration buffer overflows, audio representation
+assumptions, AC3 packet accounting, and 10-bit frame ownership have been addressed.
+Further work can replace shared globals with explicit settings and per-recording
+state, give remaining FFmpeg resources automatic ownership, and expand tests for
+seeking and output serializers. Existing tests do not establish complete detection
+equivalence.

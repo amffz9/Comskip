@@ -20,8 +20,9 @@ ctest --test-dir build -C Release --output-on-failure
 
 PowerShell uses `$env:VCPKG_ROOT` in place of `$VCPKG_ROOT`. To reuse packages
 already installed in vcpkg's classic mode, add `-DVCPKG_MANIFEST_MODE=OFF`.
-The required packages are `ffmpeg`, `argtable2`, `simpleini`, and `gtest`. Windows DLLs must
-be beside the executable or on PATH; the vcpkg toolchain normally copies them.
+The required packages are `ffmpeg`, `argtable2`, `simpleini`, and `gtest`.
+The default tests feature supplies the ffmpeg executable for generated media.
+Windows DLLs must be beside the executable or on PATH; the vcpkg toolchain normally copies them.
 For the optional SDL interface on Unix, add the `gui` vcpkg feature and
 `-DCOMSKIP_BUILD_GUI=ON`.
 

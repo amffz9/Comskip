@@ -25,7 +25,7 @@ void Debug(int level, const char * fmt, ...)
     if(verbose < level) return;
 
     va_start(ap, fmt);
-    vsprintf(debugText, fmt, ap);
+    vsnprintf(debugText, sizeof(debugText), fmt, ap);
     va_end(ap);
 
     if (output_console)	_cprintf("%s", debugText);

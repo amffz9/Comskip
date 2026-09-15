@@ -38,3 +38,7 @@ comskip.c.save-failed
 # Eclipse IDE
 .cproject
 .project
+
+# Python test artifacts
+__pycache__/
+*.pyc

@@ -1823,7 +1823,7 @@ void LoadLogoMaskData(void)
         txt_file = myfopen(out_filename, "r");
         if (!txt_file)
         {
-            Sleep(50L);
+            sleep_for_ms(50L);
             txt_file = myfopen(out_filename, "r");
             if (!txt_file)
             {
@@ -1862,4 +1862,3 @@ void LoadLogoMaskData(void)
     }
     Debug(10, "The last frame found in %s was %i\n", out_filename, lastFrame);
 }
-

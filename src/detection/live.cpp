@@ -1,3 +1,4 @@
+#include "checked_format.h"
 #include "legacy_detection.h"
 
 int FindBlock(long frame)
@@ -224,7 +225,7 @@ void BuildCommListAsYouGo(void)
                 out_file = myfopen(out_filename, "w");
                 if (!out_file)
                 {
-                    Sleep(50L);
+                    sleep_for_ms(50L);
                     out_file = myfopen(out_filename, "w");
                     if (!out_file)
                     {
@@ -236,11 +237,11 @@ void BuildCommListAsYouGo(void)
             }
             if (output_edl)
             {
-                sprintf(filename, "%s.edl", outbasename);
+                comskip::checked_format(filename, "%s.edl", outbasename);
                 edl_file = myfopen(filename, "wb");
                 if (!edl_file)
                 {
-                    Sleep(50L);
+                    sleep_for_ms(50L);
                     edl_file = myfopen(filename, "wb");
                     if (!edl_file)
                     {
@@ -251,11 +252,11 @@ void BuildCommListAsYouGo(void)
             }
             if (output_live)
             {
-                sprintf(filename, "%s.live", outbasename);
+                comskip::checked_format(filename, "%s.live", outbasename);
                 live_file = myfopen(filename, "wb");
                 if (!live_file)
                 {
-                    Sleep(50L);
+                    sleep_for_ms(50L);
                     live_file = myfopen(filename, "wb");
                     if (!live_file)
                     {
@@ -267,7 +268,7 @@ void BuildCommListAsYouGo(void)
             dvrmstb_file = 0;
             if (output_dvrmstb)
             {
-                sprintf(filename, "%s.xml", outbasename);
+                comskip::checked_format(filename, "%s.xml", outbasename);
                 dvrmstb_file = myfopen(filename, "w");
                 if (dvrmstb_file)
                 {
@@ -376,7 +377,7 @@ void BuildCommListAsYouGo(void)
 
             if (output_incommercial)
             {
-                sprintf(filename, "%s.incommercial", workbasename);
+                comskip::checked_format(filename, "%s.incommercial", workbasename);
                 incommercial_file = myfopen(filename, "w");
                 if (!incommercial_file)
                 {
@@ -398,4 +399,3 @@ skipit:
     }
 
 }
-

@@ -21,7 +21,7 @@ int DetectCommercials(int f, double pts)
     avg_fps = 1.0/ (pts / frame_count);
 
     if (framenum_real < 0) return 0;
-    if (play_nice) Sleep(play_nice_sleep);
+    if (play_nice) sleep_for_ms(play_nice_sleep);
     if (framearray) InitializeFrameArray(framenum_real);
 //	curvolume = RetreiveVolume(framenum_real);
     //curvolume = RetreiveVolume(frame_count);
@@ -1460,4 +1460,3 @@ again:
 //	free(frame);
     return (foundCommercials);
 }
-

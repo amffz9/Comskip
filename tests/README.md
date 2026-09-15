@@ -1,10 +1,17 @@
 # Tests
 
-Tests use Google Test and CTest. Configure with CMake and vcpkg (see the root
-README), build, then run `ctest --test-dir build --output-on-failure`.
-Use `-DCOMSKIP_BUILD_APP=OFF` for unit tests without FFmpeg application linkage.
+Use Google Test and CTest through CMake (see the root README). Unit tests cover
+settings validation and regional profiles, frame rounding, scan-worker lifecycle,
+Windows Unicode arguments, checked path formatting, Unicode file operations,
+10-bit frame ownership, and ten packed/planar audio representations.
 
-Commercial-length tests cover frame rounding, strict/optional length tables,
-tolerance limits and overrides, minimum-show boundaries, and timing correction.
-Worker tests cover frame publication, completion, and repeated startup/shutdown.
-Both commercial-length table variants are built separately.
+media_smoke generates raw video without external tools. media_formats uses the
+ffmpeg executable to generate PCM, AC3, and 10-bit fixtures, then compares serial
+and parallel detection output, timestamps, audio volumes, and Unicode paths.
+The default vcpkg tests feature supplies ffmpeg and Google Test. Classic-mode
+users can supply ffmpeg on PATH or set FFMPEG_EXECUTABLE in CMake. If it is
+unavailable, only media_formats is skipped, with a configure-time message.
+
+Use -DCOMSKIP_BUILD_APP=OFF for configuration/worker/platform tests without
+FFmpeg linkage; audio/video conversion tests require the application dependencies.
+Generated recordings remain in temporary directories and are removed afterward.

@@ -1,3 +1,4 @@
+#include "checked_format.h"
 #include "legacy_detection.h"
 
 char TempXmlFilename[300];
@@ -52,7 +53,7 @@ void OpenOutputFiles()
         out_file = myfopen(out_filename, "w");
         if (!out_file)
         {
-            Sleep(50L);
+            sleep_for_ms(50L);
             out_file = myfopen(out_filename, "w");
             if (!out_file)
             {
@@ -66,11 +67,11 @@ void OpenOutputFiles()
 
     if (output_chapters)
     {
-        sprintf(filename, "%s.chap", outbasename);
+        comskip::checked_format(filename, "%s.chap", outbasename);
         chapters_file = myfopen(filename, "w");
         if (!chapters_file)
         {
-            Sleep(50L);
+            sleep_for_ms(50L);
             out_file = myfopen((const char*)chapters_file, "w");
             if (!chapters_file)
             {
@@ -83,7 +84,7 @@ void OpenOutputFiles()
 
     if (output_zoomplayer_cutlist)
     {
-        sprintf(filename, "%s.cut", outbasename);
+        comskip::checked_format(filename, "%s.cut", outbasename);
         zoomplayer_cutlist_file = myfopen(filename, "w");
         if (!zoomplayer_cutlist_file)
         {
@@ -98,7 +99,7 @@ void OpenOutputFiles()
     }
     if (output_plist_cutlist)
     {
-        sprintf(filename, "%s.plist", outbasename);
+        comskip::checked_format(filename, "%s.plist", outbasename);
         plist_cutlist_file = myfopen(filename, "w");
         if (!plist_cutlist_file)
         {
@@ -115,7 +116,7 @@ void OpenOutputFiles()
 
     if (output_incommercial)
     {
-        sprintf(filename, "%s.incommercial", workbasename);
+        comskip::checked_format(filename, "%s.incommercial", workbasename);
         incommercial_file = myfopen(filename, "w");
         if (!incommercial_file)
         {
@@ -131,7 +132,7 @@ void OpenOutputFiles()
 
     if (output_zoomplayer_chapter)
     {
-        sprintf(filename, "%s.chp", outbasename);
+        comskip::checked_format(filename, "%s.chp", outbasename);
         zoomplayer_chapter_file = myfopen(filename, "w");
         if (!zoomplayer_chapter_file)
         {
@@ -147,7 +148,7 @@ void OpenOutputFiles()
 
     if (output_scf)
     {
-        sprintf(filename, "%s.scf", outbasename);
+        comskip::checked_format(filename, "%s.scf", outbasename);
         scf_file = myfopen(filename, "w");
         if (!scf_file)
         {
@@ -162,7 +163,7 @@ void OpenOutputFiles()
 
     if (output_edl)
     {
-        sprintf(filename, "%s.edl", outbasename);
+        comskip::checked_format(filename, "%s.edl", outbasename);
         edl_file = myfopen(filename, "wb");
         if (!edl_file)
         {
@@ -177,7 +178,7 @@ void OpenOutputFiles()
 
     if (output_ffmeta)
     {
-        sprintf(filename, "%s.ffmeta", outbasename);
+        comskip::checked_format(filename, "%s.ffmeta", outbasename);
         ffmeta_file = myfopen(filename, "wb");
         if (!ffmeta_file)
         {
@@ -192,7 +193,7 @@ void OpenOutputFiles()
 
     if (output_ffsplit)
     {
-        sprintf(filename, "%s.ffsplit", outbasename);
+        comskip::checked_format(filename, "%s.ffsplit", outbasename);
         ffsplit_file = myfopen(filename, "wb");
         if (!ffsplit_file)
         {
@@ -207,7 +208,7 @@ void OpenOutputFiles()
 /*
     if (output_live)
     {
-        sprintf(filename, "%s.live", outbasename);
+        comskip::checked_format(filename, "%s.live", outbasename);
         live_file = myfopen(filename, "wb");
         if (!live_file)
         {
@@ -222,7 +223,7 @@ void OpenOutputFiles()
 */
     if (output_ipodchap)
     {
-        sprintf(filename, "%s.chap", outbasename);
+        comskip::checked_format(filename, "%s.chap", outbasename);
         ipodchap_file = myfopen(filename, "w");
         if (!ipodchap_file)
         {
@@ -238,7 +239,7 @@ void OpenOutputFiles()
 
     if (output_edlp)
     {
-        sprintf(filename, "%s.edlp", outbasename);
+        comskip::checked_format(filename, "%s.edlp", outbasename);
         edlp_file = myfopen(filename, "w");
         if (!edlp_file)
         {
@@ -254,7 +255,7 @@ void OpenOutputFiles()
 
     if (output_bsplayer)
     {
-        sprintf(filename, "%s.bcf", outbasename);
+        comskip::checked_format(filename, "%s.bcf", outbasename);
         bcf_file = myfopen(filename, "w");
         if (!bcf_file)
         {
@@ -269,7 +270,7 @@ void OpenOutputFiles()
 
     if (output_edlx)
     {
-        sprintf(filename, "%s.edlx", outbasename);
+        comskip::checked_format(filename, "%s.edlx", outbasename);
         edlx_file = myfopen(filename, "w");
         if (!edlx_file)
         {
@@ -295,7 +296,7 @@ void OpenOutputFiles()
 //<SceneMarker 2>4254502333
 //<SceneMarker 3>4708947222
 
-        sprintf(filename, "%s.VPrj", outbasename);
+        comskip::checked_format(filename, "%s.VPrj", outbasename);
         videoredo_file = myfopen(filename, "w");
         if (videoredo_file)
         {
@@ -345,7 +346,7 @@ void OpenOutputFiles()
 
         */
 
-        sprintf(filename, "%s.VPrj", outbasename);
+        comskip::checked_format(filename, "%s.VPrj", outbasename);
         videoredo3_file = myfopen(filename, "w");
         if (videoredo3_file)
         {
@@ -374,7 +375,7 @@ void OpenOutputFiles()
 
     if (output_btv)
     {
-        sprintf(filename, "%s.chapters.xml", mpegfilename);
+        comskip::checked_format(filename, "%s.chapters.xml", mpegfilename);
         btv_file = myfopen(filename, "w");
         if (btv_file)
         {
@@ -391,7 +392,7 @@ void OpenOutputFiles()
 
     if (output_cuttermaran)
     {
-        sprintf(filename, "%s.cpf", outbasename);
+        comskip::checked_format(filename, "%s.cpf", outbasename);
         cuttermaran_file = myfopen(filename, "w");
         if (cuttermaran_file)
         {
@@ -419,7 +420,7 @@ void OpenOutputFiles()
 
     if (output_vcf)
     {
-        sprintf(filename, "%s.vcf", outbasename);
+        comskip::checked_format(filename, "%s.vcf", outbasename);
         vcf_file = myfopen(filename, "w");
         if (vcf_file)
         {
@@ -444,7 +445,7 @@ void OpenOutputFiles()
 
     if (output_vdr)
     {
-        sprintf(filename, "%s.vdr", outbasename);
+        comskip::checked_format(filename, "%s.vdr", outbasename);
         vdr_file = myfopen(filename, "w");
         if (vdr_file)
         {
@@ -469,7 +470,7 @@ void OpenOutputFiles()
 
     if (output_projectx)
     {
-        sprintf(filename, "%s.Xcl", mpegfilename);
+        comskip::checked_format(filename, "%s.Xcl", mpegfilename);
         projectx_file = myfopen(filename, "w");
         if (projectx_file)
         {
@@ -484,7 +485,7 @@ void OpenOutputFiles()
 
     if (output_avisynth)
     {
-        sprintf(filename, "%s.avs", mpegfilename);
+        comskip::checked_format(filename, "%s.avs", mpegfilename);
         avisynth_file = myfopen(filename, "w");
         if (avisynth_file)
         {
@@ -503,7 +504,7 @@ void OpenOutputFiles()
 
     if (output_womble)
     {
-        sprintf(filename, "%s.wme", outbasename);
+        comskip::checked_format(filename, "%s.wme", outbasename);
         womble_file = myfopen(filename, "w");
         if (womble_file)
         {
@@ -519,7 +520,7 @@ void OpenOutputFiles()
 
     if (output_mls)
     {
-        sprintf(filename, "%s.mls", outbasename);
+        comskip::checked_format(filename, "%s.mls", outbasename);
         mls_file = myfopen(filename, "w");
         if (mls_file)
         {
@@ -541,7 +542,7 @@ void OpenOutputFiles()
 
     if (output_mpgtx)
     {
-        sprintf(filename, "%s_mpgtx.bat", outbasename);
+        comskip::checked_format(filename, "%s_mpgtx.bat", outbasename);
         mpgtx_file = myfopen(filename, "w");
         if (mpgtx_file)
         {
@@ -558,7 +559,7 @@ void OpenOutputFiles()
 
     if (output_dvrcut)
     {
-        sprintf(filename, "%s_dvrcut.bat", outbasename);
+        comskip::checked_format(filename, "%s_dvrcut.bat", outbasename);
         dvrcut_file = myfopen(filename, "w");
         if (dvrcut_file)
         {
@@ -577,7 +578,7 @@ void OpenOutputFiles()
 
     if (output_dvrmstb)
     {
-        sprintf(filename, "%s.xml", outbasename);
+        comskip::checked_format(filename, "%s.xml", outbasename);
         dvrmstb_file = myfopen(filename, "w");
         if (dvrmstb_file)
         {
@@ -593,7 +594,7 @@ void OpenOutputFiles()
 
     if (output_mpeg2schnitt)
     {
-        sprintf(filename, "%s_mpeg2schnitt.bat", inbasename);
+        comskip::checked_format(filename, "%s_mpeg2schnitt.bat", inbasename);
         mpeg2schnitt_file = myfopen(filename, "w");
         if (mpeg2schnitt_file)
         {
@@ -634,7 +635,7 @@ void OpenOutputFiles()
 			</EditionEntry>
 		</Chapters>
 		*/
-		sprintf(filename, "%s.mkvtoolnix.chapters", outbasename);
+		comskip::checked_format(filename, "%s.mkvtoolnix.chapters", outbasename);
 		mkvtoolnix_chapters_file = myfopen(filename, "wb");
 		if (!mkvtoolnix_chapters_file)
 		{
@@ -682,7 +683,7 @@ void OpenOutputFiles()
 			</EditionEntry>
 		</Chapters>
 		*/
-		sprintf(filename, "%s.mkvtoolnix.tags", outbasename);
+		comskip::checked_format(filename, "%s.mkvtoolnix.tags", outbasename);
 		mkvtoolnix_tags_file = myfopen(filename, "wb");
 		if (!mkvtoolnix_tags_file)
 		{
@@ -765,7 +766,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         }
         else  		// If the file can't be opened for writting, wait half a second and try again
         {
-            Sleep(50L);
+            sleep_for_ms(50L);
             out_file = myfopen(out_filename, "a+");
             if (out_file)
             {
@@ -1624,7 +1625,7 @@ bool OutputBlocks(void)
 
     if (output_videoredo)
     {
-        sprintf(filename, "%s.VPrj", outbasename);
+        comskip::checked_format(filename, "%s.VPrj", outbasename);
         videoredo_file = myfopen(filename, "a+");
         if (videoredo_file)
         {
@@ -1638,7 +1639,7 @@ bool OutputBlocks(void)
 
     if (output_videoredo3)
     {
-        sprintf(filename, "%s.VPrj", outbasename);
+        comskip::checked_format(filename, "%s.VPrj", outbasename);
         videoredo3_file = myfopen(filename, "a+");
         if (videoredo3_file)
         {
@@ -1658,7 +1659,7 @@ bool OutputBlocks(void)
 
     if (output_chapters)
     {
-//		sprintf(filename, "%s.chap", outbasename);
+//		comskip::checked_format(filename, "%s.chap", outbasename);
 //		chapters_file = myfopen(filename, "a+");
         if (chapters_file)
         {
@@ -1740,7 +1741,7 @@ bool OutputBlocks(void)
 
     if (output_tuning)
     {
-        sprintf(filename, "%s.tun", workbasename);
+        comskip::checked_format(filename, "%s.tun", workbasename);
         tuning_file = myfopen(filename, "w");
         fprintf(tuning_file,"max_volume=%6i\n", min_volume+200);
         fprintf(tuning_file,"max_avg_brightness=%6i\n", min_brightness_found+5);

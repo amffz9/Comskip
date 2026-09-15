@@ -1,114 +1,107 @@
 #include "platform.h"
 
-#if defined(_WIN32)
-BOOL AnsiToUnicode16(const char *in_Src, WCHAR *out_Dst, INT in_MaxLen)
-{
-    /* locals */
-    INT lv_Len;
-//    int i;
-    // do NOT decrease maxlen for the eos
-    if (in_MaxLen <= 0)
-        return FALSE;
-    // let windows find out the meaning of ansi
-    // - the SrcLen=-1 triggers MBTWC to add a eos to Dst and fails if MaxLen is too small.
-    // - if SrcLen is specified then no eos is added
-    // - if (SrcLen+1) is specified then the eos IS added
-    lv_Len = MultiByteToWideChar(CP_UTF8, 0, in_Src, -1, out_Dst, in_MaxLen);
-/*
-    for (i = 0; i < strlen(in_Src); i++)
-    {
-    fprintf(stderr, "[%i]=%i\n", i, in_Src[i]);
+#include <chrono>
+#include <filesystem>
+#include <new>
+#include <string>
+#include <system_error>
+#include <thread>
 
+namespace {
+std::filesystem::path utf8_path(const char* filename)
+{
+    return std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(filename)));
+}
+
+int file_error(const std::error_code& error)
+{
+    errno = error.default_error_condition().value();
+    return -1;
+}
+}
+
+fileh myfopen(const char* filename, const char* mode)
+{
+    if (!filename || !mode) {
+        errno = EINVAL;
+        return nullptr;
     }
-*/
-    // validate
-    if (lv_Len < 0)
-        lv_Len = 0;
-    // ensure eos, watch out for a full buffersize
-    // - if the buffer is full without an eos then clear the output like MBTWC does
-    //   in case of too small outputbuffer
-    // - unfortunately there is no way to let MBTWC return shortened strings,
-    //   if the outputbuffer is too small then it fails completely
-    if (lv_Len < in_MaxLen)
-        out_Dst[lv_Len] = 0;
-    else if (out_Dst[in_MaxLen-1])
-        out_Dst[0] = 0;
-    // done
-    return TRUE;
-}
-
-int mystat(char * f, stath s)
-{
-    wchar_t wf[2000];
-    AnsiToUnicode16(f, wf, 2000);
-    return(_wstati64(wf,s));
-}
-
-fileh myfopen(const char * f, const char * m)
-{
-    wchar_t wf[2000], wm[2000];
-    int n;
-
-    n= AnsiToUnicode16(f, wf, 2000);
-    n= AnsiToUnicode16(m, wm, 2000);
-    return(_wfopen(wf,wm));
-}
-
-int myremove(char * f)
-{
-    wchar_t wf[2000];
-    AnsiToUnicode16(f, wf, 2000);
-    return(_wremove(wf));
-}
+#if defined(_WIN32)
+    try {
+        const auto path = utf8_path(filename);
+        const std::wstring wide_mode(mode, mode + strlen(mode));
+        return _wfopen(path.c_str(), wide_mode.c_str());
+    } catch (const std::filesystem::filesystem_error& error) {
+        file_error(error.code());
+    } catch (const std::bad_alloc&) {
+        errno = ENOMEM;
+    } catch (const std::exception&) {
+        errno = EILSEQ;
+    }
+    return nullptr;
+#else
+    return fopen(filename, mode);
 #endif
-
-#if !defined(_WIN32)
-int mystat(char * f, stath s)
-{
-  return stat(f, s);
 }
 
-fileh myfopen(const char * f, const char * m)
+int myremove(const char* filename)
 {
-  return fopen(f, m);
+    if (!filename) {
+        errno = EINVAL;
+        return -1;
+    }
+    try {
+        std::error_code error;
+        const bool removed = std::filesystem::remove(utf8_path(filename), error);
+        if (error) return file_error(error);
+        if (!removed) {
+            errno = ENOENT;
+            return -1;
+        }
+        return 0;
+    } catch (const std::filesystem::filesystem_error& error) {
+        return file_error(error.code());
+    } catch (const std::bad_alloc&) {
+        errno = ENOMEM;
+    } catch (const std::exception&) {
+        errno = EILSEQ;
+    }
+    return -1;
 }
 
-int myremove(char * f)
+void sleep_for_ms(long milliseconds)
 {
-  return unlink(f);
+    if (milliseconds > 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
-#endif
 
 int min(int i, int j)
 {
-  return(i<j?i:j);
+    return i < j ? i : j;
 }
 
 int max(int i, int j)
 {
-  return(i>j?i:j);
+    return i > j ? i : j;
 }
 
 #if !defined(_WIN32)
-char *_strupr(char *string)
+char* _strupr(char* string)
 {
-    char *s;
-
-    if (string)
-    {
-        for (s = string; *s; ++s)
-            *s = toupper(*s);
+    if (string) {
+        for (char* character = string; *character; ++character)
+            *character = static_cast<char>(toupper(static_cast<unsigned char>(*character)));
     }
     return string;
 }
 #endif
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-void gettimeofday (struct timeval * tp, void * dummy)
+void gettimeofday(struct timeval* time, void*)
 {
-    struct _timeb tm;
-    _ftime (&tm);
-    tp->tv_sec = tm.time;
-    tp->tv_usec = tm.millitm * 1000;
+    const auto elapsed = std::chrono::system_clock::now().time_since_epoch();
+    const auto seconds = std::chrono::floor<std::chrono::seconds>(elapsed);
+    time->tv_sec = static_cast<long>(seconds.count());
+    time->tv_usec = static_cast<long>(std::chrono::duration_cast<std::chrono::microseconds>(elapsed - seconds).count());
 }
 #endif
