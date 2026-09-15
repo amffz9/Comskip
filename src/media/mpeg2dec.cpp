@@ -25,7 +25,11 @@
 #include "vo.h"
 #include "comskip.h"
 #include "audio_samples.h"
+#include "ffmpeg_resources.h"
+#include <memory>
+using namespace comskip::media;
 #include "settings.h"
+#include "translator.h"
 #include <algorithm>
 #include <limits>
 #include <cmath>
@@ -98,6 +102,14 @@ int av_log_level=AV_LOG_INFO;
 #define VIDEO_PICTURE_QUEUE_SIZE 1
 #define DEFAULT_AV_SYNC_TYPE AV_SYNC_ADUIO_MASTER
 
+
+int convert_frame_to_8bit_owned(AVFrame* frame, ScalerPtr& context) {
+    auto* raw_context = context.release();
+    const int result = comskip::media::convert_frame_to_8bit(frame, raw_context);
+    context.reset(raw_context);
+    return result;
+}
+
 typedef struct VideoPicture
 {
     int width, height; /* source height & width */
@@ -107,8 +119,8 @@ typedef struct VideoPicture
 
 typedef struct VideoState
 {
-    AVFormatContext *pFormatCtx;
-    AVCodecContext *dec_ctx, *audio_ctx, *subtitle_ctx;
+    InputPtr pFormatCtx;
+    CodecPtr dec_ctx, audio_ctx, subtitle_ctx;
     // AVCodecContext.ticks_per_frame was removed in FFmpeg 8. It used to be
     // set by the decoder itself: 1 for MPEG1VIDEO, 2 for everything else this
     // code cared about (MPEG2's field-time timebase convention). Comskip
@@ -151,19 +163,19 @@ typedef struct VideoState
     double          video_current_pts; ///<current displayed pts (different from video_clock if frame fifos are used)
     int64_t         video_current_pts_time;  ///<time (av_gettime) at which we updated video_current_pts - used to have running video pts
     AVStream        *video_st;
-    AVFrame         *pFrame;
+    FramePtr pFrame;
     char            filename[1024];
     int             quit;
-    AVFrame         *frame;
+    FramePtr frame;
     double			 duration;
     double			 fps;
-    struct SwsContext *img_convert_ctx;
+    ScalerPtr img_convert_ctx;
 } VideoState;
 
 VideoState      *is;
 
 
-AVDictionary *myoptions = NULL;
+DictionaryPtr myoptions;
 
 enum
 {
@@ -175,8 +187,9 @@ enum
 
 /* Since we only have one decoding thread, the Big Struct
    can be global in case we need it. */
+std::unique_ptr<VideoState> video_owner;
 VideoState *global_video_state;
-AVPacket flush_pkt;
+
 
 
 int64_t pev_best_effort_timestamp = 0;
@@ -200,6 +213,9 @@ int64_t best_effort_timestamp;
 //#include "mpeg2convert.h"
 #include "comskip.h"
 #include "audio_samples.h"
+#include "ffmpeg_resources.h"
+#include <memory>
+using namespace comskip::media;
 #include <algorithm>
 #include <limits>
 
@@ -355,7 +371,7 @@ extern void dump_audio_start(void);
 void file_open();
 int DetectCommercials(int, double);
 bool BuildMasterCommList(void);
-FILE* LoadSettings(int argc, char ** argv);
+FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translator& translator);
 void ProcessCCData(void);
 void dump_data(char *start, int length);
 void close_data();
@@ -766,7 +782,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     }
 retry_audio_send:
     received_frames = 0;
-    send_result = avcodec_send_packet(is->audio_ctx, &decoder_packet);
+    send_result = avcodec_send_packet(is->audio_ctx.get(), &decoder_packet);
 
     // send_packet consumes the whole packet on success. receive_frame returns
     // zero on success, rather than the number of input bytes consumed.
@@ -784,7 +800,7 @@ retry_audio_send:
     }
 
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
-    while ((len1 = avcodec_receive_frame(is->audio_ctx, is->frame)) != AVERROR(EAGAIN))
+    while ((len1 = avcodec_receive_frame(is->audio_ctx.get(), is->frame.get())) != AVERROR(EAGAIN))
     {
  //       data_size = STORAGE_SIZE;
         got_frame = len1 >= 0;
@@ -811,22 +827,22 @@ retry_audio_send:
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(is, *is->frame);
+            sound_to_frames(is, *is->frame.get());
         }
         is->audio_clock += (double)data_size /
                            (is->frame->ch_layout.nb_channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
-        av_frame_unref(is->frame);
+        av_frame_unref(is->frame.get());
 #else
         data_size = av_samples_get_buffer_size(NULL, is->frame->channels,
                                                is->frame->nb_samples,
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(is, *is->frame);
+            sound_to_frames(is, *is->frame.get());
         }
         is->audio_clock += (double)data_size /
                            (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
-        av_frame_unref(is->frame);
+        av_frame_unref(is->frame.get());
 #endif
     }
 
@@ -1038,7 +1054,7 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
 
 void Set_seek(VideoState *is, double pts)
 {
-    AVFormatContext *ic = is->pFormatCtx;
+    AVFormatContext *ic = is->pFormatCtx.get();
 
     double length = is->duration;
 
@@ -1079,9 +1095,9 @@ void DoSeekRequest(VideoState *is)
 {
     int ret;
 again:
-//           ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
-    ret = av_seek_frame(is->pFormatCtx, is->videoStream,  is->seek_pos,  is->seek_flags);
-//            ret = av_seek_frame(is->pFormatCtx, -1,  is->seek_pos,  is->seek_flags);
+//           ret = avformat_seek_file(is->pFormatCtx.get(), is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
+    ret = av_seek_frame(is->pFormatCtx.get(), is->videoStream,  is->seek_pos,  is->seek_flags);
+//            ret = av_seek_frame(is->pFormatCtx.get(), -1,  is->seek_pos,  is->seek_flags);
     pev_best_effort_timestamp = 0;
     best_effort_timestamp = 0;
     is->video_clock = 0.0;
@@ -1127,11 +1143,11 @@ again:
     {
         if(is->audioStream >= 0)
         {
-            avcodec_flush_buffers(is->audio_ctx);
+            avcodec_flush_buffers(is->audio_ctx.get());
         }
         if(is->videoStream >= 0)
         {
-            avcodec_flush_buffers(is->dec_ctx);
+            avcodec_flush_buffers(is->dec_ctx.get());
         }
     }
     is->seek_no_flush = 0;
@@ -1171,7 +1187,7 @@ void DecodeOnePicture(FILE * f, double pts)
 again:      DoSeekRequest(is);
         }
 nextpacket:
-        if(av_read_frame(is->pFormatCtx, packet) < 0)
+        if(av_read_frame(is->pFormatCtx.get(), packet) < 0)
         {
             break;
         }
@@ -1286,10 +1302,10 @@ static int    prev_strange_framenum = 0;
     }
     real_pts = 0.0;
     pts = 0;
-    //is->dec_ctx.thread_type
+    //is->dec_ctx.get().thread_type
     if (!hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
-    len1 = avcodec_send_packet(is->dec_ctx, packet);
+    len1 = avcodec_send_packet(is->dec_ctx.get(), packet);
 
     if (len1<0)
     {
@@ -1311,14 +1327,14 @@ static int    prev_strange_framenum = 0;
     }
 
     // Did we get a video frame?
-    while ((len1 = avcodec_receive_frame(is->dec_ctx, is->pFrame)) >= 0)
+    while ((len1 = avcodec_receive_frame(is->dec_ctx.get(), is->pFrame.get())) >= 0)
     {
         frameFinished = 1;
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
-            if (comskip::media::convert_frame_to_8bit(is->pFrame, is->img_convert_ctx) < 0) {
+            if (convert_frame_to_8bit_owned(is->pFrame.get(), is->img_convert_ctx) < 0) {
                 Debug(1, "Could not convert the decoded 10-bit frame to 8-bit\n");
-                av_frame_unref(is->pFrame);
+                av_frame_unref(is->pFrame.get());
                 continue;
             }
         }
@@ -1332,7 +1348,7 @@ static int    prev_strange_framenum = 0;
            // Codec time_base is not necessarily a field duration (FFV1, for
            // example). Prefer the demuxer's actual frame rate before applying
            // the legacy MPEG field-time fallback.
-           const AVRational rate = av_guess_frame_rate(is->pFormatCtx, is->video_st, is->pFrame);
+           const AVRational rate = av_guess_frame_rate(is->pFormatCtx.get(), is->video_st, is->pFrame.get());
            frame_delay = rate.num > 0 && rate.den > 0
                ? av_q2d(av_inv_q(rate))
                : av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame;
@@ -1501,7 +1517,7 @@ static int    prev_strange_framenum = 0;
 
 #ifdef HARDWARE_DECODE
         if (ist->hwaccel_retrieve_data && is->pFrame->format == ist->hwaccel_pix_fmt) {
-            if (ist->hwaccel_retrieve_data(ist->dec_ctx, is->pFrame) < 0)
+            if (ist->hwaccel_retrieve_data(ist->dec_ctx, is->pFrame.get()) < 0)
                 goto quit;
         }
         ist->hwaccel_retrieved_pix_fmt = is->pFrame->format;
@@ -1547,7 +1563,7 @@ static int    prev_strange_framenum = 0;
 //                    exit(1);
                 }
 #endif
-                if (SubmitFrame (is->video_st, is->pFrame, is->video_clock))
+                if (SubmitFrame (is->video_st, is->pFrame.get(), is->video_clock))
                 {
                     goto quit;
                 }
@@ -1576,7 +1592,7 @@ static int    prev_strange_framenum = 0;
                     exit(1);
                 }
                 retries = 0;
-                if (SubmitFrame (is->video_st, is->pFrame, is->video_clock))
+                if (SubmitFrame (is->video_st, is->pFrame.get(), is->video_clock))
                 {
                     goto quit;
                 }
@@ -1703,7 +1719,7 @@ static int get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 
 int stream_component_open(VideoState *is, int stream_index)
 {
-    AVFormatContext *pFormatCtx = is->pFormatCtx;
+    AVFormatContext *pFormatCtx = is->pFormatCtx.get();
     AVCodecParameters *codecPar = NULL;
     AVCodecContext *codecCtx;
     const AVCodec *codec;
@@ -1776,13 +1792,15 @@ int stream_component_open(VideoState *is, int stream_index)
         codec = codec_hw;
     }
 
-    codecCtx = avcodec_alloc_context3(codec);
+    CodecPtr codec_owner(avcodec_alloc_context3(codec));
+    codecCtx = codec_owner.get();
+    if (!codecCtx) throw std::bad_alloc();
     avcodec_parameters_to_context(codecCtx, codecPar);
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
         if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-        is->dec_ctx = codecCtx;
+
 #ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
         ist->dec_ctx->opaque = ist;
@@ -1847,14 +1865,14 @@ int stream_component_open(VideoState *is, int stream_index)
         }
     }
 
-    if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
+    if (!hardware_decode) av_dict_set_int(std::inout_ptr(myoptions), "gray", 1, 0);
 
 
- //       av_dict_set_int(&myoptions, "fastint", 1, 0);
- //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
-//        av_dict_set(&myoptions, "threads", "auto", 0);
+ //       av_dict_set_int(std::inout_ptr(myoptions), "fastint", 1, 0);
+ //       av_dict_set_int(std::inout_ptr(myoptions), "skip_alpha", 1, 0);
+//        av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
 
-    if(!codec || (avcodec_open2(codecCtx, codec, &myoptions) < 0))
+    if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(myoptions)) < 0))
     {
         fprintf(stderr, "Unsupported codec!\n");
         return -1;
@@ -1865,14 +1883,14 @@ int stream_component_open(VideoState *is, int stream_index)
     case AVMEDIA_TYPE_SUBTITLE:
         is->subtitleStream = stream_index;
         is->subtitle_st = pFormatCtx->streams[stream_index];
-        is->subtitle_ctx = codecCtx;
+        is->subtitle_ctx = std::move(codec_owner);
         if (demux_pid)
             selected_subtitle_pid = is->subtitle_st->id;
         break;
     case AVMEDIA_TYPE_AUDIO:
         is->audioStream = stream_index;
         is->audio_st = pFormatCtx->streams[stream_index];
-        is->audio_ctx = codecCtx;
+        is->audio_ctx = std::move(codec_owner);
 //          is->audio_buf_size = 0;
 //          is->audio_buf_index = 0;
 
@@ -1890,13 +1908,13 @@ int stream_component_open(VideoState *is, int stream_index)
     case AVMEDIA_TYPE_VIDEO:
         is->videoStream = stream_index;
         is->video_st = pFormatCtx->streams[stream_index];
-        is->dec_ctx = codecCtx;
+        is->dec_ctx = std::move(codec_owner);
 
 //          is->frame_timer = (double)av_gettime() / 1000000.0;
 //          is->frame_last_delay = 40e-3;
 //          is->video_current_pts_time = av_gettime();
 
-        is->pFrame = av_frame_alloc();
+        is->pFrame = make_frame();
         if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 //       codecCtx->thread_type = 1; // Frame based threading
         codecCtx->lowres = min(codecCtx->codec->max_lowres, lowres);
@@ -1995,7 +2013,8 @@ void file_open()
 
     if (global_video_state == NULL)
     {
-        is = static_cast<VideoState *>( av_mallocz(sizeof(VideoState)) );
+        video_owner = std::make_unique<VideoState>();
+        is = video_owner.get();
         memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
         strcpy(is->filename, mpegfilename);
         // Register all formats and codecs
@@ -2008,37 +2027,38 @@ void file_open()
         is->videoStream=-1;
         is->audioStream=-1;
         is->subtitleStream = -1;
-        is->pFormatCtx = NULL;
+        is->pFormatCtx.reset();
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
         if (!hardware_decode) {
 //            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-            av_dict_set_int(&myoptions, "gray", 1, 0);
+            av_dict_set_int(std::inout_ptr(myoptions), "gray", 1, 0);
         }
 #ifdef DONATOR
 //        if (thread_count == 1)
-                av_dict_set_int(&myoptions, "threads", thread_count, 0);
+                av_dict_set_int(std::inout_ptr(myoptions), "threads", thread_count, 0);
 //        else
-//            av_dict_set(&myoptions, "threads", "auto", 0);
+//            av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
 //           codecCtx->thread_count= thread_count;
 #else
-            av_dict_set_int(&myoptions, "threads", 1, 0);
+            av_dict_set_int(std::inout_ptr(myoptions), "threads", 1, 0);
 //            codecCtx->thread_count= 1;
 #endif
-        av_dict_set_int(&myoptions, "refcounted_frames", 1, 0); // No need to keep multiple buffers
+        av_dict_set_int(std::inout_ptr(myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
 
 
     }
     else
         is = global_video_state;
     // Open video file
-    if ( is->pFormatCtx == NULL)
+    if ( is->pFormatCtx.get() == NULL)
     {
-        is->pFormatCtx = avformat_alloc_context();
+        is->pFormatCtx.reset(avformat_alloc_context());
+        if (!is->pFormatCtx) throw std::bad_alloc();
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        if(avformat_open_input(&is->pFormatCtx, is->filename, NULL,&myoptions)!=0)
+        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename, NULL,std::inout_ptr(myoptions))!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
             if (openretries++ < live_tv_retries)
@@ -2061,23 +2081,23 @@ again:
 //    is->pFormatCtx->thread_count= 2;
 
         // Retrieve stream information
-        if(avformat_find_stream_info(is->pFormatCtx, 0L )<0)
+        if(avformat_find_stream_info(is->pFormatCtx.get(), 0L )<0)
         {
             fprintf(stderr, "%s: Can not find stream info\n", is->filename);
             exit(-1);
         }
         // Dump information about file onto standard error
-        if (retries == 0) av_dump_format(is->pFormatCtx, 0, is->filename, 0);
+        if (retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename, 0);
     }
 
-    if (!is->frame) {
-        if (!(is->frame = av_frame_alloc()))
+    if (!is->frame.get()) {
+        if (!(is->frame = make_frame()))
             exit(-1);
     }
 
     if ( is->videoStream == -1)
     {
-        video_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+        video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
         if(video_index >= 0)
         {
             stream_component_open(is, video_index);
@@ -2118,7 +2138,7 @@ again:
     if (is->audioStream== -1 && video_index>=0)
     {
 
-        audio_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, video_index, NULL, 0);
+        audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, NULL, 0);
         if(audio_index >= 0)
         {
             stream_component_open(is, audio_index);
@@ -2135,7 +2155,7 @@ again:
 
     if (is->subtitleStream == -1 && video_index>=0)
     {
-        subtitle_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_SUBTITLE, -1, video_index, NULL, 0);
+        subtitle_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, NULL, 0);
         if(subtitle_index >= 0)
         {
             is->subtitle_st = is->pFormatCtx->streams[subtitle_index];
@@ -2182,23 +2202,23 @@ void file_close()
 //    av_freep(&ist->hwaccel_device);
 
 
-    if (is->dec_ctx) avcodec_free_context(&is->dec_ctx);
+    if (is->dec_ctx.get()) is->dec_ctx.reset();
     is->videoStream = -1;
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 
-    if (is->audio_ctx) avcodec_free_context(&is->audio_ctx);
+    if (is->audio_ctx.get()) is->audio_ctx.reset();
     is->audioStream = -1;
-    if (is->subtitle_ctx)  avcodec_free_context(&is->subtitle_ctx);
+    if (is->subtitle_ctx.get())  is->subtitle_ctx.reset();
     is->subtitleStream = -1;
-//    is->pFormatCtx = NULL;
+//    is->pFormatCtx.reset();
 
 
-    avformat_close_input(&is->pFormatCtx);
+    is->pFormatCtx.reset();
 
-    av_frame_free(&is->frame);
-    av_frame_free(&is->pFrame);
-    sws_freeContext(is->img_convert_ctx);
-    is->img_convert_ctx = NULL;
+    is->frame.reset();
+    is->pFrame.reset();
+    is->img_convert_ctx.reset();
+    
     ac3_packet_index = 0;
     ac3_package_misalignment_count = 0;
 
@@ -2213,7 +2233,8 @@ void file_close()
 
 int comskip_main (int argc, char ** argv)
 {
-    AVPacket pkt1, *packet = &pkt1;
+    auto packet_owner = make_packet();
+    AVPacket* packet = packet_owner.get();
     int result = 0;
     int ret;
     double tfps;
@@ -2295,7 +2316,8 @@ int comskip_main (int argc, char ** argv)
 //        av_log_set_flags(AV_LOG_SKIP_REPEATED);
 //        av_log_set_callback(log_callback_report);
 //        av_log_set_level(AV_LOG_WARNING);
-        in_file = LoadSettings(argc, argv);
+        const auto translator = comskip::localization::Translator::from_arguments(argc, argv);
+        in_file = LoadSettings(argc, argv, translator);
 
         file_open();
 
@@ -2350,7 +2372,7 @@ again:
                 }
             }
 nextpacket:
-            ret=av_read_frame(is->pFormatCtx, packet);
+            ret=av_read_frame(is->pFormatCtx.get(), packet);
 
             if (ret>=0 && is->seek_req)
             {
@@ -2458,7 +2480,7 @@ nextpacket:
 
                     // Frame-threaded decoders retain output until an explicit
                     // end-of-input packet. Drain it before finalizing detection.
-                    if (is->dec_ctx)
+                    if (is->dec_ctx.get())
                         video_packet_process(is, NULL);
                     backfill_frame_volumes();
                     break;

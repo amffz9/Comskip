@@ -212,6 +212,8 @@ struct InitializeStrings {
 }
 namespace comskip::config {
 void apply_settings(const Ini& ini) {
+    if (const auto* language = ini.find("language"); language && *language != "en" && *language != "es")
+        throw std::invalid_argument("Unsupported language: " + *language);
     auto profile = read_profile(ini, commercial_profile());
     std::vector<std::function<void()>> updates;
     auto number = [&]<class T>(const char* key, T& target, int sign = 1) {

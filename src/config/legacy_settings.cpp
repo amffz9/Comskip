@@ -1,5 +1,6 @@
 #include "legacy_detection.h"
 #include "checked_format.h"
+#include "translator.h"
 
 double FindNumber(char* data, const char* key, double fallback)
 {
@@ -57,6 +58,12 @@ char* dblSecondsToStrMinutesFrames(double seconds)
 
 void LoadIniFile()
 {
+    const comskip::localization::Translator translator;
+    LoadIniFile(translator);
+}
+
+void LoadIniFile(const comskip::localization::Translator& translator)
+{
     if (!ini_file) {
         FindIniFile();
         if (*inifilename) ini_file = myfopen(inifilename, "r");
@@ -75,13 +82,13 @@ void LoadIniFile()
             comskip::config::Ini ini(data);
             comskip::config::apply_settings(ini);
             ini_text += ini.serialize();
-            printf("Using %s for settings.\n", inifilename);
+            fputs(translator.format("using_settings", inifilename).c_str(), stdout);
         }
         for (const char* file : {cutscenefile1, cutscenefile2, cutscenefile3, cutscenefile4,
                                  cutscenefile5, cutscenefile6, cutscenefile7, cutscenefile8})
             if (*file) LoadCutScene(file);
     } catch (const std::exception& error) {
-        fprintf(stderr, "Invalid configuration: %s\n", error.what());
+        fputs(translator.format("invalid_configuration", error.what()).c_str(), stderr);
         exit(1);
     }
     if (added_recording > 0 && giveUpOnLogoSearch < added_recording * 60)
@@ -90,7 +97,7 @@ void LoadIniFile()
 
 void list_codecs();
 
-FILE* LoadSettings(int argc, char ** argv)
+FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translator& translator)
 {
 //	FILE*				ini_file = NULL;
     FILE*				logo_file = NULL;
@@ -102,46 +109,48 @@ FILE* LoadSettings(int argc, char ** argv)
     time_t				ltime;
     struct tm*			now = NULL;
     int					mil_time;
-    struct arg_lit*		cl_playnice				= arg_lit0("n", "playnice", "Slows detection down");
-    struct arg_lit*		cl_output_zp_cutlist	= arg_lit0(NULL, "zpcut", "Outputs a ZoomPlayer cutlist");
-    struct arg_lit*		cl_output_zp_chapter	= arg_lit0(NULL, "zpchapter", "Outputs a ZoomPlayer chapter file");
-    struct arg_lit*		cl_output_scf			= arg_lit0(NULL, "scf", "Outputs a simple chapter file for mkvmerge");
-    struct arg_lit*		cl_output_vredo			= arg_lit0(NULL, "videoredo", "Outputs a VideoRedo cutlist");
-    struct arg_lit*		cl_output_vredo3		= arg_lit0(NULL, "videoredo3", "Outputs a VideoRedo3 cutlist");
-    struct arg_lit*		cl_output_csv			= arg_lit0(NULL, "csvout", "Outputs a csv of the frame array");
-    struct arg_lit*		cl_output_training		= arg_lit0(NULL, "quality", "Outputs a csv of false detection segments");
-    struct arg_lit*		cl_output_plist	= arg_lit0(NULL, "plist", "Outputs a mac-style plist for addition to an EyeTV archive as the 'markers' property");
-    struct arg_int*		cl_detectmethod			= arg_intn("d", "detectmethod", NULL, 0, 1, "An integer sum of the detection methods to use");
+    struct arg_lit*		cl_playnice				= arg_lit0("n", "playnice", translator.text("option_0"));
+    struct arg_lit*		cl_output_zp_cutlist	= arg_lit0(NULL, "zpcut", translator.text("option_1"));
+    struct arg_lit*		cl_output_zp_chapter	= arg_lit0(NULL, "zpchapter", translator.text("option_2"));
+    struct arg_lit*		cl_output_scf			= arg_lit0(NULL, "scf", translator.text("option_3"));
+    struct arg_lit*		cl_output_vredo			= arg_lit0(NULL, "videoredo", translator.text("option_4"));
+    struct arg_lit*		cl_output_vredo3		= arg_lit0(NULL, "videoredo3", translator.text("option_5"));
+    struct arg_lit*		cl_output_csv			= arg_lit0(NULL, "csvout", translator.text("option_6"));
+    struct arg_lit*		cl_output_training		= arg_lit0(NULL, "quality", translator.text("option_7"));
+    struct arg_lit*		cl_output_plist	= arg_lit0(NULL, "plist", translator.text("option_8"));
+    struct arg_int*		cl_detectmethod			= arg_intn("d", "detectmethod", NULL, 0, 1, translator.text("option_9"));
 //	struct arg_int*		cl_pid					= arg_intn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
-    struct arg_str*		cl_pid					= arg_strn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
-    struct arg_int*		cl_dump					= arg_intn("u", "dump", NULL, 0, 1, "Dump the cutscene at this frame number");
-    struct arg_lit*		cl_ts					= arg_lit0("t", "ts", "The input file is a Transport Stream");
-    struct arg_lit*		cl_help					= arg_lit0("h", "help", "Display syntax");
-    struct arg_lit*		cl_show					= arg_lit0("s", "play", "Play the video");
-    struct arg_lit*		cl_timing				= arg_lit0(NULL, "timing", "Dump the timing into a file");
-    struct arg_lit*		cl_debugwindow			= arg_lit0("w", "debugwindow", "Show debug window");
-    struct arg_lit*		cl_quiet				= arg_lit0("q", "quiet", "Not output logging to the console window");
-    struct arg_lit*		cl_demux				= arg_lit0("m", "demux", "Demux the input into elementary streams");
-    struct arg_lit*		cl_hwassist				= arg_lit0(NULL, "hwassist", "Activate Hardware Assisted video decoding");
-    struct arg_lit*		cl_use_cuvid			= arg_lit0(NULL, "cuvid", "Use NVIDIA Video Decoder (CUVID), if available");
-    struct arg_lit*		cl_use_vdpau			= arg_lit0(NULL, "vdpau", "Use NVIDIA Video Decode and Presentation API (VDPAU), if available");
-    struct arg_lit*		cl_use_dxva2			= arg_lit0(NULL, "dxva2", "Use DXVA2 Video Decode and Presentation API (DXVA2), if available");
-    struct arg_lit*		cl_use_qsv				= arg_lit0(NULL, "qsv", "Use Intel Quick Sync Video acceleration (QSV), if available");
-    struct arg_lit*		cl_list_decoders		= arg_lit0(NULL, "decoders", "List all decoders and exit");
-    struct arg_int*		cl_threads				= arg_int0(NULL, "threads", "<int>", "The number of threads to use");
-    struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
-    struct arg_file*	cl_ini					= arg_filen(NULL, "ini", NULL, 0, 1, "Ini file to use");
-    struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
-    struct arg_file*	cl_cut					= arg_filen(NULL, "cut", NULL, 0, 1, "CutScene file to use");
-    struct arg_file*	cl_work					= arg_filen(NULL, "output", NULL, 0, 1, "Folder to use for all output files");
-    struct arg_file*	cl_work_fname		= arg_filen(NULL, "output-filename", NULL, 0, 1, "Filename base to use for all output files");
-    struct arg_int*	cl_selftest					= arg_intn(NULL, "selftest", NULL, 0, 1, "Execute a selftest");
-    struct arg_file*	in						= arg_filen(NULL, NULL, NULL, 1, 1, "Input file");
-    struct arg_file*	out						= arg_filen(NULL, NULL, NULL, 0, 1, "Output folder for cutlist");
+    struct arg_str*		cl_pid					= arg_strn("p", "pid", NULL, 0, 1, translator.text("option_10"));
+    struct arg_int*		cl_dump					= arg_intn("u", "dump", NULL, 0, 1, translator.text("option_11"));
+    struct arg_lit*		cl_ts					= arg_lit0("t", "ts", translator.text("option_12"));
+    struct arg_lit*		cl_help					= arg_lit0("h", "help", translator.text("option_13"));
+    struct arg_lit*		cl_show					= arg_lit0("s", "play", translator.text("option_14"));
+    struct arg_lit*		cl_timing				= arg_lit0(NULL, "timing", translator.text("option_15"));
+    struct arg_lit*		cl_debugwindow			= arg_lit0("w", "debugwindow", translator.text("option_16"));
+    struct arg_lit*		cl_quiet				= arg_lit0("q", "quiet", translator.text("option_17"));
+    struct arg_lit*		cl_demux				= arg_lit0("m", "demux", translator.text("option_18"));
+    struct arg_lit*		cl_hwassist				= arg_lit0(NULL, "hwassist", translator.text("option_19"));
+    struct arg_lit*		cl_use_cuvid			= arg_lit0(NULL, "cuvid", translator.text("option_20"));
+    struct arg_lit*		cl_use_vdpau			= arg_lit0(NULL, "vdpau", translator.text("option_21"));
+    struct arg_lit*		cl_use_dxva2			= arg_lit0(NULL, "dxva2", translator.text("option_22"));
+    struct arg_lit*		cl_use_qsv				= arg_lit0(NULL, "qsv", translator.text("option_23"));
+    struct arg_lit*		cl_list_decoders		= arg_lit0(NULL, "decoders", translator.text("option_24"));
+    struct arg_int*		cl_threads				= arg_int0(NULL, "threads", "<int>", translator.text("option_25"));
+    struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, translator.text("option_26"));
+    struct arg_file*	cl_ini					= arg_filen(NULL, "ini", NULL, 0, 1, translator.text("option_27"));
+    struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, translator.text("option_28"));
+    struct arg_file*	cl_cut					= arg_filen(NULL, "cut", NULL, 0, 1, translator.text("option_29"));
+    struct arg_file*	cl_work					= arg_filen(NULL, "output", NULL, 0, 1, translator.text("option_30"));
+    struct arg_file*	cl_work_fname		= arg_filen(NULL, "output-filename", NULL, 0, 1, translator.text("option_31"));
+    struct arg_int*	cl_selftest					= arg_intn(NULL, "selftest", NULL, 0, 1, translator.text("option_32"));
+    struct arg_file*	in						= arg_filen(NULL, NULL, NULL, 1, 1, translator.text("option_33"));
+    struct arg_file*	out						= arg_filen(NULL, NULL, NULL, 0, 1, translator.text("option_34"));
     struct arg_end*		end						= arg_end(20);
+    struct arg_str* cl_language = arg_str0(NULL, "language", "<en|es>", translator.text("option_language"));
     void*				argtable[] =
     {
         cl_help,
+        cl_language,
         cl_debugwindow,
         cl_playnice,
         cl_output_zp_cutlist,
@@ -181,7 +190,7 @@ FILE* LoadSettings(int argc, char ** argv)
     int					nerrors;
 
     // Print out the command line parameters
-    printf("The commandline used was:\n");
+    fputs(translator.text("commandline"), stdout);
     for (i = 0; i < argc; i++)
     {
         if (strchr(argv[i], ' '))
@@ -241,38 +250,38 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     if (cl_help->count)
     {
-        printf("Usage:\n  comskip ");
+        fputs(translator.text("usage"), stdout);
         arg_print_syntaxv(stdout, argtable, "\n\n");
         arg_print_glossary(stdout, argtable, "  %-25s %s\n");
-        printf("\nDetection Methods\n");
-        printf("\t%3i - Black Frame\n", BLACK_FRAME);
-        printf("\t%3i - Logo\n", LOGO);
-        printf("\t%3i - Scene Change\n", SCENE_CHANGE);
-        printf("\t%3i - Resolution Change\n", RESOLUTION_CHANGE);
-        printf("\t%3i - Closed Captions\n", CC);
-        printf("\t%3i - Aspect Ratio\n", AR);
-        printf("\t%3i - Silence\n", SILENCE);
-        printf("\t%3i - CutScenes\n", CUTSCENE);
-        printf("\t255 - USE ALL AVAILABLE\n");
+        fputs(translator.text("methods"), stdout);
+        fputs(translator.format("method_black", BLACK_FRAME).c_str(), stdout);
+        fputs(translator.format("method_logo", LOGO).c_str(), stdout);
+        fputs(translator.format("method_scene", SCENE_CHANGE).c_str(), stdout);
+        fputs(translator.format("method_resolution", RESOLUTION_CHANGE).c_str(), stdout);
+        fputs(translator.format("method_captions", CC).c_str(), stdout);
+        fputs(translator.format("method_aspect", AR).c_str(), stdout);
+        fputs(translator.format("method_silence", SILENCE).c_str(), stdout);
+        fputs(translator.format("method_cutscenes", CUTSCENE).c_str(), stdout);
+        fputs(translator.text("all_methods"), stdout);
         exit(2);
     }
 
     if (nerrors)
     {
-        printf("Usage:\n  comskip ");
+        fputs(translator.text("usage"), stdout);
         arg_print_syntaxv(stdout, argtable, "\n\n");
         arg_print_glossary(stdout, argtable, "  %-25s %s\n");
-        printf("\nDetection methods available:\n");
-        printf("\t%3i - Black Frame\n", BLACK_FRAME);
-        printf("\t%3i - Logo\n", LOGO);
-        printf("\t%3i - Scene Change\n", SCENE_CHANGE);
-        printf("\t%3i - Resolution Change\n", RESOLUTION_CHANGE);
-        printf("\t%3i - Closed Captions\n", CC);
-        printf("\t%3i - Aspect Ratio\n", AR);
-        printf("\t%3i - Silence\n", SILENCE);
-        printf("\t%3i - CutScenes\n", CUTSCENE);
-        printf("\t255 - USE ALL AVAILABLE\n");
-        printf("\nErrors:\n");
+        fputs(translator.text("available_methods"), stdout);
+        fputs(translator.format("method_black", BLACK_FRAME).c_str(), stdout);
+        fputs(translator.format("method_logo", LOGO).c_str(), stdout);
+        fputs(translator.format("method_scene", SCENE_CHANGE).c_str(), stdout);
+        fputs(translator.format("method_resolution", RESOLUTION_CHANGE).c_str(), stdout);
+        fputs(translator.format("method_captions", CC).c_str(), stdout);
+        fputs(translator.format("method_aspect", AR).c_str(), stdout);
+        fputs(translator.format("method_silence", SILENCE).c_str(), stdout);
+        fputs(translator.format("method_cutscenes", CUTSCENE).c_str(), stdout);
+        fputs(translator.text("all_methods"), stdout);
+        fputs(translator.text("errors"), stdout);
         arg_print_errors(stdout, end, "ComSkip");
         exit(2);
     }
@@ -281,9 +290,9 @@ FILE* LoadSettings(int argc, char ** argv)
     {
         comskip::checked_format(mpegfilename, "%s", in->filename[0]);
         /*		in_file = myfopen(in->filename[0], "rb");
-        		printf("Opening %s\n", in->filename[0]);
+                fputs(translator.format("opening", in->filename[0]).c_str(), stdout);
         		if (!in_file) {
-        			fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
+                    fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
         			exit(3);
         		}
         */
@@ -292,7 +301,7 @@ FILE* LoadSettings(int argc, char ** argv)
         i = mystat(( char *)in->filename[0], &instat);
         if (i <0)
                {
-                   fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
+                   fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
                    exit(3);
 
                }
@@ -310,7 +319,7 @@ FILE* LoadSettings(int argc, char ** argv)
         test_file = mymyfopen(mpegfilename, "w");
         if (!test_file)
         {
-            fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
+            fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
             exit(3);
         }
 */
@@ -320,10 +329,10 @@ FILE* LoadSettings(int argc, char ** argv)
     {
         loadingCSV = true;
         in_file = myfopen(in->filename[0], "r");
-        printf("Opening %s array file.\n", in->filename[0]);
+        fputs(translator.format("array_open", in->filename[0]).c_str(), stdout);
         if (!in_file)
         {
-            fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
+            fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
             exit(4);
         }
 
@@ -384,10 +393,10 @@ FILE* LoadSettings(int argc, char ** argv)
         loadingTXT = true;
         output_default = false;
         in_file = myfopen(in->filename[0], "r");
-        printf("Opening %s for review\n", in->filename[0]);
+        fputs(translator.format("review_open", in->filename[0]).c_str(), stdout);
         if (!in_file)
         {
-            fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
+            fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
             exit(4);
         }
         fclose(in_file);
@@ -446,13 +455,13 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     else
     {
-        printf("The input file was not a Video file or comskip CSV or TXT file - %s.\n", in->extension[0]);
+        fputs(translator.format("unsupported_input", in->extension[0]).c_str(), stdout);
         exit(5);
     }
     if (cl_ini->count)
     {
         comskip::checked_format(inifilename, "%s", cl_ini->filename[0]);
-        printf("Setting ini file to %s as per commandline\n", inifilename);
+        fputs(translator.format("setting_ini", inifilename).c_str(), stdout);
     }
     ini_file = myfopen(inifilename, "r");
 
@@ -523,20 +532,20 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (cl_cut->count)
     {
-        printf("Loading cutfile %s as per commandline\n", cl_cut->filename[0]);
+        fputs(translator.format("loading_cut", cl_cut->filename[0]).c_str(), stdout);
         LoadCutScene(cl_cut->filename[0]);
     }
 
     if (cl_logo->count)
     {
         comskip::checked_format(logofilename, "%s", cl_logo->filename[0]);
-        printf("Setting logo file to %s as per commandline\n", logofilename);
+        fputs(translator.format("setting_logo", logofilename).c_str(), stdout);
     }
 
 
 
     //	if (!loadingTXT)
-    LoadIniFile();
+    LoadIniFile(translator);
 
 //	live_tv = true;
 
@@ -558,13 +567,13 @@ FILE* LoadSettings(int argc, char ** argv)
     if (cl_verbose->count)
     {
         verbose = cl_verbose->ival[0];
-        printf("Setting verbose level to %i as per command line.\n", verbose);
+        fputs(translator.format("setting_verbose", verbose).c_str(), stdout);
     }
 
     if (cl_selftest->count)
     {
         selftest = cl_selftest->ival[0];
-        printf("Setting selftest to %i as per command line.\n", selftest);
+        fputs(translator.format("setting_selftest", selftest).c_str(), stdout);
     }
 
     if (cl_debugwindow->count || loadingTXT)
@@ -605,24 +614,24 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     if (cl_use_cuvid->count)
     {
-        printf("Enabling use_cuvid\n");
+        fputs(translator.text("enable_cuvid"), stdout);
         use_cuvid = 1;
     }
     if (cl_use_vdpau->count)
     {
-        printf("Enabling use_vdpau\n");
+        fputs(translator.text("enable_vdpau"), stdout);
         use_vdpau = 1;
     }
 
     if (cl_use_dxva2->count)
     {
-        printf("Enabling use_dxva2\n");
+        fputs(translator.text("enable_dxva2"), stdout);
         use_dxva2 = 1;
     }
 
     if (cl_use_qsv->count)
     {
-        printf("Enabling use_qsv\n");
+        fputs(translator.text("enable_qsv"), stdout);
         use_qsv = 1;
     }
 
@@ -710,26 +719,26 @@ FILE* LoadSettings(int argc, char ** argv)
     if (cl_detectmethod->count)
     {
         commDetectMethod = cl_detectmethod->ival[0];
-        printf("Setting detection methods to %i as per command line.\n", commDetectMethod);
+        fputs(translator.format("setting_methods", commDetectMethod).c_str(), stdout);
     }
 
     if (cl_dump->count)
     {
         cutsceneno = cl_dump->ival[0];
-        printf("Setting dump frame number to %i as per command line.\n", cutsceneno);
+        fputs(translator.format("setting_dump", cutsceneno).c_str(), stdout);
     }
 
     if (cl_ts->count)
     {
         demux_pid = 1;
-        printf("Auto selecting the PID.\n");
+        fputs(translator.text("auto_pid"), stdout);
     }
 
     if (cl_pid->count)
     {
 //		demux_pid = cl_pid->ival[0];
         sscanf(cl_pid->sval[0],"%x", &demux_pid);
-        printf("Selecting PID %x as per command line.\n", demux_pid);
+        fputs(translator.format("setting_pid", std::format("{:x}", demux_pid)).c_str(), stdout);
     }
 
 
@@ -855,7 +864,7 @@ FILE* LoadSettings(int argc, char ** argv)
             out_file = myfopen(out_filename, "w");
             if (!out_file)
             {
-                fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+                fputs(translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
                 exit(6);
             }
             else
@@ -876,11 +885,11 @@ FILE* LoadSettings(int argc, char ** argv)
         frame_count = InputReffer(".txt", true);
         if (frame_count < 0)
         {
-            printf("Incompatible TXT file\n");
+            fputs(translator.text("incompatible_txt"), stdout);
             exit(2);
         }
         framearray = false;
-        printf("Close window or hit ESCAPE when done\n");
+        fputs(translator.text("close_window"), stdout);
         output_debugwindow = true;
         ReviewResult();
 //		in_file = NULL;

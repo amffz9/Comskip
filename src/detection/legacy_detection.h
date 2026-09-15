@@ -1,4 +1,5 @@
 #pragma once
+#include "translator.h"
 #include "scan_geometry.h"
 // Internal interfaces shared during the incremental detector migration.
 //
@@ -906,7 +907,7 @@ double				FindNumber(char* str1, const char* str2, double v);
 char*				intSecondsToStrMinutes(int seconds);
 char*				dblSecondsToStrMinutes(double seconds);
 char*				dblSecondsToStrMinutesFrames(double seconds);
-FILE*				LoadSettings(int argc, char ** argv);
+FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translator& translator);
 int					GetAvgBrightness(void);
 bool				CheckFrameIsBlack(void);
 void				BuildBlackFrameCommList(void);
@@ -1007,7 +1008,7 @@ extern int length_sorted;
 extern int min_val[10];
 extern int max_val[10];
 extern int delta_val[10];
-extern char TempXmlFilename[300];
+
 extern unsigned char MPEG2SysHdr[24];
 extern int own_histogram[4][256];
 extern int scan_step;
@@ -1043,7 +1044,7 @@ bool BuildMasterCommList(void);
 bool WithinDivisibleTolerance(double test_number, double divisor, double tolerance);
 void BuildPunish();
 void WeighBlocks(void);
-char *EscapeXmlFilename(char *f);
+
 void OpenOutputFiles();
 void OutputCommercialBlock(int i, long prev, long start, long end, bool last);
 char CompareLetter(int value, int average, int i);
@@ -1059,7 +1060,8 @@ char* intSecondsToStrMinutes(int seconds);
 char* dblSecondsToStrMinutes(double seconds);
 char* dblSecondsToStrMinutesFrames(double seconds);
 void LoadIniFile();
-FILE* LoadSettings(int argc, char ** argv);
+void LoadIniFile(const comskip::localization::Translator& translator);
+FILE* LoadSettings(int argc, char ** argv, const comskip::localization::Translator& translator);
 void ProcessARInfoInit(int minY, int maxY, int minX, int maxX);
 void ProcessARInfo(int minY, int maxY, int minX, int maxX);
 void ProcessACInfoInit(int audio_channels);
