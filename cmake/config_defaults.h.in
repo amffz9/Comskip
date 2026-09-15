@@ -1,0 +1,4 @@
+#pragma once
+namespace comskip::config {
+inline constexpr char default_ini[] = R"comskip_ini(@COMSKIP_DEFAULT_INI@)comskip_ini";
+}

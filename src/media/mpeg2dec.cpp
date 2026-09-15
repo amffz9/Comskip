@@ -381,7 +381,7 @@ extern double get_frame_pts(int f);
 
 static int max_volume_found = 0;
 
-int ms_audio_delay = 5;
+extern int ms_audio_delay;
 int tracks_without_sound = 0;
 int frames_without_sound = 0;
 #define MAX_FRAMES_WITHOUT_SOUND	100

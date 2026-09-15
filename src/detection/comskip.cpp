@@ -36,6 +36,10 @@ extern "C" {
 
 #include "comskip.h"
 #include "commercial_length.h"
+#include "settings.h"
+#include <string>
+#include <stdexcept>
+#include <sstream>
 
 
 // Define detection methods
@@ -196,7 +200,7 @@ int debug_cur_segment;
 frame_info*			frame = NULL;
 long				frame_count = 0;
 long				max_frame_count;
-double				fps = 1.0;						// frames per second (NTSC=29.970, PAL=25)
+						// frames per second (NTSC=29.970, PAL=25)
 
 double get_frame_pts(int f) {
     if (!frame) {
@@ -467,18 +471,18 @@ struct
 } ac_histogram[MAX_AUDIO_CHANNELS];
 int	dominant_ac;
 
-int                     thread_count = 2;
-int                     hardware_decode = 0;
+
+
 int                     use_cuvid = 0;
 int                     use_vdpau = 0;
 int                     use_dxva2 = 0;
 int                     use_qsv = 0;
-int						skip_B_frames = 0;
-int						lowres = 0;
-bool					live_tv = false;
-bool					output_incommercial = false;
-int						incommercial_frames = 1000;
-int						live_tv_retries = 6;
+
+
+
+
+
+
 int						dvrms_live_tv_retries = 300;
 int						standoff = 0;
 int						dvrmsstandoff = 120000;
@@ -551,172 +555,174 @@ char haslogo[MAXWIDTH*MAXHEIGHT];
 
 // variables defining options with defaults
 int					selftest = 0;
-int					verbose = 0;						// show extra info
+						// show extra info
 double              avg_fps = 22;
 
-int					border = 10;						// border around edge of video to ignore
-int					ticker_tape=0, ticker_tape_percentage=0;						// border from bottom to ignore
-int					top_ticker_tape=0, top_ticker_tape_percentage=0;						// border from bottom to ignore
-int					ignore_side=0;
-int					ignore_left_side=0;
-int					ignore_right_side=0;
-int					max_brightness = 60;				// frame not black if any pixels checked are greater than this (scale 0 to 255)
-int					maxbright = 1;
+						// border around edge of video to ignore
+
+						// border from bottom to ignore
+
+						// border from bottom to ignore
+
+
+
+				// frame not black if any pixels checked are greater than this (scale 0 to 255)
+
 int					min_hasBright = 255000;
 int					min_dimCount = 255000;
-int					test_brightness = 40;				// frame not pure black if any pixels are greater than this, will check average
-int					max_avg_brightness = 19;			// maximum average brightness for a dim frame to be considered black (scale 0 to
-int					max_volume = 500;
-int					max_silence = 100;
-int					min_silence = 12;
-int					punish_no_logo = true;
-int					validate_silence = true;
-int					validate_uniform = true;
-int					validate_scenechange = true;
-int                 remove_silent_segments = 0;
+				// frame not pure black if any pixels are greater than this, will check average
+			// maximum average brightness for a dim frame to be considered black (scale 0 to
+
+
+
+
+
+
+
+
 int					validate_ar = true;
 
-int					punish = 0;
-int					reward = 0;
+
+
 int					min_volume=0;
 int					min_uniform = 0;
-int					volume_slip = 40;
+
 extern int ms_audio_delay;
-int					max_repair_size = 40;
+
 //int					variable_bitrate = 1;
 
 extern int is_h264;
 ///brightness (scale 0 to 255)
-char				ini_text[40000];
+std::string ini_text;
 ///255)
-double				max_commercialbreak = 600;	// maximum length in seconds to consider a segment a commercial break
-double				min_commercialbreak = 20;	// minimum length in seconds to consider a segment a commercial break
-double				max_commercial_size = 120;	// maximum time in seconds for a single commercial
-double				min_commercial_size = 4;	// mimimum time in seconds for a single commercial
-double				min_show_segment_length = 120.0;
-bool				require_div5 = 0;					// set=1 to only mark breaks divisible by 5 as a commercial.
-double				div5_tolerance = -1;
+	// maximum length in seconds to consider a segment a commercial break
+	// minimum length in seconds to consider a segment a commercial break
+	// maximum time in seconds for a single commercial
+	// mimimum time in seconds for a single commercial
+
+					// set=1 to only mark breaks divisible by 5 as a commercial.
+
 bool				play_nice = false;
-double				global_threshold = 1.05;
-bool				intelligent_brightness = false;
-double				logo_threshold = 0.80;
-double				logo_percentage_threshold = 0.25;
-double				logo_max_percentage_of_screen = 0.12;
-int					logo_filter = 0;
-int					non_uniformity = 500;
-int					brightness_jump = 200;
-double				black_percentile = 0.0076;
-double				uniform_percentile = 0.003;
-double				score_percentile = 0.71;
-double				logo_percentile = 0.92;
-double				logo_fraction = 0.40;
-int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE + (PROCESS_CC ? CC : 0);
-int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
-int					delay_logo_search = 0;			// If no logo is identified after x seconds into the show - give up.
-int				cut_on_ar_change = 1;
-int				cut_on_ac_change = 1;
-int					added_recording = 14;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			// If no logo is identified after x seconds into the show - give up.
+			// If no logo is identified after x seconds into the show - give up.
+
+
+
 int					after_start = 0;
 int					before_end = 0;
-int					delete_show_after_last_commercial = false;
-int					delete_show_before_first_commercial = false;
-int					delete_block_after_commercial = 0;
-int					min_commercial_break_at_start_or_end = 39;
-int					always_keep_first_seconds = 0;
-int					always_keep_last_seconds = 0;
 
-bool				connect_blocks_with_logo = true;
-int					delete_show_before_or_after_current = false;
-bool				deleteLogoFile = true;
-bool				useExistingLogoFile = true;
-bool				startOverAfterLogoInfoAvail = true;
+
+
+
+
+
+
+
+
+
+
+
 int					doublCheckLogoCount = 0;
-bool				output_default = true;
-bool				output_chapters = false;
-bool				sage_framenumber_bug = false;
-bool				sage_minute_bug = false;
-bool				enable_mencoder_pts = false;
-bool				output_plist_cutlist = false;
-bool				output_zoomplayer_cutlist = false;
-bool				output_zoomplayer_chapter = false;
-bool				output_scf = false;
-bool				output_videoredo = false;
-bool				output_videoredo3 = false;
-bool				output_ipodchap = false;
-int					videoredo_offset = 2;
-int					edl_offset = 0;
-int                 timeline_repair = 1;
-int                 edl_skip_field = 0;
-bool				output_edl = false;
-bool				output_live = false;
-bool				output_edlp = false;
-bool				output_bsplayer = false;
-bool				output_edlx = false;
-bool				output_btv = false;
-bool				output_cuttermaran = false;
-bool				output_mpeg2schnitt = false;
-char				cuttermaran_options[1024];
-char				mpeg2schnitt_options[1024];
-char				avisynth_options[1024];
-char				dvrcut_options[1024];
-bool				output_demux = false;
-bool				output_data = false;
-bool				output_srt = false;
-bool				output_smi = false;
-bool				output_timing = false;
-bool				output_womble = false;
-bool				output_mls = false;
-bool				output_mpgtx = false;
-bool				output_dvrcut = false;
-bool				output_dvrmstb = false;
-bool				output_vdr = false;
-bool				output_vcf = false;
-bool				output_projectx = false;
-bool				output_avisynth = false;
-int 				output_mkvtoolnix = 0;
-bool				output_debugwindow = false;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool				output_console = true;
-int					disable_heuristics = 0;
-char                windowtitle[1024] = "Comskip - %s";
-bool				output_tuning = false;
-int				output_training = 0;
-bool				output_false = false;
-bool				output_aspect = false;
-bool				output_ffmeta = false;
-bool				output_ffsplit = false;
-int					noise_level=5;
+
+
+
+
+
+
+
+
+
 bool				framearray = true;
-bool				output_framearray = false;
+
 bool				only_strict = false;
-double				length_strict_modifier = 3.0;
-double				length_nonstrict_modifier = 1.5;
-double				combined_length_strict_modifier = 2.0;
-double				combined_length_nonstrict_modifier = 1.25;
-double				logo_present_modifier = 0.01;
-double				punish_modifier = 2.0;
-double				punish_threshold = 1.3;
-double				reward_modifier = 0.5;
-int					after_logo=0;
-int					before_logo=0;
-double				shrink_logo=5.0;
-int					shrink_logo_tail=0;
-int					where_logo=0;
-double				excessive_length_modifier = 0.01;
-double				dark_block_modifier = 0.3;
-int					padding = 0;
-int					remove_before = 0;
-int					remove_after = 0;
-double				min_schange_modifier = 0.5;
-double				max_schange_modifier = 2.0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 int					schange_threshold = 90;
 int					schange_cutlevel = 15;
-double				cc_commercial_type_modifier = 4.0;
-double				cc_wrong_type_modifier = 2.0;
-double				cc_correct_type_modifier = 0.75;
-double				ar_wrong_modifier = 2.0;
-double				ac_wrong_modifier = 1.0;
+
+
+
+
+
 double				ar_rounding = 100;
-double				ar_delta = 0.08;
+
 long				avg_brightness = 0;
 long				maxi_volume = 0;
 long				avg_volume = 0;
@@ -724,8 +730,8 @@ long				avg_silence = 0;
 long				avg_uniform = 0;
 double				avg_schange = 0.0;
 double				dictionary_modifier = 1.05;
-int				aggressive_logo_rejection = false;
-unsigned int		min_black_frames_for_break = 1;
+
+
 bool				detectBlackFrames;
 bool				detectSceneChanges;
 int             dummy1;
@@ -749,19 +755,19 @@ static long lastHistogram[256];
 void LoadCutScene(const char *filename);
 void RecordCutScene(int frame_count,int brightness);
 
-char cutscenefile[1024];
-char cutscenefile1[1024];
-char cutscenefile2[1024];
-char cutscenefile3[1024];
-char cutscenefile4[1024];
-char cutscenefile5[1024];
-char cutscenefile6[1024];
-char cutscenefile7[1024];
-char cutscenefile8[1024];
+
+
+
+
+
+
+
+
+
 
 int					cutscenematch;
-int					cutscenedelta = 10;
-int					cutsceneno = 0;
+
+
 
 int					cutscenes=0;
 unsigned char		cutscene[MAXCUTSCENES][MAXCSLENGTH];
@@ -778,7 +784,7 @@ bool				secondLogoSearch = false;
 bool				logoBuffersFull = false;
 int					logoTrendCounter = 0;
 double				logoFreq = 1.0;						// times fps between logo checks
-int					num_logo_buffers = 50;				// How many frames to compare at a time for logo detection;
+				// How many frames to compare at a time for logo detection;
 bool				lastLogoTest = false;
 // int					logoTrendStartFrame;
 int*				logoFrameNum = NULL;				// Keep track of the frame numbers of each buffer
@@ -798,14 +804,14 @@ unsigned char horiz_count[MAXHEIGHT*MAXWIDTH];
 unsigned char vert_count[MAXHEIGHT*MAXWIDTH];
 #endif
 double				borderIgnore = .05;					// Percentage of each side to ignore for logo detection
-int					subtitles = 0;
-int					logo_at_bottom = 0;
-int					logo_at_side = 0;
-int					edge_radius = 2;
+
+
+
+
 int					int_edge_radius = 2;
-int					edge_step = 1;
-int					edge_level_threshold = 5;
-int					edge_weight = 10;
+
+
+
 int					edge_count = 0;
 int					hedge_count = 0;
 int					vedge_count = 0;
@@ -831,9 +837,9 @@ unsigned char choriz_edgemask[MAXHEIGHT*MAXWIDTH];
 unsigned char cvert_edgemask[MAXHEIGHT*MAXWIDTH];
 
 
-int					play_nice_start = -1;
-int					play_nice_end = -1;
-long				play_nice_sleep = 2L;
+
+
+
 FILE *dump_data_file = (FILE *)NULL;
 uint8_t				ccData[500];
 int					ccDataLen;
@@ -853,7 +859,7 @@ int					maxX;								// The bottom of the picture for aspect ratio calculation
 bool				isSecondPass = false;
 long				lastFrame = 0;
 long				lastFrameCommCalculated = 0;
-bool				ccCheck = false;
+
 bool				loadingCSV = false;
 bool				loadingTXT = false;
 int					helpflag = 0;
@@ -929,8 +935,6 @@ int					InputReffer(const char *ext, int setfps);
 bool				IsStandardCommercialLength(double length, double tolerance, bool strict);
 bool				LengthWithinTolerance(double test_length, double expected_length, double tolerance);
 double				FindNumber(char* str1, const char* str2, double v);
-char *				FindString(char* str1, const char* str2, const char *v);
-void				AddIniString( const char *s);
 char*				intSecondsToStrMinutes(int seconds);
 char*				dblSecondsToStrMinutes(double seconds);
 char*				dblSecondsToStrMinutesFrames(double seconds);
@@ -8220,142 +8224,21 @@ bool IsStandardCommercialLength(double length, double tolerance, bool strict)
     return true;
 }
 
-double FindNumber(char* str1, const char* str2, double v)
+double FindNumber(char* data, const char* key, double fallback)
 {
-    char  tmp[255];
-    bool negative=false;
-    int i;
-    double res = -1;
-    if (str1 == 0)
-    {
-        return (-1);
+    try {
+        std::string name(key);
+        if (name.ends_with('=')) name.pop_back();
+        std::istringstream input(data ? data : "");
+        std::string line, metadata;
+        while (std::getline(input, line))
+            if (line.find('=') != std::string::npos) metadata += line + "\n";
+        comskip::config::Ini ini(metadata);
+        return ini.find(name) ? ini.number<double>(name) : fallback;
+    } catch (const std::exception& error) {
+        Debug(0, "Invalid logo metadata: %s\n", error.what());
+        return fallback;
     }
-
-    if ((str1 = strstr(str1, str2)))
-    {
-        str1 += strlen(str2);
-        while (isspace(*str1))
-        {
-            str1++;
-        }
-        if (*str1 == '-')
-        {
-            str1++;
-            negative = true;
-        }
-        res = (negative?-atof(str1):atof(str1));
-        sprintf(tmp, "%s%0f\n", str2, res);
-    }
-    else
-    {
-        sprintf(tmp, "%s%0f\n", str2, v);
-    }
-    i = strlen(tmp);
-    while (i >= 2 && tmp[i-2] == '0')
-    {
-        tmp[i - 1] = 0;
-        tmp[(i--) - 2] = '\n';
-    }
-    if (i >= 2 && tmp[i-2] == '.')
-    {
-        tmp[i - 1] = 0;
-        tmp[(i--) - 2] = '\n';
-    }
-    AddIniString(tmp);
-    return (res);
-}
-
-char * FindString(char* str1, const char* str2, const char *v)
-{
-    static char foundText[1024];
-    char  tmp[255];
-    char *t;
-    int found = 0;
-    if (str1 == 0)
-    {
-        return (0);
-    }
-
-    if ((str1 = strstr(str1, str2)))
-    {
-        str1 += strlen(str2);
-        while (isspace(*str1))
-        {
-            str1++;
-        }
-
-        if (*str1 == '"')
-        {
-            t = foundText;
-            str1++;
-            while (*str1 != '"' && *str1 != 0 && *str1 != 10)
-            {
-                if (*str1 == '\\')
-                {
-                    str1++;
-                    if (*str1 == 'n')
-                        *str1 = '\n';
-
-                }
-                *t++ = *str1++;
-
-            }
-            *t++ = 0;
-            v = foundText;
-            found = 1;
-            sprintf(tmp, "%s\"%s\"\n", str2, foundText);
-//			strcat(ini_text, tmp);
-//			return(foundText);
-        }
-        else
-            Debug(1, "String parameter for %s must be enclosed in double quotes\n", str2);
-
-    }
-    else
-        return(0);
-
-    t = tmp;
-    while (*str2)
-        *t++ = *str2++;
-    *t++ = '"';
-    while (*v)
-    {
-        switch(*v)
-        {
-        case '"':
-        case '\\':
-            *(t++) = '\\';
-            *t++ = *v++;
-            break;
-        case '\n':
-            *t++ = '\\';
-            *t++ = 'n';
-            v++;
-            break;
-        case '\t':
-            *t++ = '\\';
-            *t++ = 't';
-            v++;
-            break;
-        default:
-            *(t++) = *v++;
-        }
-    }
-    *t++ = '"';
-    *t++ = '\n';
-    *t++ = 0;
-//	sprintf(tmp, "%s\"%s\"\n", str2, v);
-    AddIniString(tmp);
-    if (found)
-        return(foundText);
-    else
-        return (0);
-}
-
-void AddIniString( const char *s)
-{
-    strcat(ini_text, s);
-//	printf("ini = %d\n", strlen(ini_text));
 }
 
 char* intSecondsToStrMinutes(int seconds)
@@ -8397,288 +8280,33 @@ char* dblSecondsToStrMinutesFrames(double seconds)
 
 void LoadIniFile()
 {
-//	FILE*				ini_file = NULL;
-    char				data[60000];
-    char*				ts;
-    size_t				len = 0;
-    double				tmp;
-    ini_text[0] = 0;
-    //	ini_file = myfopen(inifilename, "r");
-    if (!ini_file)
-    {
-        printf("No INI file found in current directory.  Searching PATH...\n");
+    if (!ini_file) {
         FindIniFile();
-        if (*inifilename != '\0')
-        {
-            printf("INI file found at %s\n", inifilename);
-            ini_file = myfopen(inifilename, "r");
+        if (*inifilename) ini_file = myfopen(inifilename, "r");
+    }
+    try {
+        ini_text = comskip::config::defaults().serialize();
+        if (ini_file) {
+            std::string data;
+            char buffer[4096];
+            std::size_t count;
+            while ((count = fread(buffer, 1, sizeof buffer, ini_file)) != 0) data.append(buffer, count);
+            bool failed = ferror(ini_file) != 0;
+            fclose(ini_file);
+            ini_file = nullptr;
+            if (failed) throw std::runtime_error("Could not read INI file");
+            comskip::config::Ini ini(data);
+            comskip::config::apply_settings(ini);
+            ini_text += ini.serialize();
+            printf("Using %s for settings.\n", inifilename);
         }
-        else
-        {
-            printf("No INI file found in PATH...\n");
-        }
+        for (const char* file : {cutscenefile1, cutscenefile2, cutscenefile3, cutscenefile4,
+                                 cutscenefile5, cutscenefile6, cutscenefile7, cutscenefile8})
+            if (*file) LoadCutScene(file);
+    } catch (const std::exception& error) {
+        fprintf(stderr, "Invalid configuration: %s\n", error.what());
+        exit(1);
     }
-
-    if (ini_file)
-    {
-        printf("Using %s for initiation values.\n", inifilename);
-        len = fread(data, 1, 59999, ini_file);
-        fclose(ini_file);
-        data[len] = '\0';
-        ini_text[0] = 0;
-        AddIniString("[Main Settings]\n");
-        AddIniString(";the sum of the values for which kind of frames comskip will consider as possible cutpoints: 1=uniform (black or any other color) frame, 2=logo, 4=scene change, 8=resolution change, 16=closed captions, 32=aspect ration, 64=silence, 255=all.\n");
-        if ((tmp = FindNumber(data, "detect_method=", (double) commDetectMethod)) > -1) commDetectMethod = (int)tmp;
-        AddIniString(";Set to 10 to show a lot of extra info, level 5 is also OK, set to 0 to disable\n");
-        if ((tmp = FindNumber(data, "verbose=", (double) verbose)) > -1) verbose = (int)tmp;
-        AddIniString(";Frame not black if any of the pixels of the frame has a brightness greater than this (scale 0 to 255)\n");
-        if ((tmp = FindNumber(data, "max_brightness=", (double) max_brightness)) > -1) max_brightness = (int)tmp;
-        if ((tmp = FindNumber(data, "maxbright=", (double) maxbright)) > -1) maxbright = (int)tmp;
-        AddIniString(";Frame not pure black if a small number of the pixels of the frame has a brightness greater than this. To decide if the frame is truly black, comskip will also check average brightness (scale 0 to 255)\n");
-        if ((tmp = FindNumber(data, "test_brightness=", (double) test_brightness)) > -1) test_brightness = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "max_avg_brightness=", (double) max_avg_brightness)) > -1) max_avg_brightness = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "max_commercialbreak=", (double) max_commercialbreak)) > -1) max_commercialbreak = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "min_commercialbreak=", (double) min_commercialbreak)) > -1) min_commercialbreak = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "max_commercial_size=", (double) max_commercial_size)) > -1) max_commercial_size = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "min_commercial_size=", (double) min_commercial_size)) > -1) min_commercial_size = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "min_show_segment_length=", (double) min_show_segment_length)) > -1) min_show_segment_length = (double)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "max_volume=", (double) max_volume)) > -1) max_volume = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "max_silence=", (double) max_silence)) > -1) max_silence = (int)tmp;
-        AddIniString(";\n");
-        if ((tmp = FindNumber(data, "non_uniformity=", (double) non_uniformity)) > -1) non_uniformity = (int)tmp;
-        AddIniString("[Detailed Settings]\n");
-        if ((tmp = FindNumber(data, "min_silence=", (double) min_silence)) > -1) min_silence = (int)tmp;
-        if ((tmp = FindNumber(data, "remove_silent_segments=", (double) remove_silent_segments)) > -1) remove_silent_segments = (int)tmp;
-        if ((tmp = FindNumber(data, "noise_level=", (double) noise_level)) > -1) noise_level = (int)tmp;
-        if ((tmp = FindNumber(data, "brightness_jump=", (double) brightness_jump)) > -1) brightness_jump = (bool) tmp;
-        if ((tmp = FindNumber(data, "fps=", (double) fps)) > -1) fps = tmp;
-        if ((tmp = FindNumber(data, "validate_silence=", (double) validate_silence)) > -1) validate_silence = (int)tmp;
-        if ((tmp = FindNumber(data, "validate_uniform=", (double) validate_uniform)) > -1) validate_uniform = (int)tmp;
-        if ((tmp = FindNumber(data, "validate_scenechange=", (double) validate_scenechange)) > -1) validate_scenechange = (int)tmp;
-        if ((tmp = FindNumber(data, "global_threshold=", (double) global_threshold)) > -1) global_threshold = (double)tmp;
-        if ((tmp = FindNumber(data, "disable_heuristics=", (double) disable_heuristics)) > -1) disable_heuristics = (int)tmp;
-        if ((tmp = FindNumber(data, "cut_on_ac_change=", (double) cut_on_ac_change)) > -1) cut_on_ac_change = (int)tmp;
-        AddIniString("[CPU Load Reduction]\n");
-        if ((tmp = FindNumber(data, "thread_count=", (double) thread_count)) > -1) thread_count = (int)tmp;
-        if (!hardware_decode)
-            if ((tmp = FindNumber(data, "hardware_decode=", (double) hardware_decode)) > -1) hardware_decode = (int)tmp;
-
-        if ((tmp = FindNumber(data, "play_nice_start=", (double) play_nice_start)) > -1) play_nice_start = (int)tmp;
-        if ((tmp = FindNumber(data, "play_nice_end=", (double) play_nice_end)) > -1) play_nice_end = (int)tmp;
-        if ((tmp = FindNumber(data, "play_nice_sleep=", (double) play_nice_sleep)) > -1) play_nice_sleep = (long)tmp;
-        AddIniString("[Input Correction]\n");
-        if ((tmp = FindNumber(data, "max_repair_size=", (double) max_repair_size)) > -1) max_repair_size = (int)tmp;
-        if ((tmp = FindNumber(data, "ms_audio_delay=", (double) ms_audio_delay)) > -1) ms_audio_delay = -(int)tmp;
-        if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int)tmp;
- //       if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
-        if ((tmp = FindNumber(data, "lowres=", (double) lowres)) > -1) lowres = (int)tmp;
-#ifdef DONATOR
-        if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
-//		if (skip_B_frames != 0 && max_repair_size == 0) max_repair_size = 40;
-#else
-
-#ifdef _DEBUG
-        if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
-        if (skip_B_frames != 0 && max_repair_size == 0) max_repair_size = 40;
-#endif
-#endif
-
-        AddIniString("[Aspect Ratio]\n");
-        if ((tmp = FindNumber(data, "ar_delta=", (double) ar_delta)) > -1) ar_delta = (double)tmp;
-        if ((tmp = FindNumber(data, "cut_on_ar_change=", (double) cut_on_ar_change)) > -1) cut_on_ar_change = (int)tmp;
-        AddIniString("[Global Removes]\n");
-        if ((tmp = FindNumber(data, "padding=", (double) padding)) > -1) padding = (int)tmp;
-        if ((tmp = FindNumber(data, "remove_before=", (double) remove_before)) > -1) remove_before = (int)tmp;
-        if ((tmp = FindNumber(data, "remove_after=", (double) remove_after)) > -1) remove_after = (int)tmp;
-        if ((tmp = FindNumber(data, "added_recording=", (double) added_recording)) > -1) added_recording = (int)tmp;
-        if ((tmp = FindNumber(data, "delete_show_after_last_commercial=", (double) delete_show_after_last_commercial)) > -1) delete_show_after_last_commercial = (int)tmp;
-        if ((tmp = FindNumber(data, "delete_show_before_first_commercial=", (double) delete_show_before_first_commercial)) > -1) delete_show_before_first_commercial = (int)tmp;
-        if ((tmp = FindNumber(data, "delete_show_before_or_after_current=", (double) delete_show_before_or_after_current)) > -1) delete_show_before_or_after_current = (int)tmp;
-        if ((tmp = FindNumber(data, "delete_block_after_commercial=", (double) delete_block_after_commercial)) > -1) delete_block_after_commercial = (int)tmp;
-        if ((tmp = FindNumber(data, "min_commercial_break_at_start_or_end=", (double) min_commercial_break_at_start_or_end)) > -1) min_commercial_break_at_start_or_end = (int)tmp;
-        if ((tmp = FindNumber(data, "always_keep_first_seconds=", (double) always_keep_first_seconds)) > -1) always_keep_first_seconds = (int)tmp;
-        if ((tmp = FindNumber(data, "always_keep_last_seconds=", (double) always_keep_last_seconds)) > -1) always_keep_last_seconds = (int)tmp;
-        AddIniString("[USA Specific]\n");
-        if ((tmp = FindNumber(data, "intelligent_brightness=", (double) intelligent_brightness)) > -1) intelligent_brightness = (bool) tmp;
-        if ((tmp = FindNumber(data, "black_percentile=", (double) black_percentile)) > -1) black_percentile = (double)tmp;
-        if ((tmp = FindNumber(data, "uniform_percentile=", (double) uniform_percentile)) > -1) uniform_percentile = (double)tmp;
-        if ((tmp = FindNumber(data, "score_percentile=", (double) score_percentile)) > -1) score_percentile = (double)tmp;
-        AddIniString("[Main Scoring]\n");
-        if ((tmp = FindNumber(data, "length_strict_modifier=", (double) length_strict_modifier)) > -1) length_strict_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "length_nonstrict_modifier=", (double) length_nonstrict_modifier)) > -1) length_nonstrict_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "combined_length_strict_modifier=", (double) combined_length_strict_modifier)) > -1) combined_length_strict_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "combined_length_nonstrict_modifier=", (double) combined_length_nonstrict_modifier)) > -1) combined_length_nonstrict_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "ar_wrong_modifier=", (double) ar_wrong_modifier)) > -1) ar_wrong_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "ac_wrong_modifier=", (double) ac_wrong_modifier)) > -1) ac_wrong_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "excessive_length_modifier=", (double) excessive_length_modifier)) > -1) excessive_length_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "dark_block_modifier=", (double) dark_block_modifier)) > -1) dark_block_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "min_schange_modifier=", (double) min_schange_modifier)) > -1) min_schange_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "max_schange_modifier=", (double) max_schange_modifier)) > -1) max_schange_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "logo_present_modifier=", (double) logo_present_modifier)) > -1) logo_present_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "punish_no_logo=", (double) punish_no_logo)) > -1) punish_no_logo = (int)tmp;
-
-        AddIniString("[Detailed Scoring]\n");
-        if ((tmp = FindNumber(data, "punish=", (double) punish)) > -1) punish = (int)tmp;
-        if ((tmp = FindNumber(data, "reward=", (double) reward)) > -1) reward = (int)tmp;
-        if ((tmp = FindNumber(data, "punish_threshold=", (double) punish_threshold)) > -1) punish_threshold = (double)tmp;
-        if ((tmp = FindNumber(data, "punish_modifier=", (double) punish_modifier)) > -1) punish_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "reward_modifier=", (double) reward_modifier)) > -1) reward_modifier = (double)tmp;
-        AddIniString("[Logo Finding]\n");
-        if ((tmp = FindNumber(data, "border=", (double) border)) > -1) border = (int)tmp;
-        if ((tmp = FindNumber(data, "give_up_logo_search=", (double) giveUpOnLogoSearch)) > -1) giveUpOnLogoSearch = (int)tmp;
-        if ((tmp = FindNumber(data, "delay_logo_search=", (double) delay_logo_search)) > -1) delay_logo_search = (int)tmp;
-        if ((tmp = FindNumber(data, "logo_max_percentage_of_screen=", (double) logo_max_percentage_of_screen)) > -1) logo_max_percentage_of_screen = (double)tmp;
-        if ((tmp = FindNumber(data, "ticker_tape=", (double) ticker_tape)) > -1) ticker_tape = (int)tmp;
-        if ((tmp = FindNumber(data, "ticker_tape_percentage=", (double) ticker_tape_percentage)) > -1) ticker_tape_percentage = (int)tmp;
-        if ((tmp = FindNumber(data, "top_ticker_tape=", (double) top_ticker_tape)) > -1) top_ticker_tape = (int)tmp;
-        if ((tmp = FindNumber(data, "top_ticker_tape_percentage=", (double) top_ticker_tape_percentage)) > -1) top_ticker_tape_percentage = (int)tmp;
-        if ((tmp = FindNumber(data, "ignore_side=", (double) ignore_side)) > -1) ignore_side = (int)tmp;
-        if ((tmp = FindNumber(data, "ignore_left_side=", (double) ignore_left_side)) > -1) ignore_left_side = (int)tmp;
-        if ((tmp = FindNumber(data, "ignore_right_side=", (double) ignore_right_side)) > -1) ignore_right_side = (int)tmp;
-        if ((tmp = FindNumber(data, "subtitles=", (double) subtitles)) > -1) subtitles = (int)tmp;
-        if ((tmp = FindNumber(data, "logo_at_bottom=", (double) logo_at_bottom)) > -1) logo_at_bottom = (int)tmp;
-        if ((tmp = FindNumber(data, "logo_at_side=", (double) logo_at_side)) > -1) logo_at_side = (int)tmp;
-        if ((tmp = FindNumber(data, "logo_threshold=", (double) logo_threshold)) > -1) logo_threshold = (double)tmp;
-        if ((tmp = FindNumber(data, "logo_percentage_threshold=", (double) logo_percentage_threshold)) > -1) logo_percentage_threshold = (double)tmp;
-        if ((tmp = FindNumber(data, "logo_filter=", (double) logo_filter)) > -1) logo_filter = (int)tmp;
-        if ((tmp = FindNumber(data, "aggressive_logo_rejection=", (double) aggressive_logo_rejection)) > -1) aggressive_logo_rejection = (bool)tmp;
-        if ((tmp = FindNumber(data, "edge_level_threshold=", (double) edge_level_threshold)) > -1) edge_level_threshold = (int)tmp;
-        if ((tmp = FindNumber(data, "edge_radius=", (double) edge_radius)) > -1) edge_radius = (int)tmp;
-        if ((tmp = FindNumber(data, "edge_weight=", (double) edge_weight)) > -1) edge_weight = (int)tmp;
-        if ((tmp = FindNumber(data, "edge_step=", (double) edge_step)) > -1) edge_step = (int)tmp;
-        //if (edge_step<1) edge_step=1;
-        if ((tmp = FindNumber(data, "num_logo_buffers=", (double) num_logo_buffers)) > -1) num_logo_buffers = (int)tmp;
-        if ((tmp = FindNumber(data, "use_existing_logo_file=", (double) useExistingLogoFile)) > -1) useExistingLogoFile = (int)tmp;
-        if ((tmp = FindNumber(data, "two_pass_logo=", (double) startOverAfterLogoInfoAvail)) > -1) startOverAfterLogoInfoAvail = (bool) tmp;
-        AddIniString("[Logo Interpretation]\n");
-        if ((tmp = FindNumber(data, "connect_blocks_with_logo=", (double) connect_blocks_with_logo)) > -1) connect_blocks_with_logo = (int)tmp;
-        if ((tmp = FindNumber(data, "logo_percentile=", (double) logo_percentile)) > -1) logo_percentile = (double)tmp;
-        if ((tmp = FindNumber(data, "logo_fraction=", (double) logo_fraction)) > -1) logo_fraction = (double)tmp;
-        if ((tmp = FindNumber(data, "shrink_logo=", (double) shrink_logo)) > -1) shrink_logo = (double)tmp;
-        if ((tmp = FindNumber(data, "shrink_logo_tail=", (double) shrink_logo_tail)) > -1) shrink_logo_tail = (int)tmp;
-        if ((tmp = FindNumber(data, "before_logo=", (double) before_logo)) > -1) before_logo = (int)tmp;
-        if ((tmp = FindNumber(data, "after_logo=", (double) after_logo)) > -1) after_logo = (int)tmp;
-        if ((tmp = FindNumber(data, "where_logo=", (double) where_logo)) > -1) where_logo = (int)tmp;
-        if ((tmp = FindNumber(data, "min_black_frames_for_break=", (double) min_black_frames_for_break)) > -1) min_black_frames_for_break = (unsigned int)tmp;
-
-        AddIniString("[Closed Captioning]\n");
-        if ((tmp = FindNumber(data, "ccCheck=", (double) ccCheck)) > -1) ccCheck = (bool)tmp;
-        if ((tmp = FindNumber(data, "cc_commercial_type_modifier=", (double) cc_commercial_type_modifier)) > -1) cc_commercial_type_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "cc_wrong_type_modifier=", (double) cc_wrong_type_modifier)) > -1) cc_wrong_type_modifier = (double)tmp;
-        if ((tmp = FindNumber(data, "cc_correct_type_modifier=", (double) cc_correct_type_modifier)) > -1) cc_correct_type_modifier = (double)tmp;
-        AddIniString("[Live TV]\n");
-        if ((tmp = FindNumber(data, "live_tv=", (double) live_tv)) > -1) live_tv = (bool) tmp;
-/*        if ((tmp = FindNumber(data, "standoff_retries=", (double) standoff_retries)) > -1) standoff_retries = (int) tmp;
-        if ((tmp = FindNumber(data, "standoff_time=", (double) standoff_time)) > -1) standoff_time = (int) tmp;
-        if ((tmp = FindNumber(data, "standoff_size=", (double) standoff_size)) > -1) standoff_size = (int) tmp * 1000;
-        if ((tmp = FindNumber(data, "standoff_initial_size=", (double) standoff_initial_size)) > -1) standoff_initial_size = (int) tmp * 1000;
-        if ((tmp = FindNumber(data, "standoff_initial_wait=", (double) standoff_initial_wait)) > -1) standoff_initial_wait = (int) tmp;
-*/
-        if ((tmp = FindNumber(data, "live_tv_retries=", (double) live_tv_retries)) > -1) live_tv_retries = (int) tmp;
-//        if ((tmp = FindNumber(data, "dvrms_live_tv_retries=", (double) dvrms_live_tv_retries)) > -1) dvrms_live_tv_retries = (int) tmp;
-//        if ((tmp = FindNumber(data, "standoff=", (double) standoff)) > -1) standoff = (int) tmp;
-//        if ((tmp = FindNumber(data, "dvrmsstandoff=", (double) dvrmsstandoff)) > -1) dvrmsstandoff = (int) tmp;
-//        set_standoff(live_tv_retries, standoff, live_tv);
-        if ((tmp = FindNumber(data, "require_div5=", (double) require_div5)) > -1) require_div5 = (bool) tmp;
-        if ((tmp = FindNumber(data, "div5_tolerance=", (double) div5_tolerance)) > -1) div5_tolerance = tmp;
-        if ((tmp = FindNumber(data, "incommercial_frames=", (double) incommercial_frames)) > -1) incommercial_frames = (int) tmp;
-
-
-
-        AddIniString("[Output Control]\n");
-        if ((tmp = FindNumber(data, "output_default=", (double) output_default)) > -1) output_default = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_chapters=", (double) output_chapters)) > -1) output_chapters = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_plist_cutlist=", (double) output_plist_cutlist)) > -1) output_plist_cutlist = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_zoomplayer_cutlist=", (double) output_zoomplayer_cutlist)) > -1) output_zoomplayer_cutlist = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_zoomplayer_chapter=", (double) output_zoomplayer_chapter)) > -1) output_zoomplayer_chapter = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_scf=", (double) output_scf)) > -1) output_scf = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_vcf=", (double) output_vcf)) > -1) output_vcf = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_vdr=", (double) output_vdr)) > -1) output_vdr = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_projectx=", (double) output_projectx)) > -1) output_projectx = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_avisynth=", (double) output_avisynth)) > -1) output_avisynth = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_videoredo=", (double) output_videoredo)) > -1) output_videoredo = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_videoredo3=", (double) output_videoredo3)) > -1)  { if (tmp) { output_videoredo3 = (bool) tmp; } ; if (output_videoredo3) output_videoredo = false; }
-        if ((tmp = FindNumber(data, "videoredo_offset=", (double) videoredo_offset)) != -1) videoredo_offset = (int) tmp;
-        if ((tmp = FindNumber(data, "output_btv=", (double) output_btv)) > -1) output_btv = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_edl=", (double) output_edl)) > -1) output_edl = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_live=", (double) output_live)) > -1) output_live = (bool) tmp;
-        if ((tmp = FindNumber(data, "edl_offset=", (double) edl_offset)) != -1) edl_offset = (int) tmp;
-        if ((tmp = FindNumber(data, "timeline_repair=", (double) timeline_repair)) != -1) timeline_repair = (int) tmp;
-        if ((tmp = FindNumber(data, "edl_skip_field=", (double) edl_skip_field)) != -1) edl_skip_field = (int) tmp;
-        if ((tmp = FindNumber(data, "output_edlp=", (double) output_edlp)) > -1) output_edlp = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_bsplayer=", (double) output_bsplayer)) > -1) output_bsplayer = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_edlx=", (double) output_edlx)) > -1) output_edlx = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_cuttermaran=", (double) output_cuttermaran)) > -1) output_cuttermaran = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_mpeg2schnitt=", (double) output_mpeg2schnitt)) > -1) output_mpeg2schnitt = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_womble=", (double) output_womble)) > -1) output_womble = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_mls=", (double) output_mls)) > -1) output_mls = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_mpgtx=", (double) output_mpgtx)) > -1) output_mpgtx = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_dvrmstb=", (double) output_dvrmstb)) > -1) output_dvrmstb = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_dvrcut=", (double) output_dvrcut)) > -1) output_dvrcut = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_ipodchap=", (double) output_ipodchap)) > -1) output_ipodchap = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_framearray=", (double) output_framearray)) > -1) output_framearray = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_debugwindow=", (double) output_debugwindow)) > -1) output_debugwindow = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_tuning=", (double) output_tuning)) > -1) output_tuning = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_training=", (double) output_training)) > -1) output_training = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_false=", (double) output_false)) > -1) output_false = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_aspect=", (double) output_aspect)) > -1) output_aspect = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_demux=", (double) output_demux)) > -1) output_demux = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_data=", (double) output_data)) > -1) output_data = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_srt=", (double) output_srt)) > -1) output_srt = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_smi=", (double) output_smi)) > -1) output_smi = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_timing=", (double) output_timing)) > -1) output_timing = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_incommercial=", (double) output_incommercial)) > -1) output_incommercial = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_ffmeta=", (double) output_ffmeta)) > -1) output_ffmeta = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_ffsplit=", (double) output_ffsplit)) > -1) output_ffsplit = (bool) tmp;
-        if ((tmp = FindNumber(data, "delete_logo_file=", (double) deleteLogoFile)) > -1) deleteLogoFile = (int)tmp;
-        if ((tmp = FindNumber(data, "output_mkvtoolnix=", (double) output_mkvtoolnix)) > -1) output_mkvtoolnix = (int) tmp;
-
-        if ((tmp = FindNumber(data, "cutscene_frame=", (double) cutsceneno)) > -1) cutsceneno = (int)tmp;
-        if ((ts = FindString(data, "cutscene_dumpfile=", "")) != 0) strcpy(cutscenefile,ts);
-
-        if ((tmp = FindNumber(data, "cutscene_threshold=", (double) cutscenedelta)) > -1) cutscenedelta = (int)tmp;
-        if ((ts = FindString(data, "cutscenefile1=", "")) != 0) strcpy(cutscenefile1,ts);
-        if (cutscenefile1[0]) LoadCutScene(cutscenefile1);
-        if ((ts = FindString(data, "cutscenefile2=", "")) != 0) strcpy(cutscenefile2,ts);
-        if (cutscenefile2[0]) LoadCutScene(cutscenefile2);
-        if ((ts = FindString(data, "cutscenefile3=", "")) != 0) strcpy(cutscenefile3,ts);
-        if (cutscenefile3[0]) LoadCutScene(cutscenefile3);
-        if ((ts = FindString(data, "cutscenefile4=", "")) != 0) strcpy(cutscenefile4,ts);
-        if (cutscenefile4[0]) LoadCutScene(cutscenefile4);
-        if ((ts = FindString(data, "cutscenefile5=", "")) != 0) strcpy(cutscenefile5,ts);
-        if (cutscenefile5[0]) LoadCutScene(cutscenefile5);
-        if ((ts = FindString(data, "cutscenefile6=", "")) != 0) strcpy(cutscenefile6,ts);
-        if (cutscenefile6[0]) LoadCutScene(cutscenefile6);
-        if ((ts = FindString(data, "cutscenefile7=", "")) != 0) strcpy(cutscenefile7,ts);
-        if (cutscenefile7[0]) LoadCutScene(cutscenefile7);
-        if ((ts = FindString(data, "cutscenefile8=", "")) != 0) strcpy(cutscenefile8,ts);
-        if (cutscenefile8[0]) LoadCutScene(cutscenefile8);
-
-
-        if ((ts = FindString(data, "windowtitle=", windowtitle)) != 0) strcpy(windowtitle,ts);
-        if ((ts = FindString(data, "cuttermaran_options=", cuttermaran_options)) != 0) strcpy(cuttermaran_options,ts);
-        if ((ts = FindString(data, "mpeg2schnitt_options=", mpeg2schnitt_options)) != 0) strcpy(mpeg2schnitt_options,ts);
-        if ((ts = FindString(data, "avisynth_options=", avisynth_options)) != 0) strcpy(avisynth_options,ts);
-        if ((ts = FindString(data, "dvrcut_options=", dvrcut_options)) != 0) strcpy(dvrcut_options,ts);
-        AddIniString("[Sage Workarounds]\n");
-        if ((tmp = FindNumber(data, "sage_framenumber_bug=", (double) sage_framenumber_bug)) > -1) sage_framenumber_bug = (bool) tmp;
-        if ((tmp = FindNumber(data, "sage_minute_bug=", (double) sage_minute_bug)) > -1) sage_minute_bug = (bool) tmp;
-        if ((tmp = FindNumber(data, "enable_mencoder_pts=", (double) enable_mencoder_pts)) > -1) enable_mencoder_pts = (bool) tmp;
-    }
-    else
-    {
-        printf("No INI file found anywhere!!!!\n");
-    }
-//    if (live_tv)
-//        output_incommercial = true;
     if (added_recording > 0 && giveUpOnLogoSearch < added_recording * 60)
         giveUpOnLogoSearch += added_recording * 60;
 }
@@ -9408,7 +9036,7 @@ FILE* LoadSettings(int argc, char ** argv)
     }
 
     Debug(10, "\nSettings\n--------\n");
-    Debug(10, "%s\n", ini_text);
+    Debug(10, "%s\n", ini_text.c_str());
     sprintf(out_filename, "%s.txt", outbasename);
 
 
