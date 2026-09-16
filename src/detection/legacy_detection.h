@@ -8,6 +8,7 @@ struct RecordingContext;
 #include "storage.h"
 #include "caption_observations.h"
 #include "cutlist_exports.h"
+#include "output/diagnostics.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -252,11 +253,9 @@ int					DetectCommercials(RecordingContext& context, int, double);
 bool				BuildMasterCommList(RecordingContext& context);
 void				WeighBlocks(RecordingContext& context);
 
-void        OutputAspect(RecordingContext& context);
 
 bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close);
 
-int					InputReffer(RecordingContext& context, const char *ext, int setfps);
 bool				IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
 bool				LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
 double				FindNumber(RecordingContext& context, char* str1, const char* str2, double v);
@@ -300,17 +299,6 @@ void				Debug(RecordingContext& context, int level, const char * fmt, ...);
 void				InitProcessLogoTest(RecordingContext& context);
 void				InitComSkip(RecordingContext& context);
 void				InitLogoBuffers(RecordingContext& context);
-void				FindIniFile(RecordingContext& context);
-double				FindScoreThreshold(RecordingContext& context, double percentile);
-void				OutputLogoHistogram(RecordingContext& context, int buckets);
-void				OutputbrightHistogram(RecordingContext& context);
-void				OutputuniformHistogram(RecordingContext& context);
-void				OutputHistogram(RecordingContext& context, int *histogram, int scale, char *title, bool truncate);
-int					FindBlackThreshold(RecordingContext& context, double percentile);
-int					FindUniformThreshold(RecordingContext& context, double percentile);
-void				OutputFrameArray(RecordingContext& context, bool screenOnly);
-void                OutputBlackArray(RecordingContext& context);
-void				OutputFrame(RecordingContext& context, int frame_number);
 
 void				PrintArgs(RecordingContext& context);
 void        close_dump(RecordingContext& context);
@@ -413,20 +401,6 @@ int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame);
 void Debug(RecordingContext& context, int level, const char * fmt, ...);
 void InitLogoBuffers(RecordingContext& context);
 void InitComSkip(RecordingContext& context);
-void FindIniFile(RecordingContext& context);
-double FindScoreThreshold(RecordingContext& context, double percentile);
-void OutputLogoHistogram(RecordingContext& context, int buckets);
-void OutputbrightHistogram(RecordingContext& context);
-void OutputuniformHistogram(RecordingContext& context);
-void OutputHistogram(RecordingContext& context, int *histogram, int scale, char *title, bool truncate);
-int FindBlackThreshold(RecordingContext& context, double percentile);
-int FindUniformThreshold(RecordingContext& context, double percentile);
-void OutputFrame(RecordingContext& context, int frame_number);
-int FindFrameWithPts(RecordingContext& context, double t);
-int InputReffer(RecordingContext& context, const char *extension, int setfps);
-void OutputAspect(RecordingContext& context);
-void OutputBlackArray(RecordingContext& context);
-void OutputFrameArray(RecordingContext& context, bool screenOnly);
 void PrintArgs(RecordingContext& context);
 
 
@@ -456,7 +430,3 @@ void close_data(RecordingContext& context);
 #include "recording_context.h"
 
 #endif // COMSKIP_LEGACY_DETECTION_H
-
-
-
-
