@@ -3,6 +3,7 @@
 #include "image_geometry.h"
 #include "logo_sampling.h"
 #include "logo_geometry.h"
+#include "logo_shrink.h"
 #include <stdexcept>
 
 namespace {
@@ -818,7 +819,8 @@ void InitProcessLogoTest(RecordingContext& context)
 
 bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close)
 {
-
+    const auto shrink = comskip::detection::logo_shrink(context.settings.shrink_logo,
+        context.settings.shrink_logo_tail, context.settings.fps);
 
 
     int i;
@@ -859,15 +861,20 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
         if (!curLogoTest)
         {
             // Logo disappeared
+            if (context.state.framearray && (framenum_real < 0 ||
+                static_cast<std::size_t>(framenum_real) > context.state.frame.size()))
+                throw std::out_of_range("Logo closure exceeds owned frame storage");
+            const auto closed = comskip::detection::close_logo_block(
+                context.state.logo_block[context.state.logo_block_count].start, framenum_real,
+                comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq),
+                context.state.frames_with_logo, shrink);
             context.state.lastLogoTest = false;
             context.state.logoTrendCounter = 0;
-            context.state.logo_block[context.state.logo_block_count].end = framenum_real - 1 * comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq);
-            if (context.state.logo_block[context.state.logo_block_count].end - context.state.logo_block[context.state.logo_block_count].start >
-                    2*(int)(context.settings.shrink_logo*context.settings.fps) + (context.settings.shrink_logo_tail*context.settings.fps) )
+            context.state.logo_block[context.state.logo_block_count].end = closed.end;
+            if (closed.retained)
             {
-                context.state.logo_block[context.state.logo_block_count].end -= (int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
-                context.state.logo_block[context.state.logo_block_count].start += (int)(context.settings.shrink_logo*context.settings.fps);
-                context.state.frames_with_logo -= 2 * comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) + 2*(int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
+                context.state.logo_block[context.state.logo_block_count].start = closed.start;
+                context.state.frames_with_logo = closed.frames_with_logo;
                 if (context.state.framearray)
                 {
                     i = context.state.logo_block[context.state.logo_block_count].end;
@@ -893,15 +900,21 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
         else
         {
             // real change or false change?
-            context.state.logoTrendCounter++;
-            if (context.state.logoTrendCounter == context.state.minHitsForTrend)
+            const int next_trend = comskip::detection::add_logo_frames(context.state.logoTrendCounter, 1);
+            if (next_trend == context.state.minHitsForTrend)
             {
+                const auto started = comskip::detection::start_logo_block(framenum_real,
+                    comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq),
+                    context.state.minHitsForTrend, context.state.frames_with_logo);
+                if (context.state.framearray && (framenum_real < 0 ||
+                    static_cast<std::size_t>(framenum_real) > context.state.frame.size()))
+                    throw std::out_of_range("Logo appearance exceeds owned frame storage");
+                InitializeLogoBlockArray(context, context.state.logo_block_count + 2);
                 context.state.lastLogoTest = true;
                 context.state.logoTrendCounter = 0;
-                InitializeLogoBlockArray(context, context.state.logo_block_count + 2);
                 context.state.logo_block[context.state.logo_block_count + 1].start = -1;
-                context.state.logo_block[context.state.logo_block_count].start = max(framenum_real - (comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) * (context.state.minHitsForTrend - 1)),0);
-                context.state.frames_with_logo +=(comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) * (context.state.minHitsForTrend - 1));
+                context.state.logo_block[context.state.logo_block_count].start = started.start;
+                context.state.frames_with_logo = started.frames_with_logo;
                 if (context.state.framearray)
                 {
                     for (i = context.state.logo_block[context.state.logo_block_count].start; i < framenum_real; i++)
@@ -926,8 +939,9 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                         context.state.logo_block[context.state.logo_block_count].start
                     );
                 }
-
             }
+            else
+                context.state.logoTrendCounter = next_trend;
         }
     }
     else

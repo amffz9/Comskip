@@ -1,4 +1,6 @@
+#include "../localization/diagnostic.h"
 #include "ini.h"
+#include "legacy_quoted_value.h"
 #include "config_defaults.h"
 #include <cctype>
 #include <SimpleIni.h>
@@ -8,44 +10,23 @@
 
 namespace comskip::config {
 namespace {
-std::string_view trim(std::string_view value) {
-    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front()))) value.remove_prefix(1);
-    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) value.remove_suffix(1);
-    return value;
-}
-// Comskip historically permits escaped quoted values. SimpleIni deliberately
-// leaves escapes untouched; keep this compatibility adapter separate from INI parsing.
 std::string decode_legacy_value(std::string_view value) {
-    value = trim(value);
-    if (value.empty() || value.front() != '"') return std::string(trim(value.substr(0, value.find_first_of(";#"))));
-    std::string result;
-    for (std::size_t i = 1; i < value.size(); ++i) {
-        char ch = value[i];
-        if (ch == '"') {
-            auto tail = trim(value.substr(i + 1));
-            if (!tail.empty() && tail.front() != ';' && tail.front() != '#')
-                throw std::invalid_argument("Unexpected text after quoted INI value");
-            return result;
-        }
-        if (ch == '\\') {
-            if (++i == value.size()) throw std::invalid_argument("Incomplete INI escape");
-            switch (value[i]) {
-            case 'n': ch = '\n'; break;
-            case 't': ch = '\t'; break;
-            case '\\': ch = '\\'; break;
-            case '"': ch = '"'; break;
-            default: result += '\\'; ch = value[i]; break;
-            }
-        }
-        result += ch;
+    auto result=detail::decode_legacy_ini_value(value);
+    if(result) return std::move(*result);
+    using diagnostics::Code;
+    Code code=Code::unterminated_quoted_ini_value;
+    switch(result.error()) {
+    case detail::QuotedValueIssue::unexpected_tail: code=Code::unexpected_text_after_quoted_ini_value; break;
+    case detail::QuotedValueIssue::incomplete_escape: code=Code::incomplete_ini_escape; break;
+    case detail::QuotedValueIssue::unterminated: break;
     }
-    throw std::invalid_argument("Unterminated quoted INI value");
+    throw diagnostics::DiagnosticError<std::invalid_argument>(code);
 }
 }
 Ini::Ini(std::string_view text) {
     CSimpleIniCaseA parser(true, true, false);
     if (parser.LoadData(text.data(), text.size()) < 0)
-        throw std::invalid_argument("Could not parse INI data");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::could_not_parse_ini_data);
     CSimpleIniCaseA::TNamesDepend sections;
     parser.GetAllSections(sections);
     std::vector<std::tuple<int, std::string, std::string>> entries;
@@ -77,10 +58,10 @@ std::string Ini::serialize() const {
         }
         quoted += '"';
         if (writer.SetValue("", key.c_str(), quoted.c_str()) < 0)
-            throw std::runtime_error("Could not serialize INI setting");
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::could_not_serialize_ini_setting);
     }
     std::string result;
-    if (writer.Save(result) < 0) throw std::runtime_error("Could not serialize INI settings");
+    if (writer.Save(result) < 0) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::could_not_serialize_ini_settings);
     return result;
 }
 const Ini& defaults() {

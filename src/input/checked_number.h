@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 #include <charconv>
 #include <cmath>
@@ -20,15 +21,15 @@ T parse_number(std::string_view value, std::string_view field) {
     if (!value.empty() && value.front() == '+') {
         value.remove_prefix(1);
         if (!value.empty() && (value.front() == '+' || value.front() == '-'))
-            throw std::invalid_argument("Invalid sign for " + std::string(field));
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_sign, {std::string(field)});
     }
-    if (value.empty()) throw std::invalid_argument("Missing number for " + std::string(field));
+    if (value.empty()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_number, {std::string(field)});
     T result{};
     const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
     if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size())
-        throw std::invalid_argument("Invalid number for " + std::string(field));
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_number, {std::string(field)});
     if constexpr (std::floating_point<T>)
-        if (!std::isfinite(result)) throw std::invalid_argument("Nonfinite number for " + std::string(field));
+        if (!std::isfinite(result)) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::nonfinite_number, {std::string(field)});
     return result;
 }
 }

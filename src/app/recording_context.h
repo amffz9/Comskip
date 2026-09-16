@@ -43,8 +43,6 @@ struct RecordingState {
     comskip::platform::FilePtr avisynth_file;
     comskip::platform::FilePtr videoredo_file;
     comskip::platform::FilePtr edl_file;
-    comskip::platform::FilePtr ffmeta_file;
-    comskip::platform::FilePtr ffsplit_file;
     comskip::platform::FilePtr live_file;
     comskip::platform::FilePtr ipodchap_file;
     comskip::platform::FilePtr edlp_file;

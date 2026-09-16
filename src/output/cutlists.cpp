@@ -3,6 +3,8 @@
 #include "cutlist_exports.h"
 #include "checked_format.h"
 #include "xml_output_adapter.h"
+#include "ffmpeg_sidecar_adapter.h"
+#include "csv_field.h"
 #include "edl.h"
 #include <sstream>
 #include <vector>
@@ -158,35 +160,6 @@ void OpenOutputFiles(RecordingContext& context)
         }
     }
 
-    if (context.settings.output_ffmeta)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".ffmeta";
-        context.state.ffmeta_file.reset(myfopen(context.state.filename.c_str(), "wb"));
-        if (!context.state.ffmeta_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_ffmeta = true;
-        }
-    }
-
-    if (context.settings.output_ffsplit)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".ffsplit";
-        context.state.ffsplit_file.reset(myfopen(context.state.filename.c_str(), "wb"));
-        if (!context.state.ffsplit_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_ffsplit = true;
-        }
-    }
 /*
     if (output_live)
     {
@@ -441,7 +414,7 @@ void OpenOutputFiles(RecordingContext& context)
         if (context.state.mpeg2schnitt_file.get())
         {
 //			fclose(mpeg2schnitt_file);
-            context.settings.output_mpgtx = true;
+            context.settings.output_mpeg2schnitt = true;
 // Mpeg2Schnitt.exe %1.m2v /R29.97 /o250 /i550 /o3210 /i4000 /S /E /Z %2.m2v
             if (context.settings.mpeg2schnitt_options.c_str()[0] == 0)
                 fprintf(context.state.mpeg2schnitt_file.get(), "mpeg2schnitt.exe /S /E /R%5.2f  /Z \"%s\" \"%s\" ", context.settings.fps, "%2", "%1");
@@ -534,28 +507,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     CLOSEOUTFILE(context.state.scf_file);
 
-    if (context.state.ffmeta_file.get()) {
-        if (prev != -1 && prev < start) {
-            fprintf(context.state.ffmeta_file.get(), "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(context, prev+1) * 100), (uint64_t)(get_frame_pts(context, start) * 100));
-        } else if (prev == -1 && start > 5) {
-            fprintf(context.state.ffmeta_file.get(), "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(get_frame_pts(context, start) * 100));
-        }
-        if (start <= 5)
-            start = 0;
-        if (end - start > 2)
-            fprintf(context.state.ffmeta_file.get(), "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Commercial Segment\n", (uint64_t)(get_frame_pts(context, start) * 100), (uint64_t)(get_frame_pts(context, end) * 100));
-    }
-    CLOSEOUTFILE(context.state.ffmeta_file);
-
-    if (context.state.ffsplit_file.get()) {
-        if (prev != -1 && prev < start) {
-            fprintf(context.state.ffsplit_file.get(), "-c copy -ss %.3f -t %.3f segment%03d.ts \n", get_frame_pts(context, prev+1), get_frame_pts(context, start) - get_frame_pts(context, prev+1), i);
-        } else if (prev == -1 && start > 5) {
-            fprintf(context.state.ffsplit_file.get(), "-c copy -ss %.3f -t %.3f segment%03d.ts \n", 0.0, get_frame_pts(context, start), i);
-        }
-    }
-    CLOSEOUTFILE(context.state.ffsplit_file);
-
     if (context.state.vcf_file.get() && prev < start && start - prev > 5 && prev > 0 )
     {
         fprintf(context.state.vcf_file.get(), "VirtualDub.subset.AddRange(%li,%li);\n", F2F(prev-1), F2F(start) - F2F(prev));
@@ -564,9 +515,8 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 
     if (context.state.vdr_file.get() && prev < start && end - start > 2)
     {
-        if (start < 5)
-            start = 0;
-        fprintf(context.state.vdr_file.get(), "%s start\n",	dblSecondsToStrMinutesFrames(context, get_frame_pts(context, start)));
+        const long vdr_start = start < 5 ? 0 : start;
+        fprintf(context.state.vdr_file.get(), "%s start\n",	dblSecondsToStrMinutesFrames(context, get_frame_pts(context, vdr_start)));
         fprintf(context.state.vdr_file.get(), "%s end\n", dblSecondsToStrMinutesFrames(context, get_frame_pts(context, end)));
     }
     CLOSEOUTFILE(context.state.vdr_file);
@@ -601,17 +551,13 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 
     if (context.state.edl_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        if (start < 5)
-            start = 0;
-        append_edl_record(context, context.state.edl_file.get(), start, end, comskip::output::EdlVariant::standard);
+        append_edl_record(context, context.state.edl_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard);
     }
     CLOSEOUTFILE(context.state.edl_file);
 
     if (context.state.live_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        if (start < 5)
-            start = 0;
-        append_edl_record(context, context.state.live_file.get(), start, end, comskip::output::EdlVariant::standard);
+        append_edl_record(context, context.state.live_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard);
     }
     CLOSEOUTFILE(context.state.live_file);
 
@@ -624,9 +570,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 
     if (context.state.edlp_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        if (start < 5)
-            start = 0;
-        append_edl_record(context, context.state.edlp_file.get(), start, end, comskip::output::EdlVariant::plus);
+        append_edl_record(context, context.state.edlp_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::plus);
     }
     CLOSEOUTFILE(context.state.edlp_file);
 
@@ -1180,9 +1124,7 @@ bool OutputBlocks(RecordingContext& context)
         fprintf(context.state.zoomplayer_chapter_file.get(), "AddChapter(1,Show Segment)\n");
     }
 
-    if (context.state.ffmeta_file.get()) {
-        fprintf(context.state.ffmeta_file.get(), ";FFMETADATA1\n");
-    }
+
 
     prev = -1;
     for (i = 0; i <= context.state.commercial_count; i++)
@@ -1211,6 +1153,7 @@ bool OutputBlocks(RecordingContext& context)
         OutputCommercialBlock(context, context.state.commercial_count+1, prev, context.state.frame_count-2, context.state.frame_count-1, true);
 
     WriteXmlOutputFiles(context);
+    WriteFfmpegSidecarFiles(context);
 
     if (context.settings.output_videoredo && !context.settings.output_videoredo3)
     {
@@ -1395,7 +1338,7 @@ void OutputStrict(RecordingContext& context, double len, double delta, double to
 //		fprintf(training_file, "// score, length, fraction, position,combined, ar error, logo, strict \n");
     }
     if (context.state.training_file.get())
-        fprintf(context.state.training_file.get(), "%+f,%+f,%+f, %s\n", len,delta, tol, context.state.inbasename.c_str());
+        fprintf(context.state.training_file.get(), "%+f,%+f,%+f,%s\n", len,delta, tol, comskip::output::csv_field(context.state.inbasename).c_str());
 }
 
 
@@ -1483,7 +1426,7 @@ void OutputTraining(RecordingContext& context)
 
 #else
 
-#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7.2f,%7.2f,%7.2f,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",\"%s\"\n"
+#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7.2f,%7.2f,%7.2f,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",%s\n"
 
     fprintf(context.state.training_file.get(), "block, cm,rf, score, length, start, end, fromend ar, logo, cause, less, more\n");
 
@@ -1505,7 +1448,7 @@ void OutputTraining(RecordingContext& context)
                     CauseString(context, context.state.cblock[i].cause),
                     CauseString(context, context.state.cblock[i].less),
                     CauseString(context, context.state.cblock[i].more),
-                    context.state.inbasename.c_str());
+                    comskip::output::csv_field(context.state.inbasename).c_str());
 
         }
     }

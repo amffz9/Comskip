@@ -512,7 +512,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** `src/detection/logo.cpp:866–870` converts unchecked
   `shrink_logo * fps` and `shrink_logo_tail * fps` to `int`, then performs
   integer additions and doubling. Extreme finite settings can exceed `int`.
-- **Status:** Source-confirmed unsafe conversion; no runtime reproduction yet.
+- **Resolution:** Checked offsets and wide frame arithmetic reject invalid
+  settings before mutation. Eleven logo shrink/counter tests, including actual
+  appearance, closure and live paths, pass within all 319 Windows tests.
 - **Verification needed:** Reject unrepresentable frame offsets before mutation;
   cover extreme finite settings and ordinary logo shrink behavior.
 
@@ -534,7 +536,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Progress:** Diagnostic histogram/quality writers now use standard-library
   doubled-quote escaping. An actual quality-output regression roundtrips a
   comma, quotes, and multiline filename through rapidcsv; all seven reference
-  application tests pass on Windows. Legacy training writers remain open.
+  application tests pass on Windows. Legacy strict/training writers also use
+  the helper, with actual strict output coverage; all 319 Windows tests pass.
 - **Verification needed:** Parse generated output for filenames containing
   quotes, commas, and newlines; retain ordinary output compatibility.
 
@@ -543,8 +546,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** `src/output/cutlists.cpp:543–544` changes `start` to zero
   for early cuts while writing FFmetadata. Later writers reuse that argument.
 - **Impact:** Output options can change another format's cut boundaries.
-- **Status:** Source-confirmed shared-argument mutation; paired-output
-  runtime regression pending.
+- **Resolution:** Native FFmpeg metadata export is independent of legacy
+  writers; VDR/EDL start normalization also uses local values. Actual paired
+  FFmetadata/ProjectX and VDR/EDL/ProjectX/BSPlayer regressions pass within
+  all 319 Windows tests.
 - **Verification needed:** Compare other exports with FFmetadata enabled and
   disabled for cuts starting within the first five frames.
 
@@ -552,8 +557,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 
 - **Evidence:** `src/output/cutlists.cpp:444` sets `output_mpgtx` after
   successfully opening the MPEG2Schnitt file.
-- **Status:** Source-confirmed wrong flag assignment; downstream impact needs
-  an actual output-option regression.
+- **Resolution:** The correct MPEG2Schnitt flag is retained. An actual open
+  regression verifies it does not enable MPEG toolbox; all 319 Windows tests pass.
 - **Verification needed:** Independently enable each format and verify its
   settings and complete output without changing the other format's state.
 
@@ -564,7 +569,11 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   header` for empty CSV. Reproduction files are under the ignored
   `bin/localization-error-audit` directory. Settings interpolate raw `what()`;
   `src/app/main.cpp` destroys the context before its exception handler.
-- **Impact:** Selected localization does not cover actionable error reasons.
+- **Progress:** Typed owned diagnostics now cover settings, parsers, geometry,
+  XML, EDL and plist, preserving standard categories and English what(). Actual
+  Spanish brightness/CSV/catalog/XML-destination regressions and complete
+  typed-code catalog checks pass within all 319 Windows tests. Review and
+  caption/subtitle reasons remain open.
 - **Verification needed:** Catalog-backed typed diagnostics rendered at a
   boundary with a live translator; Spanish settings/parser/output regressions,
   English fallback, preserved exception categories and exit statuses.
@@ -573,7 +582,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 
 - **Evidence:** `src/output/xml_output_adapter.cpp:177` requests exit status
   6 when opening fails, without reporting the destination or reason.
-- **Status:** Source-confirmed silent failure branch; runtime regression pending.
+- **Resolution:** Failed XML destinations report owned paths and localized
+  reasons. Unit and actual Spanish CLI blocked-destination regressions pass
+  with exit status 6 within all 319 Windows tests.
 - **Verification needed:** An unwritable destination reports its path and a
   localized actionable reason while retaining the intended exit status.
 
@@ -581,8 +592,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 
 - **Evidence:** Logo closure clears observations through `framenum_real` without
   checking it against owned frame storage when `framearray` is enabled.
-- **Progress:** A storage check and actual unchanged-state regression are prepared;
-  they are not yet verified or committed.
+- **Resolution:** Owned storage is checked before closure mutations. The actual
+  unchanged-state regression passes within all 319 Windows tests.
 - **Verification needed:** Reject missing observations before closure mutations;
   preserve ordinary closure and flag clearing.
 
@@ -591,10 +602,23 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** `src/detection/logo.cpp` adds sampling intervals to
   `frames_with_logo`, including a sampling-interval/trend-count product, using
   unchecked signed integer arithmetic.
-- **Status:** Source-confirmed unsafe arithmetic; fix and runtime coverage pending.
+- **Resolution:** Wide checked history, trend and single-frame additions reject
+  overflow before publication. Actual retrospective appearance and unchanged
+  overflow-state tests pass within all 319 Windows tests.
 - **Verification needed:** Checked wide intermediate arithmetic before changing
   the active block or publishing its counter; ordinary trend startup and steady
   accumulation, extreme sampling/trend settings and existing counters.
+
+### B055: Dynamic filename settings retain an arbitrary legacy length cap
+
+- **Evidence:** `src/config/settings_value.cpp` rejects string settings at
+  1,024 bytes except language/catalog-directory fields, despite owned dynamic
+  strings. This includes cutscene paths.
+- **Status:** Source-confirmed portability restriction; consumers must be audited
+  before removing the obsolete boundary. This is not a buffer overflow.
+- **Verification needed:** Long Unicode configured file paths through actual
+  loading/consumers, preserved embedded-null rejection, and removal of the
+  arbitrary cap where no fixed-capacity consumer remains.
 
 ## Fixed during modernization
 

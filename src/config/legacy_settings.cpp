@@ -5,6 +5,7 @@
 #include "legacy_detection.h"
 #include "checked_format.h"
 #include "translator.h"
+#include "diagnostic_render.h"
 #include "arguments.h"
 
 namespace {
@@ -122,7 +123,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
                                  context.settings.cutscenefile5.c_str(), context.settings.cutscenefile6.c_str(), context.settings.cutscenefile7.c_str(), context.settings.cutscenefile8.c_str()})
             if (*file) LoadCutScene(context, file);
     } catch (const std::exception& error) {
-        fputs(translator.format("invalid_configuration", error.what()).c_str(), stderr);
+        fputs(translator.format("invalid_configuration", comskip::localization::render_exception(error,translator)).c_str(), stderr);
         comskip::request_exit(1);
     }
     if (context.settings.added_recording > 0 && context.settings.giveUpOnLogoSearch < context.settings.added_recording * 60)
@@ -833,8 +834,6 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     context.state.avisynth_file.reset();
     context.state.videoredo_file.reset();
     context.state.edl_file.reset();
-    context.state.ffmeta_file.reset();
-    context.state.ffsplit_file.reset();
     context.state.live_file.reset();
     context.state.ipodchap_file.reset();
     context.state.edlp_file.reset();

@@ -1,6 +1,7 @@
 #include "recording_context.h"
 #include "output/xml_output_adapter.h"
 #include "checked_format.h"
+#include "diagnostic_render.h"
 
 #include <gtest/gtest.h>
 #include <pugixml.hpp>
@@ -56,6 +57,21 @@ protected:
         return document;
     }
 };
+TEST_F(XmlExport, FailedDestinationReportsOwnedLocalizedPath) {
+    const auto blocked=directory/"result.VPrj";
+    ASSERT_TRUE(std::filesystem::create_directory(blocked));
+    context->translator=comskip::localization::Translator("es");
+    try {
+        WriteXmlOutputFiles(*context);
+        FAIL()<<"Expected XML output destination failure";
+    } catch(const std::ios_base::failure& error) {
+        const auto* diagnostic=dynamic_cast<const comskip::diagnostics::DiagnosticProvider*>(&error);
+        ASSERT_NE(diagnostic,nullptr);
+        EXPECT_EQ(diagnostic->diagnostic().code,comskip::diagnostics::Code::output_open);
+        EXPECT_EQ(comskip::localization::render_exception(error,context->translator),
+                  "No se pudo abrir el archivo de salida: "+utf8(blocked));
+    }
+}
 TEST_F(XmlExport, NormalExportWritesAllFormatsWithResolvedOffsets) {
     WriteXmlOutputFiles(*context);
     auto project = load(".VPrj"); auto root = project.child("VideoReDoProject");

@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "output/xml_cutlists.h"
 
 #include <pugixml.hpp>
@@ -31,16 +32,16 @@ std::string utf8(const std::filesystem::path& path) {
 void validate(Seconds value) {
     if (!std::isfinite(value.count()) || value.count() < 0 ||
         value.count() >= static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1e9)
-        throw std::invalid_argument("Invalid XML media time");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_xml_media_time);
 }
 template<class Range> void validate_ranges(std::span<const Range> ranges) {
     for (const auto& range : ranges) {
         if constexpr (std::is_same_v<Range, TimeInterval>) {
             validate(range.start); validate(range.end);
         } else if (range.start < 0 || range.end < 0) {
-            throw std::invalid_argument("Negative XML range position");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::negative_xml_range_position);
         }
-        if (range.end < range.start) throw std::invalid_argument("Reversed XML range");
+        if (range.end < range.start) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::reversed_xml_range);
     }
 }
 std::string ticks(Seconds value) {
@@ -69,7 +70,7 @@ void declaration(pugi::xml_document& document, bool standalone = false) {
 }
 void save(std::ostream& output, pugi::xml_document& document) {
     document.save(output, "  ", pugi::format_default, pugi::encoding_utf8);
-    if (!output) throw std::ios_base::failure("Writing XML cutlist failed");
+    if (!output) throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::writing_xml_cutlist_failed);
 }
 void chapter(Node edition, const ChapterSegment& segment, const MkvOptions& options, bool ordered) {
     auto atom = child(edition, "ChapterAtom");
@@ -158,9 +159,9 @@ void write_cuttermaran(std::ostream& output, const XmlMediaDescription& media,
         pugi::xml_document fragment;
         const auto source = "<CmdArgs " + options.command_attributes + " />";
         if (!fragment.load_string(source.c_str()) || fragment.first_child().next_sibling() ||
-            fragment.first_child().first_child()) throw std::invalid_argument("Invalid Cuttermaran attributes");
+            fragment.first_child().first_child()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_cuttermaran_attributes);
         for (const auto& attr : fragment.first_child().attributes()) {
-            if (args.attribute(attr.name())) throw std::invalid_argument("Duplicate Cuttermaran attribute");
+            if (args.attribute(attr.name())) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::duplicate_cuttermaran_attribute);
             attribute(args, attr.name(), attr.value());
         }
     }
@@ -182,7 +183,7 @@ void write_mkv_chapters(std::ostream& output, std::span<const ChapterSegment> se
     for (const auto& segment : segments) {
         validate_ranges(std::span{&segment.time, 1});
         if (!merged.empty() && segment.time.start < merged.back().time.end)
-            throw std::invalid_argument("Overlapping MKV chapters");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::overlapping_mkv_chapters);
         if (!merged.empty() && merged.back().commercial == segment.commercial &&
             merged.back().time.end == segment.time.start) merged.back().time.end = segment.time.end;
         else merged.push_back(segment);

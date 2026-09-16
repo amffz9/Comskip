@@ -2,6 +2,7 @@
 #include "checked_format.h"
 #include "legacy_detection.h"
 #include "output/live_xml.h"
+#include "logo_shrink.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -23,6 +24,8 @@ int FindBlock(RecordingContext& context, long frame)
 
 void BuildCommListAsYouGo(RecordingContext& context)
 {
+    const double shrink_frames = comskip::detection::checked_logo_shrink_frames(
+        context.settings.shrink_logo, context.settings.fps);
     std::vector<comskip::detection::LiveCandidate> candidates;
     std::string filename;
     int			commercials = 0;
@@ -77,7 +80,9 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if ((context.state.black[i].cause & C_v) || (context.state.black[i].cause & C_b) || (context.state.black[i].cause & C_u) )
             {
 
-                for (j=max(1,context.state.black[i].frame - context.settings.shrink_logo * context.settings.fps); !k && j < min(context.state.framenum_real, context.state.black[i].frame + context.settings.shrink_logo * context.settings.fps ); j++ )
+                const auto logo_window = comskip::detection::logo_scan_window(context.state.black[i].frame,
+                    context.state.framenum_real, context.state.frame.size(), shrink_frames);
+                for (j=logo_window.begin; !k && j < logo_window.end; j++ )
                 {
 
                     if (!context.state.frame[j].logo_present)

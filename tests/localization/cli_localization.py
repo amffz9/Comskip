@@ -24,7 +24,8 @@ with tempfile.TemporaryDirectory(prefix="comskip-locales-") as temporary:
         status, report = invoke("--language", language, "--ini", malformed, recording)
         require(status == 1, f"Malformed INI returned {status}:\n{report}")
         require(prefix in report, f"Missing {language} configuration error:\n{report}")
-        require("Unterminated quoted INI value" in report, f"Wrong failure cause:\n{report}")
+        cause="Valor INI entre comillas sin terminar" if language=="es" else "Unterminated quoted INI value"
+        require(cause in report, f"Wrong failure cause:\n{report}")
 
     invalid = directory / "invalid.ini"
     invalid.write_text("language=es\nthread_count=0\n", encoding="utf-8")

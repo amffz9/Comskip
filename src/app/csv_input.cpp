@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "checked_format.h"
 #include "legacy_detection.h"
@@ -27,15 +28,15 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
     int minminY = 10000, maxmaxY = 0, minminX = 10000, maxmaxX = 0;
     int cutscene_nonzero_count = 0, old_format = true, use_bright = 0;
     int i, ccDataFrame;
-    if (!input) throw std::invalid_argument("Missing CSV input");
+    if (!input) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_csv_input);
     comskip::input::FileStreamBuffer buffer(input.get());
     std::istream source(&buffer);
 again:
     auto header = comskip::input::read_text_line(source);
-    if (!header) throw std::invalid_argument("CSV input has no header");
+    if (!header) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_input_has_no_header);
     if (comskip::input::trim_ascii(*header) == "sep=," || comskip::input::trim_ascii(*header) == "sep=;") {
         header = comskip::input::read_text_line(source);
-        if (!header) throw std::invalid_argument("CSV input has no column header");
+        if (!header) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_input_has_no_column_header);
     }
     const auto rate = comskip::input::parse_frame_rate(*header);
     const double frame_rate = rate.value_or(context.settings.fps);
@@ -45,20 +46,20 @@ again:
     while (const auto text = comskip::input::read_text_line(source)) {
         const auto record = comskip::input::parse_frame_record(*text);
         if (observations.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max() - 2))
-            throw std::length_error("CSV observation count exceeds the frame index range");
+            throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::csv_observation_count_exceeds_the_frame_index_range);
         if (record.number != static_cast<int>(observations.size() + 1))
-            throw std::invalid_argument("CSV frame numbers must be consecutive from one");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_frame_numbers_must_be_consecutive_from_one);
         if (record.min_y < 0 || record.min_x < 0 || record.max_y < record.min_y || record.max_x < record.min_x ||
             record.max_y > MAXHEIGHT || record.max_x > MAXWIDTH)
-            throw std::invalid_argument("CSV observation has invalid scan bounds");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_observation_has_invalid_scan_bounds);
         const double timestamp = record.timestamp.value_or((record.number - 1) / frame_rate);
         if (!std::isfinite(timestamp) || timestamp > static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1e6 - 1 / frame_rate ||
             (previous_time && timestamp < *previous_time))
-            throw std::invalid_argument("CSV timestamps must be representable and monotonic");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_timestamps_must_be_representable_and_monotonic);
         previous_time = timestamp;
         observations.push_back(record);
     }
-    if (observations.empty()) throw std::invalid_argument("CSV input has no observations");
+    if (observations.empty()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_input_has_no_observations);
     // Validate all syntax and indices before changing recording settings/state.
     if (rate) context.settings.fps = *rate;
     context.state.logoInfoAvailable = true;
@@ -129,11 +130,11 @@ ccagain:
         {
             const auto bytes_read = fread(line, 1, 8, context.state.dump_data_file.get());
             cont = bytes_read != 0;
-            if (bytes_read && bytes_read != 8) throw std::invalid_argument("Truncated persisted caption frame header");
+            if (bytes_read && bytes_read != 8) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::truncated_persisted_caption_frame_header);
             if (bytes_read) {
                 line[8] = 0;
                 if (line[7] != ':' || sscanf(line, "%7d", &ccDataFrame) != 1 || ccDataFrame < 0)
-                    throw std::invalid_argument("Invalid persisted caption frame header");
+                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_persisted_caption_frame_header);
             }
 //			ccDataFrame = strtol(line,NULL,7);
         }
@@ -144,15 +145,15 @@ ccagain:
             {
 
                 if (fread(line, 1, 4, context.state.dump_data_file.get()) != 4)
-                    throw std::invalid_argument("Truncated persisted caption packet length");
+                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::truncated_persisted_caption_packet_length);
                 line[4]=0;
                 if (sscanf(line,"%4d",&context.state.ccDataLen) != 1 || context.state.ccDataLen < 0 ||
                     context.state.ccDataLen > static_cast<int>(sizeof(context.state.ccData)))
-                    throw std::invalid_argument("Invalid persisted caption packet length");
+                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_persisted_caption_packet_length);
 //			ccDataLen = strtol(line,NULL,4);
                 if (context.state.ccDataLen && fread(context.state.ccData, 1, context.state.ccDataLen,
                     context.state.dump_data_file.get()) != static_cast<std::size_t>(context.state.ccDataLen))
-                    throw std::invalid_argument("Truncated persisted caption packet");
+                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::truncated_persisted_caption_packet);
                 context.state.framenum = ccDataFrame;
 #ifdef PROCESS_CC
                 if (context.state.processCC) ProcessCCData(context);

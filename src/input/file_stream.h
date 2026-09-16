@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 #include <cstdio>
 #include <istream>
@@ -14,7 +15,7 @@ class FileStreamBuffer final : public std::streambuf {
     int_type underflow() override {
         const auto count = std::fread(bytes_.data(), 1, bytes_.size(), file_);
         if (!count) {
-            if (std::ferror(file_)) throw std::runtime_error("Cannot read input file");
+            if (std::ferror(file_)) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_read_input_file);
             return traits_type::eof();
         }
         setg(bytes_.data(), bytes_.data(), bytes_.data() + count);
@@ -22,7 +23,7 @@ class FileStreamBuffer final : public std::streambuf {
     }
 public:
     explicit FileStreamBuffer(FILE* file) : file_(file) {
-        if (!file_) throw std::invalid_argument("Missing input file");
+        if (!file_) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_input_file);
     }
 };
 }

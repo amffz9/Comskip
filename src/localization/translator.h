@@ -18,6 +18,8 @@ public:
     Translator(std::string_view language, const config::Ini& english,
                const config::Ini& selected);
     static Translator from_arguments(int argc, char* const* argv);
+    // Embedded catalogs remain available if custom catalogs or settings fail.
+    static Translator fallback_from_arguments(int argc, char* const* argv);
     static void validate_language(std::string_view language);
     std::string_view language() const noexcept { return language_; }
     const char* text(std::string_view id) const;

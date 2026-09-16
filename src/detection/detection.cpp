@@ -3,6 +3,7 @@
 #include <format>
 #include "frame_mask.h"
 #include "logo_sampling.h"
+#include "logo_shrink.h"
 #include <stdexcept>
 
 int DetectCommercials(RecordingContext& context, int f, double pts)
@@ -150,7 +151,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
       context.state.frame[context.state.frame_count].logo_present = 0.0;
     }
     if (context.state.lastLogoTest)
-        context.state.frames_with_logo++;
+        context.state.frames_with_logo = comskip::detection::add_logo_frames(context.state.frames_with_logo, 1);
     if (context.state.framearray) context.state.frame[context.state.frame_count].currentGoodEdge = context.state.currentGoodEdge;
 
     if (((context.state.frame_count) & context.state.subsample_video) == 0)

@@ -215,3 +215,18 @@ than redefine completion around whichever subset currently passes tests.
 - At `706801f`, all 285 Windows headless tests pass. Timing restart produces
   one header pair, verified by actual decoder reset/reopen with valid rows and
   owned file cleanup. This closes B045; later Linux/SDL verification is separate.
+
+- The combined FFmpeg-sidecar/diagnostics/logo stage passes all 319 Windows
+  headless tests (4.33 seconds). FFmetadata uses the native FFmpeg muxer with
+  BITEXACT for stable chapter bytes; FFsplit commands have a focused chrono/span
+  serializer. Normal and review exports use a finalized-interval adapter;
+  legacy per-block sidecar writers and dead handles are removed. Paired exports
+  verify option independence, and actual media runs compare complete sidecars
+  across thread counts. Typed owned diagnostics preserve standard exception
+  categories and readable English what(), render through committed EN/ES
+  catalogs, and retain the translator during unwinding. Actual Spanish CLI
+  tests cover brightness, empty CSV, malformed catalog and blocked XML paths.
+  Eleven logo tests cover checked shrink offsets, owned closure storage and
+  trend/history counters. Logs: `bin/windows-sidecars-diagnostics-{build,test}.txt`.
+  Linux/SDL verification, review/caption error migration, font relocation and
+  remaining legacy output modules are separate work.

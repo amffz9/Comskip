@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "edl.h"
 
 #include <algorithm>
@@ -15,7 +16,7 @@ FrameIndex shifted(FrameIndex frame, FrameIndex offset)
 {
     if (offset >= 0) return frame < offset ? 0 : frame - offset;
     if (frame > std::numeric_limits<FrameIndex>::max() + offset)
-        throw std::out_of_range("EDL frame offset exceeds the frame index range");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::edl_frame_offset_exceeds_the_frame_index_range);
     return frame - offset;
 }
 
@@ -29,11 +30,11 @@ Seconds timestamp(FrameIndex frame, const MediaDescription& media)
 
 void append_seconds(std::string& line, Seconds time)
 {
-    if (!std::isfinite(time.count())) throw std::out_of_range("EDL timestamp exceeds the finite time range");
+    if (!std::isfinite(time.count())) throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::edl_timestamp_exceeds_the_finite_time_range);
     std::array<char, 512> buffer{};
     const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), time.count(),
                                       std::chars_format::fixed, 2);
-    if (result.ec != std::errc{}) throw std::out_of_range("EDL timestamp cannot be formatted");
+    if (result.ec != std::errc{}) throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::edl_timestamp_cannot_be_formatted);
     line.append(buffer.data(), result.ptr);
 }
 }
@@ -41,22 +42,22 @@ void append_seconds(std::string& line, Seconds time)
 void write_edl(std::ostream& output, std::span<const CommercialInterval> intervals,
                const MediaDescription& media, const OutputOptions& options)
 {
-    if (!output) throw std::ios_base::failure("EDL output stream is not writable");
+    if (!output) throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::edl_output_stream_is_not_writable);
     if (!std::isfinite(media.frames_per_second) || media.frames_per_second <= 0)
-        throw std::invalid_argument("EDL frame rate must be finite and positive");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::edl_frame_rate_must_be_finite_and_positive);
     if (media.first_frame < 0 || media.timestamps.size() > static_cast<std::uint64_t>(std::numeric_limits<FrameIndex>::max() - media.first_frame))
-        throw std::out_of_range("EDL timestamp span exceeds the frame index range");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::edl_timestamp_span_exceeds_the_frame_index_range);
     for (const auto time : media.timestamps)
-        if (!std::isfinite(time.count())) throw std::invalid_argument("EDL timestamps must be finite");
+        if (!std::isfinite(time.count())) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::edl_timestamps_must_be_finite);
     if (media.first_frame_timestamp && !std::isfinite(media.first_frame_timestamp->count()))
-        throw std::invalid_argument("EDL first-frame timestamp must be finite");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::edl_first_frame_timestamp_must_be_finite);
 
     const auto correction = options.variant == EdlVariant::plus || options.mencoder_pts_correction
         ? media.first_frame_timestamp.value_or(timestamp(1, media)) : Seconds{};
     std::string text;
     for (const auto interval : intervals) {
         if (interval.start_frame < 0 || interval.end_frame < interval.start_frame)
-            throw std::invalid_argument("EDL interval must have ordered, nonnegative frame indices");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::edl_interval_must_have_ordered_nonnegative_frame_indices);
         if (interval.end_frame - interval.start_frame <= 2) continue;
         auto start = interval.start_frame < 5 ? 0 : interval.start_frame;
         auto end = interval.end_frame;
@@ -72,6 +73,6 @@ void write_edl(std::ostream& output, std::span<const CommercialInterval> interva
         text += '\n';
     }
     output.write(text.data(), static_cast<std::streamsize>(text.size()));
-    if (!output) throw std::ios_base::failure("Failed writing EDL output");
+    if (!output) throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::failed_writing_edl_output);
 }
 }

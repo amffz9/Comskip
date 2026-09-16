@@ -1,4 +1,5 @@
 #include "translator.h"
+#include "diagnostic.h"
 #include "localization_catalogs.h"
 #include <fstream>
 #include <iterator>
@@ -13,9 +14,9 @@ std::filesystem::path utf8_path(std::string_view value) {
 }
 config::Ini read_catalog(const std::filesystem::path& file) {
     std::ifstream input(file, std::ios::binary);
-    if (!input) throw std::runtime_error("Could not open message catalog: " + file.string());
+    if (!input) throw diagnostics::DiagnosticError<std::runtime_error>(diagnostics::Code::catalog_open, {file.string()});
     std::string text{std::istreambuf_iterator<char>(input), {}};
-    if (input.bad()) throw std::runtime_error("Could not read message catalog: " + file.string());
+    if (input.bad()) throw diagnostics::DiagnosticError<std::runtime_error>(diagnostics::Code::catalog_read, {file.string()});
     return config::Ini(text);
 }
 // Only positional replacement fields are accepted, so translators cannot change
@@ -24,13 +25,13 @@ std::size_t fields(std::string_view text) {
     std::size_t count = 0;
     for (std::size_t i = 0; i < text.size(); ++i) {
         if (text[i] == '{') {
-            if (++i == text.size()) throw std::invalid_argument("Incomplete catalog field");
+            if (++i == text.size()) throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::catalog_incomplete_field);
             if (text[i] == '{') continue;
-            if (text[i] != '}') throw std::invalid_argument("Catalog fields must be {}");
+            if (text[i] != '}') throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::catalog_field);
             ++count;
         } else if (text[i] == '}') {
             if (++i == text.size() || text[i] != '}')
-                throw std::invalid_argument("Unmatched catalog brace");
+                throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::catalog_brace);
         }
     }
     return count;
@@ -38,7 +39,7 @@ std::size_t fields(std::string_view text) {
 }
 void Translator::validate_language(std::string_view language) {
     if (language != "en" && language != "es")
-        throw std::invalid_argument("Unsupported language: " + std::string(language));
+        throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::language, {std::string(language)});
 }
 Translator::Translator(std::string_view language)
     : Translator(language, config::Ini(english_catalog),
@@ -56,15 +57,36 @@ Translator::Translator(std::string_view language, const config::Ini& english,
     for (const auto& [id, message] : english_.values()) {
         const auto expected = fields(message);
         if (const auto* translated = selected_.find(id); translated && fields(*translated) != expected)
-            throw std::invalid_argument("Catalog argument mismatch: " + id);
+            throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::catalog_mismatch, {id});
     }
     for (const auto& [id, message] : selected_.values())
-        if (!english_.find(id)) throw std::invalid_argument("Unknown catalog message: " + id);
+        if (!english_.find(id)) throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::catalog_unknown, {id});
 }
 const char* Translator::text(std::string_view id) const {
     if (const auto* message = selected_.find(id)) return message->c_str();
     if (const auto* message = english_.find(id)) return message->c_str();
     throw std::out_of_range("Unknown message: " + std::string(id));
+}
+Translator Translator::fallback_from_arguments(int argc, char* const* argv) {
+    std::string language="en";
+    std::optional<std::string> override_language;
+    std::filesystem::path ini_path="comskip.ini";
+    for(int i=1;i<argc;++i) {
+        const std::string_view argument(argv[i]);
+        if(argument.starts_with("--language=")) override_language=argument.substr(11);
+        else if(argument=="--language" && i+1<argc) override_language=argv[++i];
+        else if(argument.starts_with("--ini=")) ini_path=utf8_path(argument.substr(6));
+        else if(argument=="--ini" && i+1<argc) ini_path=utf8_path(argv[++i]);
+    }
+    try {
+        std::ifstream input(ini_path,std::ios::binary);
+        if(input) {
+            const config::Ini settings(std::string{std::istreambuf_iterator<char>(input),{}});
+            if(const auto* value=settings.find("language")) language=*value;
+        }
+    } catch(const std::exception&) { /* Invalid settings are reported by the real loader. */ }
+    if(override_language) language=*override_language;
+    return Translator(language=="es" ? "es" : "en");
 }
 Translator Translator::from_arguments(int argc, char* const* argv) {
     std::string language = *config::defaults().find("language");
@@ -75,11 +97,11 @@ Translator Translator::from_arguments(int argc, char* const* argv) {
         const std::string_view argument(argv[i]);
         if (argument.starts_with("--language=")) override_language = argument.substr(11);
         else if (argument == "--language") {
-            if (++i == argc) throw std::invalid_argument("--language requires a value");
+            if (++i == argc) throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::option_value, {"--language"});
             override_language = argv[i];
         } else if (argument.starts_with("--ini=")) ini_path = utf8_path(argument.substr(6));
         else if (argument == "--ini") {
-            if (++i == argc) throw std::invalid_argument("--ini requires a value");
+            if (++i == argc) throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::option_value, {"--ini"});
             ini_path = utf8_path(argv[i]);
         }
     }

@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "input/frame_record.h"
 #include "input/checked_number.h"
 #include "input/reference_file.h"
@@ -9,12 +10,12 @@
 namespace comskip::input {
 namespace {
 std::vector<std::string> csv_fields(std::string_view line) {
-    if (line.size() > maximum_text_line) throw std::length_error("CSV record exceeds its limit");
-    if (line.find('\0') != std::string_view::npos) throw std::invalid_argument("Null character in CSV record");
+    if (line.size() > maximum_text_line) throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::csv_record_exceeds_its_limit);
+    if (line.find('\0') != std::string_view::npos) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::null_character_in_csv_record);
     const auto delimiter = line.find(',') == std::string_view::npos ? ';' : ',';
     std::istringstream source{std::string(line)};
     rapidcsv::Document document(source, rapidcsv::LabelParams(-1, -1), rapidcsv::SeparatorParams(delimiter));
-    if (document.GetRowCount() != 1) throw std::invalid_argument("Expected one CSV observation");
+    if (document.GetRowCount() != 1) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::expected_one_csv_observation);
     auto fields = document.GetRow<std::string>(0);
     if (!fields.empty() && trim_ascii(fields.back()).empty()) fields.pop_back(); // Historical trailing delimiter.
     return fields;
@@ -23,12 +24,12 @@ std::vector<std::string> csv_fields(std::string_view line) {
 std::optional<double> parse_frame_rate(std::string_view header) {
     auto fields = csv_fields(header);
     if (fields.size() < 11 || trim_ascii(fields.front()) != "frame")
-        throw std::invalid_argument("Invalid CSV column header");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_csv_column_header);
     const auto last = trim_ascii(fields.back());
-    if (last.empty()) throw std::invalid_argument("Missing CSV frame rate");
+    if (last.empty()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_csv_frame_rate);
     if (last.find_first_of("0123456789+-.") != 0) {
         if (fields.size() == 18 && trim_ascii(fields[16]) == "PTS")
-            throw std::invalid_argument("Invalid CSV frame rate");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_csv_frame_rate);
         return std::nullopt;
     }
     double rate = parse_number<double>(last, "CSV frame rate");
@@ -37,12 +38,12 @@ std::optional<double> parse_frame_rate(std::string_view header) {
         if (rate > 99) rate /= 10;
         rate *= 1.00000000000001; // Legacy frame-time roundoff compensation.
     }
-    if (rate <= 0) throw std::invalid_argument("CSV frame rate must be positive");
+    if (rate <= 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_frame_rate_must_be_positive);
     return rate;
 }
 FrameRecord parse_frame_record(std::string_view line) {
     auto fields = csv_fields(line);
-    if (fields.size() < 11 || fields.size() > 265) throw std::invalid_argument("Invalid CSV observation column count");
+    if (fields.size() < 11 || fields.size() > 265) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_csv_observation_column_count);
     const auto integer = [&](std::size_t column, std::string_view name, int fallback = 0) {
         return column < fields.size() ? parse_number<int>(fields[column], name) : fallback;
     };
@@ -51,7 +52,7 @@ FrameRecord parse_frame_record(std::string_view line) {
     };
     FrameRecord result;
     result.number = integer(0, "frame");
-    if (result.number <= 0) throw std::invalid_argument("CSV frame number must be positive");
+    if (result.number <= 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_frame_number_must_be_positive);
     result.brightness = integer(1, "brightness"); result.scene_change = integer(2, "scene change") / 5;
     result.logo = integer(3, "logo"); result.uniform = integer(4, "uniform"); result.volume = integer(5, "volume");
     result.min_y = integer(6, "minimum Y"); result.max_y = integer(7, "maximum Y");
@@ -63,7 +64,7 @@ FrameRecord parse_frame_record(std::string_view line) {
     result.bright_count = integer(14, "bright count"); result.dim_count = integer(15, "dim count");
     if (fields.size() > 16) {
         result.timestamp = real(16, "timestamp");
-        if (*result.timestamp < 0) throw std::invalid_argument("CSV timestamp must be nonnegative");
+        if (*result.timestamp < 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_timestamp_must_be_nonnegative);
     }
     result.segment = integer(17, "segment"); result.audio_channels = integer(18, "audio channels", 2);
     return result;

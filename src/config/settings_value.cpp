@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "settings_value.h"
 #include "settings_descriptors.h"
 #include <array>
@@ -14,9 +15,9 @@ void validate_string_template(std::string_view title, std::string_view key, std:
     for (std::size_t i = 0; i < title.size(); ++i) {
         if (title[i] != '%') continue;
         if (++i == title.size() || (title[i] != '%' && title[i] != 's'))
-            throw std::invalid_argument(std::string(key) + " accepts only %s and %%");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_template, {std::string(key)});
         if (title[i] == 's' && ++placeholders > maximum)
-            throw std::invalid_argument(std::string(key) + " has too many filename placeholders");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_placeholders, {std::string(key)});
     }
 }
 constexpr auto keys() {
@@ -51,7 +52,7 @@ Settings load_settings(const Ini& ini, Settings base) {
                 if constexpr (std::is_same_v<T, int>) {
                     if (sign == -1) {
                         if (value == std::numeric_limits<T>::lowest())
-                            throw std::invalid_argument("Audio delay out of range");
+                            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::audio_delay_out_of_range);
                         value = -value;
                     }
                 }
@@ -61,32 +62,32 @@ Settings load_settings(const Ini& ini, Settings base) {
         if constexpr (std::is_same_v<T, std::string>) {
             // Retain the legacy boundary until every C-string consumer is migrated.
             if (key != "language" && key != "locale_directory" && target.size() >= 1024)
-                throw std::invalid_argument(std::string(key) + " is too long");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_long, {std::string(key)});
             if (target.find('\0') != std::string::npos)
-                throw std::invalid_argument(std::string(key) + " contains a null character");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_null, {std::string(key)});
         } else {
             if constexpr (std::is_floating_point_v<T>)
                 if (!std::isfinite(target))
-                    throw std::invalid_argument(std::string(key) + " must be finite");
+                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_finite, {std::string(key)});
             if ((key == "thread_count" || key == "num_logo_buffers" ||
                  key == "fps" || key == "edge_radius" || key == "edge_step") && target <= 0)
-                throw std::invalid_argument(std::string(key) + " must be positive");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_positive, {std::string(key)});
             if (key == "border" && target < 0)
-                throw std::invalid_argument("border must be nonnegative");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::border_must_be_nonnegative);
             if ((key == "max_brightness" || key == "test_brightness") &&
                 (target < 0 || target > 255))
-                throw std::invalid_argument(std::string(key) + " must be between 0 and 255");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_byte, {std::string(key)});
             if ((key == "ticker_tape" || key == "top_ticker_tape" ||
                  key == "ignore_side" || key == "ignore_left_side" ||
                  key == "ignore_right_side") && target < 0)
-                throw std::invalid_argument(std::string(key) + " must be nonnegative");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_nonnegative, {std::string(key)});
             if ((key == "ticker_tape_percentage" || key == "top_ticker_tape_percentage") &&
                 (target < 0 || target > 100))
-                throw std::invalid_argument(std::string(key) + " must be between 0 and 100");
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_percent, {std::string(key)});
         }
     });
     if (base.language != "en" && base.language != "es")
-        throw std::invalid_argument("Unsupported language: " + base.language);
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::language, {std::string(base.language)});
     validate_string_template(base.windowtitle, "windowtitle", 1);
     validate_string_template(base.avisynth_options, "avisynth_options", 1);
     validate_string_template(base.dvrcut_options, "dvrcut_options", 3);
@@ -98,7 +99,7 @@ Settings load_settings(const Ini& ini, Settings base) {
     if (!valid_lengths(profile.strict_lengths) || !valid_lengths(profile.optional_lengths) ||
         !std::isfinite(profile.correction) || !std::isfinite(profile.minimum_tolerance) ||
         !std::isfinite(profile.maximum_tolerance) || !std::isfinite(profile.show_margin))
-        throw std::invalid_argument("Invalid commercial-length profile");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_commercial_length_profile);
     return base;
 }
 }

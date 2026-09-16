@@ -1,8 +1,10 @@
+#include "../localization/diagnostic.h"
 #include "output/xml_output_adapter.h"
 #include "output/xml_cutlists.h"
 #include "output/plist_cutlist.h"
 #include "recording_context.h"
 #include "exit_requested.h"
+#include "platform/utf8_paths.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,14 +27,14 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     const auto& state = context.state;
     const double fps = context.settings.fps;
     if (!std::isfinite(fps) || fps <= 0 || state.frame_count < 2)
-        throw std::invalid_argument("Invalid XML media geometry");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_xml_media_geometry);
     if (state.block_count < 0 || static_cast<std::size_t>(state.block_count) > std::size(state.cblock))
-        throw std::out_of_range("Invalid XML detector block count");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_xml_detector_block_count);
     if (!state.frame.empty() && static_cast<std::size_t>(state.frame_count) > state.frame.size())
-        throw std::out_of_range("XML timestamps exceed frame buffer");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::xml_timestamps_exceed_frame_buffer);
     if (!state.frame.empty() &&
         (state.framenum_real < 2 || static_cast<std::size_t>(state.framenum_real) > state.frame.size()))
-        throw std::out_of_range("XML detector timing exceeds frame buffer");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::xml_detector_timing_exceeds_frame_buffer);
 
     const auto path = [](const std::string& bytes) {
         return std::filesystem::path(std::u8string(bytes.begin(), bytes.end()));
@@ -55,20 +57,20 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     for (const auto& interval : list) {
         if (interval.start_frame < 0 || interval.end_frame < interval.start_frame ||
             interval.start_frame <= previous_end)
-            throw std::invalid_argument("Invalid or overlapping commercial XML range");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_or_overlapping_commercial_xml_range);
         // Detector blocks and padded commercial lists can end at the terminal
         // frame_count boundary. It has no frame storage/timestamp of its own.
         if (interval.start_frame >= state.frame_count || interval.end_frame > state.frame_count)
-            throw std::out_of_range("Commercial XML range exceeds media");
+            throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::commercial_xml_range_exceeds_media);
         previous_end = interval.end_frame;
     }
     previous_end = -1;
     for (long i = 0; i < state.block_count; ++i) {
         const auto& block = state.cblock[i];
         if (block.f_start < 0 || block.f_end < block.f_start || block.f_start <= previous_end)
-            throw std::invalid_argument("Invalid or overlapping detector XML range");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_or_overlapping_detector_xml_range);
         if (block.f_start >= state.frame_count || block.f_end > state.frame_count)
-            throw std::out_of_range("Detector XML range exceeds media");
+            throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::detector_xml_range_exceeds_media);
         previous_end = block.f_end;
     }
     std::vector<TimeInterval> cuts, btv, dvr, plist;
@@ -92,7 +94,7 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
         const double position = detector_time(frame).count() * fps + 1.5;
         if (!std::isfinite(position) || position < 0 ||
             position >= static_cast<double>(std::numeric_limits<FrameIndex>::max()))
-            throw std::out_of_range("Invalid retained XML frame position");
+            throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_retained_xml_frame_position);
         return static_cast<FrameIndex>(position);
     };
     const auto append_retained = [&](long before) {
@@ -174,9 +176,15 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     // Validate/serialize every requested format before replacing any output.
     for (const auto& [filename, text] : documents) {
         std::ofstream file(filename, std::ios::binary | std::ios::trunc);
-        if (!file) comskip::request_exit(6);
-        file.exceptions(std::ios::failbit | std::ios::badbit);
-        file.write(text.data(), static_cast<std::streamsize>(text.size()));
-        file.close();
+        if (!file) throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_open,{comskip::platform::path_to_utf8(filename)});
+        try {
+            file.exceptions(std::ios::failbit | std::ios::badbit);
+            file.write(text.data(), static_cast<std::streamsize>(text.size()));
+            file.close();
+        } catch(const std::ios_base::failure&) {
+            throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+                comskip::diagnostics::Code::output_write,{comskip::platform::path_to_utf8(filename)});
+        }
     }
 }

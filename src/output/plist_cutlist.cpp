@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "output/plist_cutlist.h"
 
 #include <pugixml.hpp>
@@ -14,11 +15,11 @@ namespace {
 std::int64_t ticks(Seconds time) {
     const double value = time.count() * 90000.0;
     if (!std::isfinite(time.count()) || time.count() < 0)
-        throw std::invalid_argument("plist cutlist time must be finite and nonnegative");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::plist_cutlist_time_must_be_finite_and_nonnegative);
     // Comparing with 2^63 avoids rounding INT64_MAX upward when represented as
     // double. The conversion is defined only after this exclusive bound check.
     if (!std::isfinite(value) || value >= std::ldexp(1.0, 63))
-        throw std::out_of_range("plist cutlist time exceeds the integer tick range");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::plist_cutlist_time_exceeds_the_integer_tick_range);
     return static_cast<std::int64_t>(value);
 }
 pugi::xml_node append(pugi::xml_node parent, const char* name) {
@@ -37,7 +38,7 @@ void write_plist_cutlist(std::ostream& output, std::span<const TimeInterval> int
     converted.reserve(intervals.size());
     for (const auto& interval : intervals) {
         if (interval.end < interval.start)
-            throw std::invalid_argument("plist cutlist interval ends before it starts");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::plist_cutlist_interval_ends_before_it_starts);
         converted.push_back({ticks(interval.start), ticks(interval.end)});
     }
     pugi::xml_document document;
@@ -53,6 +54,6 @@ void write_plist_cutlist(std::ostream& output, std::span<const TimeInterval> int
     }
     whitespace(document, "\n");
     document.print(output, "", pugi::format_raw, pugi::encoding_utf8);
-    if (!output) throw std::ios_base::failure("could not write plist cutlist");
+    if (!output) throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::could_not_write_plist_cutlist);
 }
 }
