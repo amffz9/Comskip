@@ -5,6 +5,7 @@ struct RecordingContext;
 #include "translator.h"
 #include "scan_geometry.h"
 #include "detector_records.h"
+#include "storage.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -435,15 +436,6 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps);
 void OutputAspect(RecordingContext& context);
 void OutputBlackArray(RecordingContext& context);
 void OutputFrameArray(RecordingContext& context, bool screenOnly);
-void InitializeFrameArray(RecordingContext& context, long i);
-void InitializeBlackArray(RecordingContext& context, long i);
-void InitializeSchangeArray(RecordingContext& context, long i);
-void InitializeLogoBlockArray(RecordingContext& context, long i);
-void InitializeARBlockArray(RecordingContext& context, long i);
-void InitializeACBlockArray(RecordingContext& context, long i);
-void InitializeBlockArray(RecordingContext& context, long i);
-void InitializeCCBlockArray(RecordingContext& context, long i);
-void InitializeCCTextArray(RecordingContext& context, long i);
 void PrintArgs(RecordingContext& context);
 void OutputCCBlock(RecordingContext& context, long i);
 void Init_XDS_block(RecordingContext& context);
@@ -473,4 +465,5 @@ void close_data(RecordingContext& context);
 #include "recording_context.h"
 
 #endif // COMSKIP_LEGACY_DETECTION_H
+
 

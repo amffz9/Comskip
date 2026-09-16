@@ -1,4 +1,5 @@
 #include "exit_requested.h"
+#include "storage.h"
 #include "legacy_detection.h"
 #include "buffer_growth.h"
 
