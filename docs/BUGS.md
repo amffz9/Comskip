@@ -31,9 +31,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B036 | Fixed at `931ee71`; all 256 Windows headless tests and all 256 tests in a fresh, unmodified Windows SDL `build-gui` snapshot pass. All six previously timed-out CLI media tests now complete; the actual directory-name regression and filename conventions are covered. |
 | B038, B039, B040, B042, B043 | Fixed at `b1f9e86`; all 270 Windows tests pass, including checked brightness/geometry, actual zero-border/empty scenes, fractional-rate CSV replay, and invalid-rate rejection before state mutation. The unmodified `07aa466` snapshot also passes all 275 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
 | B041, B044 | Fixed at `07aa466`; all 279 Windows headless and all 279 unmodified Windows SDL snapshot tests pass. Nine geometry/filter tests cover extreme settings, ordinary edges, short/full histories, required buffers, and persisted bounds. Its unmodified snapshot passes all 275 Linux headless, SDL, and address/undefined/leak sanitizer tests without findings or suppressions. |
-
 | B045 | Fixed at `706801f`; all 285 Windows tests pass, including an actual decoder reset/reopen regression and six timing-output tests. |
-| B046–B052 | Open; evidence and verification requirements below. |
+| B046, B048, B049, B050, B052, B053, B054 | Fixed at `62664db`; all 319 Windows headless tests pass. Linux/SDL verification of this stage remains separate. |
+| B047, B051, B055, B056 | Open; B051 settings/parser/geometry/XML/EDL/plist reasons are migrated, with review and caption/subtitle reasons remaining. |
 
 ## Issue evidence and verification
 
@@ -619,6 +619,16 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Verification needed:** Long Unicode configured file paths through actual
   loading/consumers, preserved embedded-null rejection, and removal of the
   arbitrary cap where no fixed-capacity consumer remains.
+
+### B056: Additional recording minutes can overflow logo-search seconds
+
+- **Evidence:** `LoadIniFile` multiplies int `added_recording` by 60 and adds
+  it to int `giveUpOnLogoSearch` without range checking; extreme accepted
+  settings cause signed overflow while loading configuration.
+- **Progress:** A chrono-based wide conversion and checked result are prepared.
+  Validation and actual loading tests are pending; not yet a verified fix.
+- **Verification needed:** Ordinary extension/no-extension, multiplication and
+  addition extremes, and rejection before publishing invalid configuration.
 
 ## Fixed during modernization
 
