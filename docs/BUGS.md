@@ -55,6 +55,23 @@ and relevant verification; retain the evidence for future regressions.
 - **Verification needed:** Actual CSV replay with oversized, negative, malformed,
   and truncated companion records, plus valid captions and failure cleanup.
 
+### B005: Failed cutscene loading passes an integer as a filename
+
+- **Evidence:** `LoadCutScene` in `src/detection/scene_analysis.cpp` supplies
+  `c, filename` to an error format containing only one `%s` placeholder.
+- **Impact:** An empty/truncated cutscene file can cause invalid pointer access
+  in logging instead of an actionable warning.
+- **Fix/verification needed:** Typed catalog formatting and an empty-file
+  regression that verifies warning and released input ownership.
+
+### B006: Failed optional logo saving writes through a null file handle
+
+- **Evidence:** `SaveLogoMaskData` in `src/detection/logo.cpp` continues to
+  `fprintf(logo_file, ...)` after failed opening when restart-after-logo is off.
+- **Impact:** An unwritable logo destination can crash normal analysis.
+- **Fix/verification needed:** Return after the optional-save warning; preserve
+  the required-restart error status. Test both branches with a missing directory.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
