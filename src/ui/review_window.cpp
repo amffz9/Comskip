@@ -1,4 +1,5 @@
 #include "review_window.h"
+#include "bundled_font.h"
 
 #include <algorithm>
 #include <limits>
@@ -54,6 +55,7 @@ int controller_key(const KeyEvent& event)
 
 template<class T, void(*Release)(T*)>
 using SdlOwner = std::unique_ptr<T, decltype(Release)>;
+void close_font_stream(SDL_RWops* stream) { SDL_RWclose(stream); }
 
 Key sdl_key(SDL_Keycode key)
 {
@@ -97,6 +99,7 @@ struct ReviewWindow::Impl {
     SdlOwner<SDL_Window, SDL_DestroyWindow> window{nullptr, SDL_DestroyWindow};
     SdlOwner<SDL_Renderer, SDL_DestroyRenderer> renderer{nullptr, SDL_DestroyRenderer};
     SdlOwner<SDL_Texture, SDL_DestroyTexture> image{nullptr, SDL_DestroyTexture};
+    SdlOwner<SDL_RWops, close_font_stream> font_stream{nullptr, close_font_stream};
     SdlOwner<TTF_Font, TTF_CloseFont> font{nullptr, TTF_CloseFont};
     std::vector<SdlOwner<SDL_Texture, SDL_DestroyTexture>> text;
     std::vector<SDL_Rect> text_rectangles;
@@ -108,9 +111,15 @@ ReviewWindow::ReviewWindow(WindowOptions options)
     : options_(std::move(options)), window_width_(options_.width), window_height_(options_.height)
 {
     validate_options(options_);
-#ifdef COMSKIP_DEFAULT_FONT_FILE
-    if (options_.font_path.empty()) options_.font_path = COMSKIP_DEFAULT_FONT_FILE;
-#endif
+}
+void ReviewWindow::configure_font(std::filesystem::path path, int size)
+{
+    if (is_open()) throw std::logic_error("Close the review window before configuring its font");
+    auto staged = options_;
+    staged.font_path = std::move(path);
+    staged.font_size = size;
+    validate_options(staged);
+    options_ = std::move(staged);
 }
 ReviewWindow::~ReviewWindow() = default;
 ReviewWindow::ReviewWindow(ReviewWindow&&) noexcept = default;
@@ -176,6 +185,13 @@ void ReviewWindow::open()
         implementation->font.reset(TTF_OpenFont(reinterpret_cast<const char*>(utf8.c_str()), options_.font_size));
         if (!implementation->font)
             throw std::runtime_error(std::string("Cannot open review font: ") + TTF_GetError());
+    } else {
+        const auto bytes = bundled_font();
+        implementation->font_stream.reset(SDL_RWFromConstMem(bytes.data(), static_cast<int>(bytes.size())));
+        if (!implementation->font_stream) fail_sdl("Cannot open bundled review font stream");
+        implementation->font.reset(TTF_OpenFontRW(implementation->font_stream.get(), 0, options_.font_size));
+        if (!implementation->font)
+            throw std::runtime_error(std::string("Cannot open bundled review font: ") + TTF_GetError());
     }
     implementation_ = std::move(implementation);
     input_ = {};

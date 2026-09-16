@@ -103,7 +103,8 @@ TEST(SettingsValue, PreservesLegacyValidationAndDelayConvention) {
                             "windowtitle=\"%n\"", "windowtitle=\"%s %s\"", "language=de",
                             "commercial_minimum_tolerance=2\ncommercial_maximum_tolerance=1"})
         EXPECT_THROW(load_settings(Ini(text), base), std::invalid_argument) << text;
-    EXPECT_THROW(load_settings(Ini("windowtitle=\"" + std::string(1100, 'x') + "\""), base), std::invalid_argument);
+    EXPECT_EQ(load_settings(Ini("windowtitle=\"" + std::string(1100, 'x') + "\""), base).windowtitle,
+        std::string(1100, 'x'));
 }
 TEST(SettingsValue, RejectsNegativeScanBordersIncludingInheritedValues) {
     const auto baseline = default_settings();
@@ -114,6 +115,20 @@ TEST(SettingsValue, RejectsNegativeScanBordersIncludingInheritedValues) {
     invalid.border = -1;
     EXPECT_THROW(load_settings(Ini{}, invalid), std::invalid_argument);
     EXPECT_EQ(baseline.border, default_settings().border);
+}
+TEST(SettingsValue, LoadsIndependentFontSettingsAndLongOwnedStringRoundTrips) {
+    const auto base = default_settings();
+    EXPECT_TRUE(base.review_font_file.empty()); EXPECT_EQ(base.review_font_size, 16);
+    const std::string title = std::string(1100, 'x') + " café";
+    const Ini input("review_font_file=\"café.ttf\"\nreview_font_size=22\nwindowtitle=\"" + title + "\"");
+    const auto value = load_settings(Ini(input.serialize()), base);
+    EXPECT_EQ(value.review_font_file, "café.ttf"); EXPECT_EQ(value.review_font_size, 22);
+    EXPECT_EQ(value.windowtitle, title);
+    EXPECT_EQ(base.review_font_size, 16); EXPECT_TRUE(base.review_font_file.empty());
+    for (int size : {0, -1})
+        EXPECT_THROW(load_settings(Ini("review_font_size=" + std::to_string(size)), base), std::invalid_argument);
+    auto inherited = value; inherited.review_font_size = 0;
+    EXPECT_THROW(load_settings(Ini(""), inherited), std::invalid_argument);
 }
 TEST(SettingsValue, RejectsUnsafeOutputTemplatesBeforeReturningCandidate) {
     const auto base = default_settings();

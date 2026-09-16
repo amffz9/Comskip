@@ -181,6 +181,8 @@ struct Settings {
     std::string cutscenefile7{};
     std::string cutscenefile8{};
     std::string windowtitle{};
+    std::string review_font_file{};
+    int review_font_size{};
     std::string cuttermaran_options{};
     std::string mpeg2schnitt_options{};
     std::string avisynth_options{};

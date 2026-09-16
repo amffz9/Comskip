@@ -48,14 +48,14 @@ TEST_F(SettingsLoading, SupportsNegativeOverridesAndAudioDelayConvention) {
     EXPECT_EQ(settings.play_nice_start, -1);
     EXPECT_EQ(settings.ms_audio_delay, -25);
 }
-TEST_F(SettingsLoading, RejectsOversizedStringsAndInvalidValuesAtomically) {
-    EXPECT_THROW(apply(Ini("max_volume=100\nwindowtitle=\"" + std::string(1100, 'x') + "\"")), std::invalid_argument);
+TEST_F(SettingsLoading, RejectsInvalidValuesAtomicallyAndAcceptsOwnedLongStrings) {
+    EXPECT_THROW(apply(Ini("max_volume=100\nreview_font_size=0")), std::invalid_argument);
     EXPECT_EQ(settings.max_volume, 500);
     EXPECT_THROW(apply(Ini("num_logo_buffers=0")), std::invalid_argument);
     EXPECT_THROW(apply(Ini("thread_count=-1")), std::invalid_argument);
     EXPECT_THROW(apply(Ini("output_edl=2")), std::invalid_argument);
     EXPECT_THROW(apply(Ini("windowtitle=\"%n\"")), std::invalid_argument);
     EXPECT_THROW(apply(Ini("windowtitle=\"%s %s\"")), std::invalid_argument);
-    apply(Ini("windowtitle=\"" + std::string(300, 'x') + "\""));
-    EXPECT_EQ(std::string(settings.windowtitle).size(), 300u);
+    apply(Ini("windowtitle=\"" + std::string(1100, 'x') + "\""));
+    EXPECT_EQ(std::string(settings.windowtitle).size(), 1100u);
 }

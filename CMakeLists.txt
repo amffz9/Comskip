@@ -89,12 +89,19 @@ target_link_libraries(output_text PUBLIC pugixml::pugixml diagnostics)
 add_library(review_window src/ui/review_window.cpp)
 target_include_directories(review_window PUBLIC src/ui)
 target_compile_definitions(review_window PUBLIC
-    COMSKIP_BUILD_GUI=$<BOOL:${COMSKIP_BUILD_GUI}>
-    COMSKIP_DEFAULT_FONT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/NotoSans.ttf")
+    COMSKIP_BUILD_GUI=$<BOOL:${COMSKIP_BUILD_GUI}>)
 if(COMSKIP_BUILD_GUI)
     find_package(SDL2 CONFIG REQUIRED)
     find_package(SDL2_ttf CONFIG REQUIRED)
+    set(COMSKIP_BUNDLED_FONT "${CMAKE_CURRENT_BINARY_DIR}/generated/bundled_font.cpp")
+    add_custom_command(OUTPUT "${COMSKIP_BUNDLED_FONT}"
+        COMMAND "${CMAKE_COMMAND}" "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/NotoSans.ttf"
+            "-DOUTPUT=${COMSKIP_BUNDLED_FONT}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_font.cmake"
+        DEPENDS assets/fonts/NotoSans.ttf cmake/embed_font.cmake
+        VERBATIM)
+    target_sources(review_window PRIVATE "${COMSKIP_BUNDLED_FONT}")
     target_link_libraries(review_window PRIVATE SDL2::SDL2 SDL2_ttf::SDL2_ttf)
+    install(FILES assets/fonts/OFL.txt assets/fonts/README.md DESTINATION share/licenses/comskip/fonts)
 endif()
 
 add_library(commercial_length src/detection/commercial_length.cpp src/detection/weighted_scores.cpp)
@@ -132,6 +139,16 @@ if(BUILD_TESTING)
         target_link_libraries(review_window_test PRIVATE SDL2::SDL2)
     endif()
     gtest_discover_tests(review_window_test PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+    if(COMSKIP_BUILD_GUI)
+        find_package(Python3 COMPONENTS Interpreter REQUIRED)
+        add_executable(review_font_test tests/ui/review_font_test.cpp)
+        target_link_libraries(review_font_test PRIVATE review_window GTest::gtest_main)
+        gtest_discover_tests(review_font_test PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+        add_test(NAME relocated_review_font COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/relocated_font.py" $<TARGET_FILE:review_font_test>
+            --runtime-dir $<TARGET_FILE_DIR:SDL2::SDL2>)
+        set_tests_properties(relocated_review_font PROPERTIES TIMEOUT 45)
+    endif()
     add_executable(diagnostic_test tests/localization/diagnostic_test.cpp)
     target_link_libraries(diagnostic_test PRIVATE comskip_localization diagnostics GTest::gtest_main)
     gtest_discover_tests(diagnostic_test)
@@ -162,6 +179,9 @@ if(BUILD_TESTING)
     add_executable(settings_test tests/config/settings_test.cpp)
     target_link_libraries(settings_test PRIVATE comskip_config GTest::gtest_main)
     gtest_discover_tests(settings_test)
+    add_executable(logo_search_time_test tests/config/logo_search_time_test.cpp)
+    target_link_libraries(logo_search_time_test PRIVATE comskip_config GTest::gtest_main)
+    gtest_discover_tests(logo_search_time_test)
     add_executable(settings_value_test tests/config/settings_value_test.cpp)
     target_link_libraries(settings_value_test PRIVATE comskip_config GTest::gtest_main)
     gtest_discover_tests(settings_value_test)

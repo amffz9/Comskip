@@ -6,6 +6,7 @@
 #include "checked_format.h"
 #include "translator.h"
 #include "diagnostic_render.h"
+#include "logo_search_time.h"
 #include "arguments.h"
 
 namespace {
@@ -126,8 +127,8 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
         fputs(translator.format("invalid_configuration", comskip::localization::render_exception(error,translator)).c_str(), stderr);
         comskip::request_exit(1);
     }
-    if (context.settings.added_recording > 0 && context.settings.giveUpOnLogoSearch < context.settings.added_recording * 60)
-        context.settings.giveUpOnLogoSearch += context.settings.added_recording * 60;
+    context.settings.giveUpOnLogoSearch = comskip::config::adjusted_logo_search_seconds(
+        context.settings.giveUpOnLogoSearch, context.settings.added_recording);
 }
 
 

@@ -32,8 +32,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B038, B039, B040, B042, B043 | Fixed at `b1f9e86`; all 270 Windows tests pass, including checked brightness/geometry, actual zero-border/empty scenes, fractional-rate CSV replay, and invalid-rate rejection before state mutation. The unmodified `07aa466` snapshot also passes all 275 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
 | B041, B044 | Fixed at `07aa466`; all 279 Windows headless and all 279 unmodified Windows SDL snapshot tests pass. Nine geometry/filter tests cover extreme settings, ordinary edges, short/full histories, required buffers, and persisted bounds. Its unmodified snapshot passes all 275 Linux headless, SDL, and address/undefined/leak sanitizer tests without findings or suppressions. |
 | B045 | Fixed at `706801f`; all 285 Windows tests pass, including an actual decoder reset/reopen regression and six timing-output tests. |
-| B046, B048, B049, B050, B052, B053, B054 | Fixed at `62664db`; all 319 Windows headless tests pass. Linux/SDL verification of this stage remains separate. |
-| B047, B051, B055, B056 | Open; B051 settings/parser/geometry/XML/EDL/plist reasons are migrated, with review and caption/subtitle reasons remaining. |
+| B046, B048, B049, B050, B052, B053, B054 | Fixed at `62664db`; all 319 Windows headless and SDL tests pass. Its unmodified snapshot passes all 315 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
+| B047, B055, B056 | Fixed in the font/settings stage; all 326 Windows headless and 329 SDL tests pass, including a relocated executable, long Unicode configured cutscene path, and duration overflow rejection before settings publication. |
+| B051, B057 | Open; B051 settings/parser/geometry/XML/EDL/plist reasons are migrated, with review and caption/subtitle reasons remaining. |
 
 ## Issue evidence and verification
 
@@ -522,8 +523,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 
 - **Evidence:** `CMakeLists.txt:84` embeds the source-tree NotoSans path;
   `src/ui/review_window.cpp:112` uses it as the default font.
-- **Status:** Suspected deployment gap. A relocated installation without the
-  original checkout has not been tested.
+- **Resolution:** GUI builds embed the licensed font with an owned SDL font
+  stream and allow INI-configured external font overrides. A relocated test
+  executable with no asset tree opens, renders, reopens and runs two independent
+  windows. All 329 Windows SDL tests pass; all 326 headless tests also pass.
 - **Verification needed:** Run a copied installation without source assets;
   provide and verify a portable bundled-resource/default-font resolution.
 
@@ -614,8 +617,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** `src/config/settings_value.cpp` rejects string settings at
   1,024 bytes except language/catalog-directory fields, despite owned dynamic
   strings. This includes cutscene paths.
-- **Status:** Source-confirmed portability restriction; consumers must be audited
-  before removing the obsolete boundary. This is not a buffer overflow.
+- **Resolution:** Audited dynamic consumers no longer impose the obsolete cap;
+  embedded-null rejection remains. Actual INI loading reads a Unicode cutscene
+  path above 1,024 bytes and its complete payload. All 326 Windows headless and
+  329 SDL tests pass. This was a restriction rather than a buffer overflow.
 - **Verification needed:** Long Unicode configured file paths through actual
   loading/consumers, preserved embedded-null rejection, and removal of the
   arbitrary cap where no fixed-capacity consumer remains.
@@ -625,10 +630,21 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** `LoadIniFile` multiplies int `added_recording` by 60 and adds
   it to int `giveUpOnLogoSearch` without range checking; extreme accepted
   settings cause signed overflow while loading configuration.
-- **Progress:** A chrono-based wide conversion and checked result are prepared.
-  Validation and actual loading tests are pending; not yet a verified fix.
+- **Resolution:** Chrono-based wide conversion and checked addition preserve
+  ordinary extension and reject overflow during candidate validation, before
+  settings publication. Three duration tests and actual invalid INI loading
+  pass within all 326 Windows headless and 329 SDL tests.
 - **Verification needed:** Ordinary extension/no-extension, multiplication and
   addition extremes, and rejection before publishing invalid configuration.
+
+### B057: Early commercial cuts can concatenate AviSynth trims without a join
+
+- **Evidence:** The legacy AviSynth writer chooses ` ++ ` from `prev < 10`
+  instead of whether it already wrote a trim. Cuts 6..9 followed by 20..30
+  can emit `trim(1,7)trim(11,21)` with no joining operator.
+- **Status:** Source-confirmed invalid script; actual export regression pending.
+- **Verification needed:** Track emitted trims independently of frame positions;
+  cover early cuts, ordinary multiple trims, empty exports, and terminal ranges.
 
 ## Fixed during modernization
 

@@ -129,7 +129,6 @@ enum class Code {
     scene_sampling_exceeds_integer_addressable_storage,
     setting_byte,
     setting_finite,
-    setting_long,
     setting_nonnegative,
     setting_null,
     setting_percent,
@@ -270,7 +269,6 @@ constexpr std::string_view message_id(Code code) {
     case Code::scene_sampling_exceeds_integer_addressable_storage: return "diag_scene_sampling_exceeds_integer_addressable_storage";
     case Code::setting_byte: return "diag_setting_byte";
     case Code::setting_finite: return "diag_setting_finite";
-    case Code::setting_long: return "diag_setting_long";
     case Code::setting_nonnegative: return "diag_setting_nonnegative";
     case Code::setting_null: return "diag_setting_null";
     case Code::setting_percent: return "diag_setting_percent";

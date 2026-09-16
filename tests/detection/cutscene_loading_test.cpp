@@ -1,5 +1,9 @@
 #include "recording_context.h"
 #include "checked_format.h"
+#include "platform/utf8_paths.h"
+#include "exit_requested.h"
+#include <iomanip>
+#include <limits>
 #include <gtest/gtest.h>
 #include <array>
 #include <algorithm>
@@ -87,4 +91,59 @@ TEST_F(CutsceneLoading, OversizedPixelPayloadIsRejectedAndMaximumPayloadIsPreser
     EXPECT_EQ(context->state.cutscenes, 1);
     EXPECT_EQ(context->state.cslength[0], capacity);
     EXPECT_EQ(context->state.cutscene[0][capacity - 1], 99);
+}
+
+TEST_F(CutsceneLoading, ActualIniLoadingAcceptsLongUnicodeCutscenePath) {
+#ifdef _WIN32
+    directory = std::filesystem::path(L"\\\\?\\" + std::filesystem::absolute(directory).wstring());
+#endif
+    auto deep = directory;
+    for (int index = 0; index < 12; ++index)
+        deep /= std::string(90, static_cast<char>('a' + index));
+    deep /= std::filesystem::path(u8"Café 字幕");
+    ASSERT_TRUE(std::filesystem::create_directories(deep));
+    const auto scene = deep / std::filesystem::path(u8"Scène.cut");
+    const auto name = comskip::platform::path_to_utf8(scene);
+    ASSERT_GT(name.size(), 1024u);
+    {
+        std::ofstream output(scene, std::ios::binary);
+        ASSERT_TRUE(output);
+        const int brightness = 75;
+        output.write(reinterpret_cast<const char*>(&brightness), sizeof brightness);
+        output.write("ABC", 3);
+    }
+    const auto settings = directory / "settings.ini";
+    {
+        std::ofstream output(settings);
+        ASSERT_TRUE(output);
+        output << "cutscenefile1=" << std::quoted(name) << "\nverbose=0\n";
+    }
+    context->state.ini_file.reset(myfopen(comskip::platform::path_to_utf8(settings).c_str(), "r"));
+    ASSERT_TRUE(context->state.ini_file);
+    EXPECT_NO_THROW(LoadIniFile(*context, context->translator));
+    EXPECT_EQ(context->settings.cutscenefile1, name);
+    ASSERT_EQ(context->state.cutscenes, 1);
+    EXPECT_EQ(context->state.csbrightness[0], 75);
+    EXPECT_EQ(context->state.cslength[0], 3);
+    EXPECT_EQ(context->state.cutscene[0][0], 'A');
+    EXPECT_TRUE(std::filesystem::remove(scene));
+}
+TEST_F(CutsceneLoading, InvalidAdditionalMinutesRejectBeforePublishingSettings) {
+    const auto settings = directory / "invalid.ini";
+    {
+        std::ofstream output(settings);
+        output << "added_recording=" << std::numeric_limits<int>::max() << "\n";
+    }
+    context->state.ini_file.reset(myfopen(comskip::platform::path_to_utf8(settings).c_str(), "r"));
+    ASSERT_TRUE(context->state.ini_file);
+    const int previous_minutes = context->settings.added_recording;
+    const int previous_search = context->settings.giveUpOnLogoSearch;
+    try {
+        LoadIniFile(*context, context->translator);
+        FAIL() << "Unrepresentable recording duration was accepted";
+    } catch (const comskip::ExitRequested& request) {
+        EXPECT_EQ(request.status(), 1);
+    }
+    EXPECT_EQ(context->settings.added_recording, previous_minutes);
+    EXPECT_EQ(context->settings.giveUpOnLogoSearch, previous_search);
 }

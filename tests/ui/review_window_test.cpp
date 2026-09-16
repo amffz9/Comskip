@@ -86,6 +86,17 @@ TEST(ReviewWindow, ValidatesDimensionsAndClosedWindowOperations)
     static_assert(!std::is_copy_constructible_v<ReviewWindow>);
     static_assert(std::is_nothrow_move_constructible_v<ReviewWindow>);
 }
+TEST(ReviewWindow, FontConfigurationPreservesControllerStateAndRejectsInvalidMutation) {
+    ReviewWindow window;
+    window.process_event(KeyEvent{static_cast<Key>('w')});
+    window.process_event(MouseEvent{MouseEvent::Kind::press, 10, 20});
+    window.configure_font(std::filesystem::u8path("café.ttf"), 22);
+    EXPECT_EQ(window.input().key, 'W'); EXPECT_TRUE(window.input().mouse_down);
+    EXPECT_EQ(window.options().font_size, 22);
+    EXPECT_THROW(window.configure_font({}, 0), std::invalid_argument);
+    EXPECT_EQ(window.options().font_size, 22);
+    EXPECT_EQ(window.options().font_path, std::filesystem::u8path("café.ttf"));
+}
 
 #if !COMSKIP_BUILD_GUI
 TEST(ReviewWindow, HeadlessBuildReportsHowToEnableTheUI)
@@ -120,7 +131,6 @@ TEST(ReviewWindow, DummyDriverSupportsLifecycleRenderingEventsAndText)
     ASSERT_GT(SDL_PushEvent(&event), 0);
     window.refresh();
     EXPECT_EQ(window.consume_input().key, 112);
-#ifdef COMSKIP_DEFAULT_FONT_FILE
     const std::array<std::string_view, 3> help{"Review help", "", "W saves the cutlist"};
     window.show_help(help);
     EXPECT_EQ(window.overlay_text(), "Review help\n\nW saves the cutlist");
@@ -136,7 +146,6 @@ TEST(ReviewWindow, DummyDriverSupportsLifecycleRenderingEventsAndText)
     EXPECT_EQ(visible_pixel, (std::array<std::uint8_t, 3>{127, 127, 127}));
     window.clear_text();
     EXPECT_TRUE(window.overlay_text().empty());
-#endif
     ReviewWindow moved(std::move(window));
     EXPECT_FALSE(window.is_open());
     EXPECT_TRUE(moved.is_open());

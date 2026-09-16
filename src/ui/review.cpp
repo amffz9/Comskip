@@ -108,6 +108,9 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             comskip::checked_format(title, context.settings.windowtitle.c_str(), context.state.filename);
             context.window.close();
             context.state.ensure_review_graph(context.state.owidth, context.state.oheight + barh);
+            context.window.close();
+            context.window.configure_font(std::filesystem::u8path(context.settings.review_font_file),
+                context.settings.review_font_size);
             context.window.open(context.state.owidth, context.state.oheight + barh, title);
             context.state.review_source_width = context.state.videowidth;
             context.state.review_source_height = context.state.height;

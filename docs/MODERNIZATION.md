@@ -230,3 +230,24 @@ than redefine completion around whichever subset currently passes tests.
   trend/history counters. Logs: `bin/windows-sidecars-diagnostics-{build,test}.txt`.
   Linux/SDL verification, review/caption error migration, font relocation and
   remaining legacy output modules are separate work.
+
+- The unmodified `62664db` snapshot passes Windows SDL **319/319** (4.18s)
+  and Linux headless **315/315** (35.88s), SDL **315/315** (37.12s), and
+  address/undefined/leak sanitizer **315/315** (80.92s), without findings or
+  suppressions. Linux uses a private package exposing only the installed
+  rapidcsv header/config, avoiding an initial Windows-GTest header collision;
+  source files were never patched. Exact evidence is in
+  `bin/windows-verification-62664db.md` and `bin/linux-verification-62664db.md`.
+- The font/settings stage passes Windows headless **326/326** (4.85s) and
+  SDL **329/329** (6.64s). GUI builds embed NotoSans through a generated resource
+  translation unit, with owned SDL font stream/font lifetime. INI settings
+  `review_font_file` and `review_font_size` select an external font or the
+  bundled default. A copied executable without an asset tree renders help,
+  runs independent windows and reopens; invalid external overrides do not
+  silently fall back. Dynamic string settings retain null rejection and have
+  no arbitrary length cap. Actual INI loading reads a long Unicode cutscene
+  path and rejects unrepresentable recording-duration settings before mutation.
+  Logs are `bin/windows-font-settings-{build,test}.txt` and
+  `bin/windows-font-gui-{configure,build,test}.txt`. Linux verification of this
+  stage, macOS/interactive SDL, remaining human error reasons and legacy
+  output modules remain separate work.

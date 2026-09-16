@@ -77,6 +77,8 @@ public:
     std::uint32_t window_id() const noexcept;
 
     void open();
+    // Configure a closed window without replacing its controller/input state.
+    void configure_font(std::filesystem::path path, int size);
     void open(int width, int height, std::string_view title);
     // Input is RGB24, row-major. A zero pitch selects width * 3.
     void draw(std::span<const std::uint8_t> rgb, int pitch = 0);

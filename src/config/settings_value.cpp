@@ -1,6 +1,7 @@
 #include "../localization/diagnostic.h"
 #include "settings_value.h"
 #include "settings_descriptors.h"
+#include "logo_search_time.h"
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -60,9 +61,6 @@ Settings load_settings(const Ini& ini, Settings base) {
             }
         }
         if constexpr (std::is_same_v<T, std::string>) {
-            // Retain the legacy boundary until every C-string consumer is migrated.
-            if (key != "language" && key != "locale_directory" && target.size() >= 1024)
-                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_long, {std::string(key)});
             if (target.find('\0') != std::string::npos)
                 throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_null, {std::string(key)});
         } else {
@@ -70,7 +68,7 @@ Settings load_settings(const Ini& ini, Settings base) {
                 if (!std::isfinite(target))
                     throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_finite, {std::string(key)});
             if ((key == "thread_count" || key == "num_logo_buffers" ||
-                 key == "fps" || key == "edge_radius" || key == "edge_step") && target <= 0)
+                 key == "fps" || key == "edge_radius" || key == "edge_step" || key == "review_font_size") && target <= 0)
                 throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_positive, {std::string(key)});
             if (key == "border" && target < 0)
                 throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::border_must_be_nonnegative);
@@ -100,6 +98,7 @@ Settings load_settings(const Ini& ini, Settings base) {
         !std::isfinite(profile.correction) || !std::isfinite(profile.minimum_tolerance) ||
         !std::isfinite(profile.maximum_tolerance) || !std::isfinite(profile.show_margin))
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_commercial_length_profile);
+    (void)adjusted_logo_search_seconds(base.giveUpOnLogoSearch, base.added_recording);
     return base;
 }
 }
