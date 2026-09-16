@@ -1,4 +1,5 @@
 #include "exit_requested.h"
+#include "cutlist_exports.h"
 #include "checked_format.h"
 #include "xml_output_adapter.h"
 #include "edl.h"
