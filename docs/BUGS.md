@@ -295,6 +295,16 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Verification needed:** Reopen/unwind cleanup and the complete
   address/undefined/leak sanitizer suite without suppressions.
 
+### B026: Frame-time lookup trusts inconsistent observation counts
+
+- **Evidence:** `get_frame_pts` clamps to `frame_count - 1` without checking
+  stored frame size. Nonempty storage with count zero indexes `-1`; a count
+  larger than storage indexes beyond the vector.
+- **Fix in progress:** Use the existing frame-rate fallback when observations
+  are unavailable and bound valid indices to both count and stored size.
+- **Verification needed:** Zero/negative counts, excessive counts, and valid
+  timestamp lookup, followed by application timing regressions.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
