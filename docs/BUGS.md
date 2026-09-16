@@ -321,9 +321,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 
 - **Evidence:** Caption processing evaluates `text[text_len - 1]` before
   checking text length. A fresh control-only pair can reach this with length
-  zero. Related `isalpha` calls also accept possibly negative signed chars.
-- **Fix/verification needed:** Guard indices first and pass unsigned character
-  values to classification, with empty/control-only and extended-byte tests.
+  zero. The stored bytes are already unsigned, so character classification is
+  not a separate signed-character defect.
+- **Fix/verification needed:** Guard indices first, with empty/control-only and
+  extended-byte regressions.
 
 ## Fixed during modernization
 
