@@ -43,6 +43,18 @@ and relevant verification; retain the evidence for future regressions.
 - **Verification needed:** A recording with a standalone subtitle stream and
   no embedded A53 captions; compare requested subtitle output with its cues.
 
+### B004: Caption dump replay trusts persisted payload lengths
+
+- **Evidence:** `src/app/csv_input.cpp` reads the companion `.data` length with
+  `sscanf`, then passes `ccDataLen` to `fread` targeting the fixed 500-byte
+  `ccData` buffer without validating its range or the complete record.
+- **Impact:** Oversized or negative lengths can overrun the buffer; truncated
+  records can feed incomplete caption data into the detector/exporter.
+- **Fix:** Validate framing and bounded payload length before reading or changing
+  observations; retain compatible valid dump replay through the owned session.
+- **Verification needed:** Actual CSV replay with oversized, negative, malformed,
+  and truncated companion records, plus valid captions and failure cleanup.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
