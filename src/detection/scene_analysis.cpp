@@ -261,10 +261,6 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
     }
     context.state.cutscene_file.reset();
 //GetDumpFileName();
-    if (context.state.osname[0])
-    {
-        context.settings.cutscenefile = std::string(context.state.osname) + ".dmp";
-    }
     if (context.settings.cutscenefile.c_str()[0] == 0)
     {
         context.settings.cutscenefile = std::string(context.state.workbasename) + ".dmp";
@@ -779,7 +775,9 @@ bool CheckSceneHasChanged(RecordingContext& context)
     cause = 0;
     if (context.settings.commDetectMethod & BLACK_FRAME)
     {
-        if ((context.state.brightness <= context.settings.max_avg_brightness) && hasBright <= context.settings.maxbright * context.state.width * context.state.height / 720 / 480 && !isDim /* && uniform < non_uniformity */  /* && !lastLogoTest because logo disappearance is detected too late*/)
+        if ((context.state.brightness <= context.settings.max_avg_brightness) &&
+            hasBright <= comskip::detection::scaled_bright_pixel_limit(context.settings.maxbright,
+                context.state.width,context.state.height) && !isDim)
         {
             cause |= C_b;
             Debug(context, 7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.brightness, uniform, context.state.black[MAX(0,context.state.black_count - 1)].volume);

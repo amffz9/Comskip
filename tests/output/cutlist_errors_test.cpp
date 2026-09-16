@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "output/frame_script_adapter.h"
 #include "detection/legacy_detection.h"
 #include "output/cutlist_exports.h"
 #include "checked_format.h"
@@ -78,13 +79,16 @@ TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExac
     comskip::checked_format(context->state.outbasename, "%s", (directory / "result").string().c_str());
     comskip::checked_format(context->state.inbasename, "%s", "input");
     OpenOutputFiles(*context);
-    context->state.avisynth_file.reset();
+    context->state.frame_count=50;
+    context->state.framenum_real=50;
+    context->state.commercial_count=-1;
+    WriteFrameScriptFiles(*context);
     context->state.dvrcut_file.reset();
     const auto read = [](const std::filesystem::path& path) {
         std::ifstream file(path);
         return std::string(std::istreambuf_iterator<char>(file), {});
     };
-    EXPECT_EQ(read(directory / "input.ts.avs"), "% " + context->state.mpegfilename);
+    EXPECT_EQ(read(directory / "input.ts.avs"), "% " + context->state.mpegfilename + "trim(1,49)\n");
     EXPECT_EQ(read(directory / "result_dvrcut.bat"), "input|input|input|%");
 }
 }

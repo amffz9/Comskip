@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "media/subtitle_output.h"
 #include "media/ffmpeg_resources.h"
 #include <pugixml.hpp>
@@ -24,10 +25,11 @@ std::string utf8(const std::filesystem::path& path) {
     auto value = path.u8string();
     return {reinterpret_cast<const char*>(value.data()), value.size()};
 }
-void check(int status, const char* operation) {
+void check(int status, comskip::diagnostics::Code operation, std::vector<std::string> arguments = {}) {
     if (status < 0) {
         char detail[AV_ERROR_MAX_STRING_SIZE]; av_strerror(status, detail, sizeof(detail));
-        throw std::runtime_error(std::string(operation) + ": " + detail);
+        arguments.emplace_back(detail);
+        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, std::move(arguments));
     }
 }
 pugi::xml_node child(pugi::xml_node parent, const char* name) {
@@ -90,27 +92,27 @@ struct SubtitleOutput::Impl {
     Impl(const std::filesystem::path& destination, SubtitleFormat selection, std::string_view ass_header)
         : format(selection), header(ass_header) {
         if (header.empty() || header.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()) - AV_INPUT_BUFFER_PADDING_SIZE)
-            throw std::invalid_argument("Subtitle output requires an ASS header");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_output_requires_an_ass_header);
         const auto* codec = avcodec_find_encoder(AV_CODEC_ID_SUBRIP);
-        if (!codec) throw std::runtime_error("FFmpeg SubRip encoder is unavailable");
+        if (!codec) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::ffmpeg_subrip_encoder_is_unavailable);
         encoder.reset(avcodec_alloc_context3(codec)); if (!encoder) throw std::bad_alloc{};
         encoder->time_base = {1, 1000000};
         encoder->subtitle_header = static_cast<std::uint8_t*>(av_mallocz(header.size() + AV_INPUT_BUFFER_PADDING_SIZE));
         if (!encoder->subtitle_header) throw std::bad_alloc{};
         std::copy(header.begin(), header.end(), encoder->subtitle_header);
         encoder->subtitle_header_size = static_cast<int>(header.size());
-        check(avcodec_open2(encoder.get(), codec, nullptr), "Opening subtitle encoder");
+        check(avcodec_open2(encoder.get(), codec, nullptr), comskip::diagnostics::Code::opening_subtitle_encoder_detail);
         if (format == SubtitleFormat::srt) {
             AVFormatContext* output = nullptr;
             const auto filename = utf8(destination);
             const int allocated = avformat_alloc_output_context2(&output, nullptr, "srt", filename.c_str());
             muxer.reset(output);
-            check(allocated, "Creating subtitle muxer"); if (!muxer) throw std::bad_alloc{};
+            check(allocated, comskip::diagnostics::Code::creating_subtitle_muxer_detail); if (!muxer) throw std::bad_alloc{};
             stream = avformat_new_stream(muxer.get(), nullptr); if (!stream) throw std::bad_alloc{};
             stream->time_base = {1, 1000000};
-            check(avcodec_parameters_from_context(stream->codecpar, encoder.get()), "Configuring subtitle stream");
-            check(avio_open(&muxer->pb, filename.c_str(), AVIO_FLAG_WRITE), "Opening subtitle destination");
-            check(avformat_write_header(muxer.get(), nullptr), "Writing subtitle header");
+            check(avcodec_parameters_from_context(stream->codecpar, encoder.get()), comskip::diagnostics::Code::configuring_subtitle_stream_detail);
+            check(avio_open(&muxer->pb, filename.c_str(), AVIO_FLAG_WRITE), comskip::diagnostics::Code::opening_subtitle_destination_detail, {filename});
+            check(avformat_write_header(muxer.get(), nullptr), comskip::diagnostics::Code::writing_subtitle_header_detail);
         } else {
             auto declaration = sami.append_child(pugi::node_declaration);
             attribute(declaration, "version", "1.0"); attribute(declaration, "encoding", "UTF-8");
@@ -125,7 +127,7 @@ struct SubtitleOutput::Impl {
         std::vector<AVSubtitleRect*> pointers; pointers.reserve(rects.size());
         std::vector<std::string> values; values.reserve(rects.size());
         for (std::size_t i = 0; i < rects.size(); ++i) {
-            if (cue.regions[i].ass.empty()) throw std::invalid_argument("Subtitle region requires ASS data");
+            if (cue.regions[i].ass.empty()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_region_requires_ass_data);
             values.push_back(escape_xml ? xml_text(cue.regions[i].ass) : cue.regions[i].ass);
             rects[i].type = SUBTITLE_ASS; rects[i].ass = values.back().data(); pointers.push_back(&rects[i]);
         }
@@ -137,33 +139,33 @@ struct SubtitleOutput::Impl {
             const int size = avcodec_encode_subtitle(encoder.get(), buffer.data(), static_cast<int>(buffer.size()), &subtitle);
             if (size == AVERROR_BUFFER_TOO_SMALL) {
                 if (buffer.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()) / 2)
-                    throw std::length_error("Subtitle event is too large");
+                    throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::subtitle_event_is_too_large);
                 buffer.resize(buffer.size() * 2); continue;
             }
-            check(size, "Encoding subtitle event");
+            check(size, comskip::diagnostics::Code::encoding_subtitle_event_detail);
             return {reinterpret_cast<const char*>(buffer.data()), static_cast<std::size_t>(size)};
         }
     }
     void write(const CaptionCue& cue) {
-        if (finished) throw std::logic_error("Subtitle output must be reset after completion");
+        if (finished) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::subtitle_output_must_be_reset_after_completion);
         if (cue.start.count() < 0 || cue.end <= cue.start || (last_end && cue.start < *last_end))
-            throw std::invalid_argument("Subtitle cues must be nonnegative, ordered and nonoverlapping");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_cues_must_be_nonnegative_ordered_and_nonoverlapping);
         const auto text = encode(cue, format == SubtitleFormat::sami);
         if (!text.empty()) {
             if (format == SubtitleFormat::srt) {
                 auto packet = make_packet();
-                check(av_new_packet(packet.get(), static_cast<int>(text.size())), "Allocating subtitle packet");
+                check(av_new_packet(packet.get(), static_cast<int>(text.size())), comskip::diagnostics::Code::allocating_subtitle_packet_detail);
                 std::copy(text.begin(), text.end(), packet->data);
                 packet->stream_index = stream->index;
                 packet->pts = packet->dts = av_rescale_q(cue.start.count(), AVRational{1, 1000000}, stream->time_base);
                 packet->duration = av_rescale_q(cue.end.count(), AVRational{1, 1000000}, stream->time_base) - packet->pts;
-                check(av_interleaved_write_frame(muxer.get(), packet.get()), "Writing subtitle packet");
-                avio_flush(muxer->pb); check(muxer->pb->error, "Flushing subtitle packet");
+                check(av_interleaved_write_frame(muxer.get(), packet.get()), comskip::diagnostics::Code::writing_subtitle_packet_detail);
+                avio_flush(muxer->pb); check(muxer->pb->error, comskip::diagnostics::Code::flushing_subtitle_packet_detail);
             } else {
                 pugi::xml_document fragment;
                 const auto source = "<P>" + text + "</P>";
                 if (!fragment.load_string(source.c_str(), pugi::parse_default | pugi::parse_ws_pcdata))
-                    throw std::runtime_error("FFmpeg subtitle markup cannot be represented as SAMI");
+                    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::ffmpeg_subtitle_markup_cannot_be_represented_as_sami);
                 auto sync = child(body, "SYNC");
                 attribute(sync, "Start", std::to_string(av_rescale_q(cue.start.count(), AVRational{1, 1000000}, AVRational{1, 1000})));
                 auto paragraph = sync.append_copy(fragment.child("P")); if (!paragraph) throw std::bad_alloc{};
@@ -181,11 +183,11 @@ struct SubtitleOutput::Impl {
     void finish() {
         if (finished) return;
         if (format == SubtitleFormat::srt) {
-            check(av_write_trailer(muxer.get()), "Completing subtitle file");
-            avio_flush(muxer->pb); check(muxer->pb->error, "Flushing subtitle file");
+            check(av_write_trailer(muxer.get()), comskip::diagnostics::Code::completing_subtitle_file_detail);
+            avio_flush(muxer->pb); check(muxer->pb->error, comskip::diagnostics::Code::flushing_subtitle_file_detail);
             const int closed = avio_closep(&muxer->pb);
             finished = true;
-            check(closed, "Closing subtitle file");
+            check(closed, comskip::diagnostics::Code::closing_subtitle_file_detail);
         } else {
             sami.save(file, "", pugi::format_raw, pugi::encoding_utf8);
             file.close();

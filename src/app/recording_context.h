@@ -37,10 +37,7 @@ struct RecordingState {
     comskip::platform::FilePtr zoomplayer_cutlist_file;
     comskip::platform::FilePtr zoomplayer_chapter_file;
     comskip::platform::FilePtr scf_file;
-    comskip::platform::FilePtr vcf_file;
     comskip::platform::FilePtr vdr_file;
-    comskip::platform::FilePtr projectx_file;
-    comskip::platform::FilePtr avisynth_file;
     comskip::platform::FilePtr videoredo_file;
     comskip::platform::FilePtr edl_file;
     comskip::platform::FilePtr live_file;
@@ -416,7 +413,6 @@ struct RecordingState {
     int video_packet_process_prev_strange_framenum= 0;
     int log_callback_report_print_prefix= 1;
     std::unique_ptr<ScanWorkers> scan_workers;
-    char osname[1024]{};
 };
 
 // Own one context per analysis. Functions borrow it explicitly; there is no

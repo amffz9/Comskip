@@ -1,4 +1,5 @@
 #include "output/ffmpeg_sidecar_adapter.h"
+#include "output/frame_script_adapter.h"
 #include "cutlist_exports.h"
 #include "output/csv_field.h"
 #include "recording_context.h"
@@ -52,20 +53,16 @@ TEST_F(SidecarAdapter, ReviewReferenceSelectionPreservesSegmentIndicesAndShortCu
     EXPECT_EQ(read(".ffsplit"),"-c copy -ss 0.440 -t 0.360 segment001.ts \n-c copy -ss 1.240 -t 0.680 segment002.ts \n");
     EXPECT_NE(read(".ffmeta").find("START=0\nEND=40\ntitle=Commercial Segment"),std::string::npos);
 }
-TEST_F(SidecarAdapter, EarlyVdrAndEdlAdjustmentsDoNotChangeLaterProjectXAndBsPlayerExports) {
-    context->state.projectx_file=comskip::platform::temporary_file();
+TEST_F(SidecarAdapter, EarlyVdrAndEdlAdjustmentsDoNotChangeLaterBsPlayerExports) {
     context->state.bcf_file=comskip::platform::temporary_file();
-    ASSERT_TRUE(context->state.projectx_file); ASSERT_TRUE(context->state.bcf_file);
+    ASSERT_TRUE(context->state.bcf_file);
     OutputCommercialBlock(*context,0,-1,4,10,false);
-    const auto project=temporary_contents(context->state.projectx_file.get());
     const auto player=temporary_contents(context->state.bcf_file.get());
     for (auto* owner : {&context->state.vdr_file,&context->state.edl_file,&context->state.edlp_file}) {
         *owner=comskip::platform::temporary_file(); ASSERT_TRUE(*owner);
     }
-    context->state.projectx_file=comskip::platform::temporary_file();
     context->state.bcf_file=comskip::platform::temporary_file();
     OutputCommercialBlock(*context,0,-1,4,10,false);
-    EXPECT_EQ(temporary_contents(context->state.projectx_file.get()),project);
     EXPECT_EQ(temporary_contents(context->state.bcf_file.get()),player);
     EXPECT_EQ(player,"1,160,400\n");
 }
@@ -83,6 +80,7 @@ TEST_F(SidecarAdapter, EnablingFfmetadataDoesNotChangeSimultaneousProjectXExport
         OpenOutputFiles(*context);
         OutputCommercialBlock(*context,0,-1,4,10,true);
         WriteFfmpegSidecarFiles(*context);
+        WriteFrameScriptFiles(*context);
         const auto actual=read(".Xcl");
         if (!metadata) expected=actual;
         else EXPECT_EQ(actual,expected);

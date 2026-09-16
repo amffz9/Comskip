@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "subtitle_stream_decoder.h"
 #include "ffmpeg_resources.h"
 #include <algorithm>
@@ -20,15 +21,15 @@ struct SubtitleOwner {
     AVSubtitle value{};
     ~SubtitleOwner() { avsubtitle_free(&value); }
 };
-void checked(int status, const char* operation) {
+void checked(int status, comskip::diagnostics::Code operation) {
     if (status >= 0) return;
     char error[AV_ERROR_MAX_STRING_SIZE]{};
     av_strerror(status, error, sizeof(error));
-    throw std::runtime_error(std::string(operation) + ": " + error);
+    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {error});
 }
 std::int64_t add(std::int64_t left, std::int64_t right) {
     if (left < 0 || right < 0 || left > std::numeric_limits<std::int64_t>::max() - right)
-        throw std::invalid_argument("Subtitle timestamp interval overflows");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_timestamp_interval_overflows);
     return left + right;
 }
 }
@@ -42,35 +43,35 @@ struct SubtitleStreamDecoder::Impl {
     Impl(const AVCodecParameters& source, AVRational base) : time_base(base) {
         if (base.num <= 0 || base.den <= 0 || source.codec_type != AVMEDIA_TYPE_SUBTITLE ||
             source.extradata_size < 0 || (source.extradata_size > 0 && !source.extradata))
-            throw std::invalid_argument("Invalid standalone subtitle parameters or time base");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_standalone_subtitle_parameters_or_time_base);
         const auto* description = avcodec_descriptor_get(source.codec_id);
         if (description && (description->props & AV_CODEC_PROP_BITMAP_SUB))
-            throw std::invalid_argument("Bitmap subtitle streams cannot produce SRT/SAMI text without OCR; select a text subtitle stream");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::bitmap_subtitle_streams_cannot_produce_srt_sami_text_without_ocr_select_a_text_subtitle_stream);
         if (!description || !(description->props & AV_CODEC_PROP_TEXT_SUB))
-            throw std::invalid_argument("Unsupported standalone text subtitle codec");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::unsupported_standalone_text_subtitle_codec);
         const auto* decoder = avcodec_find_decoder(source.codec_id);
-        if (!decoder) throw std::runtime_error("FFmpeg standalone text subtitle decoder is unavailable");
+        if (!decoder) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::ffmpeg_standalone_text_subtitle_decoder_is_unavailable);
         parameters.reset(avcodec_parameters_alloc());
         if (!parameters) throw std::bad_alloc{};
-        checked(avcodec_parameters_copy(parameters.get(), &source), "Copying subtitle parameters failed");
+        checked(avcodec_parameters_copy(parameters.get(), &source), comskip::diagnostics::Code::copying_subtitle_parameters_failed_detail);
         codec.reset(avcodec_alloc_context3(decoder));
         if (!codec) throw std::bad_alloc{};
-        checked(avcodec_parameters_to_context(codec.get(), parameters.get()), "Copying subtitle codec parameters failed");
+        checked(avcodec_parameters_to_context(codec.get(), parameters.get()), comskip::diagnostics::Code::copying_subtitle_codec_parameters_failed_detail);
         codec->pkt_timebase = time_base;
-        checked(avcodec_open2(codec.get(), decoder, nullptr), "Opening standalone subtitle decoder failed");
+        checked(avcodec_open2(codec.get(), decoder, nullptr), comskip::diagnostics::Code::opening_standalone_subtitle_decoder_failed_detail);
         if (codec->subtitle_header_size > 0)
             header.assign(reinterpret_cast<const char*>(codec->subtitle_header), codec->subtitle_header_size);
     }
     std::int64_t microseconds(std::int64_t ticks) const {
-        if (ticks < 0) throw std::invalid_argument("Subtitle PTS and duration must be nonnegative");
+        if (ticks < 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_pts_and_duration_must_be_nonnegative);
         const auto result = av_rescale_q(ticks, time_base, AVRational{1, 1000000});
-        if (result < 0) throw std::invalid_argument("Subtitle timestamp conversion overflows");
+        if (result < 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_timestamp_conversion_overflows);
         return result;
     }
     std::vector<CaptionCue> packet(AVPacket& packet, bool flushing = false) {
         SubtitleOwner subtitle;
         int got = 0;
-        checked(avcodec_decode_subtitle2(codec.get(), &subtitle.value, &got, &packet), "Decoding standalone subtitle packet failed");
+        checked(avcodec_decode_subtitle2(codec.get(), &subtitle.value, &got, &packet), comskip::diagnostics::Code::decoding_standalone_subtitle_packet_failed_detail);
         if (!got) return {};
         const auto origin = subtitle.value.pts != AV_NOPTS_VALUE ? subtitle.value.pts :
                             flushing ? 0 : microseconds(packet.pts);
@@ -87,12 +88,12 @@ struct SubtitleStreamDecoder::Impl {
         for (unsigned i = 0; i < subtitle.value.num_rects; ++i) {
             const auto* rect = subtitle.value.rects[i];
             if (rect->type == SUBTITLE_BITMAP)
-                throw std::runtime_error("FFmpeg returned bitmap subtitle data; OCR is required for text output");
+                throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::ffmpeg_returned_bitmap_subtitle_data_ocr_is_required_for_text_output);
             CaptionRegion region{rect->text ? rect->text : "", rect->ass ? rect->ass : ""};
             if (!region.text.empty() || !region.ass.empty()) cue.regions.push_back(std::move(region));
         }
         if (cue.regions.empty()) return {};
-        if (end <= start) throw std::invalid_argument("Standalone subtitle cue has no positive duration");
+        if (end <= start) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::standalone_subtitle_cue_has_no_positive_duration);
         return {std::move(cue)};
     }
 };
@@ -103,15 +104,15 @@ SubtitleStreamDecoder::SubtitleStreamDecoder(SubtitleStreamDecoder&&) noexcept =
 SubtitleStreamDecoder& SubtitleStreamDecoder::operator=(SubtitleStreamDecoder&&) noexcept = default;
 std::vector<CaptionCue> SubtitleStreamDecoder::decode(std::span<const std::uint8_t> payload,
                                                      std::int64_t pts, std::int64_t duration) {
-    if (impl_->drained) throw std::logic_error("Standalone subtitle decoder must be reset after EOF");
+    if (impl_->drained) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::standalone_subtitle_decoder_must_be_reset_after_eof);
     if (payload.empty() || payload.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
-        throw std::invalid_argument("Empty or oversized standalone subtitle packet");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::empty_or_oversized_standalone_subtitle_packet);
     const auto duration_us = impl_->microseconds(duration);
     add(impl_->microseconds(pts), duration_us);
     if (duration_us / 1000 > std::numeric_limits<std::uint32_t>::max())
-        throw std::invalid_argument("Subtitle duration exceeds FFmpeg's display interval range");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::subtitle_duration_exceeds_ffmpeg_s_display_interval_range);
     auto packet = make_packet();
-    checked(av_new_packet(packet.get(), static_cast<int>(payload.size())), "Allocating subtitle packet failed");
+    checked(av_new_packet(packet.get(), static_cast<int>(payload.size())), comskip::diagnostics::Code::allocating_subtitle_packet_failed_detail);
     std::copy(payload.begin(), payload.end(), packet->data);
     packet->pts = pts;
     packet->duration = duration;
@@ -123,7 +124,7 @@ std::vector<CaptionCue> SubtitleStreamDecoder::drain() {
     if (impl_->codec->codec->capabilities & AV_CODEC_CAP_DELAY) {
         for (unsigned attempt = 0; ; ++attempt) {
             if (attempt == 4096)
-                throw std::runtime_error("Standalone subtitle decoder did not finish draining");
+                throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::standalone_subtitle_decoder_did_not_finish_draining);
             auto packet = make_packet();
             auto pending = impl_->packet(*packet, true);
             if (pending.empty()) break;

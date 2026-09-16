@@ -251,3 +251,25 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-font-gui-{configure,build,test}.txt`. Linux verification of this
   stage, macOS/interactive SDL, remaining human error reasons and legacy
   output modules remain separate work.
+
+- The unmodified `c5c8496` Linux SDL Release snapshot passes all **325/325**
+  tests (21.96s), including the relocated bundled-font executable. No source
+  patches or repeated headless/sanitizer runs were needed for this scoped proof.
+  Exact evidence is in `bin/linux-verification-c5c8496.md`.
+- The script/diagnostic stage passes Windows headless **347/347** (5.14s)
+  and SDL **351/351** (7.38s). Focused VCF/ProjectX/AviSynth serializers and
+  one finalized-interval adapter replace their legacy per-block streams;
+  normal/review exports retain frame conversion and numbering. AviSynth joins
+  use emitted records, fixing early-cut concatenation. Seven serializer and six
+  actual adapter tests plus complete serial/thread media exports cover these
+  formats. Review/caption/subtitle diagnostics now own paths, timestamps and
+  copied library details, with four category/rendering tests and actual Spanish
+  CLI missing-font/blocked-subtitle regressions. Bright-pixel scaling uses
+  checked geometry and wide integers, with two helper tests and an actual
+  later-frame classification regression. Dead stream fields, legacy aliases,
+  and the disabled settings-code tail are removed. Logs:
+  `bin/windows-scripts-errors-build23-{build,test}.txt` and
+  `bin/windows-scripts-errors-build23-gui-{build,test}.txt`.
+  Saved-logo metadata/mask safety, remaining player exporters and application
+  orchestration, other human error reasons, and macOS/interactive SDL proof
+  remain required work; Linux verification of this stage is separate.

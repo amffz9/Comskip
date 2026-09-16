@@ -1,6 +1,7 @@
 #include "exit_requested.h"
 #include "media/decoder.h"
 #include "output/ffmpeg_sidecar_adapter.h"
+#include "output/frame_script_adapter.h"
 #include "legacy_detection.h"
 #include "checked_format.h"
 #include "review_messages.h"
@@ -974,6 +975,7 @@ bool ReviewResult(RecordingContext& context)
                 }
                 WriteXmlOutputFiles(context, !context.state.framearray);
                 WriteFfmpegSidecarFiles(context, !context.state.framearray);
+                WriteFrameScriptFiles(context, !context.state.framearray);
                 context.settings.output_default = false;
                 context.state.oldfrm = -1;
             }

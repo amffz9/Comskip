@@ -5,6 +5,25 @@
 #include <stdexcept>
 
 using namespace comskip::detection;
+TEST(SceneSampling, BrightPixelScalingPreservesOrdinaryAndNegativeSettings) {
+    EXPECT_EQ(scaled_bright_pixel_limit(20,720,480),20);
+    EXPECT_EQ(scaled_bright_pixel_limit(10,320,240),2);
+    EXPECT_EQ(scaled_bright_pixel_limit(-10,320,240),-2);
+    EXPECT_EQ(scaled_bright_pixel_limit(0,320,240),0);
+    EXPECT_EQ(scaled_bright_pixel_limit(1,2,2),0);
+}
+TEST(SceneSampling, BrightPixelScalingHandlesIntegerDomainBoundaries) {
+    const auto maximum=std::numeric_limits<int>::max();
+    const auto minimum=std::numeric_limits<int>::min();
+    EXPECT_EQ(scaled_bright_pixel_limit(maximum,maximum,1),
+              static_cast<std::int64_t>(maximum)*maximum/720/480);
+    EXPECT_EQ(scaled_bright_pixel_limit(minimum,maximum,1),
+              static_cast<std::int64_t>(minimum)*maximum/720/480);
+    EXPECT_EQ(scaled_bright_pixel_limit(maximum,320,240),477218588);
+    EXPECT_THROW(scaled_bright_pixel_limit(1,maximum,2),std::invalid_argument);
+    EXPECT_THROW(scaled_bright_pixel_limit(1,0,240),std::invalid_argument);
+    EXPECT_THROW(scaled_bright_pixel_limit(1,320,-1),std::invalid_argument);
+}
 TEST(SceneSampling, PreservesLegacyNormalizationAndAllowsZeroBorder) {
     auto value = validate_scene_sampling(320,240,352,10);
     EXPECT_EQ(value.storage_size,352u*240);

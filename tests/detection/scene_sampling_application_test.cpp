@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <limits>
 
 bool CheckSceneHasChanged(RecordingContext& context);
 namespace {
@@ -82,5 +83,24 @@ TEST(SceneSamplingApplication, MissingBuffersFailBeforeSampling) {
     context->state.haslogo.resize(15);
     EXPECT_THROW(CheckSceneHasChanged(*context),std::invalid_argument);
     EXPECT_EQ(context->state.histogram[7],91);
+}
+TEST(SceneSamplingApplication, LaterFrameClassifiesUsingWideBrightPixelLimit) {
+    for(const int maximum:{0,std::numeric_limits<int>::max()}) {
+        auto context=scene_context(320,240,320,0);
+        std::vector<unsigned char> image(320u*240,7);
+        context->state.frame_ptr=image.data();
+        context->settings.commDetectMethod=BLACK_FRAME;
+        context->settings.maxbright=maximum;
+        context->settings.max_brightness=0;
+        context->settings.test_brightness=0;
+        context->settings.max_avg_brightness=20;
+        context->settings.non_uniformity=0;
+        context->state.black.resize(1);
+        EXPECT_NO_THROW(CheckSceneHasChanged(*context));
+        context->state.frame_count=context->state.framenum_real=2;
+        EXPECT_NO_THROW(CheckSceneHasChanged(*context));
+        EXPECT_GT(context->state.frame[2].hasBright,0);
+        EXPECT_EQ((context->state.frame[2].isblack&C_b)!=0,maximum!=0);
+    }
 }
 }

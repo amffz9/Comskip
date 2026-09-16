@@ -5,6 +5,16 @@
 #include <stdexcept>
 
 namespace comskip::detection {
+std::int64_t scaled_bright_pixel_limit(int maximum, int width, int height) {
+    if(width<=0 || height<=0)
+        throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::invalid_scene_sampling_geometry);
+    const auto pixels=static_cast<std::int64_t>(width)*height;
+    if(pixels>std::numeric_limits<int>::max())
+        throw diagnostics::DiagnosticError<std::invalid_argument>(diagnostics::Code::scene_sampling_exceeds_integer_addressable_storage);
+    // The validated pixel count and int setting make their product fit int64_t.
+    // Retain the two divisions and truncation toward zero used by legacy settings.
+    return static_cast<std::int64_t>(maximum)*pixels/720/480;
+}
 void validate_scene_brightness(int maximum, int test) {
     if (maximum < 0 || maximum > 255 || test < 0 || test > 255)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::scene_brightness_thresholds_must_be_between_0_and_255);

@@ -94,18 +94,8 @@ extern "C" {
 #define MAX(X,Y) (X>Y?X:Y)
 #define MIN(X,Y) (X<Y?X:Y)
 
-// max number of frames that can be marked
-#define MAX_IDENTIFIERS 300000
-#define MAX_COMMERCIALS 100000
 
-extern "C" char osname[];
 
-#define KDOWN	1
-#define KUP		2
-#define KLEFT	3
-#define KRIGHT	4
-#define KNEXT	5
-#define KPREV	6
 
 #undef FRAME_WITH_HISTOGRAM
 #undef FRAME_WITH_LOGO

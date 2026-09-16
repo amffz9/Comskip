@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "media/caption_session.h"
 #include "media/a53_caption_bridge.h"
 #include <stdexcept>
@@ -27,9 +28,9 @@ void CaptionSession::write(std::span<const CaptionCue> cues) {
 }
 void CaptionSession::consume(std::span<const std::uint8_t> a53, CaptionTimestamp timestamp) {
     if (stream_decoder_) return;
-    if (finished_) throw std::logic_error("Caption session must be reset after EOF");
+    if (finished_) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::caption_session_must_be_reset_after_eof);
     if (last_time_ && timestamp < *last_time_)
-        throw std::invalid_argument(std::format("Caption consume time {} precedes {}", timestamp.count(), last_time_->count()));
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::caption_consume_time_precedes_previous, {std::to_string(timestamp.count()), std::to_string(last_time_->count())});
     const auto cues = decoder_.decode(a53, timestamp); write(cues); last_time_ = timestamp;
 }
 void CaptionSession::select_stream(const AVCodecParameters& parameters, AVRational time_base) {
@@ -41,14 +42,14 @@ void CaptionSession::select_stream(const AVCodecParameters& parameters, AVRation
     } else {
         // Reopening the same recording preserves completed cues/destinations.
         if (decoder->ass_header() != stream_decoder_->ass_header())
-            throw std::runtime_error("Standalone subtitle header changed while reopening the recording");
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::standalone_subtitle_header_changed_while_reopening_the_recording);
         stream_decoder_ = std::move(decoder);
     }
 }
 void CaptionSession::consume_stream(std::span<const std::uint8_t> packet, std::int64_t pts,
                                     std::int64_t duration, CaptionTimestamp recording_origin) {
-    if (finished_) throw std::logic_error("Caption session must be reset after EOF");
-    if (!stream_decoder_) throw std::logic_error("Standalone subtitle stream has not been selected");
+    if (finished_) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::caption_session_must_be_reset_after_eof);
+    if (!stream_decoder_) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::standalone_subtitle_stream_has_not_been_selected);
     stream_origin_ = recording_origin;
     auto cues = stream_decoder_->decode(packet, pts, duration);
     for (auto& cue : cues) {
@@ -65,7 +66,7 @@ void CaptionSession::finish_stream_cues() {
     struct Event { CaptionTimestamp time; std::size_t cue; bool start; };
     std::vector<Event> events;
     if (stream_cues_.size() > events.max_size() / 2)
-        throw std::length_error("Too many standalone subtitle cues");
+        throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::too_many_standalone_subtitle_cues);
     events.reserve(stream_cues_.size() * 2);
     for (std::size_t i = 0; i < stream_cues_.size(); ++i) {
         events.push_back({stream_cues_[i].start, i, true});
@@ -111,7 +112,7 @@ void CaptionSession::finish(CaptionTimestamp end) {
         return;
     }
     if (last_time_ && end < *last_time_)
-        throw std::invalid_argument(std::format("Caption EOF time {} precedes {}", end.count(), last_time_->count()));
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::caption_eof_time_precedes_previous, {std::to_string(end.count()), std::to_string(last_time_->count())});
     const auto cues = decoder_.drain(end); write(cues);
     for (auto& output : outputs_) output.finish();
     last_time_ = end; finished_ = true;

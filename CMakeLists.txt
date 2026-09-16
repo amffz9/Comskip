@@ -82,12 +82,16 @@ add_library(comskip_localization src/localization/translator.cpp src/localizatio
 target_include_directories(comskip_localization PUBLIC src/localization PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(comskip_localization PUBLIC comskip_config diagnostics)
 find_package(pugixml CONFIG REQUIRED)
+add_library(frame_scripts src/output/frame_scripts.cpp)
+target_include_directories(frame_scripts PUBLIC src)
+target_link_libraries(frame_scripts PUBLIC diagnostics)
 add_library(output_text src/output/edl.cpp src/output/xml_cutlists.cpp src/output/live_xml.cpp src/output/plist_cutlist.cpp)
 target_include_directories(output_text PUBLIC src/output src)
 target_link_libraries(output_text PUBLIC pugixml::pugixml diagnostics)
 
 add_library(review_window src/ui/review_window.cpp)
 target_include_directories(review_window PUBLIC src/ui)
+target_link_libraries(review_window PUBLIC diagnostics)
 target_compile_definitions(review_window PUBLIC
     COMSKIP_BUILD_GUI=$<BOOL:${COMSKIP_BUILD_GUI}>)
 if(COMSKIP_BUILD_GUI)
@@ -144,6 +148,12 @@ if(BUILD_TESTING)
         add_executable(review_font_test tests/ui/review_font_test.cpp)
         target_link_libraries(review_font_test PRIVATE review_window GTest::gtest_main)
         gtest_discover_tests(review_font_test PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+        if(COMSKIP_BUILD_APP)
+            add_test(NAME review_font_failure COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/review_font_failure.py"
+                $<TARGET_FILE:comskip> "${CMAKE_CURRENT_BINARY_DIR}/review-font-failure")
+            set_tests_properties(review_font_failure PROPERTIES TIMEOUT 60)
+        endif()
         add_test(NAME relocated_review_font COMMAND ${Python3_EXECUTABLE}
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/relocated_font.py" $<TARGET_FILE:review_font_test>
             --runtime-dir $<TARGET_FILE_DIR:SDL2::SDL2>)
@@ -156,6 +166,9 @@ if(BUILD_TESTING)
     target_link_libraries(translator_test PRIVATE comskip_localization GTest::gtest_main)
     target_compile_definitions(translator_test PRIVATE COMSKIP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     gtest_discover_tests(translator_test)
+    add_executable(frame_scripts_test tests/output/frame_scripts_test.cpp)
+    target_link_libraries(frame_scripts_test PRIVATE frame_scripts GTest::gtest_main)
+    gtest_discover_tests(frame_scripts_test)
     add_executable(edl_test tests/output/edl_test.cpp)
     target_link_libraries(edl_test PRIVATE output_text GTest::gtest_main)
     gtest_discover_tests(edl_test)
@@ -230,15 +243,18 @@ if(COMSKIP_BUILD_APP)
     target_link_libraries(caption_decoder PUBLIC ${avcodec_LIBRARY} ${avutil_LIBRARY})
     add_library(subtitle_output src/media/subtitle_output.cpp)
     target_include_directories(subtitle_output PUBLIC src src/media ${FFMPEG_INCLUDE_DIR})
-    target_link_libraries(subtitle_output PUBLIC caption_decoder pugixml::pugixml ${avformat_LIBRARY} ${avcodec_LIBRARY} ${avutil_LIBRARY})
+    target_link_libraries(subtitle_output PUBLIC diagnostics caption_decoder pugixml::pugixml ${avformat_LIBRARY} ${avcodec_LIBRARY} ${avutil_LIBRARY})
     add_library(caption_session src/media/caption_session.cpp)
     target_include_directories(caption_session PUBLIC src src/media)
-    target_link_libraries(caption_session PUBLIC subtitle_output media_conversion)
+    target_link_libraries(caption_session PUBLIC diagnostics subtitle_output media_conversion)
     add_library(subtitle_stream_decoder src/media/subtitle_stream_decoder.cpp)
     target_include_directories(subtitle_stream_decoder PUBLIC src src/media ${FFMPEG_INCLUDE_DIR})
-    target_link_libraries(subtitle_stream_decoder PUBLIC caption_decoder ${avcodec_LIBRARY} ${avutil_LIBRARY})
+    target_link_libraries(subtitle_stream_decoder PUBLIC diagnostics caption_decoder ${avcodec_LIBRARY} ${avutil_LIBRARY})
     target_link_libraries(caption_session PUBLIC subtitle_stream_decoder)
     if(BUILD_TESTING)
+        add_executable(caption_diagnostics_test tests/media/caption_diagnostics_test.cpp)
+        target_link_libraries(caption_diagnostics_test PRIVATE caption_session subtitle_stream_decoder review_window comskip_localization GTest::gtest_main)
+        gtest_discover_tests(caption_diagnostics_test PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
         add_executable(media_conversion_test tests/media/audio_samples_test.cpp tests/media/frame_conversion_test.cpp)
         target_link_libraries(media_conversion_test PRIVATE media_conversion GTest::gtest_main)
         gtest_discover_tests(media_conversion_test)
@@ -279,6 +295,7 @@ if(COMSKIP_BUILD_APP)
         src/output/cutlists.cpp
         src/output/diagnostics.cpp
         src/output/ffmpeg_sidecar_adapter.cpp
+        src/output/frame_script_adapter.cpp
         src/output/media_dump.cpp
         src/media/audio_analysis.cpp
         src/media/timing_diagnostics.cpp
@@ -286,7 +303,7 @@ if(COMSKIP_BUILD_APP)
         src/media/mpeg2dec.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
     target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip_core PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
-    target_link_libraries(comskip_core PUBLIC logo_geometry scene_sampling frame_mask reference_comparison input_text commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars media_conversion caption_session ${FFMPEG_LIBRARIES}
+    target_link_libraries(comskip_core PUBLIC logo_geometry scene_sampling frame_mask reference_comparison input_text commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars frame_scripts media_conversion caption_session ${FFMPEG_LIBRARIES}
         ${ARGTABLE_LIBRARY} Threads::Threads review_window platform_paths)
     add_executable(comskip src/app/main.cpp)
     target_link_libraries(comskip PRIVATE comskip_core)
@@ -303,6 +320,9 @@ if(COMSKIP_BUILD_APP)
     if(BUILD_TESTING)
         add_executable(inprocess_analysis_test tests/media/inprocess_analysis_test.cpp)
         add_executable(xml_export_test tests/output/xml_export_test.cpp)
+        add_executable(frame_script_adapter_test tests/output/frame_script_adapter_test.cpp)
+        target_link_libraries(frame_script_adapter_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(frame_script_adapter_test)
         add_executable(ffmpeg_sidecars_test tests/output/ffmpeg_sidecars_test.cpp)
         target_link_libraries(ffmpeg_sidecars_test PRIVATE ffmpeg_sidecars GTest::gtest_main)
         gtest_discover_tests(ffmpeg_sidecars_test)
@@ -403,6 +423,10 @@ if(COMSKIP_BUILD_APP)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/localization/diagnostic_cli.py" $<TARGET_FILE:comskip>)
         endif()
         if(FFMPEG_EXECUTABLE)
+            add_test(NAME subtitle_failure COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/subtitle_failure.py"
+                $<TARGET_FILE:comskip> "${FFMPEG_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/subtitle-failure")
+            set_tests_properties(subtitle_failure PROPERTIES TIMEOUT 90)
             add_test(NAME diagnostic_cli COMMAND ${Python3_EXECUTABLE}
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/localization/diagnostic_cli.py"
                 $<TARGET_FILE:comskip> "${FFMPEG_EXECUTABLE}")

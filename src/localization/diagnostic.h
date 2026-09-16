@@ -9,6 +9,85 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    invalid_retained_script_frame_range,
+    cannot_write_frame_script_output,
+    invalid_virtualdub_subset_range,
+    invalid_frame_script_media_geometry,
+    frame_script_timestamps_exceed_frame_buffer,
+    frame_script_position_exceeds_integer_range,
+    invalid_frame_script_commercial_range,
+    review_window_dimensions_must_be_positive_and_fit_an_rgb_row,
+    review_font_size_must_be_positive,
+    close_the_review_window_before_configuring_its_font,
+    review_window_is_already_open,
+    review_ui_is_unavailable_rebuild_with_comskip_build_gui_on,
+    cannot_draw_to_a_closed_review_window,
+    review_image_pitch_is_smaller_than_its_rgb_row,
+    review_image_does_not_contain_every_rgb_row,
+    cannot_wait_on_a_closed_review_window,
+    cannot_display_text_in_a_closed_review_window,
+    review_text_requires_a_font_configure_windowoptions_font_path,
+    cannot_initialize_sdl_video_detail,
+    cannot_create_review_window_detail,
+    cannot_create_review_renderer_detail,
+    cannot_create_review_image_texture_detail,
+    cannot_open_bundled_review_font_stream_detail,
+    cannot_update_review_image_detail,
+    cannot_clear_review_window_detail,
+    cannot_draw_review_image_detail,
+    cannot_draw_review_text_background_detail,
+    cannot_draw_review_text_detail,
+    cannot_retain_another_review_window_s_input_detail,
+    cannot_wait_for_review_input_detail,
+    cannot_create_review_text_texture_detail,
+    cannot_initialize_review_fonts_detail,
+    cannot_open_review_font_detail,
+    cannot_open_bundled_review_font_detail,
+    cannot_render_review_text_detail,
+    caption_session_must_be_reset_after_eof,
+    standalone_subtitle_header_changed_while_reopening_the_recording,
+    standalone_subtitle_stream_has_not_been_selected,
+    too_many_standalone_subtitle_cues,
+    caption_consume_time_precedes_previous,
+    caption_eof_time_precedes_previous,
+    subtitle_timestamp_interval_overflows,
+    invalid_standalone_subtitle_parameters_or_time_base,
+    bitmap_subtitle_streams_cannot_produce_srt_sami_text_without_ocr_select_a_text_subtitle_stream,
+    unsupported_standalone_text_subtitle_codec,
+    ffmpeg_standalone_text_subtitle_decoder_is_unavailable,
+    subtitle_pts_and_duration_must_be_nonnegative,
+    subtitle_timestamp_conversion_overflows,
+    ffmpeg_returned_bitmap_subtitle_data_ocr_is_required_for_text_output,
+    standalone_subtitle_cue_has_no_positive_duration,
+    standalone_subtitle_decoder_must_be_reset_after_eof,
+    empty_or_oversized_standalone_subtitle_packet,
+    subtitle_duration_exceeds_ffmpeg_s_display_interval_range,
+    standalone_subtitle_decoder_did_not_finish_draining,
+    copying_subtitle_parameters_failed_detail,
+    copying_subtitle_codec_parameters_failed_detail,
+    opening_standalone_subtitle_decoder_failed_detail,
+    decoding_standalone_subtitle_packet_failed_detail,
+    allocating_subtitle_packet_failed_detail,
+    subtitle_output_requires_an_ass_header,
+    ffmpeg_subrip_encoder_is_unavailable,
+    subtitle_region_requires_ass_data,
+    subtitle_event_is_too_large,
+    subtitle_output_must_be_reset_after_completion,
+    subtitle_cues_must_be_nonnegative_ordered_and_nonoverlapping,
+    ffmpeg_subtitle_markup_cannot_be_represented_as_sami,
+    opening_subtitle_encoder_detail,
+    creating_subtitle_muxer_detail,
+    configuring_subtitle_stream_detail,
+    opening_subtitle_destination_detail,
+    writing_subtitle_header_detail,
+    encoding_subtitle_event_detail,
+    allocating_subtitle_packet_detail,
+    writing_subtitle_packet_detail,
+    flushing_subtitle_packet_detail,
+    completing_subtitle_file_detail,
+    flushing_subtitle_file_detail,
+    closing_subtitle_file_detail,
+
     invalid_ffmpeg_sidecar_interval,
     ffmetadata_timestamp_exceeds_signed_range,
     too_many_ffmetadata_chapters,
@@ -148,6 +227,85 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::invalid_retained_script_frame_range: return "diag_invalid_retained_script_frame_range";
+    case Code::cannot_write_frame_script_output: return "diag_cannot_write_frame_script_output";
+    case Code::invalid_virtualdub_subset_range: return "diag_invalid_virtualdub_subset_range";
+    case Code::invalid_frame_script_media_geometry: return "diag_invalid_frame_script_media_geometry";
+    case Code::frame_script_timestamps_exceed_frame_buffer: return "diag_frame_script_timestamps_exceed_frame_buffer";
+    case Code::frame_script_position_exceeds_integer_range: return "diag_frame_script_position_exceeds_integer_range";
+    case Code::invalid_frame_script_commercial_range: return "diag_invalid_frame_script_commercial_range";
+    case Code::review_window_dimensions_must_be_positive_and_fit_an_rgb_row: return "diag_review_window_dimensions_must_be_positive_and_fit_an_rgb_row";
+    case Code::review_font_size_must_be_positive: return "diag_review_font_size_must_be_positive";
+    case Code::close_the_review_window_before_configuring_its_font: return "diag_close_the_review_window_before_configuring_its_font";
+    case Code::review_window_is_already_open: return "diag_review_window_is_already_open";
+    case Code::review_ui_is_unavailable_rebuild_with_comskip_build_gui_on: return "diag_review_ui_is_unavailable_rebuild_with_comskip_build_gui_on";
+    case Code::cannot_draw_to_a_closed_review_window: return "diag_cannot_draw_to_a_closed_review_window";
+    case Code::review_image_pitch_is_smaller_than_its_rgb_row: return "diag_review_image_pitch_is_smaller_than_its_rgb_row";
+    case Code::review_image_does_not_contain_every_rgb_row: return "diag_review_image_does_not_contain_every_rgb_row";
+    case Code::cannot_wait_on_a_closed_review_window: return "diag_cannot_wait_on_a_closed_review_window";
+    case Code::cannot_display_text_in_a_closed_review_window: return "diag_cannot_display_text_in_a_closed_review_window";
+    case Code::review_text_requires_a_font_configure_windowoptions_font_path: return "diag_review_text_requires_a_font_configure_windowoptions_font_path";
+    case Code::cannot_initialize_sdl_video_detail: return "diag_cannot_initialize_sdl_video_detail";
+    case Code::cannot_create_review_window_detail: return "diag_cannot_create_review_window_detail";
+    case Code::cannot_create_review_renderer_detail: return "diag_cannot_create_review_renderer_detail";
+    case Code::cannot_create_review_image_texture_detail: return "diag_cannot_create_review_image_texture_detail";
+    case Code::cannot_open_bundled_review_font_stream_detail: return "diag_cannot_open_bundled_review_font_stream_detail";
+    case Code::cannot_update_review_image_detail: return "diag_cannot_update_review_image_detail";
+    case Code::cannot_clear_review_window_detail: return "diag_cannot_clear_review_window_detail";
+    case Code::cannot_draw_review_image_detail: return "diag_cannot_draw_review_image_detail";
+    case Code::cannot_draw_review_text_background_detail: return "diag_cannot_draw_review_text_background_detail";
+    case Code::cannot_draw_review_text_detail: return "diag_cannot_draw_review_text_detail";
+    case Code::cannot_retain_another_review_window_s_input_detail: return "diag_cannot_retain_another_review_window_s_input_detail";
+    case Code::cannot_wait_for_review_input_detail: return "diag_cannot_wait_for_review_input_detail";
+    case Code::cannot_create_review_text_texture_detail: return "diag_cannot_create_review_text_texture_detail";
+    case Code::cannot_initialize_review_fonts_detail: return "diag_cannot_initialize_review_fonts_detail";
+    case Code::cannot_open_review_font_detail: return "diag_cannot_open_review_font_detail";
+    case Code::cannot_open_bundled_review_font_detail: return "diag_cannot_open_bundled_review_font_detail";
+    case Code::cannot_render_review_text_detail: return "diag_cannot_render_review_text_detail";
+    case Code::caption_session_must_be_reset_after_eof: return "diag_caption_session_must_be_reset_after_eof";
+    case Code::standalone_subtitle_header_changed_while_reopening_the_recording: return "diag_standalone_subtitle_header_changed_while_reopening_the_recording";
+    case Code::standalone_subtitle_stream_has_not_been_selected: return "diag_standalone_subtitle_stream_has_not_been_selected";
+    case Code::too_many_standalone_subtitle_cues: return "diag_too_many_standalone_subtitle_cues";
+    case Code::caption_consume_time_precedes_previous: return "diag_caption_consume_time_precedes_previous";
+    case Code::caption_eof_time_precedes_previous: return "diag_caption_eof_time_precedes_previous";
+    case Code::subtitle_timestamp_interval_overflows: return "diag_subtitle_timestamp_interval_overflows";
+    case Code::invalid_standalone_subtitle_parameters_or_time_base: return "diag_invalid_standalone_subtitle_parameters_or_time_base";
+    case Code::bitmap_subtitle_streams_cannot_produce_srt_sami_text_without_ocr_select_a_text_subtitle_stream: return "diag_bitmap_subtitle_streams_cannot_produce_srt_sami_text_without_ocr_select_a_text_subtitle_stream";
+    case Code::unsupported_standalone_text_subtitle_codec: return "diag_unsupported_standalone_text_subtitle_codec";
+    case Code::ffmpeg_standalone_text_subtitle_decoder_is_unavailable: return "diag_ffmpeg_standalone_text_subtitle_decoder_is_unavailable";
+    case Code::subtitle_pts_and_duration_must_be_nonnegative: return "diag_subtitle_pts_and_duration_must_be_nonnegative";
+    case Code::subtitle_timestamp_conversion_overflows: return "diag_subtitle_timestamp_conversion_overflows";
+    case Code::ffmpeg_returned_bitmap_subtitle_data_ocr_is_required_for_text_output: return "diag_ffmpeg_returned_bitmap_subtitle_data_ocr_is_required_for_text_output";
+    case Code::standalone_subtitle_cue_has_no_positive_duration: return "diag_standalone_subtitle_cue_has_no_positive_duration";
+    case Code::standalone_subtitle_decoder_must_be_reset_after_eof: return "diag_standalone_subtitle_decoder_must_be_reset_after_eof";
+    case Code::empty_or_oversized_standalone_subtitle_packet: return "diag_empty_or_oversized_standalone_subtitle_packet";
+    case Code::subtitle_duration_exceeds_ffmpeg_s_display_interval_range: return "diag_subtitle_duration_exceeds_ffmpeg_s_display_interval_range";
+    case Code::standalone_subtitle_decoder_did_not_finish_draining: return "diag_standalone_subtitle_decoder_did_not_finish_draining";
+    case Code::copying_subtitle_parameters_failed_detail: return "diag_copying_subtitle_parameters_failed_detail";
+    case Code::copying_subtitle_codec_parameters_failed_detail: return "diag_copying_subtitle_codec_parameters_failed_detail";
+    case Code::opening_standalone_subtitle_decoder_failed_detail: return "diag_opening_standalone_subtitle_decoder_failed_detail";
+    case Code::decoding_standalone_subtitle_packet_failed_detail: return "diag_decoding_standalone_subtitle_packet_failed_detail";
+    case Code::allocating_subtitle_packet_failed_detail: return "diag_allocating_subtitle_packet_failed_detail";
+    case Code::subtitle_output_requires_an_ass_header: return "diag_subtitle_output_requires_an_ass_header";
+    case Code::ffmpeg_subrip_encoder_is_unavailable: return "diag_ffmpeg_subrip_encoder_is_unavailable";
+    case Code::subtitle_region_requires_ass_data: return "diag_subtitle_region_requires_ass_data";
+    case Code::subtitle_event_is_too_large: return "diag_subtitle_event_is_too_large";
+    case Code::subtitle_output_must_be_reset_after_completion: return "diag_subtitle_output_must_be_reset_after_completion";
+    case Code::subtitle_cues_must_be_nonnegative_ordered_and_nonoverlapping: return "diag_subtitle_cues_must_be_nonnegative_ordered_and_nonoverlapping";
+    case Code::ffmpeg_subtitle_markup_cannot_be_represented_as_sami: return "diag_ffmpeg_subtitle_markup_cannot_be_represented_as_sami";
+    case Code::opening_subtitle_encoder_detail: return "diag_opening_subtitle_encoder_detail";
+    case Code::creating_subtitle_muxer_detail: return "diag_creating_subtitle_muxer_detail";
+    case Code::configuring_subtitle_stream_detail: return "diag_configuring_subtitle_stream_detail";
+    case Code::opening_subtitle_destination_detail: return "diag_opening_subtitle_destination_detail";
+    case Code::writing_subtitle_header_detail: return "diag_writing_subtitle_header_detail";
+    case Code::encoding_subtitle_event_detail: return "diag_encoding_subtitle_event_detail";
+    case Code::allocating_subtitle_packet_detail: return "diag_allocating_subtitle_packet_detail";
+    case Code::writing_subtitle_packet_detail: return "diag_writing_subtitle_packet_detail";
+    case Code::flushing_subtitle_packet_detail: return "diag_flushing_subtitle_packet_detail";
+    case Code::completing_subtitle_file_detail: return "diag_completing_subtitle_file_detail";
+    case Code::flushing_subtitle_file_detail: return "diag_flushing_subtitle_file_detail";
+    case Code::closing_subtitle_file_detail: return "diag_closing_subtitle_file_detail";
+
     case Code::count: break;
     case Code::invalid_ffmpeg_sidecar_interval: return "diag_invalid_ffmpeg_sidecar_interval";
     case Code::ffmetadata_timestamp_exceeds_signed_range: return "diag_ffmetadata_timestamp_exceeds_signed_range";

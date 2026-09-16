@@ -25,7 +25,8 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
                         "output_videoredo=1\noutput_videoredo3=1\nvideoredo_offset=0\n"
                         "output_edlx=1\noutput_btv=1\noutput_cuttermaran=1\n"
                         "output_dvrmstb=1\noutput_mkvtoolnix=2\noutput_plist_cutlist=1\n"
-                        "output_ffmeta=1\noutput_ffsplit=1\n")
+                        "output_ffmeta=1\noutput_ffsplit=1\n"
+                        "output_vcf=1\noutput_projectx=1\noutput_avisynth=1\n")
     results = []
     for threads in (1, 4):
         destination = root / str(threads)
@@ -37,7 +38,9 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert run.returncode in (0, 1), run.stdout + run.stderr
         assert "Commercials were found." in run.stdout, run.stdout + run.stderr
         files = {extension: (destination / f"sample.{extension}").read_bytes()
-                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit")}
+                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf")}
+        for extension in ("Xcl", "avs"):
+            files[extension] = Path(str(video) + "." + extension).read_bytes()
         rows = list(csv.reader(files["csv"].decode().splitlines()[2:]))
         assert len(rows) == 250, f"Expected 250 analyzed frames, got {len(rows)}"
         timestamps = [float(row[16]) for row in rows if len(row) > 16]
@@ -48,6 +51,9 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert files["ffmeta"] == (b";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/100\n"
                                    b"START=0\nEND=992\ntitle=Commercial Segment\n")
         assert files["ffsplit"] == b"", "An all-commercial recording has no retained show command"
+        assert files["vcf"] == b"VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n"
+        assert files["Xcl"] == b"CollectionPanel.CutMode=2\n1\n1\n"
+        assert files["avs"].endswith(b"trim(1,1)\n")
         for extension in ("VPrj", "edlx", "chapters.xml", "cpf", "xml",
                           "mkvtoolnix.chapters", "mkvtoolnix.tags", "plist"):
             files[extension] = (destination / f"sample.{extension}").read_bytes()

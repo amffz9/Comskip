@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "review_window.h"
 #include "bundled_font.h"
 
@@ -18,8 +19,8 @@ namespace {
 void validate_options(const WindowOptions& options)
 {
     if (options.width <= 0 || options.height <= 0 || options.width > std::numeric_limits<int>::max() / 3)
-        throw std::invalid_argument("Review window dimensions must be positive and fit an RGB row");
-    if (options.font_size <= 0) throw std::invalid_argument("Review font size must be positive");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::review_window_dimensions_must_be_positive_and_fit_an_rgb_row);
+    if (options.font_size <= 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::review_font_size_must_be_positive);
 }
 
 int controller_key(const KeyEvent& event)
@@ -48,9 +49,9 @@ int controller_key(const KeyEvent& event)
 }
 
 #if COMSKIP_BUILD_GUI
-[[noreturn]] void fail_sdl(std::string_view operation)
+[[noreturn]] void fail_sdl(comskip::diagnostics::Code operation)
 {
-    throw std::runtime_error(std::string(operation) + ": " + SDL_GetError());
+    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {SDL_GetError()});
 }
 
 template<class T, void(*Release)(T*)>
@@ -88,12 +89,12 @@ struct ReviewWindow::Impl {
         VideoSubsystem() {
             // The application owns its standard/wide main entry point.
             SDL_SetMainReady();
-            if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) fail_sdl("Cannot initialize SDL video");
+            if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) fail_sdl(comskip::diagnostics::Code::cannot_initialize_sdl_video_detail);
         }
         ~VideoSubsystem() { SDL_QuitSubSystem(SDL_INIT_VIDEO); }
     } video;
     struct FontSubsystem {
-        FontSubsystem() { if (TTF_Init() != 0) throw std::runtime_error(std::string("Cannot initialize review fonts: ") + TTF_GetError()); }
+        FontSubsystem() { if (TTF_Init() != 0) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_initialize_review_fonts_detail, {TTF_GetError()}); }
         ~FontSubsystem() { TTF_Quit(); }
     } fonts;
     SdlOwner<SDL_Window, SDL_DestroyWindow> window{nullptr, SDL_DestroyWindow};
@@ -114,7 +115,7 @@ ReviewWindow::ReviewWindow(WindowOptions options)
 }
 void ReviewWindow::configure_font(std::filesystem::path path, int size)
 {
-    if (is_open()) throw std::logic_error("Close the review window before configuring its font");
+    if (is_open()) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::close_the_review_window_before_configuring_its_font);
     auto staged = options_;
     staged.font_path = std::move(path);
     staged.font_size = size;
@@ -166,32 +167,32 @@ void ReviewWindow::open(int width, int height, std::string_view title)
 
 void ReviewWindow::open()
 {
-    if (is_open()) throw std::logic_error("Review window is already open");
+    if (is_open()) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::review_window_is_already_open);
 #if COMSKIP_BUILD_GUI
     auto implementation = std::make_unique<Impl>();
     implementation->window.reset(SDL_CreateWindow(options_.title.c_str(), SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED, options_.width, options_.height,
         SDL_WINDOW_RESIZABLE | (options_.hidden ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN)));
-    if (!implementation->window) fail_sdl("Cannot create review window");
+    if (!implementation->window) fail_sdl(comskip::diagnostics::Code::cannot_create_review_window_detail);
     implementation->renderer.reset(SDL_CreateRenderer(implementation->window.get(), -1, SDL_RENDERER_ACCELERATED));
     if (!implementation->renderer)
         implementation->renderer.reset(SDL_CreateRenderer(implementation->window.get(), -1, SDL_RENDERER_SOFTWARE));
-    if (!implementation->renderer) fail_sdl("Cannot create review renderer");
+    if (!implementation->renderer) fail_sdl(comskip::diagnostics::Code::cannot_create_review_renderer_detail);
     implementation->image.reset(SDL_CreateTexture(implementation->renderer.get(), SDL_PIXELFORMAT_RGB24,
         SDL_TEXTUREACCESS_STREAMING, options_.width, options_.height));
-    if (!implementation->image) fail_sdl("Cannot create review image texture");
+    if (!implementation->image) fail_sdl(comskip::diagnostics::Code::cannot_create_review_image_texture_detail);
     if (!options_.font_path.empty()) {
         const auto utf8 = options_.font_path.u8string();
         implementation->font.reset(TTF_OpenFont(reinterpret_cast<const char*>(utf8.c_str()), options_.font_size));
         if (!implementation->font)
-            throw std::runtime_error(std::string("Cannot open review font: ") + TTF_GetError());
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_open_review_font_detail, {std::string(reinterpret_cast<const char*>(utf8.c_str()), utf8.size()), TTF_GetError()});
     } else {
         const auto bytes = bundled_font();
         implementation->font_stream.reset(SDL_RWFromConstMem(bytes.data(), static_cast<int>(bytes.size())));
-        if (!implementation->font_stream) fail_sdl("Cannot open bundled review font stream");
+        if (!implementation->font_stream) fail_sdl(comskip::diagnostics::Code::cannot_open_bundled_review_font_stream_detail);
         implementation->font.reset(TTF_OpenFontRW(implementation->font_stream.get(), 0, options_.font_size));
         if (!implementation->font)
-            throw std::runtime_error(std::string("Cannot open bundled review font: ") + TTF_GetError());
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_open_bundled_review_font_detail, {TTF_GetError()});
     }
     implementation_ = std::move(implementation);
     input_ = {};
@@ -200,20 +201,20 @@ void ReviewWindow::open()
     overlay_text_.clear();
     present();
 #else
-    throw std::runtime_error("Review UI is unavailable; rebuild with COMSKIP_BUILD_GUI=ON");
+    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::review_ui_is_unavailable_rebuild_with_comskip_build_gui_on);
 #endif
 }
 
 void ReviewWindow::draw(std::span<const std::uint8_t> rgb, int pitch)
 {
-    if (!is_open()) throw std::logic_error("Cannot draw to a closed review window");
+    if (!is_open()) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::cannot_draw_to_a_closed_review_window);
     if (pitch == 0) pitch = options_.width * 3;
-    if (pitch < options_.width * 3) throw std::invalid_argument("Review image pitch is smaller than its RGB row");
+    if (pitch < options_.width * 3) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::review_image_pitch_is_smaller_than_its_rgb_row);
     const auto required = static_cast<std::uint64_t>(pitch) * (options_.height - 1) + options_.width * 3;
-    if (rgb.size() < required) throw std::invalid_argument("Review image does not contain every RGB row");
+    if (rgb.size() < required) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::review_image_does_not_contain_every_rgb_row);
 #if COMSKIP_BUILD_GUI
     if (SDL_UpdateTexture(implementation_->image.get(), nullptr, rgb.data(), pitch) != 0)
-        fail_sdl("Cannot update review image");
+        fail_sdl(comskip::diagnostics::Code::cannot_update_review_image_detail);
     implementation_->has_image = true;
     refresh();
     present();
@@ -226,9 +227,9 @@ void ReviewWindow::present()
     if (!implementation_) return;
     auto* renderer = implementation_->renderer.get();
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    if (SDL_RenderClear(renderer) != 0) fail_sdl("Cannot clear review window");
+    if (SDL_RenderClear(renderer) != 0) fail_sdl(comskip::diagnostics::Code::cannot_clear_review_window_detail);
     if (implementation_->has_image && SDL_RenderCopy(renderer, implementation_->image.get(), nullptr, nullptr) != 0)
-        fail_sdl("Cannot draw review image");
+        fail_sdl(comskip::diagnostics::Code::cannot_draw_review_image_detail);
     if (!implementation_->text.empty()) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         int text_bottom = 24;
@@ -237,11 +238,11 @@ void ReviewWindow::present()
         const SDL_Rect background{0, 24, window_width_,
             std::max(std::min(text_bottom + 6, window_height_) - 24, 0)};
         if (SDL_RenderFillRect(renderer, &background) != 0)
-            fail_sdl("Cannot draw review text background");
+            fail_sdl(comskip::diagnostics::Code::cannot_draw_review_text_background_detail);
         for (std::size_t index = 0; index < implementation_->text.size(); ++index)
             if (SDL_RenderCopy(renderer, implementation_->text[index].get(), nullptr,
                                &implementation_->text_rectangles[index]) != 0)
-                fail_sdl("Cannot draw review text");
+                fail_sdl(comskip::diagnostics::Code::cannot_draw_review_text_detail);
     }
     SDL_RenderPresent(renderer);
 #endif
@@ -322,29 +323,29 @@ void ReviewWindow::refresh()
     while (SDL_PollEvent(&event))
         if (!dispatch_event(*this, event)) other_windows.push_back(event);
     for (auto& deferred : other_windows)
-        if (SDL_PushEvent(&deferred) < 0) fail_sdl("Cannot retain another review window's input");
+        if (SDL_PushEvent(&deferred) < 0) fail_sdl(comskip::diagnostics::Code::cannot_retain_another_review_window_s_input_detail);
     present();
 #endif
 }
 
 void ReviewWindow::wait()
 {
-    if (!is_open()) throw std::logic_error("Cannot wait on a closed review window");
+    if (!is_open()) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::cannot_wait_on_a_closed_review_window);
 #if COMSKIP_BUILD_GUI
     SDL_Event event;
-    if (SDL_WaitEvent(&event) == 0) fail_sdl("Cannot wait for review input");
+    if (SDL_WaitEvent(&event) == 0) fail_sdl(comskip::diagnostics::Code::cannot_wait_for_review_input_detail);
     if (!dispatch_event(*this, event) && SDL_PushEvent(&event) < 0)
-        fail_sdl("Cannot retain another review window's input");
+        fail_sdl(comskip::diagnostics::Code::cannot_retain_another_review_window_s_input_detail);
     refresh();
 #endif
 }
 
 void ReviewWindow::show_details(std::string_view text)
 {
-    if (!is_open()) throw std::logic_error("Cannot display text in a closed review window");
+    if (!is_open()) throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::cannot_display_text_in_a_closed_review_window);
 #if COMSKIP_BUILD_GUI
     if (!implementation_->font)
-        throw std::runtime_error("Review text requires a font; configure WindowOptions::font_path");
+        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::review_text_requires_a_font_configure_windowoptions_font_path);
     std::vector<SdlOwner<SDL_Texture, SDL_DestroyTexture>> textures;
     std::vector<SDL_Rect> rectangles;
     std::size_t offset = 0;
@@ -356,9 +357,9 @@ void ReviewWindow::show_details(std::string_view text)
         if (!line.empty()) {
             SdlOwner<SDL_Surface, SDL_FreeSurface> surface(TTF_RenderUTF8_Blended_Wrapped(implementation_->font.get(),
                 line.c_str(), SDL_Color{255, 255, 255, 255}, static_cast<Uint32>(std::max(window_width_ - 16, 1))), SDL_FreeSurface);
-            if (!surface) throw std::runtime_error(std::string("Cannot render review text: ") + TTF_GetError());
+            if (!surface) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_render_review_text_detail, {TTF_GetError()});
             SdlOwner<SDL_Texture, SDL_DestroyTexture> texture(SDL_CreateTextureFromSurface(implementation_->renderer.get(), surface.get()), SDL_DestroyTexture);
-            if (!texture) fail_sdl("Cannot create review text texture");
+            if (!texture) fail_sdl(comskip::diagnostics::Code::cannot_create_review_text_texture_detail);
             rectangles.push_back(SDL_Rect{8, y, surface->w, surface->h});
             textures.push_back(std::move(texture));
             y += surface->h + 2;

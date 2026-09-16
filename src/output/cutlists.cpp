@@ -4,6 +4,7 @@
 #include "checked_format.h"
 #include "xml_output_adapter.h"
 #include "ffmpeg_sidecar_adapter.h"
+#include "frame_script_adapter.h"
 #include "csv_field.h"
 #include "edl.h"
 #include <sstream>
@@ -266,22 +267,6 @@ void OpenOutputFiles(RecordingContext& context)
 
 
 
-    if (context.settings.output_vcf)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".vcf";
-        context.state.vcf_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.vcf_file.get())
-        {
-            fprintf(context.state.vcf_file.get(), "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
-//			fclose(vcf_file);
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
     if (context.settings.output_vdr)
     {
         context.state.filename = std::string(context.state.outbasename) + ".vdr";
@@ -290,40 +275,6 @@ void OpenOutputFiles(RecordingContext& context)
         {
 //			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vdr_file);
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_projectx)
-    {
-        context.state.filename = std::string(context.state.mpegfilename.c_str()) + ".Xcl";
-        context.state.projectx_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.projectx_file.get())
-        {
-            fprintf(context.state.projectx_file.get(), "CollectionPanel.CutMode=2\n");
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_avisynth)
-    {
-        context.state.filename = std::string(context.state.mpegfilename.c_str()) + ".avs";
-        context.state.avisynth_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.avisynth_file.get())
-        {
-            if (context.settings.avisynth_options.c_str()[0] == 0)
-                fprintf(context.state.avisynth_file.get(), "LoadPlugin(\"MPEG2Dec3.dll\") \nMPEG2Source(\"%s\")\n", context.state.mpegfilename.c_str());
-            else
-                fprintf(context.state.avisynth_file.get(), context.settings.avisynth_options.c_str(), context.state.mpegfilename.c_str());
-
         }
         else
         {
@@ -507,12 +458,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     CLOSEOUTFILE(context.state.scf_file);
 
-    if (context.state.vcf_file.get() && prev < start && start - prev > 5 && prev > 0 )
-    {
-        fprintf(context.state.vcf_file.get(), "VirtualDub.subset.AddRange(%li,%li);\n", F2F(prev-1), F2F(start) - F2F(prev));
-    }
-    CLOSEOUTFILE(context.state.vcf_file);
-
     if (context.state.vdr_file.get() && prev < start && end - start > 2)
     {
         const long vdr_start = start < 5 ? 0 : start;
@@ -520,24 +465,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         fprintf(context.state.vdr_file.get(), "%s end\n", dblSecondsToStrMinutesFrames(context, get_frame_pts(context, end)));
     }
     CLOSEOUTFILE(context.state.vdr_file);
-
-    if (context.state.projectx_file.get() && prev < start)
-    {
-        fprintf(context.state.projectx_file.get(), "%ld\n", F2F(prev+1));
-        fprintf(context.state.projectx_file.get(), "%ld\n", F2F(start));
-    }
-    CLOSEOUTFILE(context.state.projectx_file);
-
-    if (context.state.avisynth_file.get() && prev < start)
-    {
-        fprintf(context.state.avisynth_file.get(), "%strim(%ld,", (prev < 10 ? "" : " ++ "), F2F(prev+1));
-        fprintf(context.state.avisynth_file.get(), "%ld)", F2F(start));
-    }
-    if (context.state.avisynth_file.get() && last)
-    {
-        fprintf(context.state.avisynth_file.get(), "\n");
-    }
-    CLOSEOUTFILE(context.state.avisynth_file);
 
     if (context.state.videoredo_file.get() && prev < start && end - start > 2)
     {
@@ -1154,6 +1081,7 @@ bool OutputBlocks(RecordingContext& context)
 
     WriteXmlOutputFiles(context);
     WriteFfmpegSidecarFiles(context);
+    WriteFrameScriptFiles(context);
 
     if (context.settings.output_videoredo && !context.settings.output_videoredo3)
     {

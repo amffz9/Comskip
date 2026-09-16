@@ -34,7 +34,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B045 | Fixed at `706801f`; all 285 Windows tests pass, including an actual decoder reset/reopen regression and six timing-output tests. |
 | B046, B048, B049, B050, B052, B053, B054 | Fixed at `62664db`; all 319 Windows headless and SDL tests pass. Its unmodified snapshot passes all 315 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
 | B047, B055, B056 | Fixed in the font/settings stage; all 326 Windows headless and 329 SDL tests pass, including a relocated executable, long Unicode configured cutscene path, and duration overflow rejection before settings publication. |
-| B051, B057 | Open; B051 settings/parser/geometry/XML/EDL/plist reasons are migrated, with review and caption/subtitle reasons remaining. |
+| B057, B058 | Fixed in the script/diagnostic stage; all 347 Windows headless and 351 SDL tests pass, including actual early-cut joins and later-frame bright-pixel classification. |
+| B051, B059, B060, B061, B062 | Open; B051 now also covers review/caption/subtitle reasons, with other application/helper reasons remaining. |
 
 ## Issue evidence and verification
 
@@ -506,7 +507,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   disrupting ordinary CSV consumers.
 - **Resolution:** Fixed at `706801f`: one header per newly truncated file.
   Six timing tests, including actual reset/reopen and row output, and all
-  285 Windows tests pass. Later Linux/SDL verification remains separate.
+  285 Windows tests pass. The later unmodified `62664db` snapshot passes all
+  315 Linux headless/SDL/sanitizer and 319 Windows SDL tests.
 
 ### B046: Logo shrink settings can overflow frame conversions
 
@@ -527,6 +529,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   stream and allow INI-configured external font overrides. A relocated test
   executable with no asset tree opens, renders, reopens and runs two independent
   windows. All 329 Windows SDL tests pass; all 326 headless tests also pass.
+  The unmodified `c5c8496` snapshot passes all 325 Linux SDL tests, including
+  the relocated executable (21.96 seconds).
 - **Verification needed:** Run a copied installation without source assets;
   provide and verify a portable bundled-resource/default-font resolution.
 
@@ -576,7 +580,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   XML, EDL and plist, preserving standard categories and English what(). Actual
   Spanish brightness/CSV/catalog/XML-destination regressions and complete
   typed-code catalog checks pass within all 319 Windows tests. Review and
-  caption/subtitle reasons remain open.
+  caption/subtitle reasons were migrated in the next stage; other application
+  and helper reasons remain open.
 - **Verification needed:** Catalog-backed typed diagnostics rendered at a
   boundary with a live translator; Spanish settings/parser/output regressions,
   English fallback, preserved exception categories and exit statuses.
@@ -642,9 +647,67 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** The legacy AviSynth writer chooses ` ++ ` from `prev < 10`
   instead of whether it already wrote a trim. Cuts 6..9 followed by 20..30
   can emit `trim(1,7)trim(11,21)` with no joining operator.
-- **Status:** Source-confirmed invalid script; actual export regression pending.
+- **Resolution:** The focused AviSynth serializer joins emitted trim records,
+  independent of their frame positions. Actual early-cut, normal/review and
+  serial/thread export regressions pass within all 347 Windows headless and
+  351 SDL tests.
 - **Verification needed:** Track emitted trims independently of frame positions;
   cover early cuts, ordinary multiple trims, empty exports, and terminal ranges.
+
+### B058: Bright-pixel threshold scaling can overflow before division
+
+- **Evidence:** `src/detection/scene_analysis.cpp:782` evaluates
+  `maxbright * width * height / 720 / 480` as signed int. Extreme accepted
+  `maxbright` values overflow at ordinary image dimensions before division.
+  This setting differs from `max_brightness` and `test_brightness`.
+- **Resolution:** Checked int-addressable geometry and 64-bit scaling retain
+  negative thresholds and division semantics. Two helper tests and actual
+  later-frame positive-bright-pixel classification pass within all 347 Windows
+  headless and 351 SDL tests.
+- **Verification needed:** Wide scaling with checked addressable geometry,
+  preserved ordinary/negative threshold math, and actual later-frame black
+  classification with a positive bright-pixel count and extreme threshold.
+
+### B059: Saved logo metadata narrows unchecked floating values to frame indices
+
+- **Evidence:** `src/detection/logo.cpp:1744–1750` converts `FindNumber` double
+  results to int dimensions and bounds before validation. A finite value such
+  as `picWidth=1e20` passes the nonnegative check and exceeds the int range.
+- **Status:** Source-confirmed unsafe narrowing; runtime regression pending.
+- **Verification needed:** Validate all metadata before state mutation or buffer
+  allocation; cover extreme finite values, malformed input, ordinary saved
+  logos, missing-property fallback, and owned file cleanup.
+
+### B060: Saved logo loading reopens files without checking every result
+
+- **Evidence:** After its initial metadata read, `LoadLogoMaskData` opens the
+  same file again for individual masks and consumes characters without checking
+  every returned FILE pointer.
+- **Impact:** A file disappearing or becoming inaccessible between opens can
+  reach `getc` with a null pointer.
+- **Status:** Source-confirmed missing checks; ownership refactor pending.
+- **Verification needed:** One owned stream across metadata and mask reads,
+  missing/truncated file regressions, unchanged state and released handles.
+
+### B061: ZoomPlayer chapter output indexes an empty commercial list
+
+- **Evidence:** Legacy chapter initialization reads `commercial[0]` when the
+  chapter stream exists, without checking whether the finalized vector is empty.
+- **Impact:** A valid recording with no commercials can access absent storage.
+- **Status:** Source-confirmed unchecked access; actual export regression pending.
+- **Verification needed:** Empty normal and review lists, ordinary first-cut
+  behavior, complete chapter output and owned stream cleanup.
+
+### B062: SCF timestamps use frame remainders as milliseconds and wrap hours
+
+- **Evidence:** The SCF writer prints `frame % rounded_fps` as a three-digit
+  decimal fraction and applies `%60` to hours. At 25 fps, nominal frame 37
+  is 1.480 seconds, but the writer emits `00:00:01.012`.
+- **Format reference:** The [MKVToolNix simple chapter format](https://mkvtoolnix.download/doc/mkvmerge.html#chapters.simple)
+  defines these CHAPTER/CHAPTERNAME timestamp pairs with decimal-second fractions.
+- **Status:** Source-confirmed timestamp calculation defect; export tests pending.
+- **Verification needed:** Proper fractional-frame conversion, ordinary and
+  fractional rates, long hours, unchanged chapter names and numbering.
 
 ## Fixed during modernization
 
