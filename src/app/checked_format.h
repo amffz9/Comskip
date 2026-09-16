@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+#include "diagnostic.h"
 
 namespace comskip {
 namespace detail {
@@ -17,7 +18,7 @@ void checked_format(char (&destination)[Size], const char* format, Args... args)
     else
         count = std::snprintf(destination, Size, format, detail::printf_argument(args)...);
     if (count < 0 || static_cast<std::size_t>(count) >= Size)
-        throw std::length_error("Formatted value exceeds the legacy buffer capacity");
+        throw diagnostics::DiagnosticError<std::length_error>(diagnostics::Code::formatted_value_exceeds_legacy_buffer_capacity);
 }
 // Legacy printf callsites can target owned strings without a path-size ceiling.
 template<class... Args>
@@ -26,10 +27,10 @@ void checked_format(std::string& destination, const char* format, const Args&...
         destination = format;
     } else {
         const int size = std::snprintf(nullptr, 0, format, detail::printf_argument(args)...);
-        if (size < 0) throw std::runtime_error("Could not format value");
+        if (size < 0) throw diagnostics::DiagnosticError<std::runtime_error>(diagnostics::Code::could_not_format_value);
         std::string result(static_cast<std::size_t>(size) + 1, '\0');
         if (std::snprintf(result.data(), result.size(), format, detail::printf_argument(args)...) != size)
-            throw std::runtime_error("Could not format value");
+            throw diagnostics::DiagnosticError<std::runtime_error>(diagnostics::Code::could_not_format_value);
         result.resize(static_cast<std::size_t>(size));
         destination = std::move(result);
     }

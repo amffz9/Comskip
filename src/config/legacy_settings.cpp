@@ -40,23 +40,6 @@ void print_argument_errors(FILE* output, const struct arg_end& errors,
 }
 }
 
-double FindNumber(RecordingContext& context, char* data, const char* key, double fallback)
-{
-    try {
-        std::string name(key);
-        if (name.ends_with('=')) name.pop_back();
-        std::istringstream input(data ? data : "");
-        std::string line, metadata;
-        while (std::getline(input, line))
-            if (line.find('=') != std::string::npos) metadata += line + "\n";
-        comskip::config::Ini ini(metadata);
-        return ini.find(name) ? ini.number<double>(name) : fallback;
-    } catch (const std::exception& error) {
-        Debug(context, 0, "%s", context.translator.format("cli_invalid_logo_metadata", error.what()).c_str());
-        return fallback;
-    }
-}
-
 char* intSecondsToStrMinutes(RecordingContext& context, int seconds)
 {
     int minutes, hours;
@@ -826,14 +809,10 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
 
     context.state.out_file.reset();
-    context.state.zoomplayer_cutlist_file.reset();
-    context.state.zoomplayer_chapter_file.reset();
     context.state.vdr_file.reset();
-    context.state.scf_file.reset();
     context.state.videoredo_file.reset();
     context.state.edl_file.reset();
     context.state.live_file.reset();
-    context.state.ipodchap_file.reset();
     context.state.edlp_file.reset();
     context.state.mls_file.reset();
     context.state.womble_file.reset();

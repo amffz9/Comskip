@@ -34,16 +34,11 @@ struct RecordingState {
     comskip::platform::FilePtr out_file;
     comskip::platform::FilePtr incommercial_file;
     comskip::platform::FilePtr ini_file;
-    comskip::platform::FilePtr zoomplayer_cutlist_file;
-    comskip::platform::FilePtr zoomplayer_chapter_file;
-    comskip::platform::FilePtr scf_file;
     comskip::platform::FilePtr vdr_file;
     comskip::platform::FilePtr videoredo_file;
     comskip::platform::FilePtr edl_file;
     comskip::platform::FilePtr live_file;
-    comskip::platform::FilePtr ipodchap_file;
     comskip::platform::FilePtr edlp_file;
-    comskip::platform::FilePtr bcf_file;
     comskip::platform::FilePtr chapters_file;
     comskip::platform::FilePtr log_file;
     comskip::platform::FilePtr womble_file;

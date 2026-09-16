@@ -273,3 +273,20 @@ than redefine completion around whichever subset currently passes tests.
   Saved-logo metadata/mask safety, remaining player exporters and application
   orchestration, other human error reasons, and macOS/interactive SDL proof
   remain required work; Linux verification of this stage is separate.
+
+- The logo/player/application stage passes Windows headless **368/368** (16.83s)
+  and SDL **372/372** (9.26s). Saved-logo input uses one owned stream, one INI
+  metadata parse, checked geometry and locally staged masks before publication.
+  Five real-file tests cover the current writer, legacy masks, missing fallback,
+  invalid numbers, truncation, rollback and Unicode handle cleanup. Five focused
+  player serializers and a finalized normal/review adapter replace their legacy
+  per-block streams; thirteen tests and complete serial/thread media exports
+  cover empty lists, exact bytes, independent options, SCF milliseconds and long
+  hours. Application orchestration moves into `src/app/analysis.cpp`; decoder
+  interfaces remain explicit. Argument/format/pixel/runtime diagnostics use
+  committed catalogs; wide argument storage validates arrays and sentinel sizing.
+  Caption time conversion has a shared checked helper and boundary regression.
+  Logs: `bin/windows-logo-player-build23{,-gui}-{build,test}.txt`.
+  Other human-facing diagnostics, remaining output/decoder decomposition, the
+  chapter filename collision B064, Linux verification of this stage and
+  macOS/interactive SDL proof remain required work.

@@ -9,6 +9,29 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    invalid_video_caption_timestamp,
+    cannot_read_saved_logo,
+    truncated_saved_logo_mask,
+    saved_logo_metadata_exceeds_frame_range,
+    saved_logo_dimensions_exceed_supported_limits,
+    invalid_saved_logo_mask_character,
+    invalid_player_export_interval,
+    invalid_player_chapter_mark,
+    invalid_scf_frame_mark,
+    scf_frame_rate_must_be_positive,
+    player_timestamp_exceeds_integer_range,
+    cannot_write_player_export,
+    invalid_player_export_media_geometry,
+    invalid_player_export_commercial_range,
+    invalid_command_line_argument_array,
+    null_command_line_argument,
+    formatted_value_exceeds_legacy_buffer_capacity,
+    could_not_format_value,
+    detector_image_dimensions_exceed_supported_limits,
+    detector_video_width_exceeds_row_stride,
+    logo_buffer_count_must_be_positive,
+    could_not_format_diagnostic_message,
+
     invalid_retained_script_frame_range,
     cannot_write_frame_script_output,
     invalid_virtualdub_subset_range,
@@ -227,6 +250,29 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::invalid_video_caption_timestamp: return "diag_invalid_video_caption_timestamp";
+    case Code::cannot_read_saved_logo: return "diag_cannot_read_saved_logo";
+    case Code::truncated_saved_logo_mask: return "diag_truncated_saved_logo_mask";
+    case Code::saved_logo_metadata_exceeds_frame_range: return "diag_saved_logo_metadata_exceeds_frame_range";
+    case Code::saved_logo_dimensions_exceed_supported_limits: return "diag_saved_logo_dimensions_exceed_supported_limits";
+    case Code::invalid_saved_logo_mask_character: return "diag_invalid_saved_logo_mask_character";
+    case Code::invalid_player_export_interval: return "diag_invalid_player_export_interval";
+    case Code::invalid_player_chapter_mark: return "diag_invalid_player_chapter_mark";
+    case Code::invalid_scf_frame_mark: return "diag_invalid_scf_frame_mark";
+    case Code::scf_frame_rate_must_be_positive: return "diag_scf_frame_rate_must_be_positive";
+    case Code::player_timestamp_exceeds_integer_range: return "diag_player_timestamp_exceeds_integer_range";
+    case Code::cannot_write_player_export: return "diag_cannot_write_player_export";
+    case Code::invalid_player_export_media_geometry: return "diag_invalid_player_export_media_geometry";
+    case Code::invalid_player_export_commercial_range: return "diag_invalid_player_export_commercial_range";
+    case Code::invalid_command_line_argument_array: return "diag_invalid_command_line_argument_array";
+    case Code::null_command_line_argument: return "diag_null_command_line_argument";
+    case Code::formatted_value_exceeds_legacy_buffer_capacity: return "diag_formatted_value_exceeds_legacy_buffer_capacity";
+    case Code::could_not_format_value: return "diag_could_not_format_value";
+    case Code::detector_image_dimensions_exceed_supported_limits: return "diag_detector_image_dimensions_exceed_supported_limits";
+    case Code::detector_video_width_exceeds_row_stride: return "diag_detector_video_width_exceeds_row_stride";
+    case Code::logo_buffer_count_must_be_positive: return "diag_logo_buffer_count_must_be_positive";
+    case Code::could_not_format_diagnostic_message: return "diag_could_not_format_diagnostic_message";
+
     case Code::invalid_retained_script_frame_range: return "diag_invalid_retained_script_frame_range";
     case Code::cannot_write_frame_script_output: return "diag_cannot_write_frame_script_output";
     case Code::invalid_virtualdub_subset_range: return "diag_invalid_virtualdub_subset_range";

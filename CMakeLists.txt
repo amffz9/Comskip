@@ -82,6 +82,9 @@ add_library(comskip_localization src/localization/translator.cpp src/localizatio
 target_include_directories(comskip_localization PUBLIC src/localization PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(comskip_localization PUBLIC comskip_config diagnostics)
 find_package(pugixml CONFIG REQUIRED)
+add_library(player_exports src/output/player_exports.cpp)
+target_include_directories(player_exports PUBLIC src)
+target_link_libraries(player_exports PUBLIC diagnostics)
 add_library(frame_scripts src/output/frame_scripts.cpp)
 target_include_directories(frame_scripts PUBLIC src)
 target_link_libraries(frame_scripts PUBLIC diagnostics)
@@ -127,7 +130,7 @@ if(BUILD_TESTING)
     gtest_discover_tests(weighted_scores_test)
     add_executable(argument_snapshot_test tests/platform/argument_snapshot_test.cpp)
     target_include_directories(argument_snapshot_test PRIVATE src/app)
-    target_link_libraries(argument_snapshot_test PRIVATE GTest::gtest_main)
+    target_link_libraries(argument_snapshot_test PRIVATE diagnostics GTest::gtest_main)
     gtest_discover_tests(argument_snapshot_test)
     add_executable(file_resources_test tests/platform/file_resources_test.cpp)
     target_include_directories(file_resources_test PRIVATE src/platform)
@@ -166,6 +169,9 @@ if(BUILD_TESTING)
     target_link_libraries(translator_test PRIVATE comskip_localization GTest::gtest_main)
     target_compile_definitions(translator_test PRIVATE COMSKIP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     gtest_discover_tests(translator_test)
+    add_executable(player_exports_test tests/output/player_exports_test.cpp)
+    target_link_libraries(player_exports_test PRIVATE player_exports GTest::gtest_main)
+    gtest_discover_tests(player_exports_test)
     add_executable(frame_scripts_test tests/output/frame_scripts_test.cpp)
     target_link_libraries(frame_scripts_test PRIVATE frame_scripts GTest::gtest_main)
     gtest_discover_tests(frame_scripts_test)
@@ -200,7 +206,7 @@ if(BUILD_TESTING)
     gtest_discover_tests(settings_value_test)
     add_executable(checked_format_test tests/platform/checked_format_test.cpp)
     target_include_directories(checked_format_test PRIVATE src/app)
-    target_link_libraries(checked_format_test PRIVATE GTest::gtest_main)
+    target_link_libraries(checked_format_test PRIVATE diagnostics GTest::gtest_main)
     gtest_discover_tests(checked_format_test)
     add_executable(review_media_test tests/ui/review_media_test.cpp)
     target_include_directories(review_media_test PRIVATE src)
@@ -221,7 +227,7 @@ if(BUILD_TESTING)
     if(WIN32)
         add_executable(arguments_test tests/platform/arguments_test.cpp)
         target_include_directories(arguments_test PRIVATE src/app)
-        target_link_libraries(arguments_test PRIVATE GTest::gtest_main)
+        target_link_libraries(arguments_test PRIVATE diagnostics GTest::gtest_main)
         gtest_discover_tests(arguments_test)
     endif()
 endif()
@@ -284,11 +290,13 @@ if(COMSKIP_BUILD_APP)
         src/detection/length_matching.cpp
         src/detection/scene_analysis.cpp
         src/detection/logo.cpp
+        src/detection/saved_logo.cpp
         src/detection/storage.cpp
         src/detection/captions.cpp
         src/detection/live.cpp
         src/ui/review.cpp
         src/config/legacy_settings.cpp
+        src/app/analysis.cpp
         src/app/runtime.cpp
         src/app/pixel_buffers.cpp
         src/app/csv_input.cpp
@@ -296,6 +304,7 @@ if(COMSKIP_BUILD_APP)
         src/output/diagnostics.cpp
         src/output/ffmpeg_sidecar_adapter.cpp
         src/output/frame_script_adapter.cpp
+        src/output/player_export_adapter.cpp
         src/output/media_dump.cpp
         src/media/audio_analysis.cpp
         src/media/timing_diagnostics.cpp
@@ -303,7 +312,7 @@ if(COMSKIP_BUILD_APP)
         src/media/mpeg2dec.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
     target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip_core PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
-    target_link_libraries(comskip_core PUBLIC logo_geometry scene_sampling frame_mask reference_comparison input_text commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars frame_scripts media_conversion caption_session ${FFMPEG_LIBRARIES}
+    target_link_libraries(comskip_core PUBLIC logo_geometry scene_sampling frame_mask reference_comparison input_text commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars frame_scripts player_exports media_conversion caption_session ${FFMPEG_LIBRARIES}
         ${ARGTABLE_LIBRARY} Threads::Threads review_window platform_paths)
     add_executable(comskip src/app/main.cpp)
     target_link_libraries(comskip PRIVATE comskip_core)
@@ -320,6 +329,12 @@ if(COMSKIP_BUILD_APP)
     if(BUILD_TESTING)
         add_executable(inprocess_analysis_test tests/media/inprocess_analysis_test.cpp)
         add_executable(xml_export_test tests/output/xml_export_test.cpp)
+        add_executable(saved_logo_test tests/detection/saved_logo_test.cpp)
+        target_link_libraries(saved_logo_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(saved_logo_test)
+        add_executable(player_export_adapter_test tests/output/player_export_adapter_test.cpp)
+        target_link_libraries(player_export_adapter_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(player_export_adapter_test)
         add_executable(frame_script_adapter_test tests/output/frame_script_adapter_test.cpp)
         target_link_libraries(frame_script_adapter_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(frame_script_adapter_test)

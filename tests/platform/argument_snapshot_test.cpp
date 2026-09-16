@@ -19,4 +19,13 @@ TEST(ArgumentSnapshot, RejectsInvalidArrays) {
     EXPECT_THROW(comskip::snapshot_arguments(-1, values), std::invalid_argument);
     EXPECT_THROW(comskip::snapshot_arguments(1, nullptr), std::invalid_argument);
     EXPECT_THROW(comskip::snapshot_arguments(1, values), std::invalid_argument);
+    try {
+        comskip::snapshot_arguments(1, values);
+        FAIL() << "Null entries must be rejected";
+    } catch (const std::invalid_argument& error) {
+        const auto* provider = dynamic_cast<const comskip::diagnostics::DiagnosticProvider*>(&error);
+        ASSERT_NE(provider, nullptr);
+        EXPECT_EQ(provider->diagnostic().code, comskip::diagnostics::Code::null_command_line_argument);
+        EXPECT_STREQ(error.what(), "Null command-line argument");
+    }
 }

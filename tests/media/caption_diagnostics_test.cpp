@@ -1,3 +1,5 @@
+#include "media/video_timestamp.h"
+#include <limits>
 #include "media/caption_session.h"
 #include "media/subtitle_stream_decoder.h"
 #include "review_window.h"
@@ -57,4 +59,18 @@ TEST(CaptionDiagnostics, ReviewInvariantUsesLocalizedTypedErrorWithoutMutatingIn
             "Review font size must be positive", "tamaño de la fuente de revisión debe ser positivo");
     }
     EXPECT_EQ(window.input().key, 'W'); EXPECT_EQ(window.options().font_size, 16);
+}
+
+TEST(CaptionDiagnostics, VideoTimeConversionRejectsUnrepresentableValuesAndClampsPreroll) {
+    EXPECT_EQ(video_caption_timestamp(-1), CaptionTimestamp::zero());
+    EXPECT_EQ(video_caption_timestamp(1.25), CaptionTimestamp(1250000));
+    for (const double invalid : {std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::quiet_NaN(),
+            static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1000000}) {
+        try { video_caption_timestamp(invalid); FAIL() << "Accepted invalid timestamp"; }
+        catch (const std::invalid_argument& error) {
+            translated(error, Code::invalid_video_caption_timestamp,
+                "Invalid video caption timestamp", "Marca de tiempo");
+        }
+    }
 }

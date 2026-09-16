@@ -9,3 +9,11 @@ TEST(CheckedFormat, RejectsLongAndCombinedPathsWithoutWritingPastBuffer) {
     comskip::checked_format(storage.path, "%s", "1234567");
     EXPECT_STREQ(storage.path, "1234567");
 }
+TEST(CheckedFormat, OwnedStringsHaveNoLegacyCapacityAndPreservePrintfCompatibility) {
+    std::string result;
+    const std::string path(5000, 'x');
+    comskip::checked_format(result, "%s/%04d%%", path, 7);
+    EXPECT_EQ(result, path + "/0007%");
+    comskip::checked_format(result, "%s is literal without arguments");
+    EXPECT_EQ(result, "%s is literal without arguments");
+}

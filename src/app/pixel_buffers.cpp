@@ -1,3 +1,4 @@
+#include "diagnostic.h"
 #include "recording_context.h"
 #include "image_geometry.h"
 
@@ -16,10 +17,10 @@ void RecordingState::ensure_pixel_buffers(bool use_logo)
 {
     if (width == 0 && height == 0) return; // CSV metadata can precede its geometry.
     if (width > MAXWIDTH || height > MAXHEIGHT)
-        throw std::invalid_argument("Detector image dimensions exceed supported limits");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::detector_image_dimensions_exceed_supported_limits);
     const auto size = comskip::detection::checked_image_size(width, height);
     const auto video_width = videowidth > 0 ? videowidth : width;
-    if (video_width > width) throw std::invalid_argument("Detector video width exceeds its row stride");
+    if (video_width > width) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::detector_video_width_exceeds_row_stride);
     const bool changed = width != pixel_width || height != pixel_height || video_width != pixel_video_width;
     if (changed) {
         std::vector<char>(size).swap(haslogo);

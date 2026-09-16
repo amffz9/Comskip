@@ -26,7 +26,9 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
                         "output_edlx=1\noutput_btv=1\noutput_cuttermaran=1\n"
                         "output_dvrmstb=1\noutput_mkvtoolnix=2\noutput_plist_cutlist=1\n"
                         "output_ffmeta=1\noutput_ffsplit=1\n"
-                        "output_vcf=1\noutput_projectx=1\noutput_avisynth=1\n")
+                        "output_vcf=1\noutput_projectx=1\noutput_avisynth=1\n"
+                        "output_zoomplayer_cutlist=1\noutput_zoomplayer_chapter=1\n"
+                        "output_scf=1\noutput_ipodchap=1\noutput_bsplayer=1\n")
     results = []
     for threads in (1, 4):
         destination = root / str(threads)
@@ -38,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert run.returncode in (0, 1), run.stdout + run.stderr
         assert "Commercials were found." in run.stdout, run.stdout + run.stderr
         files = {extension: (destination / f"sample.{extension}").read_bytes()
-                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf")}
+                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf", "chp", "cut", "scf", "chap", "bcf")}
         for extension in ("Xcl", "avs"):
             files[extension] = Path(str(video) + "." + extension).read_bytes()
         rows = list(csv.reader(files["csv"].decode().splitlines()[2:]))
@@ -54,6 +56,14 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert files["vcf"] == b"VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n"
         assert files["Xcl"] == b"CollectionPanel.CutMode=2\n1\n1\n"
         assert files["avs"].endswith(b"trim(1,1)\n")
+        assert files["cut"] == b'JumpSegment("From=0.0000","To=9.9200")\n'
+        assert files["chp"] == b"AddChapterBySecond(0,Commercial Segment)\nAddChapterBySecond(9,Show Segment)\n"
+        # SCF deliberately uses nominal frame indices (1..250), not media PTS.
+        assert files["scf"] == (b"CHAPTER01=00:00:00.040\nCHAPTER01NAME=Commercial starts\n"
+                                b"CHAPTER02=00:00:10.000\nCHAPTER02NAME=Commercial ends\n"), repr(files["scf"])
+        assert files["bcf"] == b"1,0,9920\n"
+        assert files["chap"].startswith(b"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n")
+        assert files["chap"].endswith(b"CHAPTER02NAME=2\n")
         for extension in ("VPrj", "edlx", "chapters.xml", "cpf", "xml",
                           "mkvtoolnix.chapters", "mkvtoolnix.tags", "plist"):
             files[extension] = (destination / f"sample.{extension}").read_bytes()

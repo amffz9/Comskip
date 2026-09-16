@@ -1,5 +1,6 @@
 #include "output/ffmpeg_sidecar_adapter.h"
 #include "output/frame_script_adapter.h"
+#include "output/player_export_adapter.h"
 #include "cutlist_exports.h"
 #include "output/csv_field.h"
 #include "recording_context.h"
@@ -54,16 +55,20 @@ TEST_F(SidecarAdapter, ReviewReferenceSelectionPreservesSegmentIndicesAndShortCu
     EXPECT_NE(read(".ffmeta").find("START=0\nEND=40\ntitle=Commercial Segment"),std::string::npos);
 }
 TEST_F(SidecarAdapter, EarlyVdrAndEdlAdjustmentsDoNotChangeLaterBsPlayerExports) {
-    context->state.bcf_file=comskip::platform::temporary_file();
-    ASSERT_TRUE(context->state.bcf_file);
+    context->settings.output_bsplayer=true;
+    context->state.commercial.resize(1);
+    context->state.commercial[0].start_frame=4;
+    context->state.commercial[0].end_frame=10;
+    context->state.commercial_count=0;
     OutputCommercialBlock(*context,0,-1,4,10,false);
-    const auto player=temporary_contents(context->state.bcf_file.get());
+    WritePlayerExportFiles(*context);
+    const auto player=read(".bcf");
     for (auto* owner : {&context->state.vdr_file,&context->state.edl_file,&context->state.edlp_file}) {
         *owner=comskip::platform::temporary_file(); ASSERT_TRUE(*owner);
     }
-    context->state.bcf_file=comskip::platform::temporary_file();
     OutputCommercialBlock(*context,0,-1,4,10,false);
-    EXPECT_EQ(temporary_contents(context->state.bcf_file.get()),player);
+    WritePlayerExportFiles(*context);
+    EXPECT_EQ(read(".bcf"),player);
     EXPECT_EQ(player,"1,160,400\n");
 }
 TEST_F(SidecarAdapter, EnablingFfmetadataDoesNotChangeSimultaneousProjectXExport) {

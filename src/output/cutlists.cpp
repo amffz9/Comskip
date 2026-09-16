@@ -5,6 +5,7 @@
 #include "xml_output_adapter.h"
 #include "ffmpeg_sidecar_adapter.h"
 #include "frame_script_adapter.h"
+#include "player_export_adapter.h"
 #include "csv_field.h"
 #include "edl.h"
 #include <sstream>
@@ -83,22 +84,6 @@ void OpenOutputFiles(RecordingContext& context)
         fprintf(context.state.chapters_file.get(), "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",context.state.frame_count-1, (int)(context.settings.fps*100));
     }
 
-    if (context.settings.output_zoomplayer_cutlist)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".cut";
-        context.state.zoomplayer_cutlist_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.zoomplayer_cutlist_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_zoomplayer_cutlist = true;
-//			fclose(zoomplayer_cutlist_file);
-        }
-    }
-
     if (context.settings.output_incommercial)
     {
         context.state.filename = std::string(context.state.workbasename) + ".incommercial";
@@ -114,37 +99,6 @@ void OpenOutputFiles(RecordingContext& context)
 
 
 
-
-    if (context.settings.output_zoomplayer_chapter)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".chp";
-        context.state.zoomplayer_chapter_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.zoomplayer_chapter_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_zoomplayer_chapter = true;
-//			fclose(zoomplayer_chapter_file);
-        }
-    }
-
-    if (context.settings.output_scf)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".scf";
-        context.state.scf_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.scf_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_scf = true;
-        }
-    }
 
     if (context.settings.output_edl)
     {
@@ -177,22 +131,6 @@ void OpenOutputFiles(RecordingContext& context)
         }
     }
 */
-    if (context.settings.output_ipodchap)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".chap";
-        context.state.ipodchap_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.ipodchap_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_ipodchap = true;
-        }
-        fprintf(context.state.ipodchap_file.get(),"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n");
-    }
-
     if (context.settings.output_edlp)
     {
         context.state.filename = std::string(context.state.outbasename) + ".edlp";
@@ -207,23 +145,6 @@ void OpenOutputFiles(RecordingContext& context)
             context.settings.output_edlp = true;
         }
     }
-
-
-    if (context.settings.output_bsplayer)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".bcf";
-        context.state.bcf_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.bcf_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_bsplayer = true;
-        }
-    }
-
 
 
     if (context.settings.output_videoredo && !context.settings.output_videoredo3)
@@ -435,29 +356,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     //CLOSEOUTFILE(context.state.out_file);
 
-    if (context.state.zoomplayer_cutlist_file.get() && prev < start && end - start > 2)
-    {
-        fprintf(context.state.zoomplayer_cutlist_file.get(), "JumpSegment(\"From=%.4f\",\"To=%.4f\")\n", get_frame_pts(context, start), get_frame_pts(context, end));
-    }
-    CLOSEOUTFILE(context.state.zoomplayer_cutlist_file);
-
-    if (context.state.zoomplayer_chapter_file.get() && prev < start && end - start > context.settings.fps )
-    {
-//		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%.4f,Commercial Segment)\nAddChapterBySecond(%.4f,Show Segment)\n", (start) / fps, (end) / fps);
-        fprintf(context.state.zoomplayer_chapter_file.get(), "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)(get_frame_pts(context, start)), (int)(get_frame_pts(context, end)));
-    }
-    CLOSEOUTFILE(context.state.zoomplayer_chapter_file);
-
-    if (context.state.scf_file.get() && prev < start && end - start > context.settings.fps)
-    {
-      int rounded_fps = (int)(context.settings.fps + .5);
-      fprintf(context.state.scf_file.get(), "CHAPTER%02i=%02li:%02li:%02li.%03li\n", i * 2 + 1, start / (3600 * rounded_fps) % 60, start / (60 * rounded_fps) % 60, start / rounded_fps % 60, start % rounded_fps);
-      fprintf(context.state.scf_file.get(), "CHAPTER%02iNAME=%s\n", i * 2 + 1, "Commercial starts");
-      fprintf(context.state.scf_file.get(), "CHAPTER%02i=%02li:%02li:%02li.%03li\n", i * 2 + 2, end / (3600 * rounded_fps) % 60, end / (60 * rounded_fps) % 60, end / rounded_fps % 60, end % rounded_fps);
-      fprintf(context.state.scf_file.get(), "CHAPTER%02iNAME=%s\n", i * 2 + 2, "Commercial ends");
-    }
-    CLOSEOUTFILE(context.state.scf_file);
-
     if (context.state.vdr_file.get() && prev < start && end - start > 2)
     {
         const long vdr_start = start < 5 ? 0 : start;
@@ -488,24 +386,11 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     CLOSEOUTFILE(context.state.live_file);
 
-    if (context.state.ipodchap_file.get() && prev < start /* &&!last */ && end - start > 2)
-    {
-//		fprintf(ipodchap_file,"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n");
-        fprintf(context.state.ipodchap_file.get(), "CHAPTER%.2i=%s\nCHAPTER%.2iNAME=%d\n", i+2,dblSecondsToStrMinutes(context, get_frame_pts(context, end)), i+2, i+2 );
-    }
-    CLOSEOUTFILE(context.state.ipodchap_file);
-
     if (context.state.edlp_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
         append_edl_record(context, context.state.edlp_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::plus);
     }
     CLOSEOUTFILE(context.state.edlp_file);
-
-    if (context.state.bcf_file.get() && prev < start /* &&!last */ && end - start > 2)
-    {
-        fprintf(context.state.bcf_file.get(), "1,%.0f,%.0f\n", get_frame_pts(context, start) * 1000.0, get_frame_pts(context, end) * 1000.0);
-    }
-    CLOSEOUTFILE(context.state.bcf_file);
 
     if (context.state.womble_file.get())
     {
@@ -1043,16 +928,6 @@ bool OutputBlocks(RecordingContext& context)
     }
 //	Debug(1, "Total commercial length found: %s\n",	dblSecondsToStrMinutes(comlength));
 
-    if ((context.state.zoomplayer_chapter_file.get()) &&
-//		(commercial[0].length >= min_commercialbreak) &&
-//		(commercial[0].length <= max_commercialbreak) &&
-            (context.state.commercial[0].start_frame > 5))
-    {
-        fprintf(context.state.zoomplayer_chapter_file.get(), "AddChapter(1,Show Segment)\n");
-    }
-
-
-
     prev = -1;
     for (i = 0; i <= context.state.commercial_count; i++)
     {
@@ -1082,6 +957,7 @@ bool OutputBlocks(RecordingContext& context)
     WriteXmlOutputFiles(context);
     WriteFfmpegSidecarFiles(context);
     WriteFrameScriptFiles(context);
+    WritePlayerExportFiles(context);
 
     if (context.settings.output_videoredo && !context.settings.output_videoredo3)
     {

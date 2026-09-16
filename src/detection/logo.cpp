@@ -4,6 +4,7 @@
 #include "logo_sampling.h"
 #include "logo_geometry.h"
 #include "logo_shrink.h"
+#include "saved_logo.h"
 #include <stdexcept>
 
 namespace {
@@ -1723,151 +1724,33 @@ void SaveLogoMaskData(RecordingContext& context)
 
 void LoadLogoMaskData(RecordingContext& context)
 {
-    FILE*	logo_file = NULL;
-    FILE*	txt_file;
-    int		x;
-    int		y;
-    double	tmp;
-    char	temp;
-    char	data[2000];
-    char	*ptr = NULL;
-    long	tmpLong = 0;
-    size_t	len = 0;
-
-    logo_file = myfopen(context.state.logofilename.c_str(), "r");
-    if (logo_file)
-    {
-        Debug(context, 1, "Using %s for logo data.\n", context.state.logofilename.c_str());
-        len = fread(data, 1, 1999, logo_file);
-        fclose(logo_file);
-        data[len] = '\0';
-        if ((tmp = FindNumber(context, data, "picWidth=", (double) context.state.width)) > -1) context.state.videowidth = context.state.width = (int)tmp;
-        if ((tmp = FindNumber(context, data, "picHeight=", (double) context.state.height)) > -1) context.state.height = (int)tmp;
-        context.state.ensure_pixel_buffers(true);
-        if ((tmp = FindNumber(context, data, "logoMinX=", (double) context.state.clogoMinX)) > -1) context.state.clogoMinX = (int)tmp;
-        if ((tmp = FindNumber(context, data, "logoMaxX=", (double) context.state.clogoMaxX)) > -1) context.state.clogoMaxX = (int)tmp;
-        if ((tmp = FindNumber(context, data, "logoMinY=", (double) context.state.clogoMinY)) > -1) context.state.clogoMinY = (int)tmp;
-        if ((tmp = FindNumber(context, data, "logoMaxY=", (double) context.state.clogoMaxY)) > -1) context.state.clogoMaxY = (int)tmp;
-        comskip::detection::validate_logo_bounds(context.state.width, context.state.height,
-            context.state.clogoMinX, context.state.clogoMaxX, context.state.clogoMinY, context.state.clogoMaxY);
-    }
-    else
-    {
+    FILE* txt_file;
+    char data[2000];
+    char* ptr = nullptr;
+    long tmpLong = 0;
+    auto logo_file = comskip::platform::own_file(myfopen(context.state.logofilename.c_str(), "rb"));
+    if (!logo_file) {
         Debug(context, 0, "%s", context.translator.text("detection_logo_file_missing"));
         context.state.logoInfoAvailable = false;
         return;
     }
-
+    Debug(context, 1, "Using %s for logo data.\n", context.state.logofilename.c_str());
+    auto loaded = comskip::detection::read_saved_logo(*logo_file,
+        {context.state.width, context.state.height, context.state.clogoMinX, context.state.clogoMaxX,
+         context.state.clogoMinY, context.state.clogoMaxY},
+        {context.settings.edge_radius, context.settings.edge_step, context.settings.border,
+         context.settings.logo_at_side != 0, context.settings.logo_at_bottom != 0, context.settings.subtitles != 0},
+        MAXWIDTH, MAXHEIGHT);
+    logo_file.reset();
+    context.state.videowidth = context.state.width = loaded.geometry.width;
+    context.state.height = loaded.geometry.height;
     context.state.ensure_pixel_buffers(true);
-    logo_file = myfopen(context.state.logofilename.c_str(), "r");
-    /*
-        choriz_edgemask = malloc(width * height * sizeof(unsigned char));
-        if (choriz_edgemask == NULL) {
-            Debug(0, "Could not allocate memory for horizontal edgemask\n");
-            comskip::request_exit(8);
-        }
-
-        cvert_edgemask = malloc(width * height * sizeof(unsigned char));
-        if (cvert_edgemask == NULL) {
-            Debug(0, "Could not allocate memory for vertical edgemask\n");
-            comskip::request_exit(9);
-        }
-        memset(choriz_edgemask, 0, width * height);
-        memset(cvert_edgemask, 0, width * height);
-    */
-    do
-    {
-        temp = getc(logo_file);
-    }
-    while ((temp != '\200') && !feof(logo_file));
-    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-    {
-        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-        {
-            temp = getc(logo_file);
-            if (temp == '\n') temp = getc(logo_file);				// If a carrage return was retrieved, get the next character
-            switch (temp)
-            {
-            case ' ':
-                context.state.choriz_edgemask[y * context.state.width + x] = 0;
-                break;
-
-            case '|':
-                context.state.choriz_edgemask[y * context.state.width + x] = 1;
-                break;
-            }
-        }
-    }
-
-    fclose(logo_file);
-    logo_file = myfopen(context.state.logofilename.c_str(), "r");
-    do
-    {
-        temp = getc(logo_file);
-    }
-    while ((temp != '\201') && !feof(logo_file));
-    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-    {
-        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-        {
-            temp = getc(logo_file);
-            if (temp == '\n') temp = getc(logo_file);				// If a carrage return was retrieved, get the next character
-            switch (temp)
-            {
-            case ' ':
-                context.state.cvert_edgemask[y * context.state.width + x] = 0;
-                break;
-
-            case '-':
-                context.state.cvert_edgemask[y * context.state.width + x] = 1;
-                break;
-            }
-        }
-    }
-    fclose(logo_file);
-
-    logo_file = myfopen(context.state.logofilename.c_str(), "r");
-    do
-    {
-        temp = getc(logo_file);
-    }
-    while ((temp != '\202') && !feof(logo_file));
-    if (!feof(logo_file))
-    {
-        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-        {
-            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-            {
-                temp = getc(logo_file);
-                if (temp == '\n') temp = getc(logo_file);				// If a carrage return was retrieved, get the next character
-                switch (temp)
-                {
-                case ' ':
-                    context.state.choriz_edgemask[y * context.state.width + x] = 0;
-                    context.state.cvert_edgemask[y * context.state.width + x] = 0;
-                    break;
-
-                case '-':
-                    context.state.choriz_edgemask[y * context.state.width + x] = 0;
-                    context.state.cvert_edgemask[y * context.state.width + x] = 1;
-                    break;
-
-                case '|':
-                    context.state.choriz_edgemask[y * context.state.width + x] = 1;
-                    context.state.cvert_edgemask[y * context.state.width + x] = 0;
-                    break;
-
-                case '+':
-                    context.state.choriz_edgemask[y * context.state.width + x] = 1;
-                    context.state.cvert_edgemask[y * context.state.width + x] = 1;
-                    break;
-
-                }
-            }
-        }
-    }
-    fclose(logo_file);
-
+    context.state.clogoMinX = loaded.geometry.minimum_x;
+    context.state.clogoMaxX = loaded.geometry.maximum_x;
+    context.state.clogoMinY = loaded.geometry.minimum_y;
+    context.state.clogoMaxY = loaded.geometry.maximum_y;
+    context.state.choriz_edgemask = std::move(loaded.horizontal);
+    context.state.cvert_edgemask = std::move(loaded.vertical);
 
     context.state.logoInfoAvailable = true;
     context.settings.startOverAfterLogoInfoAvail = true; // prevent continuous searching for logo when a logo file is specified

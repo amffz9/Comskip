@@ -1,5 +1,6 @@
 #include "recording_context.h"
 #include "output/frame_script_adapter.h"
+#include "output/player_export_adapter.h"
 #include "detection/legacy_detection.h"
 #include "output/cutlist_exports.h"
 #include "checked_format.h"
@@ -36,7 +37,14 @@ protected:
         std::filesystem::remove_all(directory, ignored);
     }
     void expect_exit(int status) {
-        try { OpenOutputFiles(*context); FAIL() << "Expected output creation failure"; }
+        try {
+            OpenOutputFiles(*context);
+            context->state.frame_count=50;
+            context->state.framenum_real=50;
+            context->state.commercial_count=-1;
+            WritePlayerExportFiles(*context);
+            FAIL() << "Expected output creation failure";
+        }
         catch (const comskip::ExitRequested& exit) { EXPECT_EQ(exit.status(), status); }
     }
     std::string log() {
@@ -69,7 +77,7 @@ TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) 
     std::erase(message, '\r');
     EXPECT_NE(message.find(" - no se pudo crear el archivo "), std::string::npos);
     EXPECT_NE(message.find(std::string(context->state.outbasename) + ".cut\n"), std::string::npos);
-    EXPECT_FALSE(context->state.zoomplayer_cutlist_file);
+    EXPECT_FALSE(std::filesystem::exists(context->state.outbasename + ".cut"));
 }
 TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExactly) {
     context->settings = comskip::config::load_settings(comskip::config::Ini(

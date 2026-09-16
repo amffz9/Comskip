@@ -1,3 +1,4 @@
+#include "diagnostic.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include <algorithm>
@@ -36,10 +37,10 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
         va_copy(measure, ap);
         const int length = std::vsnprintf(nullptr, 0, fmt, measure);
         va_end(measure);
-        if (length < 0) throw std::runtime_error("Could not format diagnostic message");
+        if (length < 0) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::could_not_format_diagnostic_message);
         message.resize(static_cast<std::size_t>(length) + 1);
         const int written = std::vsnprintf(message.data(), message.size(), fmt, ap);
-        if (written != length) throw std::runtime_error("Could not format diagnostic message");
+        if (written != length) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::could_not_format_diagnostic_message);
         message.resize(static_cast<std::size_t>(length));
     } catch (...) {
         va_end(ap);
@@ -61,7 +62,7 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
 void InitLogoBuffers(RecordingContext& context)
 {
     if (context.settings.num_logo_buffers <= 0)
-        throw std::invalid_argument("Logo buffer count must be positive");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_buffer_count_must_be_positive);
     context.state.ensure_pixel_buffers(true);
     const auto count = static_cast<std::size_t>(context.settings.num_logo_buffers);
     context.state.logoFrameNum.assign(count, 0);

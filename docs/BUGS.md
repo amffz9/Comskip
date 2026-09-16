@@ -35,7 +35,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B046, B048, B049, B050, B052, B053, B054 | Fixed at `62664db`; all 319 Windows headless and SDL tests pass. Its unmodified snapshot passes all 315 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
 | B047, B055, B056 | Fixed in the font/settings stage; all 326 Windows headless and 329 SDL tests pass, including a relocated executable, long Unicode configured cutscene path, and duration overflow rejection before settings publication. |
 | B057, B058 | Fixed in the script/diagnostic stage; all 347 Windows headless and 351 SDL tests pass, including actual early-cut joins and later-frame bright-pixel classification. |
-| B051, B059, B060, B061, B062 | Open; B051 now also covers review/caption/subtitle reasons, with other application/helper reasons remaining. |
+| B051 | Open: review/caption/subtitle and argument/format/pixel/runtime reasons are cataloged; other application/helper reasons remain. |
+| B059–B063 | Fixed in the logo/player/application stage; all 368 Windows headless and 372 SDL tests pass. Linux proof of this stage remains separate. |
+| B064 | Open: two chapter options share one filename; output policy and regression pending. |
 
 ## Issue evidence and verification
 
@@ -673,7 +675,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** `src/detection/logo.cpp:1744–1750` converts `FindNumber` double
   results to int dimensions and bounds before validation. A finite value such
   as `picWidth=1e20` passes the nonnegative check and exceeds the int range.
-- **Status:** Source-confirmed unsafe narrowing; runtime regression pending.
+- **Status:** Fixed by staged checked metadata parsing. All 368 Windows headless
+  and 372 SDL tests pass, including real saved-logo files and invalid values.
 - **Verification needed:** Validate all metadata before state mutation or buffer
   allocation; cover extreme finite values, malformed input, ordinary saved
   logos, missing-property fallback, and owned file cleanup.
@@ -685,7 +688,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   every returned FILE pointer.
 - **Impact:** A file disappearing or becoming inaccessible between opens can
   reach `getc` with a null pointer.
-- **Status:** Source-confirmed missing checks; ownership refactor pending.
+- **Status:** Fixed using one owned stream and locally staged masks. Actual
+  writer roundtrip, truncation, unchanged state, and file cleanup tests pass
+  within all 368 Windows headless and 372 SDL tests.
 - **Verification needed:** One owned stream across metadata and mask reads,
   missing/truncated file regressions, unchanged state and released handles.
 
@@ -694,7 +699,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** Legacy chapter initialization reads `commercial[0]` when the
   chapter stream exists, without checking whether the finalized vector is empty.
 - **Impact:** A valid recording with no commercials can access absent storage.
-- **Status:** Source-confirmed unchecked access; actual export regression pending.
+- **Status:** Fixed by finalized-list player adapter. Empty normal/review
+  exports and exact real media output pass within all 368 Windows headless
+  and 372 SDL tests.
 - **Verification needed:** Empty normal and review lists, ordinary first-cut
   behavior, complete chapter output and owned stream cleanup.
 
@@ -705,9 +712,36 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   is 1.480 seconds, but the writer emits `00:00:01.012`.
 - **Format reference:** The [MKVToolNix simple chapter format](https://mkvtoolnix.download/doc/mkvmerge.html#chapters.simple)
   defines these CHAPTER/CHAPTERNAME timestamp pairs with decimal-second fractions.
-- **Status:** Source-confirmed timestamp calculation defect; export tests pending.
+- **Status:** Fixed by nominal-frame to millisecond conversion without hour
+  wrapping. Fractional frames, long hours and actual media bytes pass within
+  all 368 Windows headless and 372 SDL tests.
 - **Verification needed:** Proper fractional-frame conversion, ordinary and
   fractional rates, long hours, unchanged chapter names and numbering.
+
+### B063: Wide command-line argument storage accepts invalid arrays
+
+- **Evidence:** The Windows `Arguments` constructor reserved a signed count
+  without checking it, dereferenced the array and each entry without validation,
+  and evaluated `count + 1` in signed arithmetic.
+- **Impact:** Invalid caller input can cause an excessive allocation or null
+  dereference; the largest representable count overflows sentinel arithmetic.
+- **Status:** Fixed by validation and size-based sentinel arithmetic. Invalid
+  arrays, empty sentinel and long Unicode ownership pass within all 368 Windows
+  headless and 372 SDL tests. Normal OS-provided argv is valid.
+- **Verification needed:** Negative count, null array, null entry, empty argv
+  sentinel, and unchanged long Unicode argument ownership.
+
+### B064: Two chapter options share one output filename
+
+- **Evidence:** `output_chapters` and `output_ipodchap` both write
+  `outbasename + ".chap"`, despite producing different machine-readable formats.
+  The legacy chapter stream remains buffered while the finalized iPod adapter
+  writes that same file independently.
+- **Impact:** Enabling both options can overwrite or interleave chapter output.
+- **Status:** Source-confirmed filename collision; fix and runtime regression
+  pending. Player extraction preserves the existing individual filenames.
+- **Verification needed:** Separate output destinations or validated mutually
+  exclusive options, with actual analysis and review export regressions.
 
 ## Fixed during modernization
 

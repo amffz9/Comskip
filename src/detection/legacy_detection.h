@@ -250,7 +250,6 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
 
 bool				IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
 bool				LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
-double				FindNumber(RecordingContext& context, char* str1, const char* str2, double v);
 char*				intSecondsToStrMinutes(RecordingContext& context, int seconds);
 char*				dblSecondsToStrMinutes(RecordingContext& context, double seconds);
 char*				dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds);
@@ -344,7 +343,6 @@ char CompareLetter(RecordingContext& context, int value, int average, int i);
 
 bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
 bool IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
-double FindNumber(RecordingContext& context, char* data, const char* key, double fallback);
 char* intSecondsToStrMinutes(RecordingContext& context, int seconds);
 char* dblSecondsToStrMinutes(RecordingContext& context, double seconds);
 char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds);
