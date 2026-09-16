@@ -25,8 +25,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B025 | Fixed at `ed8649b`; five actual lifecycle tests pass on Windows. The isolated Linux `c4ab1e0` snapshot plus only that packet patch passes all 177 address/undefined/leak sanitizer tests; the unmodified `d9e1ed1` snapshot passes all 210. Neither run has findings or suppressions. |
 | B026 | Fixed at `0f98693`; all 200 Windows tests pass, including zero, negative, and excessive observation counts. |
 | B029, B030 | Fixed at `1e8f795`; all 226 Windows tests pass, including six actual reference and six block tests. Its isolated, unmodified Linux snapshot passes all 222 address/undefined/leak sanitizer tests without findings or suppressions (56.68 seconds). |
-| B032 | Navigation fixed at `e520374`; five boundary tests and the complete 241-test Windows suite pass. Reference insertion remains open pending growable interval storage. |
+| B031, B032, B033, B037 | Fixed at `931ee71`; all 256 Windows tests pass. Eight storage/live cases cover 100,001 entries, safe insertion, empty live status, complete classification reset, and enabled/disabled logo and silence filtering. Navigation was separately fixed at `e520374`. Linux verification of the integration stage is running. |
 | B034 | Fixed at `e520374`; six frame-mask tests and settings validation pass within all 241 Windows tests. Linux sanitizer verification of this stage is running separately. |
+| B035 | Fixed at `931ee71`; three consecutive-stall tests cover threshold, periodic reporting, progress reset, and independence; the integrated application passes all 256 Windows tests. |
+| B036 | Filename-only selection fixed at `931ee71`; actual 150-frame CLI analysis under `GUI`/`build-gui` argv paths and legacy filename convention tests pass within all 256 Windows tests. A fresh complete Windows SDL snapshot run is required to close the original six failures. |
 
 ## Issue evidence and verification
 
@@ -425,6 +427,41 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Visit every block while grouping commercial
   runs. Seed prior classifications and verify every program flag is cleared,
   with exact interval grouping and repeated builds.
+
+### B038: Brightness settings become unchecked histogram indices
+
+- **Evidence:** `scene_analysis.cpp` uses `max_brightness` and
+  `test_brightness` as bounds/indices of 256-entry histograms. Values 256,
+  `max_brightness=-1`, or `test_brightness=-2` reach out-of-range indices.
+- **Fix/verification needed:** Validate the supported 0–255 range before
+  analysis, with inherited/override settings and actual scene regressions.
+
+### B039: Border settings permit zero brightness normalization
+
+- **Evidence:** For a 320×240 frame, `border=120` makes the first-frame
+  normalization divisor zero in `scene_analysis.cpp`. Only nonnegative border
+  validation exists. Smaller retained areas can also truncate to zero after /16.
+- **Fix/verification needed:** Validate the retained sampling geometry and
+  nonzero divisor before pixel loops/normalization, including exact boundaries.
+
+### B040: Frame rate becomes an invalid integer logo-sampling interval
+
+- **Evidence:** CSV replay computes modulus by `int(fps * logoFreq)`.
+  Accepted `fps=0.5` yields zero when legacy CSV has no rate metadata;
+  accepted finite `fps=1e20` exceeds integer-conversion range.
+- **Fix/verification needed:** A checked, positive representable sampling
+  interval shared by replay and detection; test metadata/inherited rates and
+  fractional rates without rejecting valid media frame rates unnecessarily.
+
+### B041: Logo scan and filter parameters overflow signed arithmetic
+
+- **Evidence:** `scan_geometry.h` multiplies `edge_step` by four and sums
+  radius/border in int arithmetic. Accepted `edge_step=536870912` or
+  `edge_radius=2147483647` overflow. `logo.cpp` filter products overflow for
+  accepted `logo_filter=1073741824` at ordinary fps25.
+- **Fix/verification needed:** Checked derived scan/filter geometry and wide
+  indices, avoiding overflowing products, with extreme settings and real-frame
+  tests under sanitizers.
 
 ## Fixed during modernization
 

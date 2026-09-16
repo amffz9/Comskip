@@ -164,3 +164,14 @@ than redefine completion around whichever subset currently passes tests.
   The Windows SDL build compiles, but CLI media tests expose a full-executable-
   path GUI-selection bug (B036); full Windows SDL verification remains open.
   Fixed interval/live-candidate storage remains open as B031–B033.
+- At `931ee71`, all 256 Windows headless tests pass. Commercial and reference
+  intervals and live candidates have growable owned storage, with checked
+  count publication and bounded reference insertion. Eight storage/live tests
+  cover more than 100,000 entries and complete rebuild classification, plus
+  empty output and logo/silence feature behavior. Consecutive stalled packets
+  now reach their warning threshold and reset on progress; three tests verify
+  the counter. Audio/seek warnings use catalogs with two actual FFmpeg buffer
+  error tests. GUI selection checks the executable filename, with real analysis
+  under GUI-named parent directories. Fresh Linux and Windows SDL snapshot
+  verification is running separately. Unsafe brightness/sampling parameters
+  remain open as B038–B041.
