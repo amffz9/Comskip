@@ -51,6 +51,7 @@ protected:
     static constexpr std::string_view csv_header = "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene,MinX,MaxX,hasBright,Dimcount,PTS,25.000000\n";
 };
 TEST_F(ApplicationTextInput, ReferenceEmptyAndPartialFilesRejectWithoutChangingOwnedState) {
+    context->state.reffer.resize(8);
     context->state.reffer_count = 7; context->state.reffer[7].start_frame = 123;
     for (const auto content : {"", "FILE PROCESSING COMPLETE", "FILE PROCESSING COMPLETE 150 FRAMES AT 2500\n"}) {
         write(directory / "record.txt", content);
@@ -61,6 +62,7 @@ TEST_F(ApplicationTextInput, ReferenceEmptyAndPartialFilesRejectWithoutChangingO
     EXPECT_TRUE(std::filesystem::remove(directory / "record.txt"));
 }
 TEST_F(ApplicationTextInput, ReferenceLongTokenMissingEndAndInvalidNumberRejectAtomically) {
+    context->state.reffer.resize(8);
     context->state.reffer_count = 7;
     for (const auto& row : {std::string(2047, '9') + " 2", std::string("1"), std::string("1 bad"),
                            std::string(comskip::input::maximum_text_line + 1, '9')}) {
@@ -69,17 +71,15 @@ TEST_F(ApplicationTextInput, ReferenceLongTokenMissingEndAndInvalidNumberRejectA
         EXPECT_EQ(context->state.reffer_count, 7);
     }
 }
-TEST_F(ApplicationTextInput, ReferenceCapacityRejectsOverflowWithoutChangingStoredIntervals) {
-    context->state.reffer_count = 7;
+TEST_F(ApplicationTextInput, ReferenceGrowsBeyondFormerCapacityWithoutAnArtificialLimit) {
     std::string text(reference_header);
-    for (std::size_t i = 0; i < std::size(context->state.reffer); ++i) text += "1 2\n";
-    text += "1 2\n";
-    write(directory / "record.ref", text);
-    EXPECT_THROW(InputReffer(*context, ".ref", 0), std::length_error);
-    EXPECT_EQ(context->state.reffer_count, 7);
+    for (std::size_t i = 0; i < 100001; ++i) text += "1 2\n";
     write(directory / "record.txt", text);
-    EXPECT_THROW(InputReffer(*context, ".txt", 0), std::length_error);
-    EXPECT_EQ(context->state.reffer_count, 7);
+    EXPECT_EQ(InputReffer(*context, ".txt", 0), 150);
+    EXPECT_EQ(context->state.reffer_count, 100000);
+    ASSERT_EQ(context->state.reffer.size(), 100001u);
+    EXPECT_EQ(context->state.reffer.back().start_frame, 1);
+    EXPECT_EQ(context->state.reffer.back().end_frame, 2);
 }
 TEST_F(ApplicationTextInput, ReferenceWhitespaceAndMissingFinalNewlinePreserveFrameConversion) {
     context->state.frame.resize(102); context->state.frame_count = 100;

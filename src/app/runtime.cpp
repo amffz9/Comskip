@@ -257,7 +257,7 @@ void InitComSkip(RecordingContext& context)
     context.state.frames_with_logo = 0;
     context.state.framenum = 0;
     context.state.lastLogoTest = false;
-    context.state.commercial_count = -1;
+    comskip::detection::reset_intervals(context.state.commercial, context.state.commercial_count);
 
     context.state.logoTrendCounter = 0;
 //	audio_framenum = 0;

@@ -1,5 +1,6 @@
 #include "recording_context.h"
 #include "media/ffmpeg_resources.h"
+#include "media/video_state.h"
 #include "exit_requested.h"
 #include <gtest/gtest.h>
 #include <chrono>
@@ -12,6 +13,7 @@
 
 int SubmitFrame(RecordingContext&, AVStream*, AVFrame*, double);
 void file_open(RecordingContext&);
+void sound_to_frames(RecordingContext&, VideoState*, const AVFrame&);
 
 namespace {
 void write_audio_fixture(const std::filesystem::path& path) {
@@ -73,6 +75,25 @@ protected:
         std::ifstream input(directory / "warning.log");
         return {std::istreambuf_iterator<char>(input), {}};
     }
+    comskip::media::FramePtr audio_frame(int samples) {
+        auto frame = comskip::media::make_frame();
+        frame->format = AV_SAMPLE_FMT_S16;
+        frame->sample_rate = 48000;
+        frame->nb_samples = samples;
+        av_channel_layout_default(&frame->ch_layout, 1);
+        if (av_frame_get_buffer(frame.get(), 0) < 0) throw std::bad_alloc{};
+        std::memset(frame->data[0], 0, static_cast<std::size_t>(samples) * sizeof(short));
+        return frame;
+    }
+    void audio_stream(VideoState& video) {
+        video.pFormatCtx.reset(avformat_alloc_context());
+        ASSERT_TRUE(video.pFormatCtx);
+        video.audio_st = avformat_new_stream(video.pFormatCtx.get(), nullptr);
+        ASSERT_TRUE(video.audio_st);
+        video.audio_st->codecpar->sample_rate = 48000;
+        video.audio_st->codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
+        video.audio_st->time_base = {1, 48000};
+    }
 };
 TEST_F(PlaybackWarnings, InvalidDecodedFrameLogsSpanishAndDropsBorrowedPixels) {
     context->translator = comskip::localization::Translator("es");
@@ -110,5 +131,40 @@ TEST_F(PlaybackWarnings, ActualAudioOnlyFileReportsSpanishVideoCodecFailureAndUn
     EXPECT_EQ(log(), "No se pudo abrir el códec de vídeo\n");
     context.reset();
     EXPECT_TRUE(std::filesystem::remove(fixture));
+}
+TEST_F(PlaybackWarnings, InconsistentAudioTimesReportSpanishAndResetBeforeWritingSamples) {
+    context->translator = comskip::localization::Translator("es");
+    VideoState video{};
+    audio_stream(video);
+    auto frame = audio_frame(2);
+    context->state.sound_to_frames_old_sample_rate = 48000;
+    context->state.base_apts = 1;
+    context->state.top_apts = 0;
+    context->state.audio_buffer[0] = 123;
+    sound_to_frames(*context, &video, *frame);
+    EXPECT_EQ(log(), "Error: almacenamiento de audio incoherente\n");
+    EXPECT_EQ(context->state.audio_buffer_ptr, std::data(context->state.audio_buffer));
+    EXPECT_EQ(context->state.audio_samples, 0);
+    EXPECT_EQ(context->state.base_apts, 0);
+    EXPECT_EQ(context->state.top_apts, 0);
+    EXPECT_EQ(context->state.audio_buffer[0], 123);
+}
+TEST_F(PlaybackWarnings, FullAudioBufferUsesEnglishFallbackWithoutOverwritingFinalSample) {
+    using comskip::config::Ini;
+    context->translator = comskip::localization::Translator("es",
+        Ini("media_audio_buffer_overflow=\"Panic: Audio buffer overflow, resetting audio buffer\\n\""), Ini{});
+    VideoState video{};
+    audio_stream(video);
+    auto frame = audio_frame(2);
+    const auto last = std::size(context->state.audio_buffer) - 1;
+    context->state.audio_buffer_ptr = std::data(context->state.audio_buffer) + last;
+    context->state.audio_buffer[last] = 123;
+    sound_to_frames(*context, &video, *frame);
+    EXPECT_EQ(log(), "Panic: Audio buffer overflow, resetting audio buffer\n");
+    EXPECT_EQ(context->state.audio_buffer_ptr, std::data(context->state.audio_buffer));
+    EXPECT_EQ(context->state.audio_samples, 0);
+    EXPECT_EQ(context->state.base_apts, 0);
+    EXPECT_EQ(context->state.top_apts, 0);
+    EXPECT_EQ(context->state.audio_buffer[last], 123);
 }
 }

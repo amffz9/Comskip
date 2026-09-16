@@ -23,12 +23,7 @@ int FindBlock(RecordingContext& context, long frame)
 
 void BuildCommListAsYouGo(RecordingContext& context)
 {
-    std::vector<long> c_start;
-    std::vector<long> c_end;
-#ifdef ADAPT_LIVE_COMMERCIAL
-    std::vector<long> ic_start;
-    std::vector<long> ic_end;
-#endif
+    std::vector<comskip::detection::LiveCandidate> candidates;
     std::string filename;
     int			commercials = 0;
     int			i;
@@ -66,12 +61,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
 
         context.state.lastFrameCommCalculated = context.state.framenum_real;
 
-        c_start.resize(MAX_COMMERCIALS);
-        c_end.resize(MAX_COMMERCIALS);
-#ifdef ADAPT_LIVE_COMMERCIAL
-        ic_start.resize(MAX_COMMERCIALS);
-        ic_end.resize(MAX_COMMERCIALS);
-#endif
 
         onTheFlyBlackFrame.resize(static_cast<std::size_t>(context.state.black_count));
 
@@ -83,11 +72,12 @@ void BuildCommListAsYouGo(RecordingContext& context)
 #ifdef OLD_LIVE_TV
             if (context.state.black[i].brightness <= local_blacklevel)
 #else
-            k = false;
+            k = !(context.settings.commDetectMethod & LOGO) &&
+                (context.state.black[i].cause & (C_b | C_u));
             if ((context.state.black[i].cause & C_v) || (context.state.black[i].cause & C_b) || (context.state.black[i].cause & C_u) )
             {
 
-                for (j=max(1,context.state.black[i].frame - context.settings.shrink_logo * context.settings.fps); j < min(context.state.framenum_real, context.state.black[i].frame + context.settings.shrink_logo * context.settings.fps ); j++ )
+                for (j=max(1,context.state.black[i].frame - context.settings.shrink_logo * context.settings.fps); !k && j < min(context.state.framenum_real, context.state.black[i].frame + context.settings.shrink_logo * context.settings.fps ); j++ )
                 {
 
                     if (!context.state.frame[j].logo_present)
@@ -133,10 +123,10 @@ void BuildCommListAsYouGo(RecordingContext& context)
                 {
                     continue;
                 }
-                oldbreak = commercials > 0 && ((onTheFlyBlackFrame[i] - c_end[commercials - 1]) < 10 * context.settings.fps);
+                oldbreak = commercials > 0 && ((onTheFlyBlackFrame[i] - candidates[commercials - 1].end) < 10 * context.settings.fps);
                 if (gap_length > context.settings.max_commercialbreak * context.settings.fps ||
                         (!oldbreak && gap_length > context.settings.max_commercial_size * context.settings.fps) ||
-                        (oldbreak && (onTheFlyBlackFrame[x] - c_end[commercials - 1] > context.settings.max_commercial_size * context.settings.fps)))
+                        (oldbreak && (onTheFlyBlackFrame[x] - candidates[commercials - 1].end > context.settings.max_commercial_size * context.settings.fps)))
                 {
                     break;
                 }
@@ -147,27 +137,27 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     // look for segments in multiples of 5 seconds
                     if (oldbreak)
                     {
-                        if (CheckFramesForLogo(context, onTheFlyBlackFrame[x - 1], onTheFlyBlackFrame[x]) && useLogo && context.settings.logo_present_modifier != 1)
+                        if (useLogo && context.settings.logo_present_modifier != 1 && CheckFramesForLogo(context, onTheFlyBlackFrame[x - 1], onTheFlyBlackFrame[x]))
                         {
 
-                            c_end[commercials - 1] = onTheFlyBlackFrame[x - 1];
+                            candidates[commercials - 1].end = onTheFlyBlackFrame[x - 1];
 #ifdef ADAPT_LIVE_COMMERCIAL
-                            ic_end[commercials - 1] = x - 1;
+                            candidates[commercials - 1].end_index = x - 1;
 #endif
                             Debug(context,
                                 10,
                                 "Logo detected between frames %i and %i.  Setting commercial to %i to %i.\n",
                                 onTheFlyBlackFrame[x - 1],
                                 onTheFlyBlackFrame[x],
-                                c_start[commercials - 1],
-                                c_end[commercials - 1]
+                                candidates[commercials - 1].start,
+                                candidates[commercials - 1].end
                             );
                         }
-                        else if (onTheFlyBlackFrame[x] > c_end[commercials - 1] + context.settings.fps)
+                        else if (onTheFlyBlackFrame[x] > candidates[commercials - 1].end + context.settings.fps)
                         {
-                            c_end[commercials - 1] = onTheFlyBlackFrame[x];
+                            candidates[commercials - 1].end = onTheFlyBlackFrame[x];
 #ifdef ADAPT_LIVE_COMMERCIAL
-                            ic_end[commercials - 1] = x;
+                            candidates[commercials - 1].end_index = x;
 #endif
                             Debug(context,
                                 5,
@@ -175,13 +165,13 @@ void BuildCommListAsYouGo(RecordingContext& context)
                                 onTheFlyBlackFrame[i],
                                 onTheFlyBlackFrame[x],
                                 (onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / context.settings.fps,
-                                (c_end[commercials - 1] - c_start[commercials - 1]) / context.settings.fps
+                                (candidates[commercials - 1].end - candidates[commercials - 1].start) / context.settings.fps
                             );
                         }
                     }
                     else
                     {
-                        if (CheckFramesForLogo(context, onTheFlyBlackFrame[i], onTheFlyBlackFrame[x]) && useLogo && context.settings.logo_present_modifier != 1)
+                        if (useLogo && context.settings.logo_present_modifier != 1 && CheckFramesForLogo(context, onTheFlyBlackFrame[i], onTheFlyBlackFrame[x]))
                         {
                             Debug(context,
                                 11,
@@ -201,19 +191,17 @@ void BuildCommListAsYouGo(RecordingContext& context)
                                 onTheFlyBlackFrame[x],
                                 ((onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / context.settings.fps)
                             );
-#ifdef ADAPT_LIVE_COMMERCIAL
-                            ic_start[commercials] = i;
-                            ic_end[commercials] = x;
-#endif
-                            c_start[commercials] = onTheFlyBlackFrame[i];
-                            c_end[commercials++] = onTheFlyBlackFrame[x];
+                            if (candidates.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max()))
+                                throw std::length_error("Live candidate count exceeds supported index type");
+                            candidates.push_back({onTheFlyBlackFrame[i], onTheFlyBlackFrame[x], i, x});
+                            commercials = static_cast<int>(candidates.size());
 
                             Debug(context,
                                 1,
                                 "\n  start: %i, end: %i, len: %is\n",
-                                c_start[commercials - 1],
-                                c_end[commercials - 1],
-                                (int)((c_end[commercials - 1] - c_start[commercials - 1]) / context.settings.fps)
+                                candidates[commercials - 1].start,
+                                candidates[commercials - 1].end,
+                                (int)((candidates[commercials - 1].end - candidates[commercials - 1].start) / context.settings.fps)
                             );
                         }
                     }
@@ -274,16 +262,16 @@ void BuildCommListAsYouGo(RecordingContext& context)
                 }
             }
             std::vector<comskip::output::FrameInterval> dvrmstb_intervals;
-            context.state.reffer_count = -1;
-            context.state.commercial_count = -1;
+            comskip::detection::reset_intervals(context.state.reffer, context.state.reffer_count);
+            comskip::detection::reset_intervals(context.state.commercial, context.state.commercial_count);
             for (i = 0; i < commercials; i++)
             {
-                len = c_end[i] - c_start[i];
+                len = candidates[i].end - candidates[i].start;
                 if ((len >= (int)context.settings.min_commercialbreak * context.settings.fps) && (len <= (int)context.settings.max_commercialbreak * context.settings.fps))
                 {
 #ifdef ADAPT_LIVE_COMMERCIAL
                     // find the middle of the scene change, max 3 seconds.
-                    j = ic_start[i];
+                    j = candidates[i].start_index;
                     while ((j > 0) && ((onTheFlyBlackFrame[j] - onTheFlyBlackFrame[j - 1]) == 1))
                     {
 
@@ -302,8 +290,8 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     }
 
                     x = j + (int)((k - j) / 2);
-                    c_start[i] = onTheFlyBlackFrame[x];
-                    j = ic_end[i];
+                    candidates[i].start = onTheFlyBlackFrame[x];
+                    j = candidates[i].end_index;
                     if (j < onTheFlyBlackCount-1)
                     {
                         while ((j < onTheFlyBlackCount) && ((onTheFlyBlackFrame[j + 1] - onTheFlyBlackFrame[j]) == 1))
@@ -323,33 +311,28 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         }
                     }
                     x = k + (int)((j - k) / 2);
-                    c_end[i] = onTheFlyBlackFrame[x] - 1;
+                    candidates[i].end = onTheFlyBlackFrame[x] - 1;
 #endif
-                    Debug(context, 2, "Output: %i - start: %i   end: %i\n", i, c_start[i], c_end[i]);
-                    context.state.commercial_count++;
-                    if (context.state.commercial_count >= MAX_COMMERCIALS)
-                    {
-                        Debug(context, 0, "Insufficient memory to manage live_tv commercials\n");
-                        comskip::request_exit(8);
-                    }
-                    context.state.commercial[context.state.commercial_count].start_frame = c_start[i] + context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
-                    context.state.commercial[context.state.commercial_count].end_frame = c_end[i] - context.settings.padding*context.settings.fps + context.settings.remove_after*context.settings.fps;
-                    context.state.commercial[context.state.commercial_count].length = c_end[i]-2*context.settings.padding - c_start[i] + context.settings.remove_before + context.settings.remove_after;
+                    Debug(context, 2, "Output: %i - start: %i   end: %i\n", i, candidates[i].start, candidates[i].end);
+                    comskip::detection::append_interval(context.state.commercial, context.state.commercial_count, Legacy_commercial_entry{});
+                    context.state.commercial[context.state.commercial_count].start_frame = candidates[i].start + context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
+                    context.state.commercial[context.state.commercial_count].end_frame = candidates[i].end - context.settings.padding*context.settings.fps + context.settings.remove_after*context.settings.fps;
+                    context.state.commercial[context.state.commercial_count].length = candidates[i].end-2*context.settings.padding - candidates[i].start + context.settings.remove_before + context.settings.remove_after;
 
                     if (context.settings.output_live) {
-                        context.state.reffer_count++;
-                        context.state.reffer[context.state.reffer_count].start_frame = context.state.commercial[context.state.reffer_count].start_frame;
-                        context.state.reffer[context.state.reffer_count].end_frame = context.state.commercial[context.state.reffer_count].end_frame;
+                        const auto& interval = context.state.commercial.back();
+                        comskip::detection::append_interval(context.state.reffer, context.state.reffer_count,
+                            Legacy_reffer_entry{interval.start_frame, interval.end_frame});
                     }
 
                     if (context.state.out_file.get())
-                        fprintf(context.state.out_file.get(), "%li\t%li\n", c_start[i] + context.settings.padding, c_end[i] - context.settings.padding);
+                        fprintf(context.state.out_file.get(), "%li\t%li\n", candidates[i].start + context.settings.padding, candidates[i].end - context.settings.padding);
                     if (context.state.edl_file.get())
-                        fprintf(context.state.edl_file.get(), "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                        fprintf(context.state.edl_file.get(), "%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.state.live_file.get())
-                        fprintf(context.state.live_file.get(), "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                        fprintf(context.state.live_file.get(), "%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.settings.output_dvrmstb)
-                        dvrmstb_intervals.push_back({c_start[i], c_end[i]});
+                        dvrmstb_intervals.push_back({candidates[i].start, candidates[i].end});
                 }
             }
             if (context.state.out_file.get()) fflush(context.state.out_file.get());
@@ -392,7 +375,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
                     goto skipit;
                 }
-                if(context.state.commercial[context.state.commercial_count].end_frame > context.state.framenum_real - context.settings.incommercial_frames)
+                if(context.state.commercial_count >= 0 && context.state.commercial.back().end_frame > context.state.framenum_real - context.settings.incommercial_frames)
                     fprintf(context.state.incommercial_file.get(), "1\n");
                 else
                     fprintf(context.state.incommercial_file.get(), "0\n");

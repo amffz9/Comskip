@@ -1,4 +1,5 @@
 #include "platform/utf8_paths.h"
+#include "ui/executable_mode.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "checked_format.h"
@@ -249,7 +250,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 //			output_debugwindow = true;
 #endif
 
-        if (strstr(argv[0],"GUI"))
+        if (comskip::ui::gui_executable(argv[0]))
             context.settings.output_debugwindow = true;
         if (context.settings.output_debugwindow)
         {
@@ -588,7 +589,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 //		output_debugwindow = true;
 #endif
 
-    if (strstr(argv[0],"GUI") || strstr(argv[0], "-gui"))
+    if (comskip::ui::gui_executable(argv[0]))
         context.settings.output_debugwindow = true;
 
     if (cl_demux->count)

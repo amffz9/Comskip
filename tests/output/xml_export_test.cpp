@@ -37,8 +37,8 @@ protected:
         settings.output_plist_cutlist = true;
         state.frame_count = 12; state.framenum_real = 12; state.frame.resize(12);
         for (int i = 0; i < 12; ++i) { state.frame[i].pts = i / 25.0; state.frame[i].goppos = i * 100; }
-        state.commercial_count = 0; state.commercial[0].start_frame = 4; state.commercial[0].end_frame = 9;
-        state.reffer_count = 0; state.reffer[0].start_frame = 6; state.reffer[0].end_frame = 10;
+        state.commercial_count = 0; state.commercial = {{4, 9}};
+        state.reffer_count = 0; state.reffer = {{6, 10}};
         state.block_count = 3;
         state.cblock.resize(4, comskip::detection::empty_block());
         state.cblock[0].f_start = 1; state.cblock[0].f_end = 3; state.cblock[0].iscommercial = false;
@@ -83,7 +83,7 @@ TEST_F(XmlExport, ReviewExportUsesReferenceMarksAndReplacesCompleteDocuments) {
     auto bytes = load(".edlx"); EXPECT_EQ(bytes.child("regionlist").child("region").attribute("start").as_int(), 600);
     auto chapters = load(".mkvtoolnix.chapters");
     EXPECT_STREQ(chapters.select_node("/Chapters/EditionEntry[1]/ChapterAtom[2]/ChapterTimeStart").node().text().get(), "00:00:00.240000000");
-    context->state.reffer_count = -1; WriteXmlOutputFiles(*context, true);
+    comskip::detection::reset_intervals(context->state.reffer, context->state.reffer_count); WriteXmlOutputFiles(*context, true);
     EXPECT_EQ(load(".VPrj").select_nodes("/VideoReDoProject/CutList/Cut").size(), 0u);
     EXPECT_EQ(load(".chapters.xml").select_nodes("/cutlist/Region").size(), 0u);
     EXPECT_EQ(load(".mkvtoolnix.chapters").select_nodes("/Chapters/EditionEntry[1]/ChapterAtom").size(), 1u);
@@ -103,7 +103,7 @@ TEST_F(XmlExport, PlistPreservesPresentationTimesAndTailSentinelForNormalAndRevi
     ASSERT_EQ(integers.size(), 2u);
     EXPECT_EQ(integers[0].node().text().as_llong(), 21600);
     EXPECT_EQ(integers[1].node().text().as_llong(), 36000);
-    context->state.reffer_count = -1;
+    comskip::detection::reset_intervals(context->state.reffer, context->state.reffer_count);
     WriteXmlOutputFiles(*context, true);
     auto empty_marks = load(".plist");
     integers = empty_marks.select_nodes("/array/integer");
@@ -176,8 +176,9 @@ TEST_F(XmlExport, InvalidCountsGeometryAndRangesFailBeforeWriting) {
     context->settings.fps = 0; expect_unchanged(); context->settings.fps = 25;
     context->state.commercial[0].end_frame = 13; expect_unchanged(); context->state.commercial[0].end_frame = 9;
     context->state.commercial_count = 1;
+    context->state.commercial.resize(2);
     context->state.commercial[1].start_frame = 8; context->state.commercial[1].end_frame = 10;
-    expect_unchanged(); context->state.commercial_count = 0;
+    expect_unchanged(); context->state.commercial_count = 0; context->state.commercial.resize(1);
     context->state.cblock[2].f_start = 8; expect_unchanged(); context->state.cblock[2].f_start = 10;
     context->settings.cuttermaran_options = "invalid attributes"; expect_unchanged();
 }

@@ -43,9 +43,8 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
                 context.state.selected_audio_pid, context.state.selected_subtitle_pid}}
             : std::nullopt};
     const int count = use_reference ? context.state.reffer_count : context.state.commercial_count;
-    const auto capacity = use_reference ? std::size(state.reffer) : std::size(state.commercial);
-    if (count < -1 || (count >= 0 && static_cast<std::size_t>(count) >= capacity))
-        throw std::out_of_range("Invalid XML commercial count");
+    if (use_reference) comskip::detection::validate_intervals(state.reffer, count);
+    else comskip::detection::validate_intervals(state.commercial, count);
     std::vector<CommercialInterval> list;
     list.reserve(static_cast<std::size_t>(count + 1));
     for (int i = 0; i <= count; ++i) {

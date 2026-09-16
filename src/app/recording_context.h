@@ -7,6 +7,7 @@
 #include "file_resources.h"
 #include "media/caption_session.h"
 #include "detection_blocks.h"
+#include "interval_storage.h"
 #include <memory>
 #include <array>
 #include <vector>
@@ -106,9 +107,9 @@ struct RecordingState {
     long ac_block_count= 0;
     long max_ac_block_count{};
     int commercial_count= -1;
-    Legacy_commercial_entry commercial[100000]{};
+    std::vector<Legacy_commercial_entry> commercial;
     int reffer_count= -1;
-    Legacy_reffer_entry reffer[100000]{};
+    std::vector<Legacy_reffer_entry> reffer;
     Legacy_ar_histogram_entry ar_histogram[1000]{};
     double dominant_ar{};
     Legacy_ac_histogram_entry ac_histogram[12]{};

@@ -363,9 +363,8 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     comskip::platform::FilePtr raw2;
     if (!extension || std::string_view(extension).size() < 2)
         throw std::invalid_argument("Missing reference filename extension");
-    if (context.state.commercial_count < -1 || context.state.commercial_count >= static_cast<int>(std::size(context.state.commercial)) ||
-        context.state.reffer_count < -1 || context.state.reffer_count >= static_cast<int>(std::size(context.state.reffer)))
-        throw std::out_of_range("Reference comparison count exceeds stored intervals");
+    comskip::detection::validate_intervals(context.state.commercial, context.state.commercial_count);
+    comskip::detection::validate_intervals(context.state.reffer, context.state.reffer_count);
     auto basename = std::string(context.state.logfilename);
     if (basename.ends_with(".log") || basename.ends_with(".txt")) basename.resize(basename.size() - 4);
     const auto reference_name = basename + extension;
@@ -375,8 +374,9 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     } else {
         comskip::input::FileStreamBuffer buffer(raw.get());
         std::istream source(&buffer);
-        const auto capacity = std::size(context.state.reffer);
-        const auto document = comskip::input::read_reference_file(source, capacity);
+        const auto document = comskip::input::read_reference_file(source);
+        std::vector<Legacy_reffer_entry> reference;
+        reference.reserve(document.intervals.size());
         frames = document.declared_frames;
         if (setfps && document.frames_per_second) {
             t = *document.frames_per_second;
@@ -384,9 +384,8 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             context.state.avg_fps = context.settings.fps;
             if (t != 59.94) context.settings.sage_framenumber_bug = false;
         }
-        context.state.reffer_count = -1;
         for (const auto& interval : document.intervals) {
-            auto& entry = context.state.reffer[++context.state.reffer_count];
+            Legacy_reffer_entry entry{};
             entry.start_frame = FindFrameWithPts(context, interval.start_frame / context.settings.fps);
             entry.end_frame = FindFrameWithPts(context, interval.end_frame / context.settings.fps);
             if (context.settings.sage_framenumber_bug) entry.start_frame *= 2;
@@ -395,7 +394,10 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
                 entry.end_frame = entry.start_frame + 10;
             }
             if (context.settings.sage_framenumber_bug) entry.end_frame *= 2;
+            reference.push_back(entry);
         }
+        context.state.reffer = std::move(reference);
+        context.state.reffer_count = static_cast<int>(context.state.reffer.size()) - 1;
         raw.reset();
     }
 
@@ -405,7 +407,8 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             frames = context.state.reffer[context.state.reffer_count].end_frame;
         if (context.state.reffer[context.state.reffer_count].end_frame == context.state.reffer[context.state.reffer_count].start_frame+1 &&
                 context.state.reffer[context.state.reffer_count].end_frame == frames)
-            context.state.reffer_count--;
+            comskip::detection::erase_interval(context.state.reffer, context.state.reffer_count,
+                                              context.state.reffer_count);
     }
 
     if (extension[1] == 't')

@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "ui/executable_mode.h"
 #include "exit_requested.h"
 #include "a53_caption_bridge.h"
 /*
@@ -39,6 +40,7 @@ using namespace comskip::media;
 #include <filesystem>
 #include "checked_format.h"
 #include "frame_conversion.h"
+#include "stalled_packet_counter.h"
 
 #ifdef HAVE_SDL
 #include <SDL.h>
@@ -379,7 +381,7 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
         || !ISSAME(((double)context.state.audio_samples /(double)(is->audio_st->codecpar->sample_rate+0.5))+ context.state.base_apts, context.state.top_apts)
         || context.state.audio_samples < 0
         || context.state.audio_samples >= AUDIOBUFFER)) {
-       Debug(context, 1, "Panic: Audio buffering corrupt\n");
+       Debug(context, 1, "%s", context.translator.text("media_audio_buffer_corrupt"));
        context.state.audio_buffer_ptr = context.state.audio_buffer;
        context.state.top_apts = context.state.base_apts = 0;
        context.state.audio_samples=0;
@@ -419,7 +421,7 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     }
 
     if (s+context.state.audio_samples > AUDIOBUFFER ) {
-        Debug(context, 1,"Panic: Audio buffer overflow, resetting audio buffer\n");
+        Debug(context, 1, "%s", context.translator.text("media_audio_buffer_overflow"));
        context.state.audio_buffer_ptr = context.state.audio_buffer;
        context.state.top_apts = context.state.base_apts = 0;
        context.state.audio_samples=0;
@@ -670,7 +672,7 @@ retry_audio_send:
     if (send_result == AVERROR(EAGAIN)) {
         if (received_frames > 0)
             goto retry_audio_send;
-        Debug(context, 1, "Audio decoder refused input without producing a frame\n");
+        Debug(context, 1, "%s", context.translator.text("media_audio_input_refused"));
     }
 
     if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
@@ -1422,7 +1424,8 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                 }
             } else {
                 if (fabs(is->seek_pts - is->video_clock) > 80 ) {
-                    Debug(context, 1,"Positioning file failing with pts=%6.2f\n", is->video_clock );
+                    Debug(context, 1, "%s", context.translator.format("media_positioning_failed",
+                        std::format("{:6.2f}", is->video_clock)).c_str());
                     if (context.state.selftest == 1 || context.state.selftest == 3)
                     {
                         context.state.sample_file.reset(fopen("seektest.log", "a+"));
@@ -1963,7 +1966,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
     int ret;
     double tfps;
     double old_clock = 0.0;
-                    int empty_packet_count = 0;
+    comskip::media::StalledPacketCounter stalled_packets;
 
     int64_t last_packet_pos = 0;
     int64_t last_packet_pts = 0;
@@ -1983,10 +1986,10 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 
 //		output_debugwindow = 1;
 
-        if (strstr(argv[0],"comskipGUI"))
+        if (comskip::ui::gui_executable(argv[0]))
             context.settings.output_debugwindow = 1;
         const comskip::platform::ScopedAnalysisPolicy analysis_policy(
-            strstr(argv[0], "comskipGUI") == nullptr);
+            !comskip::ui::gui_executable(argv[0]));
         auto executable_directory = std::filesystem::path(std::u8string_view(
             reinterpret_cast<const char8_t*>(argv[0]))).parent_path();
         if (executable_directory.empty()) executable_directory = ".";
@@ -2224,18 +2227,10 @@ nextpacket:
 
             }
             av_packet_unref(packet);
-            if (context.state.video_owner->video_clock == old_clock)
-            {
-                empty_packet_count++;
-                if (empty_packet_count > 1000)
-                    Debug(context, 0, "Empty input\n");
-                empty_packet_count = 0;
-            }
-            else
-            {
-                old_clock = context.state.video_owner->video_clock;
-                empty_packet_count = 0;
-            }
+            const auto video_clock = context.state.video_owner->video_clock;
+            if (stalled_packets.observe(video_clock != old_clock))
+                Debug(context, 0, "%s", context.translator.text("media_empty_input"));
+            old_clock = video_clock;
 #ifdef SELFTEST
             if (context.state.selftest == 1 && context.state.pass == 0 && context.state.video_owner->seek_req == 0 && context.state.framenum == 50) //Seek test
             {

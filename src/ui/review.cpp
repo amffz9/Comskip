@@ -913,12 +913,7 @@ bool ReviewResult(RecordingContext& context)
                     while (i >= 0 && curframe < context.state.reffer[i].start_frame) i--;
                     if (i >= 0 && context.state.reffer[i].start_frame <= curframe && curframe <= context.state.reffer[i].end_frame )
                     {
-                        while (i < context.state.reffer_count)
-                        {
-                            context.state.reffer[i] = context.state.reffer[i+1];
-                            i++;
-                        }
-                        context.state.reffer_count--;
+                        comskip::detection::erase_interval(context.state.reffer, context.state.reffer_count, i);
                         context.state.oldfrm = -1;
                     }
                 }
@@ -939,19 +934,9 @@ bool ReviewResult(RecordingContext& context)
                 }
                 else
                 {
-                    i = context.state.reffer_count;
-                    while (i >= 0 && curframe < context.state.reffer[i].start_frame) i--;
-                    if (i == -1 || curframe > context.state.reffer[i].end_frame )   //Insert BEFORE i
+                    if (comskip::detection::insert_reference(context.state.reffer, context.state.reffer_count,
+                                                            curframe, context.state.frame_count))
                     {
-                        j = context.state.reffer_count;
-                        while (j > i)
-                        {
-                            context.state.reffer[j+1] = context.state.reffer[j];
-                            j--;
-                        }
-                        context.state.reffer[i+1].start_frame = max(curframe-1000,1);
-                        context.state.reffer[i+1].end_frame = min(curframe+1000,context.state.frame_count);
-                        context.state.reffer_count++;
                         context.state.oldfrm = -1;
                     }
                 }

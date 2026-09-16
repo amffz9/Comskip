@@ -48,32 +48,31 @@ protected:
 };
 TEST_F(ReferenceComparisonApplication, EmptyDetectionScoresValidReferenceWithoutAccessingNegativeIndex) {
     context->state.commercial_count = -1;
-    context->state.commercial[0].start_frame = 777; context->state.commercial[0].end_frame = 888;
     reference("100 200\n");
     EXPECT_EQ(InputReffer(*context, ".ref", 0), 400000);
     EXPECT_EQ(read("quality.csv"), "\"input\",     -1,    4.0,    0.0,    4.0\n");
     EXPECT_TRUE(read("record.dif").contains("Reference    100    200"));
-    EXPECT_EQ(context->state.commercial[0].start_frame, 777); EXPECT_EQ(context->state.commercial[0].end_frame, 888);
+    EXPECT_TRUE(context->state.commercial.empty());
 }
 TEST_F(ReferenceComparisonApplication, BothEmptyListsProduceZeroMetricsAndNoSyntheticStoredIntervals) {
     context->state.commercial_count = -1;
-    context->state.reffer[0].start_frame = 123; context->state.reffer[0].end_frame = 456;
     reference("");
     EXPECT_EQ(InputReffer(*context, ".ref", 0), 400000);
     EXPECT_EQ(read("quality.csv"), "\"input\",     -1,    0.0,    0.0,    0.0\n");
     EXPECT_TRUE(read("record.dif").empty());
-    EXPECT_EQ(context->state.reffer[0].start_frame, 123); EXPECT_EQ(context->state.reffer[0].end_frame, 456);
+    EXPECT_TRUE(context->state.reffer.empty());
 }
 TEST_F(ReferenceComparisonApplication, FullDetectedCapacityNeedsNoAdditionalSlotAndPreservesEveryInterval) {
+    context->state.commercial.resize(100001);
     for (int index = 0; index < static_cast<int>(std::size(context->state.commercial)); ++index) {
         context->state.commercial[index].start_frame = index * 4;
         context->state.commercial[index].end_frame = index * 4 + 3;
     }
     context->state.commercial_count = static_cast<int>(std::size(context->state.commercial)) - 1;
-    reference("");
-    EXPECT_EQ(InputReffer(*context, ".ref", 0), 400000);
-    EXPECT_EQ(read("quality.csv"), "\"input\",     -1,    0.0, 12000.0,    0.0\n");
-    EXPECT_EQ(context->state.commercial_count, 99999);
+    reference("", 400004);
+    EXPECT_EQ(InputReffer(*context, ".ref", 0), 400004);
+    EXPECT_EQ(read("quality.csv"), "\"input\",     -1,    0.0, 12000.1,    0.0\n");
+    EXPECT_EQ(context->state.commercial_count, 100000);
     for (int index = 0; index <= context->state.commercial_count; ++index) {
         ASSERT_EQ(context->state.commercial[index].start_frame, index * 4);
         ASSERT_EQ(context->state.commercial[index].end_frame, index * 4 + 3);
@@ -82,15 +81,16 @@ TEST_F(ReferenceComparisonApplication, FullDetectedCapacityNeedsNoAdditionalSlot
 TEST_F(ReferenceComparisonApplication, FullReferenceCapacityIsAcceptedWithoutReservingAnArtificialSentinel) {
     context->settings.fps = 1; // Exact integer mapping across all 100,000 frame pairs.
     std::string rows;
-    for (int index = 0; index < static_cast<int>(std::size(context->state.reffer)); ++index)
+    for (int index = 0; index < 100001; ++index)
         rows += std::to_string(index * 4) + " " + std::to_string(index * 4 + 3) + "\n";
-    reference(rows);
-    EXPECT_EQ(InputReffer(*context, ".ref", 0), 400000);
-    EXPECT_EQ(context->state.reffer_count, 99999);
-    EXPECT_EQ(read("quality.csv"), "\"input\",     -1, 300000.0,    0.0, 300000.0\n");
+    reference(rows, 400004);
+    EXPECT_EQ(InputReffer(*context, ".ref", 0), 400004);
+    EXPECT_EQ(context->state.reffer_count, 100000);
+    EXPECT_EQ(read("quality.csv"), "\"input\",     -1, 300003.0,    0.0, 300003.0\n");
 }
 TEST_F(ReferenceComparisonApplication, PopulatedListsPreserveLegacyToleranceAndExactMixedMetrics) {
     context->state.commercial_count = 1;
+    context->state.commercial.resize(2);
     context->state.commercial[0].start_frame = 150; context->state.commercial[0].end_frame = 250;
     context->state.commercial[1].start_frame = 300; context->state.commercial[1].end_frame = 460;
     reference("100 200\n300 400\n");

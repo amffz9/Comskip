@@ -768,42 +768,29 @@ char CompareLetter(RecordingContext& context, int value, int average, int i)
 
 void BuildCommercial(RecordingContext& context)
 {
-    int i;
-    context.state.commercial_count = -1;
-    i = 0;
-    while (i < context.state.block_count)
+    if (context.state.block_count < 0 || context.state.block_count > std::numeric_limits<int>::max() ||
+        static_cast<std::size_t>(context.state.block_count) + 1 != context.state.cblock.size())
+        throw std::out_of_range("Commercial producer count exceeds owned detection blocks");
+    std::vector<Legacy_commercial_entry> intervals;
+    int last = -1;
+    for (int i = 0; i < context.state.block_count; ++i)
     {
-        if (context.state.cblock[i].score > context.settings.global_threshold
-//			&&
-//			( cblock[i].score >= 100 ||
-//			!((commDetectMethod & LOGO) && cblock[i].logo > 0.5 && F2L(cblock[i].f_end, cblock[i].f_start) > min_show_segment_length) ))
-           )
-        {
-            context.state.commercial_count++;
-            context.state.commercial[context.state.commercial_count].start_frame = context.state.cblock[i].f_start/*+ (cblock[i].bframe_count / 2)*/;
-            context.state.commercial[context.state.commercial_count].end_frame = context.state.cblock[i].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
-            context.state.commercial[context.state.commercial_count].length = F2L(context.state.commercial[context.state.commercial_count].end_frame, context.state.commercial[context.state.commercial_count].start_frame);
-            context.state.commercial[context.state.commercial_count].start_block = i;
-            context.state.commercial[context.state.commercial_count].end_block = i;
-            context.state.cblock[i].iscommercial = true;
-            i++;
-            while (i < context.state.block_count && context.state.cblock[i].score > context.settings.global_threshold
-//				&&
-//				( cblock[i].score >= 100 ||
-//				!((commDetectMethod & LOGO) && cblock[i].logo > 0.5 && F2L(cblock[i].f_end, cblock[i].f_start) > (min_show_segment_length) ))
-                  )
-            {
-                context.state.commercial[context.state.commercial_count].end_frame = context.state.cblock[i].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
-                context.state.commercial[context.state.commercial_count].length = F2L(context.state.commercial[context.state.commercial_count].end_frame,	context.state.commercial[context.state.commercial_count].start_frame);
-                context.state.commercial[context.state.commercial_count].end_block = i;
-                context.state.cblock[i].iscommercial = true;
-                i++;
-            }
+        const auto& block = context.state.cblock[i];
+        if (!(block.score > context.settings.global_threshold)) continue;
+        if (i == 0 || !(context.state.cblock[i - 1].score > context.settings.global_threshold))
+            comskip::detection::append_interval(intervals, last,
+                Legacy_commercial_entry{block.f_start, block.f_end, i, i, F2L(block.f_end, block.f_start)});
+        else {
+            auto& interval = intervals.back();
+            interval.end_frame = block.f_end;
+            interval.end_block = i;
+            interval.length = F2L(interval.end_frame, interval.start_frame);
         }
-        else
-            context.state.cblock[i].iscommercial = false;
-        i++;
     }
+    context.state.commercial = std::move(intervals);
+    context.state.commercial_count = last;
+    for (int i = 0; i < context.state.block_count; ++i)
+        context.state.cblock[i].iscommercial = context.state.cblock[i].score > context.settings.global_threshold;
 }
 
 
@@ -968,11 +955,7 @@ bool OutputBlocks(RecordingContext& context)
                     context.state.cblock[i].cause |= C_H6;
                     context.state.cblock[i].less |= C_H6;
                 }
-                for (i = k; i < context.state.commercial_count; i++)
-                {
-                    context.state.commercial[i] = context.state.commercial[i + 1];
-                }
-                context.state.commercial_count--;
+                comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
                 deleted = true;
             }
         }
@@ -991,11 +974,7 @@ bool OutputBlocks(RecordingContext& context)
                     context.state.cblock[i].cause |= C_H6;
                     context.state.cblock[i].less |= C_H6;
                 }
-                for (i = k; i < context.state.commercial_count; i++)
-                {
-                    context.state.commercial[i] = context.state.commercial[i + 1];
-                }
-                context.state.commercial_count--;
+                comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
                 deleted = true;
             }
         }
@@ -1012,11 +991,7 @@ bool OutputBlocks(RecordingContext& context)
                     context.state.cblock[i].cause |= C_H6;
                     context.state.cblock[i].less |= C_H6;
                 }
-                for (i = k; i < context.state.commercial_count; i++)
-                {
-                    context.state.commercial[i] = context.state.commercial[i + 1];
-                }
-                context.state.commercial_count--;
+                comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
                 deleted = true;
             }
         }
@@ -1138,11 +1113,7 @@ bool OutputBlocks(RecordingContext& context)
         {
             Debug(context, 3, "Deleting commercial block %i because the first %d seconds should always be kept.\n",
                   k, context.settings.always_keep_first_seconds);
-            for (i = k; i <= context.state.commercial_count; i++)
-            {
-                context.state.commercial[i] = context.state.commercial[i + 1];
-            }
-            context.state.commercial_count--;
+            comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
             deleted = true;
         }
         if (context.state.commercial_count >= 0 && F2T(context.state.commercial[k].start_frame ) < context.settings.always_keep_first_seconds)
@@ -1160,7 +1131,7 @@ bool OutputBlocks(RecordingContext& context)
         {
             Debug(context, 3, "Deleting commercial block %i because the last %d seconds should always be kept.\n",
                   k, context.settings.always_keep_last_seconds);
-            context.state.commercial_count--;
+            comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
             k = context.state.commercial_count;
             deleted = true;
         }
@@ -1272,12 +1243,14 @@ bool OutputBlocks(RecordingContext& context)
 
 
     if (context.state.reffer_count == -1) {
-        context.state.reffer_count = context.state.commercial_count;
+        std::vector<Legacy_reffer_entry> reference;
+        reference.reserve(context.state.commercial.size());
         for (i = 0; i <= context.state.commercial_count; i++)
         {
-            context.state.reffer[i].start_frame = context.state.commercial[i].start_frame;
-            context.state.reffer[i].end_frame = context.state.commercial[i].end_frame;
+            reference.push_back({context.state.commercial[i].start_frame, context.state.commercial[i].end_frame});
         }
+        context.state.reffer = std::move(reference);
+        context.state.reffer_count = context.state.commercial_count;
     }
 
     InputReffer(context, ".ref", false);
