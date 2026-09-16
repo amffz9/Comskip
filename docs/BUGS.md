@@ -223,6 +223,10 @@ and relevant verification; retain the evidence for future regressions.
   use that value in direct pixel indexing.
 - **Fix/verification needed:** Semantic scan-bound validation, with negative
   configuration rejection and supported boundary cases.
+- **Resolution:** `589fc7b` rejects negative borders in both overrides and
+  inherited settings. The regression accepts zero and a positive border and
+  verifies baseline settings stay unchanged; all six settings-value tests pass
+  on Windows. Recording-geometry checks remain a separate audit concern.
 
 ### B021: Review extension fallback can overflow a fixed path buffer
 
