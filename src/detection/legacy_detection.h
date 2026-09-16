@@ -6,6 +6,7 @@ struct RecordingContext;
 #include "scan_geometry.h"
 #include "detector_records.h"
 #include "storage.h"
+#include "caption_observations.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -323,15 +324,15 @@ void				PrintArgs(RecordingContext& context);
 void        close_dump(RecordingContext& context);
 void				OutputCommercialBlock(RecordingContext& context, int i, long prev, long start, long end, bool last);
 void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input);
-void				OutputCCBlock(RecordingContext& context, long i);
-void				ProcessCCData(RecordingContext& context);
-bool				CheckOddParity(unsigned char ch);
-void				AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool cc_on_screen, bool cc_in_memory);
-char*				CCTypeToStr(RecordingContext& context, int type);
-int					DetermineCCTypeForBlock(RecordingContext& context, long start, long end);
+
+
+
+
+
+
 double				AverageARForBlock(RecordingContext& context, int start, int end);
 void				SetARofBlocks(RecordingContext& context);
-bool				ProcessCCDict(RecordingContext& context);
+
 int					FindBlock(RecordingContext& context, long frame);
 void				BuildCommListAsYouGo(RecordingContext& context);
 void				BuildCommercial(RecordingContext& context);
@@ -437,18 +438,18 @@ void OutputAspect(RecordingContext& context);
 void OutputBlackArray(RecordingContext& context);
 void OutputFrameArray(RecordingContext& context, bool screenOnly);
 void PrintArgs(RecordingContext& context);
-void OutputCCBlock(RecordingContext& context, long i);
-void Init_XDS_block(RecordingContext& context);
-void Add_XDS_block(RecordingContext& context);
-void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo);
-void AddCC(RecordingContext& context, int i);
-void ProcessCCData(RecordingContext& context);
-bool CheckOddParity(unsigned char ch);
-void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool cc_on_screen, bool cc_in_memory);
-char* CCTypeToStr(RecordingContext& context, int type);
-int DetermineCCTypeForBlock(RecordingContext& context, long start, long end);
+
+
+
+
+
+
+
+
+
+
 void SetARofBlocks(RecordingContext& context);
-bool ProcessCCDict(RecordingContext& context);
+
 int FindBlock(RecordingContext& context, long frame);
 void BuildCommListAsYouGo(RecordingContext& context);
 double get_fps(RecordingContext& context);
@@ -465,5 +466,6 @@ void close_data(RecordingContext& context);
 #include "recording_context.h"
 
 #endif // COMSKIP_LEGACY_DETECTION_H
+
 
 
