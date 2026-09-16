@@ -51,10 +51,13 @@ than redefine completion around whichever subset currently passes tests.
   English/Spanish help and labels. Both backend variants pass their six tests;
   SDL rendering verification currently uses the dummy driver on Windows.
 - Pure timed EDL serialization is integrated for standard/live/plus output, with
-  boundary/offset/locale/error tests. Seven pugixml XML serializers and ten unit
-  tests are verified on Windows; application integration remains in progress.
-- Windows headless passes 90 tests; the SDL-enabled application build passed
-  89 tests before the latest filesystem change. Coverage includes
+  boundary/offset/locale/error tests. Seven pugixml XML serializers are integrated
+  into normal and review exports, with ten serializer and three application
+  adapter tests. The obsolete custom XML escaper is removed. Live DVRMSTB and
+  the plist fragment still require a supporting-library syntax audit.
+- Windows headless and SDL-enabled application builds each pass 103 tests at
+  c9072d9. Scoped Windows scheduling/power policies have three native restoration
+  tests. Coverage includes
   seeking/reopening, damaged/truncated media, stream format changes, independent
   repeated analyses within one process, and failure cleanup followed by success.
   CSV replay, weighted-score boundaries, bounded review sampling, and persisted
