@@ -3,6 +3,7 @@
 #include "checked_format.h"
 #include "review_messages.h"
 #include "image_geometry.h"
+#include "review_media.h"
 #include <algorithm>
 #include <array>
 #include <format>
@@ -728,50 +729,33 @@ void Recalc(RecordingContext& context)
 
 bool ReviewResult(RecordingContext& context)
 {
-    FILE *review_file = NULL;
+    comskip::platform::FilePtr review_file;
     int curframe = 1;
     int lastcurframe = -1;
     int bartop = 0;
     int grf = 2;
     int i,j;
     long prev;
-    char tsfilename[MAX_PATH];
     if (!context.state.framearray) grf = 0;
     context.settings.output_demux = 0;
     context.settings.output_data = 0;
     context.settings.output_srt = 0;
     context.settings.output_smi = 0;
-    if (!review_file && context.state.mpegfilename[0])
-        review_file = myfopen(context.state.mpegfilename, "rb");
-    if (review_file == 0 )
-    {
-        strcpy(tsfilename, context.state.mpegfilename);
-        i = strlen(tsfilename);
-        while (i > 0 && tsfilename[i-1] != '.') i--;
-        tsfilename[i] = 't';
-        tsfilename[i+1] = 's';
-        tsfilename[i+2] = 0;
-        review_file = myfopen(tsfilename, "rb");
-        if (review_file)
-        {
-            context.state.demux_pid = 1;
-            strcpy(context.state.mpegfilename, tsfilename);
+    if (context.state.mpegfilename[0]) {
+        const auto candidates = comskip::ui::review_media_candidates(context.state.mpegfilename);
+        for (std::size_t candidate = 0; candidate < candidates.size(); ++candidate) {
+            const auto encoded = candidates[candidate].u8string();
+            const std::string filename(encoded.begin(), encoded.end());
+            review_file.reset(myfopen(filename.c_str(), "rb"));
+            if (!review_file) continue;
+            if (candidate != 0) {
+                comskip::checked_format(context.state.mpegfilename, "%s", filename.c_str());
+                if (candidate == 1) context.state.demux_pid = 1;
+                else context.state.demux_asf = 1;
+            }
+            break;
         }
     }
-    if (review_file == 0 )
-    {
-        strcpy(tsfilename, context.state.mpegfilename);
-        i = strlen(tsfilename);
-        while (i > 0 && tsfilename[i-1] != '.') i--;
-        strcpy(&tsfilename[i], "dvr-ms");
-        review_file = myfopen(tsfilename, "rb");
-        if (review_file)
-        {
-            context.state.demux_asf = 1;
-            strcpy(context.state.mpegfilename, tsfilename);
-        }
-    }
-    const std::unique_ptr<FILE, decltype(&fclose)> owned_review_file(review_file, &fclose);
     while (true)
     {
         if (context.window.input().quit_requested) comskip::request_exit(0);
@@ -1159,7 +1143,7 @@ bool ReviewResult(RecordingContext& context)
         if (context.state.frame_count > 0 && review_file)
             if (curframe!= lastcurframe)
             {
-                DecodeOnePicture(context, review_file, (context.state.framearray ? get_frame_pts(context, curframe) : (double)curframe / context.settings.fps));
+                DecodeOnePicture(context, review_file.get(), (context.state.framearray ? get_frame_pts(context, curframe) : (double)curframe / context.settings.fps));
                 lastcurframe = curframe;
             }
         OutputDebugWindow(context, (review_file ? true : false),curframe, grf, forceRefresh);
