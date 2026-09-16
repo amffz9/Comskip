@@ -122,3 +122,17 @@ TEST(Translator, FormatsCaptionXdsDiagnosticsInEnglishAndSpanish) {
     EXPECT_EQ(english.format("caption_xds_bytes", "42", " 1  a ff"),
               "XDS[42]:  1  a ff ");
 }
+TEST(Translator, FormatsCaptionControlAndBlockDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("caption_control_unknown", "    42", " A"),
+              "\nFrame -     42 Control Code Found:\tUnknown code!! -  A\n");
+    EXPECT_EQ(english.format("caption_control_end", "    42", "1", "0"),
+              "Frame -     42 Control Code Found:\tEnd of Caption\tOn Screen - 1\tOff Screen - 0\n");
+    EXPECT_EQ(spanish.format("caption_field_order", "1", "15"),
+              "Orden de campos CC: 1. Parece haber 15 paquetes.\n");
+    EXPECT_EQ(spanish.format("caption_block_summary", "    10", "    20", " 1", " 2", "POPON"),
+              "Inicio -     10\tFin -     20\tCCF -  1\tCCL -  2\tTipo - POPON\n");
+    EXPECT_STREQ(spanish.text("caption_type_popon"), "EMERGENTE");
+    EXPECT_STREQ(english.text("caption_type_commercial"), "COMMERCIAL");
+}

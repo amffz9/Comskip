@@ -974,3 +974,62 @@ before calling FFmpeg seek APIs.
 - **Verification:** English and Spanish catalog tests preserve the decoded
   program length and elapsed hour/minute/second values. Both complete Windows
   configurations pass without the former missing variadic argument.
+
+### B082: The first caption-block diagnostic read before its owned array
+
+- **Evidence:** `OutputCCBlock(context, 0)` displayed block zero's geometry but
+  fetched its type from `cc_block[-1]`.
+- **Impact:** Starting the first caption block could read unrelated memory when
+  verbose caption diagnostics were enabled.
+- **Status:** Fixed. The diagnostic uses the same validated block index for all
+  fields and ignores an invalid negative index.
+- **Verification:** The focused first-block regression passes within all 429
+  Windows headless and 437 SDL tests. The next Linux sanitizer snapshot will
+  cover the former out-of-bounds read.
+
+### B083: Recording-open failures discard their FFmpeg cause
+
+- **Evidence:** `file_open` prints an FFmpeg failure and throws only
+  `ExitRequested(-1)` for open, probing and missing-video failures.
+- **Impact:** Embedded callers lose the filename and cause; command-line status
+  conversion can also expose `-1` as 255.
+- **Status:** Open. Replace lower-layer exits with owned diagnostics containing
+  the FFmpeg detail and let the application boundary choose a status.
+
+### B084: Failed recording opens retain a partially initialized decoder
+
+- **Evidence:** `file_open` publishes `VideoState` and its format context before
+  probing succeeds. A caught failure leaves them in the recording context, so a
+  retry can skip input opening and stream discovery.
+- **Impact:** One bad input can poison a reusable in-process recording context.
+- **Status:** Open. Unwind partial state on every input-open failure and add a
+  fail-then-open-valid regression on the same context.
+
+### B085: Video packet decoding silently discards FFmpeg errors
+
+- **Evidence:** `avcodec_send_packet` failures are ignored, and receive errors
+  other than `EAGAIN`/EOF end the loop without a diagnostic.
+- **Impact:** Corrupt or unsupported packets can look like ordinary no-frame
+  results, hiding data loss and preventing callers from choosing recovery.
+- **Status:** Open. Propagate owned FFmpeg diagnostics from the decoder-status
+  layer and cover malformed packets separately from expected drain states.
+
+### B086: Logo histogram indexing trusts unbounded persisted values
+
+- **Evidence:** CSV accepts any finite `good_edge`; `FindLogoThreshold` converts
+  it directly to an index in a fixed 256-entry histogram. Negative and values
+  above one index outside the array, after earlier entries may already mutate it.
+- **Impact:** A crafted or damaged CSV can cause out-of-bounds memory access and
+  leave partial histogram state.
+- **Status:** Open. Extract an atomic span-based histogram calculation, validate
+  every observation and bucket count, and use overflow-safe percentile math.
+
+### B087: Positioning-error recovery contains unreachable failure handling
+
+- **Evidence:** `video_packet_process` jumps to `quit` before resetting retries
+  and requesting failure, and its ordinary return is indistinguishable from a
+  packet that produced no frame.
+- **Impact:** A serious seek-position mismatch may be silently treated as normal
+  decode progress.
+- **Status:** Open. Model positioning and self-test completion as explicit
+  decoder outcomes before removing the unreachable branch.

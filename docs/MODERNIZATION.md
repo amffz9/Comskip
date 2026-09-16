@@ -376,7 +376,7 @@ than redefine completion around whichever subset currently passes tests.
   Numeric values are formatted at their call sites before insertion into plain
   catalog fields, preserving the legacy decimal widths without a printf-format
   translation layer. The reproducible inventory in
-  `bin/human-message-inventory.md` now reports **208** remaining literal call
+  `bin/human-message-inventory.md` now reports **189** remaining literal call
   sites, down from 337; the six entries still attributed to `scoring.cpp` are
   disabled `#if 0` branches retained by the inventory's documented policy.
   Safe C++23 seek arithmetic and the corrected Womble EOF classification add
@@ -386,7 +386,8 @@ than redefine completion around whichever subset currently passes tests.
 
 - Caption dictionary-processing and XDS diagnostics now use the English and
   Spanish catalogs with call-site numeric and hexadecimal formatting. The
-  reproducible literal-message inventory is down to **208** sites. Five finalized output adapters share one
+  reproducible literal-message inventory is down to **189** sites. All active
+  caption diagnostics are catalog-backed; five finalized output adapters share one
   standard-library exact-byte writer; open and close/write failures propagate as
   owned `output_open`/`output_write` diagnostics instead of terminating inside
   the adapter. The helper retries plain chapter creation with `std::chrono` and
@@ -418,3 +419,14 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-logo-xds-public-build.txt`. The reproducible literal-message
   inventory remains at **208** active sites. Linux verification of this snapshot
   remains separate.
+
+- All active caption diagnostics now use the English and Spanish catalogs while
+  machine-facing caption labels retain their stable format. Numeric widths,
+  uppercase hexadecimal fields and boolean `0`/`1` rendering are prepared at
+  call sites. Fixing the first-block diagnostic also removes an out-of-bounds
+  read from `cc_block[-1]`. The literal-message inventory is down to **189**
+  active sites. Windows passes **429/429** headless and **437/437** SDL tests,
+  and the public non-donator application builds. Logs are
+  `bin/windows-caption-localization-build23{,-gui}-test.txt` and
+  `bin/windows-caption-localization-public-build.txt`. Linux verification of
+  this snapshot remains separate.

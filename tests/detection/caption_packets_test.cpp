@@ -83,6 +83,15 @@ TEST(CaptionPackets, ControlOnlyPairsOnEmptyTextPreserveFollowingPrintableText) 
     EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), "HI");
 }
 
+TEST(CaptionPackets, FirstBlockDiagnosticDoesNotReadBeforeOwnedStorage) {
+    auto owner = recording();
+    owner->state.cc_block[0].start_frame = 10;
+    owner->state.cc_block[0].end_frame = 20;
+    owner->state.cc_block[0].type = POPON;
+    EXPECT_NO_THROW(OutputCCBlock(*owner, 0));
+    EXPECT_NO_THROW(OutputCCBlock(*owner, -1));
+}
+
 TEST(CaptionPackets, ExtendedCharactersSurviveTextSplittingAndRemainTerminated) {
     auto owner = recording();
     for (int pair = 0; pair < 150; ++pair) {

@@ -8,42 +8,53 @@
 #include <iterator>
 #include <utility>
 
+namespace {
+template <typename... Args>
+void CaptionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+{
+    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+}
+std::string CaptionTypeText(RecordingContext& context, int type)
+{
+    if (!context.state.processCC)
+        return {};
+    switch (type) {
+    case NONE: return context.translator.text("caption_type_none");
+    case ROLLUP: return context.translator.text("caption_type_rollup");
+    case PAINTON: return context.translator.text("caption_type_painton");
+    case POPON: return context.translator.text("caption_type_popon");
+    case COMMERCIAL: return context.translator.text("caption_type_commercial");
+    default: return std::format("{}", type);
+    }
+}
+}
+
 void OutputCCBlock(RecordingContext& context, long i)
 {
+    if (i < 0)
+        return;
     if (i > 1)
     {
-        Debug(context,
-            11,
-            "%i\tStart - %6i\tEnd - %6i\tType - %s\n",
-            i - 2,
-            context.state.cc_block[i - 2].start_frame,
-            context.state.cc_block[i - 2].end_frame,
-            CCTypeToStr(context, context.state.cc_block[i - 2].type)
-        );
+        CaptionDebug(context, 11, "caption_block_line", std::format("{}", i - 2),
+            std::format("{:6}", context.state.cc_block[i - 2].start_frame),
+            std::format("{:6}", context.state.cc_block[i - 2].end_frame),
+            CaptionTypeText(context, context.state.cc_block[i - 2].type));
     }
 
     if (i > 0)
     {
-        Debug(context,
-            11,
-            "%i\tStart - %6i\tEnd - %6i\tType - %s\n",
-            i - 1,
-            context.state.cc_block[i - 1].start_frame,
-            context.state.cc_block[i - 1].end_frame,
-            CCTypeToStr(context, context.state.cc_block[i - 1].type)
-        );
+        CaptionDebug(context, 11, "caption_block_line", std::format("{}", i - 1),
+            std::format("{:6}", context.state.cc_block[i - 1].start_frame),
+            std::format("{:6}", context.state.cc_block[i - 1].end_frame),
+            CaptionTypeText(context, context.state.cc_block[i].type));
     }
 
     if (i <= 0)
     {
-        Debug(context,
-            11,
-            "%i\tStart - %6i\tEnd - %6i\tType - %s\n",
-            i,
-            context.state.cc_block[i].start_frame,
-            context.state.cc_block[i].end_frame,
-            CCTypeToStr(context, context.state.cc_block[i - 1].type)
-        );
+        CaptionDebug(context, 11, "caption_block_line", std::format("{}", i),
+            std::format("{:6}", context.state.cc_block[i].start_frame),
+            std::format("{:6}", context.state.cc_block[i].end_frame),
+            CaptionTypeText(context, context.state.cc_block[i - 1].type));
     }
 }
 
@@ -621,14 +632,15 @@ void AddCC(RecordingContext& context, int i)
     {
         if ((context.state.cc.cc1[0] == context.state.lastcc.cc1[0]) && (context.state.cc.cc1[1] == context.state.lastcc.cc1[1]))
         {
-            Debug(context, 11, "Double code found\n");
+            CaptionDebug(context, 11, "caption_double_code");
             return;
         }
 
         switch (context.state.cc.cc1[1])
         {
         case 0x20:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tResume Caption Loading\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_resume_loading",
+                std::format("{:6}", current_frame));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -660,7 +672,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x25:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tRoll Up Captions 2 row\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_rollup_2",
+                std::format("{:6}", current_frame));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -672,7 +685,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x26:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tRoll Up Captions 3 row\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_rollup_3",
+                std::format("{:6}", current_frame));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -684,7 +698,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x27:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tRoll Up Captions 4 row\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_rollup_4",
+                std::format("{:6}", current_frame));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -701,7 +716,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x29:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tResume Direct Captioning\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_resume_direct",
+                std::format("{:6}", current_frame));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -723,7 +739,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x2C:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tErase Displayed Memory\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_erase_displayed",
+                std::format("{:6}", current_frame));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -753,7 +770,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x2E:
-            Debug(context, 11, "Frame - %6i Control Code Found:\tErase Non-Displayed Memory\n", current_frame);
+            CaptionDebug(context, 11, "caption_control_erase_nondisplayed",
+                std::format("{:6}", current_frame));
 
             // cc_text_count++;
             // InitializeCCTextArray(cc_text_count);
@@ -761,13 +779,10 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x2F:
-            Debug(context,
-                11,
-                "Frame - %6i Control Code Found:\tEnd of Caption\tOn Screen - %i\tOff Screen - %i\n",
-                current_frame,
-                context.state.cc_in_memory,
-                context.state.cc_on_screen
-            );
+            CaptionDebug(context, 11, "caption_control_end",
+                std::format("{:6}", current_frame),
+                std::format("{}", static_cast<int>(context.state.cc_in_memory)),
+                std::format("{}", static_cast<int>(context.state.cc_on_screen)));
             context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
             context.state.cc_text_count++;
             InitializeCCTextArray(context, context.state.cc_text_count);
@@ -792,7 +807,8 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         default:
-            Debug(context, 11, "\nFrame - %6i Control Code Found:\tUnknown code!! - %2X\n", current_frame, context.state.cc.cc1[1]);
+            CaptionDebug(context, 11, "caption_control_unknown",
+                std::format("{:6}", current_frame), std::format("{:2X}", context.state.cc.cc1[1]));
             if (context.state.cc_text[context.state.cc_text_count].text_len > 200)
             {
                 context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
@@ -885,7 +901,9 @@ void ProcessCCData(RecordingContext& context)
         *p++ = 0;
         if (context.state.ccData[0] == 'G' && length > 7)
             temp[7*3] = '0' + (temp[7*3] & 0x03);
-        Debug(context, 10, "CCData for framenum %4i%c, length:%4i: %s\n", context.state.framenum, context.state.pict_type, context.state.ccDataLen, temp);
+        CaptionDebug(context, 10, "caption_cc_data",
+            std::format("{:4}", context.state.framenum), std::format("{}", context.state.pict_type),
+            std::format("{:4}", context.state.ccDataLen), reinterpret_cast<const char*>(temp));
 
         p = (unsigned char *)temp;
         for (i = 0; i < context.state.ccDataLen; i++)
@@ -896,7 +914,9 @@ void ProcessCCData(RecordingContext& context)
             *p++ = ' ';
         }
         *p++ = 0;
-        Debug(context, 10, "CCData for framenum %4i%c, length:%4i: %s\n", context.state.framenum, context.state.pict_type, context.state.ccDataLen, temp);
+        CaptionDebug(context, 10, "caption_cc_data",
+            std::format("{:4}", context.state.framenum), std::format("{}", context.state.pict_type),
+            std::format("{:4}", context.state.ccDataLen), reinterpret_cast<const char*>(temp));
 
     }
 
@@ -916,7 +936,8 @@ void ProcessCCData(RecordingContext& context)
         packetCount = (packetCount & 0x1E) / 2;
         if ((!cc1First) || (packetCount != 15))
         {
-            Debug(context, 11, "CC Field Order: %i.  There appear to be %i packets.\n", cc1First, packetCount);
+            CaptionDebug(context, 11, "caption_field_order",
+                std::format("{}", static_cast<int>(cc1First)), std::format("{}", packetCount));
         }
         proceed = 1;
         is_CC = 1;
@@ -1114,10 +1135,11 @@ void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool
     }
     else
     {
-        Debug(context, 11, "\nFrame - %6i\t%s captions start\n", current_frame, CCTypeToStr(context, type));
+        CaptionDebug(context, 11, "caption_type_start", std::format("{:6}", current_frame),
+            CaptionTypeText(context, type));
         if (context.state.cc_block[context.state.cc_block_count].end_frame == -1)
         {
-            Debug(context, 11, "New cblock found\n");
+            CaptionDebug(context, 11, "caption_new_block");
             context.state.cc_block[context.state.cc_block_count].end_frame = current_frame - 1;
             context.state.cc_block_count++;
             InitializeCCBlockArray(context, context.state.cc_block_count);
@@ -1249,7 +1271,9 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
         }
     }
 
-    Debug(context, 4, "Start - %6i\tEnd - %6i\tCCF - %2i\tCCL - %2i\tType - %s\n", start, end, cc_block_first, cc_block_last, CCTypeToStr(context, type));
+    CaptionDebug(context, 4, "caption_block_summary", std::format("{:6}", start),
+        std::format("{:6}", end), std::format("{:2}", cc_block_first),
+        std::format("{:2}", cc_block_last), CaptionTypeText(context, type));
 
     return (type);
 }
