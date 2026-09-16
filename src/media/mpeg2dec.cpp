@@ -2018,6 +2018,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         comskip::checked_format(context.state.HomeDir, "%s",
             reinterpret_cast<const char*>(directory_utf8.c_str()));
 
+        context.translator = comskip::localization::Translator::from_arguments(argc, argv);
         fputs(context.translator.format("media_version", PACKAGE_STRING).c_str(), stderr);
 
 #ifndef DONATOR
@@ -2043,7 +2044,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 //        av_log_set_flags(AV_LOG_SKIP_REPEATED);
 //
 //        av_log_set_level(AV_LOG_WARNING);
-        context.translator = comskip::localization::Translator::from_arguments(argc, argv);
         LoadSettings(context, argc, argv, context.translator);
 
         file_open(context);
