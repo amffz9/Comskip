@@ -1,6 +1,7 @@
 #include "recording_context.h"
 #include "media/decoder.h"
 #include "media/video_state.h"
+#include "media/video_decode_status.h"
 #include "localization/diagnostic.h"
 #include <gtest/gtest.h>
 #include <chrono>
@@ -8,6 +9,12 @@
 #include <memory>
 
 namespace {
+void expect_status_diagnostic(const std::runtime_error& error, comskip::diagnostics::Code code) {
+    const auto* provider=dynamic_cast<const comskip::diagnostics::DiagnosticProvider*>(&error);
+    ASSERT_NE(provider,nullptr); EXPECT_EQ(provider->diagnostic().code,code);
+    ASSERT_EQ(provider->diagnostic().arguments.size(),1u);
+    EXPECT_FALSE(provider->diagnostic().arguments.front().empty());
+}
 void closed(const VideoState& video) {
     EXPECT_EQ(video.video_st,nullptr); EXPECT_EQ(video.audio_st,nullptr); EXPECT_EQ(video.subtitle_st,nullptr);
     EXPECT_EQ(video.videoStream,-1); EXPECT_EQ(video.audioStream,-1); EXPECT_EQ(video.subtitleStream,-1);
@@ -22,6 +29,25 @@ TEST(DecoderLifecycle, CloseWithoutVideoOwnerIsIdempotent) {
     EXPECT_NO_THROW(file_close(*context));
     EXPECT_NO_THROW(file_close(*context));
     EXPECT_FALSE(context->state.video_owner);
+}
+TEST(VideoDecodeStatus, SendAcceptsSuccessAndOwnsEveryFfmpegFailureDetail) {
+    EXPECT_NO_THROW(comskip::media::require_video_packet_sent(0));
+    for (const int status : {AVERROR(EINVAL),AVERROR(EAGAIN),AVERROR_EOF}) {
+        try { comskip::media::require_video_packet_sent(status); FAIL() << "expected failure"; }
+        catch (const std::runtime_error& error) {
+            expect_status_diagnostic(error,comskip::diagnostics::Code::send_video_packet_detail);
+        }
+    }
+}
+TEST(VideoDecodeStatus, ReceiveDistinguishesFrameRetryEofAndRealFailure) {
+    EXPECT_EQ(comskip::media::classify_video_receive_status(0),comskip::media::VideoReceiveStatus::frame);
+    EXPECT_EQ(comskip::media::classify_video_receive_status(42),comskip::media::VideoReceiveStatus::frame);
+    EXPECT_EQ(comskip::media::classify_video_receive_status(AVERROR(EAGAIN)),comskip::media::VideoReceiveStatus::try_again);
+    EXPECT_EQ(comskip::media::classify_video_receive_status(AVERROR_EOF),comskip::media::VideoReceiveStatus::end_of_stream);
+    try { (void)comskip::media::classify_video_receive_status(AVERROR(EINVAL)); FAIL() << "expected failure"; }
+    catch (const std::runtime_error& error) {
+        expect_status_diagnostic(error,comskip::diagnostics::Code::receive_video_frame_detail);
+    }
 }
 TEST(DecoderLifecycle, MissingUnicodeInputOwnsCauseAndSameContextCanRetryValidMedia) {
     const auto directory=std::filesystem::temp_directory_path();

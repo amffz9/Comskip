@@ -442,3 +442,12 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-input-histogram-build23{,-gui}-test.txt` and
   `bin/windows-input-histogram-public-build.txt`. Linux verification remains
   separate.
+
+- Video packet submission and frame retrieval now have an explicit C++ status
+  boundary: successful frames, `EAGAIN` and EOF are distinct outcomes, while
+  every real FFmpeg failure throws an owned typed diagnostic. This replaces the
+  decoder's former silent packet loss. Windows passes **436/436** headless and
+  **444/444** SDL tests, and the public non-donator application builds. Logs are
+  `bin/windows-video-status-build23{,-gui}-test.txt` and
+  `bin/windows-video-status-public-build.txt`. Linux verification remains
+  separate.

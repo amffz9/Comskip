@@ -1013,8 +1013,11 @@ before calling FFmpeg seek APIs.
   other than `EAGAIN`/EOF end the loop without a diagnostic.
 - **Impact:** Corrupt or unsupported packets can look like ordinary no-frame
   results, hiding data loss and preventing callers from choosing recovery.
-- **Status:** Open. Propagate owned FFmpeg diagnostics from the decoder-status
-  layer and cover malformed packets separately from expected drain states.
+- **Status:** Fixed. Send failures and receive failures other than `EAGAIN` and
+  EOF now throw typed diagnostics containing a copied FFmpeg error string.
+- **Verification:** Deterministic status tests distinguish frame, retry, EOF,
+  send failure and receive failure without relying on codec-specific corruption.
+  All 436 Windows headless and 444 SDL tests pass; the public build succeeds.
 
 ### B086: Logo histogram indexing trusts unbounded persisted values
 

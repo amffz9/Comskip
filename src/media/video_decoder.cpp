@@ -5,6 +5,7 @@
 #include "media/timing_diagnostics.h"
 #include "exit_requested.h"
 #include "a53_caption_bridge.h"
+#include "video_decode_status.h"
 /*
  * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
@@ -238,25 +239,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
     if (!context.settings.hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_send_packet(is->dec_ctx.get(), packet);
-
-    if (len1<0)
-    {
-/*
-        if (len1 == -1 && thread_count > 1)
-        {
-            InitComSkip();
-            thread_count = 1;
-            is->seek_req = 1;
-            is->seek_pos = 0;
-            is->seek_pts = 0.0;
-            pev_best_effort_timestamp = 0;
-            best_effort_timestamp = 0;
-            framenum = 1;
-            Debug(1 ,"Restarting processing in single thread mode because frame size is changing \n");
-            goto quit;
-        }
-  */
-    }
+    comskip::media::require_video_packet_sent(len1);
 
     // Did we get a video frame?
     while ((len1 = avcodec_receive_frame(is->dec_ctx.get(), is->pFrame.get())) >= 0)
@@ -565,6 +548,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
         }
 #endif
     }
+    (void)comskip::media::classify_video_receive_status(len1);
 
     return frameFinished;
 quit:

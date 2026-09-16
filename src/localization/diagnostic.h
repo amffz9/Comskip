@@ -9,6 +9,8 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    send_video_packet_detail,
+    receive_video_frame_detail,
     cannot_open_recording_detail,
     cannot_read_recording_stream_info_detail,
     recording_has_no_decodable_video_stream,
@@ -345,6 +347,8 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::send_video_packet_detail: return "diag_send_video_packet_detail";
+    case Code::receive_video_frame_detail: return "diag_receive_video_frame_detail";
     case Code::cannot_open_recording_detail: return "diag_cannot_open_recording_detail";
     case Code::cannot_read_recording_stream_info_detail: return "diag_cannot_read_recording_stream_info_detail";
     case Code::recording_has_no_decodable_video_stream: return "diag_recording_has_no_decodable_video_stream";
