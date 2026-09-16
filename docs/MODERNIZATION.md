@@ -68,7 +68,9 @@ than redefine completion around whichever subset currently passes tests.
   sessions are integrated, with five actual application tests covering independent
   captions, EOF, failure cleanup, full reopen, CSV replay, and malformed persisted
   records. Standalone subtitle decoding has six pure Windows tests but packet
-  routing remains unfinished. Caption/XDS packet and cache bounds have
+  routing was integrated at 12be69c, with three owned-session tests and an
+  actual standalone-stream Unicode/style/EOF regression. Overlapping cues still
+  require output integration fixes (B016). Caption/XDS packet and cache bounds have
   five regressions, and frame-volume storage bounds have two.
 - Windows headless and SDL-enabled application builds each pass 119 tests at
   f032ea3. Scoped Windows
@@ -82,6 +84,11 @@ than redefine completion around whichever subset currently passes tests.
   with address, undefined-behavior, and leak sanitizers. Windows headless passes
   139 tests at 28556e6, before the seven new subtitle-output tests. Windows
   headless passes all 165 tests at 3cc57ed after removing the bundled C caption
-  library; Linux verification of that stage is pending. Four detector-warning
+  library. Linux headless and SDL each pass 161 tests on an isolated 3cc57ed
+  snapshot plus the explicit caption bridge CMake dependency fix, subsequently
+  committed at 12be69c. Sanitizer tests pass 156/161 on that snapshot; all five
+  actual caption tests hit the missing-timestamp overflow tracked as B015.
+  Windows headless passes all 174 tests at 12be69c, including standalone routing
+  and four diagnostic-output regressions. Four detector-warning
   regressions pass at 7e011c3, covering both logo-save failure branches. macOS and
   interactive SDL application verification still require evidence.
