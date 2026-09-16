@@ -141,6 +141,18 @@ and relevant verification; retain the evidence for future regressions.
 - **Verification needed:** Final observation roundtrip and matching EOF cue
   timing, including compatibility with existing CSV files.
 
+### B013: Caption dump writing trusts its path, file handle, and length
+
+- **Evidence:** `dump_data` in `src/output/media_dump.cpp` formats the recording
+  basename into a fixed 2,000-byte array using `sprintf`, does not check the
+  result of opening the output, and rejects only lengths greater than 1,900.
+- **Impact:** An unwritable output can pass a null handle to `fwrite`; a long
+  basename can overflow the array. Negative lengths can also become invalid
+  write sizes if the function is called with malformed input.
+- **Fix/verification needed:** Owned filename and bounded framing, checked file
+  opening/writing, and regressions for an unavailable destination, invalid
+  lengths, and valid persisted data compatibility.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
