@@ -4,10 +4,12 @@
 #include "review_messages.h"
 #include "image_geometry.h"
 #include "review_media.h"
+#include "review_intervals.h"
 #include <algorithm>
 #include <array>
 #include <format>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 
@@ -793,50 +795,21 @@ bool ReviewResult(RecordingContext& context)
             if (context.window.input().key == 34) curframe += (int)(20*context.settings.fps);
             if (context.window.input().key == 134) curframe += (int)(.5*context.settings.fps);
 
-            if (context.window.input().key == 78 || (context.window.input().key == 39 && context.window.input().shift))   // Next key
-            {
-                curframe += 5;
-                if (context.state.framearray)
-                {
-                    i = 0;
-                    while (i <= context.state.commercial_count && curframe > context.state.commercial[i].end_frame) i++;
-                    //					if (i > 0)
-                    curframe = context.state.commercial[i].end_frame+5;
-//						while (curframe < frame_count && context.state.frame[curframe].isblack) curframe++;
-//						while (curframe < frame_count && !context.state.frame[curframe].isblack) curframe++;
-                    //					while (curframe < frame_count && context.state.frame[curframe].isblack) curframe++;
-                }
-                else
-                {
-                    i = 0;
-                    while (i <= context.state.reffer_count && curframe > context.state.reffer[i].end_frame) i++;
-                    //					if (i > 0)
-                    curframe = context.state.reffer[i].end_frame+5;
-                }
-                curframe -= 5;
-            }
-            if (context.window.input().key == 80 || (context.window.input().key == 37 && context.window.input().shift))  	// Prev key
-            {
-                curframe -= 5;
-                if (context.state.framearray)
-                {
-                    i = context.state.commercial_count;
-                    while (i >= 0 && curframe < context.state.commercial[i].start_frame) i--;
-                    //					if (i > 0)
-                    curframe = context.state.commercial[i].start_frame-5;
-                    //					while (curframe > 1 && context.state.frame[curframe].isblack) curframe--;
-                    //					while (curframe > 1 && !context.state.frame[curframe].isblack) curframe--;
-                    //					while (curframe > 1 && context.state.frame[curframe].isblack) curframe--;
-                }
-                else
-                {
-                    i = context.state.reffer_count;
-                    while (i >= 0 && curframe < context.state.reffer[i].start_frame) i--;
-                    //					if (i > 0)
-                    curframe = context.state.reffer[i].start_frame-5;
-                }
-                curframe += 5;
-            }
+            const auto navigate_interval = [&](comskip::ui::IntervalDirection direction) {
+                const auto choose = [&](const auto& intervals, int last) {
+                    using Entry = std::remove_cvref_t<decltype(intervals[0])>;
+                    return comskip::ui::review_interval_boundary(
+                        std::span<const Entry>(intervals), last, curframe, direction);
+                };
+                const auto target = context.state.framearray
+                    ? choose(context.state.commercial, context.state.commercial_count)
+                    : choose(context.state.reffer, context.state.reffer_count);
+                if (target) curframe = static_cast<int>(*target);
+            };
+            if (context.window.input().key == 78 || (context.window.input().key == 39 && context.window.input().shift))
+                navigate_interval(comskip::ui::IntervalDirection::next);
+            if (context.window.input().key == 80 || (context.window.input().key == 37 && context.window.input().shift))
+                navigate_interval(comskip::ui::IntervalDirection::previous);
             if (context.window.input().key == 'S')
             {
                 if (context.state.framearray)

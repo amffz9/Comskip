@@ -1,5 +1,7 @@
 #include "legacy_detection.h"
 #include <format>
+#include "frame_mask.h"
+#include <stdexcept>
 
 int DetectCommercials(RecordingContext& context, int f, double pts)
 {
@@ -53,50 +55,17 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
     {
         context.state.volumeHistogram[(context.state.curvolume/context.state.volumeScale < 255 ? context.state.curvolume/context.state.volumeScale : 255)]++;
     }
-    if (context.settings.ticker_tape_percentage > 0)
-        context.settings.ticker_tape = context.settings.ticker_tape_percentage * context.state.height / 100;
-    if (context.settings.ticker_tape > 0 )
-    {
-        memset(&context.state.frame_ptr[context.state.width*(context.state.height - context.settings.ticker_tape)], 0, context.state.width*context.settings.ticker_tape);
-    }
-    if (context.settings.top_ticker_tape_percentage > 0)
-        context.settings.top_ticker_tape = context.settings.top_ticker_tape_percentage * context.state.height / 100;
-    if (context.settings.top_ticker_tape > 0 )
-    {
-        memset(&context.state.frame_ptr[0], 0, context.state.width*context.settings.top_ticker_tape);
-    }
-    if (context.settings.ignore_side)
-    {
-        for (i = 0; i < context.state.height; i++)
-        {
-            for (j = 0; j < context.settings.ignore_side; j++)
-            {
-                context.state.frame_ptr[context.state.width*i + j] = 0;
-                context.state.frame_ptr[context.state.width*i + (context.state.width -1) - j] = 0;
-            }
-        }
-    }
-    if (context.settings.ignore_left_side)
-    {
-        for (i = 0; i < context.state.height; i++)
-        {
-            for (j = 0; j < context.settings.ignore_left_side; j++)
-            {
-                context.state.frame_ptr[context.state.width*i + j] = 0;
-            }
-        }
-    }
-    if (context.settings.ignore_right_side)
-    {
-        for (i = 0; i < context.state.height; i++)
-        {
-            for (j = 0; j < context.settings.ignore_right_side; j++)
-            {
-                context.state.frame_ptr[context.state.width*i + (context.state.width -1) - j] = 0;
-            }
-        }
-    }
-
+    const auto mask_storage = comskip::detection::frame_mask_storage_size(
+        context.state.videowidth, context.state.height, context.state.width);
+    if (!context.state.frame_ptr)
+        throw std::invalid_argument("Frame mask requires decoded image pixels");
+    comskip::detection::apply_frame_mask(
+        std::span<unsigned char>(context.state.frame_ptr, mask_storage),
+        context.state.videowidth, context.state.height, context.state.width,
+        {context.settings.ticker_tape, context.settings.top_ticker_tape,
+         context.settings.ticker_tape_percentage, context.settings.top_ticker_tape_percentage,
+         context.settings.ignore_side, context.settings.ignore_left_side,
+         context.settings.ignore_right_side});
     oldBlack_count = context.state.black_count;	/*Gil*/
     CheckSceneHasChanged(context);
     isBlack = oldBlack_count != context.state.black_count;	/*Gil*/

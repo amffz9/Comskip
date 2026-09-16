@@ -795,8 +795,8 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
 //	bitrate = pFrame->bit_rate;
     if (pFrame->linesize[0] > MAXWIDTH || pFrame->height > MAXHEIGHT || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
-        Debug(context, 1, "Panic: illegal height (%d), width (%d) or frame period (%d)\n",
-              pFrame->height, pFrame->width, pFrame->linesize[0]);
+        Debug(context, 1, "%s", context.translator.format("media_invalid_frame",
+              pFrame->height, pFrame->width, pFrame->linesize[0]).c_str());
         context.state.frame_ptr = NULL;
         return(0);
     }
@@ -1157,7 +1157,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
             if (convert_frame_to_8bit_owned(is->pFrame.get(), is->img_convert_ctx) < 0) {
-                Debug(context, 1, "Could not convert the decoded 10-bit frame to 8-bit\n");
+                Debug(context, 1, "%s", context.translator.text("media_frame_conversion_failed"));
                 av_frame_unref(is->pFrame.get());
                 continue;
             }
@@ -1825,7 +1825,7 @@ again:
         }
         if(is->videoStream < 0)
         {
-            Debug(context, 0, "Could not open video codec\n");
+            Debug(context, 0, "%s", context.translator.text("media_video_codec_log_failed"));
             fputs(context.translator.format("media_video_codec_failed", is->filename.c_str()).c_str(), stderr);
             comskip::request_exit(-1);
         }
@@ -1836,7 +1836,7 @@ again:
             is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
 
         if (is->duration < 0 && (context.settings.live_tv_retries > 0)) {
-           Debug(context, 0, "Could not establish duration, live TV decoding may fail\n");
+           Debug(context, 0, "%s", context.translator.text("media_duration_warning"));
         }
 
 
@@ -1868,7 +1868,7 @@ again:
 
             if (is->audioStream < 0)
             {
-                Debug(context, 1,"Could not open audio decoder or no audio present\n");
+                Debug(context, 1, "%s", context.translator.text("media_audio_decoder_warning"));
             }
         }
 

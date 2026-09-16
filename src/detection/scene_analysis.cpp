@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include "frame_mask.h"
 
 void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, int maxX)
 {
@@ -54,11 +55,13 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
     if (maxX >= context.state.videowidth - context.settings.border) maxX = context.state.videowidth;
 
 
-    if (context.settings.ticker_tape_percentage>0)
-        context.settings.ticker_tape = context.settings.ticker_tape_percentage * context.state.height / 100;
-    if (context.settings.top_ticker_tape_percentage>0)
-        context.settings.top_ticker_tape = context.settings.top_ticker_tape_percentage * context.state.height / 100;
-    if (context.settings.ticker_tape != 0 || context.settings.top_ticker_tape != 0 || (
+    const auto bottom_mask_rows = comskip::detection::effective_mask_rows(
+        context.settings.ticker_tape, context.settings.ticker_tape_percentage,
+        static_cast<std::size_t>(context.state.height));
+    const auto top_mask_rows = comskip::detection::effective_mask_rows(
+        context.settings.top_ticker_tape, context.settings.top_ticker_tape_percentage,
+        static_cast<std::size_t>(context.state.height));
+    if (bottom_mask_rows != 0 || top_mask_rows != 0 || (
                 abs((context.state.height - maxY) - (minY)) < 13 + (minY )/15  &&  // discard for no simetrical check
                 abs((context.state.videowidth  - maxX) - (minX)) < 13 + (minX )/15  &&  // discard for no simetrical check
                 minY < context.state.height / 4 &&

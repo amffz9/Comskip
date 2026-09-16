@@ -9,6 +9,22 @@ using comskip::config::Ini;
 using comskip::config::default_settings;
 using comskip::config::load_settings;
 
+TEST(SettingsValue, RejectsInvalidFrameMasksAndAcceptsPercentageLimits) {
+    const auto base = default_settings();
+    for (const auto key : {"ticker_tape", "top_ticker_tape", "ignore_side",
+                           "ignore_left_side", "ignore_right_side"}) {
+        EXPECT_THROW(load_settings(Ini(std::string(key) + "=-1"), base), std::invalid_argument)
+            << key;
+    }
+    for (const auto key : {"ticker_tape_percentage", "top_ticker_tape_percentage"}) {
+        for (int value : {-1,101})
+            EXPECT_THROW(load_settings(Ini(std::string(key) + "=" + std::to_string(value)), base),
+                         std::invalid_argument) << key << ": " << value;
+        EXPECT_NO_THROW(load_settings(Ini(std::string(key) + "=0"), base));
+        EXPECT_NO_THROW(load_settings(Ini(std::string(key) + "=100"), base));
+    }
+}
+
 TEST(SettingsValue, OwnsEveryCommittedDefault) {
     const auto settings = default_settings();
     EXPECT_EQ(settings.commDetectMethod, 123);
