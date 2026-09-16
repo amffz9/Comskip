@@ -39,8 +39,9 @@ than redefine completion around whichever subset currently passes tests.
 - C++ lower-level exit requests unwind to the application boundary, and scan task
   failures propagate to the caller. Workers support captured recording dependencies.
 - English/Spanish primary CLI, media, and review catalogs, external editable
-  catalogs, and real CLI selection tests are integrated. Some detector,
-  configuration, and output messages remain.
+  catalogs, and real CLI selection tests are integrated. Configuration warnings
+  and argument errors have catalog coverage and actual error-path tests. Some
+  detector and output diagnostics remain.
 - Settings values own every committed configuration field and regional profile;
   application callsites now receive an explicit recording context. Detection,
   media, output, and review state have moved into that context. Dynamic detection
@@ -52,11 +53,17 @@ than redefine completion around whichever subset currently passes tests.
   SDL rendering verification currently uses the dummy driver on Windows.
 - Pure timed EDL serialization is integrated for standard/live/plus output, with
   boundary/offset/locale/error tests. Seven pugixml XML serializers are integrated
-  into normal and review exports, with ten serializer and three application
-  adapter tests. The obsolete custom XML escaper is removed. Live DVRMSTB and
-  the plist fragment still require a supporting-library syntax audit.
-- Windows headless and SDL-enabled application builds each pass 103 tests at
-  c9072d9. Scoped Windows scheduling/power policies have three native restoration
+  into normal and review exports, with ten serializer and seven application
+  adapter tests. Live DVRMSTB uses the same library, with four conversion and
+  two actual live-detector tests. The obsolete custom XML escaper and seven
+  unused XML file owners are removed. The plist fragment remains to migrate.
+- The A53 caption bridge bounds each packet to 31 intact triplets, preserves
+  oversized payloads through ordered chunks, and rejects malformed lengths.
+  Four tests cover framing and data preservation. The supporting caption
+  decoder still has shared globals and needs an owned replacement.
+- Windows headless and SDL-enabled application builds each pass 119 tests at
+  f032ea3. Scoped Windows
+  scheduling/power policies have three native restoration
   tests. Coverage includes
   seeking/reopening, damaged/truncated media, stream format changes, independent
   repeated analyses within one process, and failure cleanup followed by success.
