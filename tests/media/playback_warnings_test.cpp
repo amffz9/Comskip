@@ -3,7 +3,7 @@
 #include "media/audio_analysis.h"
 #include "media/ffmpeg_resources.h"
 #include "media/video_state.h"
-#include "exit_requested.h"
+#include "localization/diagnostic.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <cstring>
@@ -120,14 +120,21 @@ TEST_F(PlaybackWarnings, InvalidStrideUsesEnglishFallbackBeforeReadingPixels) {
     EXPECT_EQ(context->state.frame_ptr, nullptr);
     EXPECT_EQ(log(), "Panic: illegal height (160), width (160) or frame period (99)\n");
 }
-TEST_F(PlaybackWarnings, ActualAudioOnlyFileReportsSpanishVideoCodecFailureAndUnwinds) {
+TEST_F(PlaybackWarnings, ActualAudioOnlyFileReportsOwnedVideoFailureAndUnwinds) {
     context->translator = comskip::localization::Translator("es");
     const auto fixture = directory / "audio-only.wav";
     write_audio_fixture(fixture);
     context->state.mpegfilename = fixture.string();
     try { file_open(*context); FAIL() << "Expected rejection of audio-only media"; }
-    catch (const comskip::ExitRequested& exit) { EXPECT_EQ(exit.status(), -1); }
-    EXPECT_EQ(log(), "No se pudo abrir el códec de vídeo\n");
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,
+                  comskip::diagnostics::Code::recording_has_no_decodable_video_stream);
+        ASSERT_EQ(error.diagnostic().arguments.size(),1u);
+        EXPECT_EQ(error.diagnostic().arguments.front(),context->state.mpegfilename);
+    }
+    EXPECT_TRUE(log().empty());
+    ASSERT_TRUE(context->state.video_owner);
+    EXPECT_FALSE(context->state.video_owner->pFormatCtx);
     context.reset();
     EXPECT_TRUE(std::filesystem::remove(fixture));
 }

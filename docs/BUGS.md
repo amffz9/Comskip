@@ -993,8 +993,9 @@ before calling FFmpeg seek APIs.
   `ExitRequested(-1)` for open, probing and missing-video failures.
 - **Impact:** Embedded callers lose the filename and cause; command-line status
   conversion can also expose `-1` as 255.
-- **Status:** Open. Replace lower-layer exits with owned diagnostics containing
-  the FFmpeg detail and let the application boundary choose a status.
+- **Status:** Fixed. Recording open and probing failures now retain the UTF-8
+  path and copied FFmpeg detail, while a missing video stream has its own owned
+  diagnostic. The application boundary alone chooses the process status.
 
 ### B084: Failed recording opens retain a partially initialized decoder
 
@@ -1002,8 +1003,9 @@ before calling FFmpeg seek APIs.
   probing succeeds. A caught failure leaves them in the recording context, so a
   retry can skip input opening and stream discovery.
 - **Impact:** One bad input can poison a reusable in-process recording context.
-- **Status:** Open. Unwind partial state on every input-open failure and add a
-  fail-then-open-valid regression on the same context.
+- **Status:** Fixed. Every exception from recording startup closes codecs,
+  frames, the demuxer and borrowed stream references before it escapes. An
+  actual missing-Unicode-path then valid-media retry uses the same context.
 
 ### B085: Video packet decoding silently discards FFmpeg errors
 

@@ -1,6 +1,7 @@
 #include "recording_context.h"
 #include "media/decoder.h"
 #include "media/video_state.h"
+#include "localization/diagnostic.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <fstream>
@@ -21,6 +22,36 @@ TEST(DecoderLifecycle, CloseWithoutVideoOwnerIsIdempotent) {
     EXPECT_NO_THROW(file_close(*context));
     EXPECT_NO_THROW(file_close(*context));
     EXPECT_FALSE(context->state.video_owner);
+}
+TEST(DecoderLifecycle, MissingUnicodeInputOwnsCauseAndSameContextCanRetryValidMedia) {
+    const auto directory=std::filesystem::temp_directory_path();
+    const auto missing=directory/std::filesystem::u8path("missing-recording-café.y4m");
+    const auto valid=directory/std::filesystem::u8path(
+        "retry-recording-café-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".y4m");
+    struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code error; std::filesystem::remove(path,error); } } cleanup{valid};
+    auto context=std::make_unique<RecordingContext>();
+    const auto missing_utf8=missing.u8string();
+    context->state.mpegfilename={missing_utf8.begin(),missing_utf8.end()};
+    context->settings.live_tv_retries=0; context->settings.verbose=0; context->settings.fps=25;
+    try { file_open(*context); FAIL() << "expected missing recording failure"; }
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::cannot_open_recording_detail);
+        ASSERT_EQ(error.diagnostic().arguments.size(),2u);
+        EXPECT_EQ(error.diagnostic().arguments[0],context->state.mpegfilename);
+        EXPECT_FALSE(error.diagnostic().arguments[1].empty());
+    }
+    ASSERT_TRUE(context->state.video_owner); closed(*context->state.video_owner);
+    { std::ofstream file(valid,std::ios::binary);
+      file << "YUV4MPEG2 W160 H120 F25:1 Ip A1:1 C420jpeg\n";
+      const std::string luma(160*120,80),chroma(160*120/2,static_cast<char>(128));
+      for(int i=0;i<2;++i) file << "FRAME\n" << luma << chroma;
+      ASSERT_TRUE(file.good()); }
+    const auto valid_utf8=valid.u8string();
+    context->state.mpegfilename={valid_utf8.begin(),valid_utf8.end()};
+    ASSERT_NO_THROW(file_open(*context));
+    ASSERT_TRUE(context->state.video_owner->pFormatCtx);
+    EXPECT_GE(context->state.video_owner->videoStream,0);
+    file_close(*context); closed(*context->state.video_owner);
 }
 TEST(DecoderLifecycle, ActualUnicodeMediaCloseClearsBorrowedReferencesAndReopens) {
     const auto path=std::filesystem::temp_directory_path()/std::filesystem::u8path(

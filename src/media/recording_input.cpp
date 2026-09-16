@@ -26,20 +26,28 @@
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"
 #include "output/selftest_log.h"
-#include "exit_requested.h"
+#include "localization/diagnostic.h"
 #include "platform.h"
 #include "comskip.h"
 #include "ffmpeg_resources.h"
 #include "checked_format.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <string>
 using namespace comskip::media;
 #define SELFTEST
 
-void file_open(RecordingContext& context)
+namespace {
+std::string ffmpeg_detail(int status) {
+    std::array<char,AV_ERROR_MAX_STRING_SIZE> detail{};
+    av_strerror(status,detail.data(),detail.size());
+    return detail.data();
+}
+void file_open_impl(RecordingContext& context)
 {
     VideoState *is;
     int subtitle_index= -1, audio_index= -1, video_index = -1;
@@ -90,15 +98,17 @@ void file_open(RecordingContext& context)
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), NULL,std::inout_ptr(context.state.myoptions))!=0)
+        const int open_status=avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), NULL,std::inout_ptr(context.state.myoptions));
+        if(open_status<0)
         {
-            fputs(context.translator.format("media_open_failed", is->filename.c_str()).c_str(), stderr);
             if (openretries++ < context.settings.live_tv_retries)
             {
                 sleep_for_ms(1000L);
                 goto again;
             }
-            comskip::request_exit(-1);
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                comskip::diagnostics::Code::cannot_open_recording_detail,
+                {is->filename,ffmpeg_detail(open_status)});
 
         }
         is->seek_by_bytes = !!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is->pFormatCtx->iformat->name);
@@ -113,18 +123,19 @@ again:
 //    is->pFormatCtx->thread_count= 2;
 
         // Retrieve stream information
-        if(avformat_find_stream_info(is->pFormatCtx.get(), 0L )<0)
+        const int stream_info_status=avformat_find_stream_info(is->pFormatCtx.get(), 0L );
+        if(stream_info_status<0)
         {
-            fputs(context.translator.format("media_stream_info_failed", is->filename.c_str()).c_str(), stderr);
-            comskip::request_exit(-1);
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                comskip::diagnostics::Code::cannot_read_recording_stream_info_detail,
+                {is->filename,ffmpeg_detail(stream_info_status)});
         }
         // Dump information about file onto standard error
         if (context.state.retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename.c_str(), 0);
     }
 
     if (!is->frame.get()) {
-        if (!(is->frame = make_frame()))
-            comskip::request_exit(-1);
+        is->frame = make_frame();
     }
 
     if ( is->videoStream == -1)
@@ -136,9 +147,8 @@ again:
         }
         if(is->videoStream < 0)
         {
-            Debug(context, 0, "%s", context.translator.text("media_video_codec_log_failed"));
-            fputs(context.translator.format("media_video_codec_failed", is->filename.c_str()).c_str(), stderr);
-            comskip::request_exit(-1);
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is->filename});
         }
 
         if ( is->video_st->duration == AV_NOPTS_VALUE ||  is->video_st->duration < 0)
@@ -223,8 +233,12 @@ again:
 #endif
 
 }
+}
 
-
+void file_open(RecordingContext& context) {
+    try { file_open_impl(context); }
+    catch (...) { file_close(context); throw; }
+}
 
 void file_close(RecordingContext& context) {
     if (!context.state.video_owner) return;

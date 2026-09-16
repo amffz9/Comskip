@@ -9,6 +9,9 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    cannot_open_recording_detail,
+    cannot_read_recording_stream_info_detail,
+    recording_has_no_decodable_video_stream,
     invalid_legacy_edit_list_record,
     invalid_legacy_command_record,
     invalid_plain_chapter_record,
@@ -342,6 +345,9 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::cannot_open_recording_detail: return "diag_cannot_open_recording_detail";
+    case Code::cannot_read_recording_stream_info_detail: return "diag_cannot_read_recording_stream_info_detail";
+    case Code::recording_has_no_decodable_video_stream: return "diag_recording_has_no_decodable_video_stream";
     case Code::invalid_legacy_edit_list_record: return "diag_invalid_legacy_edit_list_record";
     case Code::invalid_legacy_command_record: return "diag_invalid_legacy_command_record";
     case Code::invalid_plain_chapter_record: return "diag_invalid_plain_chapter_record";
