@@ -317,6 +317,14 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Owned, checked marker creation with localized
   failure reporting and an actual unavailable-destination regression.
 
+### B028: Empty caption text is indexed before its length guard
+
+- **Evidence:** Caption processing evaluates `text[text_len - 1]` before
+  checking text length. A fresh control-only pair can reach this with length
+  zero. Related `isalpha` calls also accept possibly negative signed chars.
+- **Fix/verification needed:** Guard indices first and pass unsigned character
+  values to classification, with empty/control-only and extended-byte tests.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
