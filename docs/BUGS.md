@@ -400,6 +400,32 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Explicit consecutive-stall tracking, reset on
   clock progress, and regressions for threshold and recovered progress.
 
+### B036: Windows SDL CLI verification times out after analysis
+
+- **Observed failure:** The isolated, unmodified `e520374` Windows SDL build
+  passes its unit/error-path tests, but `media_smoke` and `standalone_subtitles`
+  CLI subprocesses exceed their 45-second deadlines. Other media tests also
+  remain running. The active recovery fixture's log includes completed frame
+  analysis and the end-of-run timestamp, while its process consumes little CPU.
+- **Confirmed cause:** `legacy_settings.cpp` checks `GUI` and `-gui` anywhere
+  in `argv[0]`, including parent directories. The snapshot's `build-gui`
+  directory overrides default `output_debugwindow=0` and selects the endless
+  interactive review loop. Media startup and analysis policy also inspect the
+  full executable path. Linux test-directory names did not expose this trigger.
+  Evidence is in `bin/windows-e520374-gui-test.txt` and the selection callsites.
+- **Verification needed:** Identify the actual wait, fix its cause where needed,
+  and rerun the complete Windows SDL suite. Compilation and unit success alone
+  do not establish working CLI media analysis for this build.
+
+### B037: Rebuilding commercials skips the first following program block
+
+- **Evidence:** `BuildCommercial`'s nested ad-run loop stops on the first
+  following program block, then the outer loop increments again without clearing
+  that block's `iscommercial` flag. A rebuild can retain an earlier true flag.
+- **Fix/verification needed:** Visit every block while grouping commercial
+  runs. Seed prior classifications and verify every program flag is cleared,
+  with exact interval grouping and repeated builds.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale

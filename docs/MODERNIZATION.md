@@ -157,6 +157,10 @@ than redefine completion around whichever subset currently passes tests.
   values unchanged. Five review-navigation tests cover empty/full lists, both
   boundaries, and extreme cursor positions. Five playback warnings use catalogs;
   three actual error-path tests cover invalid decoded geometry/stride and an
-  FFmpeg-muxed audio-only input. Linux and Windows SDL snapshot verification
-  of this stage is running separately; fixed interval/live-candidate storage
-  remains open as B031–B033.
+  FFmpeg-muxed audio-only input. Its unmodified Linux snapshot passes all 237
+  tests in headless Release (25.95 seconds), SDL Release (25.75 seconds), and
+  address/undefined/leak sanitizer Debug (57.45 seconds), with no findings or
+  suppressions. Commands are in `bin/linux-verification-e520374.md`.
+  The Windows SDL build compiles, but CLI media tests expose a full-executable-
+  path GUI-selection bug (B036); full Windows SDL verification remains open.
+  Fixed interval/live-candidate storage remains open as B031–B033.
