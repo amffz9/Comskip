@@ -21,7 +21,8 @@ void attribute(Node node, const char* name, const std::string& value) {
     if (!node.append_attribute(name).set_value(value.c_str())) throw std::bad_alloc{};
 }
 void text(Node parent, const char* name, const std::string& value) {
-    if (!child(parent, name).text().set(value.c_str())) throw std::bad_alloc{};
+    const auto node = child(parent, name);
+    if (!value.empty() && !node.text().set(value.c_str())) throw std::bad_alloc{};
 }
 std::string utf8(const std::filesystem::path& path) {
     auto value = path.u8string();
