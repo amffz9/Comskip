@@ -200,6 +200,37 @@ and relevant verification; retain the evidence for future regressions.
 - **Fix/verification needed:** Remove the obsolete string or derive an owned
   valid label; exercise screen-only output with a stored frame.
 
+### B018: Reference and CSV text parsers have unchecked buffers
+
+- **Evidence:** `InputReffer` uses an unchecked first `fgets` before `strlen`,
+  copies unbounded tokens into `split[256]`, appends a newline to a possibly full
+  `line[2048]`, and does not bound reference entry count. `ProcessCSV` also copies
+  unbounded tokens into a 256-byte array.
+- **Fix/verification needed:** Checked string/view parsing and numeric conversion;
+  actual empty, oversized, invalid-number, missing-newline, and entry-limit cases,
+  with valid legacy format compatibility.
+
+### B019: Configured cutscene loading can exceed its eight slots
+
+- **Evidence:** `LoadCutScene` indexes the next slot without checking the eight
+  available records and ignores an incomplete brightness header read.
+- **Fix/verification needed:** Capacity and complete-record checks before state
+  changes, with eight/nine-file and partial-header regressions.
+
+### B020: Negative scan borders are not rejected by settings validation
+
+- **Evidence:** Settings validation leaves `border` unrestricted; scene scans
+  use that value in direct pixel indexing.
+- **Fix/verification needed:** Semantic scan-bound validation, with negative
+  configuration rejection and supported boundary cases.
+
+### B021: Review extension fallback can overflow a fixed path buffer
+
+- **Evidence:** Review fallback replaces a filename suffix inside its fixed
+  buffer; replacing a short suffix with `.dvr-ms` can exceed remaining capacity.
+- **Fix/verification needed:** Owned filesystem path extension replacement and
+  near-capacity/Unicode fallback regressions.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
