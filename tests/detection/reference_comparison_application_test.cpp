@@ -8,6 +8,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <rapidcsv.h>
 
 namespace {
 class ReferenceComparisonApplication : public ::testing::Test {
@@ -107,4 +108,18 @@ TEST_F(ReferenceComparisonApplication, InvalidCountsRejectBeforeAccessingStorage
     context->state.commercial_count = -2;
     EXPECT_THROW(InputReffer(*context, ".ref", 0), std::out_of_range);
 }
+}
+
+TEST_F(ReferenceComparisonApplication, QuotedMultilineFilenameRoundTripsThroughCsvLibrary) {
+    context->state.inbasename = "show, \"quoted\"\nnext line";
+    context->state.commercial_count = -1;
+    reference("100 200\n");
+    ASSERT_EQ(InputReffer(*context, ".ref", 0), 400000);
+    std::ifstream input("quality.csv");
+    rapidcsv::Document document(input, rapidcsv::LabelParams(-1, -1),
+        rapidcsv::SeparatorParams(',', false, rapidcsv::sPlatformHasCR, true));
+    ASSERT_EQ(document.GetRowCount(), 1u);
+    ASSERT_EQ(document.GetColumnCount(), 5u);
+    EXPECT_EQ(document.GetCell<std::string>(0, 0), context->state.inbasename);
+    EXPECT_DOUBLE_EQ(document.GetCell<double>(2, 0), 4.0);
 }

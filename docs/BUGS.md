@@ -531,8 +531,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   training writers in `src/output/cutlists.cpp` wrap filenames in quotes
   without doubling embedded quotes.
 - **Impact:** Legal filenames containing quotes can corrupt CSV fields.
-- **Status:** Source-confirmed escaping omission; filename-specific runtime
-  reproduction pending.
+- **Progress:** Diagnostic histogram/quality writers now use standard-library
+  doubled-quote escaping. An actual quality-output regression roundtrips a
+  comma, quotes, and multiline filename through rapidcsv; all seven reference
+  application tests pass on Windows. Legacy training writers remain open.
 - **Verification needed:** Parse generated output for filenames containing
   quotes, commas, and newlines; retain ordinary output compatibility.
 

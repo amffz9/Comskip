@@ -5,6 +5,7 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "output/diagnostics.h"
+#include "output/csv_field.h"
 #include "weighted_scores.h"
 #include "search_path.h"
 #include "checked_format.h"
@@ -227,7 +228,7 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
     comskip::platform::FilePtr raw;
     if (context.settings.output_training) raw.reset(myfopen("black.csv", "a+"));
 
-    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename.c_str());
+    if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
     for (i = 0; i < 256; i++)
     {
         totalframes += context.state.brightHistogram[i];
@@ -263,7 +264,7 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
     comskip::platform::FilePtr raw;
 
     if (context.settings.output_training) raw.reset(myfopen("uniform.csv", "a+"));
-    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename.c_str());
+    if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
 
     for (i = 0; i < 256; i++)
     {
@@ -443,20 +444,20 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             total += duration;
             if (context.settings.output_training > 1) {
                 raw2.reset(myfopen("quality.csv", "a+"));
-                if (raw2) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), start, 0.0, 0.0, duration);
+                if (raw2) fprintf(raw2.get(), "%s, %6ld, %6.1f, %6.1f, %6.1f\n", comskip::output::csv_field(context.state.inbasename).c_str(), start, 0.0, 0.0, duration);
             }
         } else {
             const bool missed = event.kind == comskip::detection::ReferenceEventKind::false_negative;
             if (missed) fneg += duration; else fpos += duration;
             if (context.settings.output_training > 1) {
                 raw2.reset(myfopen("quality.csv", "a+"));
-                if (raw2) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), start, missed ? duration : 0.0, missed ? 0.0 : duration, 0.0);
+                if (raw2) fprintf(raw2.get(), "%s, %6ld, %6.1f, %6.1f, %6.1f\n", comskip::output::csv_field(context.state.inbasename).c_str(), start, missed ? duration : 0.0, missed ? 0.0 : duration, 0.0);
             }
         }
         raw2.reset();
     }
     if (context.settings.output_training) raw2.reset(myfopen("quality.csv", "a+"));
-    if (raw2) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), -1, fneg, fpos, total);
+    if (raw2) fprintf(raw2.get(), "%s, %6d, %6.1f, %6.1f, %6.1f\n", comskip::output::csv_field(context.state.inbasename).c_str(), -1, fneg, fpos, total);
     raw2.reset();
 //#else
     j = 0;
