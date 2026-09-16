@@ -577,6 +577,25 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Verification needed:** An unwritable destination reports its path and a
   localized actionable reason while retaining the intended exit status.
 
+### B053: Logo closure can clear beyond owned frame observations
+
+- **Evidence:** Logo closure clears observations through `framenum_real` without
+  checking it against owned frame storage when `framearray` is enabled.
+- **Progress:** A storage check and actual unchanged-state regression are prepared;
+  they are not yet verified or committed.
+- **Verification needed:** Reject missing observations before closure mutations;
+  preserve ordinary closure and flag clearing.
+
+### B054: Logo observation counters can overflow while accumulating
+
+- **Evidence:** `src/detection/logo.cpp` adds sampling intervals to
+  `frames_with_logo`, including a sampling-interval/trend-count product, using
+  unchecked signed integer arithmetic.
+- **Status:** Source-confirmed unsafe arithmetic; fix and runtime coverage pending.
+- **Verification needed:** Checked wide intermediate arithmetic before changing
+  the active block or publishing its counter; ordinary trend startup and steady
+  accumulation, extreme sampling/trend settings and existing counters.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale

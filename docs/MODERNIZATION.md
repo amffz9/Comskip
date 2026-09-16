@@ -198,7 +198,10 @@ than redefine completion around whichever subset currently passes tests.
   Unsafe logo scan macros are removed. Canonical analysis, decoder, and audio
   headers replace ad hoc declarations in implementations and tests. SDL uses
   the dummy driver; exact proof is in `bin/windows-verification-07aa466.md`.
-  Linux sanitizer verification of this stage is running separately.
+  Its unmodified Linux snapshot passes all 275 headless Release tests
+  (30.87 seconds), SDL Release tests (29.74 seconds), and address/undefined/leak
+  sanitizer Debug tests (64.41 seconds), without findings or suppressions.
+  Exact commands and logs are in `bin/linux-verification-07aa466.md`.
 - At `baadc09`, all 284 Windows headless tests pass. Audio analysis and packet
   processing live in `src/media/audio_analysis.cpp`; explicit timing functions
   replace macros that captured local variables. Five timing tests cover exact
@@ -208,3 +211,7 @@ than redefine completion around whichever subset currently passes tests.
   Linux address/undefined/leak sanitizer job. The seven-job YAML and build
   script syntax were checked locally. This configuration is not evidence of
   a successful remote run or macOS application behavior.
+
+- At `706801f`, all 285 Windows headless tests pass. Timing restart produces
+  one header pair, verified by actual decoder reset/reopen with valid rows and
+  owned file cleanup. This closes B045; later Linux/SDL verification is separate.
