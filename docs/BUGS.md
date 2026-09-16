@@ -1041,8 +1041,13 @@ before calling FFmpeg seek APIs.
   packet that produced no frame.
 - **Impact:** A serious seek-position mismatch may be silently treated as normal
   decode progress.
-- **Status:** Open. Model positioning and self-test completion as explicit
-  decoder outcomes before removing the unreachable branch.
+- **Status:** Fixed. Packet decoding returns distinct frame, analysis-complete,
+  self-test-complete and positioning-failure outcomes. Callers convert terminal
+  outcomes at their control boundary, and the unreachable branch is removed.
+- **Verification:** Deterministic outcome tests cover every state and terminal
+  priority; existing seek/reopen self-tests exercise the application handling.
+  All 445 Windows headless and 453 SDL tests pass. Linux verification remains
+  pending.
 
 ### B088: Core cut-list and live output ignored write and close failures
 
@@ -1104,3 +1109,17 @@ before calling FFmpeg seek APIs.
   and 451 SDL tests. The real executable rejects `--pid=12junk` with the
   localized option/value diagnostic and status 1. Linux verification remains
   pending.
+
+### B093: Tuning and training output dereference failed opens
+
+- **Evidence:** The `.tun`, `strict.csv` and `comskip.csv` paths call `myfopen`
+  and then write without consistently checking the returned owner. Their writes
+  and eventual deleter-driven closes are also unchecked.
+- **Impact:** An unwritable or disconnected working destination can cause a
+  null-stream crash or silently truncate diagnostic training output.
+- **Status:** Fixed. These secondary outputs now use owned open/write/close
+  diagnostics and explicitly close completed tuning/training files.
+- **Verification:** A blocked `strict.csv` destination produces `output_open`
+  with the owned path instead of dereferencing null. Existing exact CSV content
+  and checked write/close regressions pass in all 445 Windows headless and 453
+  SDL tests. Linux verification remains pending.

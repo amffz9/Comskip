@@ -288,7 +288,9 @@ than redefine completion around whichever subset currently passes tests.
   committed catalogs; wide argument storage validates arrays and sentinel sizing.
   Caption time conversion has a shared checked helper and boundary regression.
   Logs: `bin/windows-logo-player-build23{,-gui}-{build,test}.txt`.
-  Other human-facing diagnostics, remaining output/decoder decomposition, the
+  Packet decoding now reports positioning failure and self-test completion as
+  explicit outcomes instead of hiding both behind a zero return and unreachable
+  statements. Other human-facing diagnostics, remaining output/decoder decomposition, the
   chapter filename collision B064, Linux verification of this stage and
   interactive SDL proof remain required work.
 
@@ -470,3 +472,12 @@ than redefine completion around whichever subset currently passes tests.
   SDL tests, and the public non-donator application builds. Logs are
   `bin/windows-pid-parser-build23{,-gui}-test.txt`. Linux verification remains
   separate.
+
+- Decoder packet processing now returns explicit frame, analysis-complete,
+  self-test-complete and positioning-failure outcomes; callers own process-exit
+  policy and the formerly unreachable positioning branch is gone. Tuning and
+  training output uses the checked owned-file boundary rather than dereferencing
+  failed opens or silently ignoring writes and closes. Windows passes **445/445**
+  headless and **453/453** SDL tests, and the public non-donator application
+  builds. Logs are `bin/windows-decoder-training-build23{,-gui}-test.txt`.
+  Linux verification remains pending.

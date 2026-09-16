@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdio>
+#include "video_packet_outcome.h"
 
 struct RecordingContext;
 struct VideoState;
@@ -12,7 +13,7 @@ int stream_component_open(RecordingContext& context, VideoState* video, int stre
 void file_open(RecordingContext& context);
 void file_close(RecordingContext& context);
 void DoSeekRequest(RecordingContext& context, VideoState* video);
-int video_packet_process(RecordingContext& context, VideoState* video, AVPacket* packet);
+comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& context, VideoState* video, AVPacket* packet);
 double print_decode_progress(RecordingContext& context, int final);
 int SubmitFrame(RecordingContext& context, AVStream* stream, AVFrame* frame, double pts);
 void Set_seek(RecordingContext& context, VideoState* video, double pts);

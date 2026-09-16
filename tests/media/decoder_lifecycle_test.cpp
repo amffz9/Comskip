@@ -2,6 +2,7 @@
 #include "media/decoder.h"
 #include "media/video_state.h"
 #include "media/video_decode_status.h"
+#include "media/video_packet_outcome.h"
 #include "localization/diagnostic.h"
 #include <gtest/gtest.h>
 #include <chrono>
@@ -48,6 +49,14 @@ TEST(VideoDecodeStatus, ReceiveDistinguishesFrameRetryEofAndRealFailure) {
     catch (const std::runtime_error& error) {
         expect_status_diagnostic(error,comskip::diagnostics::Code::receive_video_frame_detail);
     }
+}
+TEST(VideoPacketOutcome, TerminalStatesAreExplicitAndHaveStablePriority) {
+    using enum comskip::media::VideoPacketOutcome;
+    EXPECT_EQ(comskip::media::video_packet_outcome(false,false,false,false),no_frame);
+    EXPECT_EQ(comskip::media::video_packet_outcome(true,false,false,false),frame_decoded);
+    EXPECT_EQ(comskip::media::video_packet_outcome(true,true,false,false),analysis_complete);
+    EXPECT_EQ(comskip::media::video_packet_outcome(true,true,true,false),selftest_complete);
+    EXPECT_EQ(comskip::media::video_packet_outcome(true,true,true,true),positioning_failure);
 }
 TEST(DecoderLifecycle, MissingUnicodeInputOwnsCauseAndSameContextCanRetryValidMedia) {
     const auto directory=std::filesystem::temp_directory_path();

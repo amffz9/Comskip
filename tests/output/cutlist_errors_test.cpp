@@ -95,6 +95,26 @@ TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) 
                                       std::string(context->state.outbasename) + ".cut");
     EXPECT_FALSE(std::filesystem::exists(context->state.outbasename + ".cut"));
 }
+TEST_F(CutlistErrors, TrainingOpenFailureReportsOwnedDestination) {
+    const auto workspace=directory / "training";
+    ASSERT_TRUE(std::filesystem::create_directory(workspace));
+    ASSERT_TRUE(std::filesystem::create_directory(workspace / "strict.csv"));
+    struct CurrentPathGuard {
+        std::filesystem::path original=std::filesystem::current_path();
+        ~CurrentPathGuard() { std::filesystem::current_path(original); }
+    } guard;
+    std::filesystem::current_path(workspace);
+    context->settings.output_training=true;
+    try {
+        OutputStrict(*context,1,2,3);
+        FAIL() << "Expected training output-open diagnostic";
+    } catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::output_open);
+        ASSERT_EQ(error.diagnostic().arguments.size(),1u);
+        EXPECT_EQ(error.diagnostic().arguments.front(),"strict.csv");
+    }
+    EXPECT_FALSE(context->state.training_file);
+}
 TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExactly) {
     context->settings = comskip::config::load_settings(comskip::config::Ini(
         "fps=25\noutput_default=0\noutput_avisynth=1\noutput_dvrcut=1\n"

@@ -215,7 +215,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     return (res);
 }
 
-int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet)
+comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet)
 {
     double frame_delay;
     int len1, frameFinished = 0;
@@ -472,7 +472,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 #endif
                 if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
                 {
-                    goto quit;
+                    return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
             }
         }
@@ -494,12 +494,12 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                     }
                     else
                         Debug(context,  1,"\nSelftest 3 OK: Reopen\n");
-                    comskip::request_exit(1);
+                    return comskip::media::VideoPacketOutcome::selftest_complete;
                 }
                 context.state.retries = 0;
                 if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
                 {
-                    goto quit;
+                    return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
             } else {
                 if (fabs(is->seek_pts - is->video_clock) > 80 ) {
@@ -515,11 +515,10 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
                         Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
-                        comskip::request_exit(1);
                     }
-                    goto quit;          //Temporary till the seek error is fixed.
-                    context.state.retries = 0;
-                    comskip::request_exit(-1);
+                    return context.state.selftest == 1 || context.state.selftest == 3
+                        ? comskip::media::VideoPacketOutcome::selftest_complete
+                        : comskip::media::VideoPacketOutcome::positioning_failure;
                 }
             }
 //            if (selftest == 4) comskip::request_exit(1);
@@ -550,9 +549,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
     }
     (void)comskip::media::classify_video_receive_status(len1);
 
-    return frameFinished;
-quit:
-    return 0;
+    return comskip::media::video_packet_outcome(frameFinished != 0,false,false,false);
 }
 
 //extern int dxva2_init(AVCodecContext *s);

@@ -209,7 +209,10 @@ nextpacket:
  */
  //           pass = 0;
             context.state.retries = 1; // once a frame has been decoded this will be set to zero
-            if (video_packet_process(context, is, packet) )
+            const auto outcome=video_packet_process(context,is,packet);
+            if (outcome == comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
+            if (outcome == comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
+            if (outcome == comskip::media::VideoPacketOutcome::frame_decoded)
             {
 
                 if (context.state.retries == 0) // A frame has been decoded so stop reading packets.

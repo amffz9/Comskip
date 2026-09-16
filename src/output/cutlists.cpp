@@ -15,6 +15,14 @@
 #include "legacy_detection.h"
 
 namespace {
+comskip::platform::FilePtr open_checked_file(std::string_view path, const char* mode) {
+    auto file=comskip::platform::own_file(myfopen(std::string(path).c_str(),mode));
+    if (!file)
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_open,{std::string(path)});
+    return file;
+}
+
 void append_edl_record(RecordingContext& context, FILE* destination, long start, long end,
                        comskip::output::EdlVariant variant, std::string_view path)
 {
@@ -661,13 +669,14 @@ bool OutputBlocks(RecordingContext& context)
     if (context.settings.output_tuning)
     {
         context.state.filename = std::string(context.state.workbasename) + ".tun";
-        context.state.tuning_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        fprintf(context.state.tuning_file.get(),"max_volume=%6i\n", context.state.min_volume+200);
-        fprintf(context.state.tuning_file.get(),"max_avg_brightness=%6i\n", context.state.min_brightness_found+5);
-        fprintf(context.state.tuning_file.get(),"max_commercialbreak=%6i\n", context.state.max_logo_gap+10);
-        fprintf(context.state.tuning_file.get(),"shrink_logo=%.2f\n", context.state.logo_overshoot);
-        fprintf(context.state.tuning_file.get(),"min_show_segment_length=%6i\n", context.state.max_nonlogo_block_length+10);
-        fprintf(context.state.tuning_file.get(),"logo_threshold=%.3f\n", context.state.logo_quality);
+        context.state.tuning_file=open_checked_file(context.state.filename,"w");
+        comskip::output::checked_fprintf(*context.state.tuning_file,context.state.filename,"max_volume=%6i\n", context.state.min_volume+200);
+        comskip::output::checked_fprintf(*context.state.tuning_file,context.state.filename,"max_avg_brightness=%6i\n", context.state.min_brightness_found+5);
+        comskip::output::checked_fprintf(*context.state.tuning_file,context.state.filename,"max_commercialbreak=%6i\n", context.state.max_logo_gap+10);
+        comskip::output::checked_fprintf(*context.state.tuning_file,context.state.filename,"shrink_logo=%.2f\n", context.state.logo_overshoot);
+        comskip::output::checked_fprintf(*context.state.tuning_file,context.state.filename,"min_show_segment_length=%6i\n", context.state.max_nonlogo_block_length+10);
+        comskip::output::checked_fprintf(*context.state.tuning_file,context.state.filename,"logo_threshold=%.3f\n", context.state.logo_quality);
+        comskip::output::checked_close(context.state.tuning_file,context.state.filename);
     }
 
 
@@ -794,11 +803,11 @@ void OutputStrict(RecordingContext& context, double len, double delta, double to
 //return;
     if (context.settings.output_training && !context.state.training_file.get())
     {
-        context.state.training_file.reset(myfopen("strict.csv", "a+"));
+        context.state.training_file=open_checked_file("strict.csv","a+");
 //		fprintf(training_file, "// score, length, fraction, position,combined, ar error, logo, strict \n");
     }
     if (context.state.training_file.get())
-        fprintf(context.state.training_file.get(), "%+f,%+f,%+f,%s\n", len,delta, tol, comskip::output::csv_field(context.state.inbasename).c_str());
+        comskip::output::checked_fprintf(*context.state.training_file,"strict.csv","%+f,%+f,%+f,%s\n", len,delta, tol, comskip::output::csv_field(context.state.inbasename).c_str());
 }
 
 
@@ -810,7 +819,9 @@ void OutputTraining(RecordingContext& context)
 //	return;
     if (!context.settings.output_training)
         return;
-    context.state.training_file.reset(myfopen("comskip.csv", "a+"));
+    if (context.state.training_file)
+        comskip::output::checked_close(context.state.training_file,"strict.csv");
+    context.state.training_file=open_checked_file("comskip.csv","a+");
 
 #ifdef WRITEPATTERN
     r = (reffer[0].start_frame/fps < 30.0 ? reffer_count: reffer_count+1);
@@ -888,13 +899,13 @@ void OutputTraining(RecordingContext& context)
 
 #define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7.2f,%7.2f,%7.2f,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",%s\n"
 
-    fprintf(context.state.training_file.get(), "block, cm,rf, score, length, start, end, fromend ar, logo, cause, less, more\n");
+    comskip::output::checked_fprintf(*context.state.training_file,"comskip.csv", "block, cm,rf, score, length, start, end, fromend ar, logo, cause, less, more\n");
 
     for (i = 0; i < context.state.block_count; i++)
     {
         if (context.settings.output_training)
         {
-            fprintf(context.state.training_file.get(), TRAINING_LAYOUT,
+            comskip::output::checked_fprintf(*context.state.training_file,"comskip.csv",TRAINING_LAYOUT,
                     i,
                     CheckFramesForCommercial(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail),
                     CheckFramesForReffer(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail),
@@ -913,5 +924,5 @@ void OutputTraining(RecordingContext& context)
         }
     }
 #endif
-
+    comskip::output::checked_close(context.state.training_file,"comskip.csv");
 }
