@@ -31,7 +31,6 @@ struct RecordingState {
     comskip::platform::FilePtr out_file;
     comskip::platform::FilePtr incommercial_file;
     comskip::platform::FilePtr ini_file;
-    comskip::platform::FilePtr plist_cutlist_file;
     comskip::platform::FilePtr zoomplayer_cutlist_file;
     comskip::platform::FilePtr zoomplayer_chapter_file;
     comskip::platform::FilePtr scf_file;

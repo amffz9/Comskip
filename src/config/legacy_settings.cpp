@@ -841,7 +841,6 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
 
     context.state.out_file.reset();
-    context.state.plist_cutlist_file.reset();
     context.state.zoomplayer_cutlist_file.reset();
     context.state.zoomplayer_chapter_file.reset();
     context.state.vcf_file.reset();

@@ -34,6 +34,7 @@ protected:
         settings.output_videoredo3 = true; settings.output_videoredo = true;
         settings.output_edlx = true; settings.output_btv = true;
         settings.output_cuttermaran = true; settings.output_dvrmstb = true; settings.output_mkvtoolnix = 2;
+        settings.output_plist_cutlist = true;
         state.frame_count = 12; state.framenum_real = 12; state.frame.resize(12);
         for (int i = 0; i < 12; ++i) { state.frame[i].pts = i / 25.0; state.frame[i].goppos = i * 100; }
         state.commercial_count = 0; state.commercial[0].start_frame = 4; state.commercial[0].end_frame = 9;
@@ -85,6 +86,50 @@ TEST_F(XmlExport, ReviewExportUsesReferenceMarksAndReplacesCompleteDocuments) {
     EXPECT_EQ(load(".VPrj").select_nodes("/VideoReDoProject/CutList/Cut").size(), 0u);
     EXPECT_EQ(load(".chapters.xml").select_nodes("/cutlist/Region").size(), 0u);
     EXPECT_EQ(load(".mkvtoolnix.chapters").select_nodes("/Chapters/EditionEntry[1]/ChapterAtom").size(), 1u);
+}
+TEST_F(XmlExport, PlistPreservesPresentationTimesAndTailSentinelForNormalAndReview) {
+    WriteXmlOutputFiles(*context);
+    auto normal = load(".plist");
+    auto integers = normal.select_nodes("/array/integer");
+    ASSERT_EQ(integers.size(), 4u);
+    EXPECT_EQ(integers[0].node().text().as_llong(), 14400);
+    EXPECT_EQ(integers[1].node().text().as_llong(), 32400);
+    EXPECT_EQ(integers[2].node().text().as_llong(), 36000);
+    EXPECT_EQ(integers[3].node().text().as_llong(), 39600);
+    WriteXmlOutputFiles(*context, true);
+    auto review = load(".plist");
+    integers = review.select_nodes("/array/integer");
+    ASSERT_EQ(integers.size(), 2u);
+    EXPECT_EQ(integers[0].node().text().as_llong(), 21600);
+    EXPECT_EQ(integers[1].node().text().as_llong(), 36000);
+    context->state.reffer_count = -1;
+    WriteXmlOutputFiles(*context, true);
+    auto empty_marks = load(".plist");
+    integers = empty_marks.select_nodes("/array/integer");
+    ASSERT_EQ(integers.size(), 2u);
+    EXPECT_EQ(integers[0].node().text().as_llong(), 36000);
+    EXPECT_EQ(integers[1].node().text().as_llong(), 39600);
+}
+TEST_F(XmlExport, PlistOnlyExportHandlesShortMarksAndClampsTerminalBoundary) {
+    auto& settings = context->settings;
+    settings.output_videoredo3 = settings.output_edlx = settings.output_btv = false;
+    settings.output_cuttermaran = settings.output_dvrmstb = false;
+    settings.output_mkvtoolnix = 0;
+    context->state.commercial[0].start_frame = 0;
+    context->state.commercial[0].end_frame = 1;
+    WriteXmlOutputFiles(*context);
+    auto document = load(".plist");
+    auto integers = document.select_nodes("/array/integer");
+    ASSERT_EQ(integers.size(), 4u);
+    // get_frame_pts historically clamps frame zero to the first stored PTS.
+    EXPECT_EQ(integers[0].node().text().as_llong(), 3600);
+    EXPECT_EQ(integers[1].node().text().as_llong(), 3600);
+    context->state.commercial[0].end_frame = context->state.frame_count;
+    WriteXmlOutputFiles(*context);
+    auto terminal = load(".plist");
+    integers = terminal.select_nodes("/array/integer");
+    ASSERT_EQ(integers.size(), 2u);
+    EXPECT_EQ(integers[1].node().text().as_llong(), 39600);
 }
 TEST_F(XmlExport, FullRecordingCommercialHasNoOrderedShowChapters) {
     context->state.reffer[0].start_frame = 0; context->state.reffer[0].end_frame = 11;

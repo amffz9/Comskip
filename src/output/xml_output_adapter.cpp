@@ -1,5 +1,6 @@
 #include "output/xml_output_adapter.h"
 #include "output/xml_cutlists.h"
+#include "output/plist_cutlist.h"
 #include "recording_context.h"
 #include "exit_requested.h"
 
@@ -18,7 +19,8 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     using namespace comskip::output;
     if (!context.settings.output_videoredo3 && !context.settings.output_edlx &&
         !context.settings.output_btv && !context.settings.output_cuttermaran &&
-        !context.settings.output_dvrmstb && !context.settings.output_mkvtoolnix) return;
+        !context.settings.output_dvrmstb && !context.settings.output_mkvtoolnix &&
+        !context.settings.output_plist_cutlist) return;
 
     const auto& state = context.state;
     const double fps = context.settings.fps;
@@ -70,7 +72,7 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
             throw std::out_of_range("Detector XML range exceeds media");
         previous_end = block.f_end;
     }
-    std::vector<TimeInterval> cuts, btv, dvr;
+    std::vector<TimeInterval> cuts, btv, dvr, plist;
     std::vector<ByteInterval> bytes;
     std::vector<FrameInterval> retained;
     std::vector<SceneMarker> scenes;
@@ -103,6 +105,7 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
         append_retained(start);
         if (previous < start) {
             btv.push_back({time(start), time(end)});
+            plist.push_back({time(start), time(end)});
             if (end - start > 2) {
                 cuts.push_back({time(std::max<FrameIndex>(static_cast<FrameIndex>(start) - context.settings.videoredo_offset - 1, 0)),
                                 time(std::max<FrameIndex>(static_cast<FrameIndex>(end) - context.settings.videoredo_offset - 1, 0))});
@@ -118,6 +121,10 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     // The legacy final sentinel describes the retained tail, not a commercial.
     // Preserve its frame endpoint without serializing it as a false BTV cut.
     if (previous < context.state.frame_count - 2) append_retained(context.state.frame_count - 2);
+    // Unlike the other XML formats, the historical plist includes the final
+    // sentinel pair, even when there are no commercial marks.
+    if (previous < context.state.frame_count - 2)
+        plist.push_back({time(context.state.frame_count - 2), time(context.state.frame_count - 1)});
     for (int i = 0; i < context.state.block_count; ++i) {
         const auto index = std::max<FrameIndex>(static_cast<FrameIndex>(context.state.cblock[i].f_end) - context.settings.videoredo_offset - 1, 0);
         scenes.push_back({detector_time(index), static_cast<std::size_t>(i)});
@@ -162,6 +169,7 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     if (context.settings.output_cuttermaran) write(".cpf", [&](auto& o) {
         write_cuttermaran(o, media, retained, {context.settings.cuttermaran_options}); });
     if (context.settings.output_dvrmstb) write(".xml", [&](auto& o) { write_dvrmstb(o, dvr); });
+    if (context.settings.output_plist_cutlist) write(".plist", [&](auto& o) { write_plist_cutlist(o, plist); });
     if (context.settings.output_mkvtoolnix > 0) write(".mkvtoolnix.chapters", [&](auto& o) { write_mkv_chapters(o, chapters, mkv); });
     if (context.settings.output_mkvtoolnix == 2) write(".mkvtoolnix.tags", [&](auto& o) { write_mkv_tags(o, mkv); });
     // Validate/serialize every requested format before replacing any output.

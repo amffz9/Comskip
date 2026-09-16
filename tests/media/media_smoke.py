@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
                         "output_edl=1\nlive_tv_retries=0\nadded_recording=0\nverbose=0\n"
                         "output_videoredo=1\noutput_videoredo3=1\nvideoredo_offset=0\n"
                         "output_edlx=1\noutput_btv=1\noutput_cuttermaran=1\n"
-                        "output_dvrmstb=1\noutput_mkvtoolnix=2\n")
+                        "output_dvrmstb=1\noutput_mkvtoolnix=2\noutput_plist_cutlist=1\n")
     results = []
     for threads in (1, 4):
         destination = root / str(threads)
@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         # recording matches a commercial block under the default length policy.
         assert files["edl"] == b"0.00\t9.92\t0\n", "Unexpected commercial intervals"
         for extension in ("VPrj", "edlx", "chapters.xml", "cpf", "xml",
-                          "mkvtoolnix.chapters", "mkvtoolnix.tags"):
+                          "mkvtoolnix.chapters", "mkvtoolnix.tags", "plist"):
             files[extension] = (destination / f"sample.{extension}").read_bytes()
             ET.fromstring(files[extension])
         project = ET.fromstring(files["VPrj"])

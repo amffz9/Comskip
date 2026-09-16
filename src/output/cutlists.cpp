@@ -95,22 +95,6 @@ void OpenOutputFiles(RecordingContext& context)
 //			fclose(zoomplayer_cutlist_file);
         }
     }
-    if (context.settings.output_plist_cutlist)
-    {
-        comskip::checked_format(context.state.filename, "%s.plist", context.state.outbasename);
-        context.state.plist_cutlist_file.reset(myfopen(context.state.filename, "w"));
-        if (!context.state.plist_cutlist_file.get())
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_plist_cutlist = true;
-            fprintf(context.state.plist_cutlist_file.get(), "<array>\n");
-//			fclose(plist_cutlist_file);
-        }
-    }
 
     if (context.settings.output_incommercial)
     {
@@ -532,20 +516,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         fprintf(context.state.zoomplayer_cutlist_file.get(), "JumpSegment(\"From=%.4f\",\"To=%.4f\")\n", get_frame_pts(context, start), get_frame_pts(context, end));
     }
     CLOSEOUTFILE(context.state.zoomplayer_cutlist_file);
-    if (context.state.plist_cutlist_file.get())
-    {
-        if (prev < start /* &&!last */)
-        {
-            // NOTE: we could possibly simplify this to just printing start and end without the math
-            fprintf(context.state.plist_cutlist_file.get(), "<integer>%ld</integer> <integer>%ld</integer>\n",
-                    (unsigned long)(get_frame_pts(context, start) * 90000), (unsigned long)(get_frame_pts(context, end)* 90000));
-        }
-        if (last)
-        {
-            fprintf(context.state.plist_cutlist_file.get(), "</array>\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.plist_cutlist_file);
 
     if (context.state.zoomplayer_chapter_file.get() && prev < start && end - start > context.settings.fps )
     {
