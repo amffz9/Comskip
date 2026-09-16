@@ -1044,6 +1044,7 @@ void BuildPunish(RecordingContext& context);
 void WeighBlocks(RecordingContext& context);
 
 void OpenOutputFiles(RecordingContext& context);
+void WriteXmlOutputFiles(RecordingContext& context, bool use_reference);
 void OutputCommercialBlock(RecordingContext& context, int i, long prev, long start, long end, bool last);
 char CompareLetter(RecordingContext& context, int value, int average, int i);
 void BuildCommercial(RecordingContext& context);

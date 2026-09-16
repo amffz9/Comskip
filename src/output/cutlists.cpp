@@ -1,8 +1,10 @@
 #include "exit_requested.h"
 #include "checked_format.h"
-#include "xml_filename.h"
+#include "xml_cutlists.h"
+#include "xml_output_adapter.h"
 #include "edl.h"
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <vector>
 #include "legacy_detection.h"
@@ -39,6 +41,111 @@ void append_edl_record(RecordingContext& context, FILE* destination, long start,
     if (fwrite(text.data(), 1, text.size(), destination) != text.size())
         throw std::ios_base::failure("Failed writing commercial EDL output");
 }
+}
+
+void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
+{
+    using namespace comskip::output;
+    if (!context.settings.output_videoredo3 && !context.settings.output_edlx &&
+        !context.settings.output_btv && !context.settings.output_cuttermaran &&
+        !context.settings.output_dvrmstb && !context.settings.output_mkvtoolnix) return;
+
+    const auto path = [](const std::string& bytes) {
+        return std::filesystem::path(std::u8string(bytes.begin(), bytes.end()));
+    };
+    const XmlMediaDescription media{std::filesystem::absolute(path(context.state.mpegfilename)),
+        path(context.state.inbasename), context.state.demux_pid
+            ? std::optional<StreamIds>{{context.state.selected_video_pid,
+                context.state.selected_audio_pid, context.state.selected_subtitle_pid}}
+            : std::nullopt};
+    const int count = use_reference ? context.state.reffer_count : context.state.commercial_count;
+    if (count < -1 || count >= 100000) throw std::out_of_range("Invalid XML commercial count");
+    std::vector<CommercialInterval> list;
+    list.reserve(static_cast<std::size_t>(count + 1));
+    for (int i = 0; i <= count; ++i) {
+        if (use_reference) list.push_back({context.state.reffer[i].start_frame, context.state.reffer[i].end_frame});
+        else list.push_back({context.state.commercial[i].start_frame, context.state.commercial[i].end_frame});
+    }
+    std::vector<TimeInterval> cuts, btv, dvr;
+    std::vector<ByteInterval> bytes;
+    std::vector<FrameInterval> retained;
+    std::vector<SceneMarker> scenes;
+    std::vector<ChapterSegment> chapters;
+    long previous = -1;
+    const auto time = [&](long frame) { return Seconds{get_frame_pts(context, static_cast<int>(frame))}; };
+    const auto append_retained = [&](long before) {
+        if (previous + 1 < before)
+            retained.push_back({F2F(previous + 1), F2F(before - 1)});
+    };
+    for (int i = 0; i <= count; ++i) {
+        const long start = list[i].start_frame, end = list[i].end_frame;
+        if (start < 0 || end < start) throw std::invalid_argument("Invalid commercial XML range");
+        append_retained(start);
+        if (previous < start) {
+            btv.push_back({time(start), time(end)});
+            if (end - start > 2) {
+                cuts.push_back({time(std::max(start - context.settings.videoredo_offset - 1, 0L)),
+                                time(std::max(end - context.settings.videoredo_offset - 1, 0L))});
+                if (!context.state.frame.empty() && context.settings.output_edlx) {
+                    if (static_cast<std::size_t>(end) >= context.state.frame.size())
+                        throw std::out_of_range("XML byte range exceeds frame buffer");
+                    bytes.push_back({context.state.frame[start].goppos, context.state.frame[end].goppos});
+                }
+            }
+        }
+        if (end - start > 1) dvr.push_back({time(start == 1 ? 0 : start), time(end)});
+        previous = end;
+    }
+    // The legacy final sentinel describes the retained tail, not a commercial.
+    // Preserve its frame endpoint without serializing it as a false BTV cut.
+    if (previous < context.state.frame_count - 2) append_retained(context.state.frame_count - 2);
+    for (int i = 0; i < context.state.block_count; ++i) {
+        const auto index = std::max(context.state.cblock[i].f_end - context.settings.videoredo_offset - 1, 0L);
+        scenes.push_back({Seconds{F2T(index)}, static_cast<std::size_t>(i)});
+    }
+    if (!use_reference && context.state.block_count > 0) {
+        int first = 0;
+        for (int i = 0; i < context.state.block_count; ++i) {
+            if (i + 1 == context.state.block_count ||
+                context.state.cblock[i + 1].iscommercial != context.state.cblock[first].iscommercial) {
+                chapters.push_back({{time(context.state.cblock[first].f_start), time(context.state.cblock[i].f_end)},
+                                    context.state.cblock[first].iscommercial != 0});
+                first = i + 1;
+            }
+        }
+    } else {
+        long first = 0;
+        for (int i = 0; i <= count; ++i) {
+            const long start = list[i].start_frame, end = list[i].end_frame;
+            if (first < start) chapters.push_back({{time(first), time(start)}, false});
+            chapters.push_back({{time(start), time(end)}, true});
+            first = end;
+        }
+        if (first < context.state.frame_count - 1)
+            chapters.push_back({{time(first), time(context.state.frame_count - 1)}, false});
+    }
+    MkvOptions mkv; mkv.ordered_without_commercials = context.settings.output_mkvtoolnix == 2;
+    const auto write = [&](const char* extension, auto serializer) {
+        std::ostringstream output; serializer(output);
+        auto filename = path(context.state.outbasename); filename += extension;
+        std::ofstream file(filename, std::ios::binary | std::ios::trunc);
+        if (!file) {
+            Debug(context, 0, "ERROR writing to %s%s\n", context.state.outbasename, extension);
+            comskip::request_exit(6);
+        }
+        file.exceptions(std::ios::failbit | std::ios::badbit);
+        const auto text = output.str();
+        file.write(text.data(), static_cast<std::streamsize>(text.size()));
+        file.close();
+    };
+    if (context.settings.output_videoredo3) write(".VPrj", [&](auto& o) { write_videoredo3(o, media, cuts, scenes); });
+    if (context.settings.output_edlx) write(".edlx", [&](auto& o) { write_edlx(o, bytes); });
+    if (context.settings.output_btv) write(".chapters.xml", [&](auto& o) { write_btv(o, btv); });
+    if (context.settings.output_cuttermaran) write(".cpf", [&](auto& o) {
+        write_cuttermaran(o, media, retained, {context.settings.cuttermaran_options}); });
+    if (context.settings.output_dvrmstb) write(".xml", [&](auto& o) { write_dvrmstb(o, dvr); });
+    if (context.settings.output_mkvtoolnix > 0) write(".mkvtoolnix.chapters", [&](auto& o) { write_mkv_chapters(o, chapters, mkv); });
+    if (context.settings.output_mkvtoolnix == 2) write(".mkvtoolnix.tags", [&](auto& o) { write_mkv_tags(o, mkv); });
 }
 
 void OpenOutputFiles(RecordingContext& context)
@@ -266,21 +373,6 @@ void OpenOutputFiles(RecordingContext& context)
         }
     }
 
-    if (context.settings.output_edlx)
-    {
-        comskip::checked_format(context.state.filename, "%s.edlx", context.state.outbasename);
-        context.state.edlx_file.reset(myfopen(context.state.filename, "w"));
-        if (!context.state.edlx_file.get())
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_edlx = true;
-            fprintf(context.state.edlx_file.get(), "<regionlist units=\"bytes\" mode=\"exclude\"> \n");
-        }
-    }
 
 
     if (context.settings.output_videoredo && !context.settings.output_videoredo3)
@@ -321,92 +413,8 @@ void OpenOutputFiles(RecordingContext& context)
             comskip::request_exit(6);
         }
     }
-    if (context.settings.output_videoredo3)
-    {
-        /*
-            <VideoReDoProject Version="3">
-           <Filename>D:\My TiVo Recordings\MultipleAudioSample-CDN-96603-234.wtv</Filename>
-           <CutList>
-              <cut Sequence="1" CutStart="00:00:00;00" CutEnd="00:00:03;09" Elapsed="00:00:00;00">
-                 <CutTimeStart>0</CutTimeStart>
-                 <CutTimeEnd>33600111</CutTimeEnd>
-                 <CutByteStart>0</CutByteStart>
-                 <CutByteEnd>2931356</CutByteEnd>
-              </cut>
-              <cut Sequence="2" CutStart="00:00:05;10" CutEnd="00:00:20;16" Elapsed="00:00:02;01">
-                 <CutTimeStart>54000113</CutTimeStart>
-                 <CutTimeEnd>206400112</CutTimeEnd>
-                 <CutByteStart>4652532</CutByteStart>
-                 <CutByteEnd>17301504</CutByteEnd>
-              </cut>
-           </CutList>
-        </VideoReDoProject>VideoReDo
 
-        */
 
-        comskip::checked_format(context.state.filename, "%s.VPrj", context.state.outbasename);
-        context.state.videoredo3_file.reset(myfopen(context.state.filename, "w"));
-        if (context.state.videoredo3_file.get())
-        {
-            if (context.state.mpegfilename[1] == ':' || context.state.mpegfilename[0] == PATH_SEPARATOR)
-            {
-                fprintf(context.state.videoredo3_file.get(), "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", comskip::output::escape_xml_filename(context.state.mpegfilename).c_str());
-            }
-            else
-            {
-                const auto directory = std::filesystem::current_path().u8string();
-                const auto full_filename = std::string(reinterpret_cast<const char*>(directory.data()), directory.size()) + PATH_SEPARATOR + context.state.mpegfilename;
-                fprintf(context.state.videoredo3_file.get(), "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", comskip::output::escape_xml_filename(full_filename).c_str());
-            }
-//              if (is_h264) {
-            //                 fprintf(videoredo3_file, "<MPEG Stream Type>4\n");
-            //          }
-
-//			fclose(videoredo3_file);
-            context.settings.output_videoredo3 = true;
-        }
-        else
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_btv)
-    {
-        comskip::checked_format(context.state.filename, "%s.chapters.xml", context.state.mpegfilename);
-        context.state.btv_file.reset(myfopen(context.state.filename, "w"));
-        if (context.state.btv_file.get())
-        {
-            fprintf(context.state.btv_file.get(), "<cutlist>\n");
-//			fclose(btv_file);
-            context.settings.output_btv = true;
-        }
-        else
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_cuttermaran)
-    {
-        comskip::checked_format(context.state.filename, "%s.cpf", context.state.outbasename);
-        context.state.cuttermaran_file.reset(myfopen(context.state.filename, "w"));
-        if (context.state.cuttermaran_file.get())
-        {
-            fprintf(context.state.cuttermaran_file.get(), "<?xml version=\"1.0\" standalone=\"yes\"?>\n");
-            fprintf(context.state.cuttermaran_file.get(), "<StateData xmlns=\"http://cuttermaran.kickme.to/StateData.xsd\">\n");
-            fprintf(context.state.cuttermaran_file.get(), "<usedVideoFiles FileID=\"0\" FileName=\"%s.M2V\" />\n",context.state.inbasename);
-            fprintf(context.state.cuttermaran_file.get(), "<usedAudioFiles FileID=\"1\" FileName=\"%s.mp2\" StartDelay=\"0\" />\n",context.state.inbasename);
-//			fclose(cuttermaran_file);
-        }
-        else
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-    }
 
     if (context.settings.output_vcf)
     {
@@ -548,21 +556,6 @@ void OpenOutputFiles(RecordingContext& context)
         }
     }
 
-    if (context.settings.output_dvrmstb)
-    {
-        comskip::checked_format(context.state.filename, "%s.xml", context.state.outbasename);
-        context.state.dvrmstb_file.reset(myfopen(context.state.filename, "w"));
-        if (context.state.dvrmstb_file.get())
-        {
-//			fclose(dvrmstb_file);
-            fprintf(context.state.dvrmstb_file.get(), "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
-        }
-        else
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-    }
 
     if (context.settings.output_mpeg2schnitt)
     {
@@ -584,117 +577,6 @@ void OpenOutputFiles(RecordingContext& context)
             comskip::request_exit(6);
         }
     }
-        if (context.settings.output_mkvtoolnix>0)
-    {
-        /*
-        <?xml version="1.0" encoding="ISO-8859-1"?>
-        <Chapters>
-            <EditionEntry>
-                <ChapterAtom>
-                    <ChapterDisplay>
-                        <ChapterString>Comercial</ChapterString>
-                    </ChapterDisplay>
-                    <ChapterTimeStart>00:00:00</ChapterTimeStart>
-                    <ChapterTimeEnd>0:05:15.470000</ChapterTimeEnd>
-                </ChapterAtom>
-                <ChapterAtom>
-                    <ChapterDisplay>
-                        <ChapterString>Show</ChapterString>
-                    </ChapterDisplay>
-                    <ChapterTimeStart>0:05:15.470000</ChapterTimeStart>
-                    <ChapterTimeEnd>0:29:39.280000</ChapterTimeEnd>
-                </ChapterAtom>
-            </EditionEntry>
-        </Chapters>
-        */
-        comskip::checked_format(context.state.filename, "%s.mkvtoolnix.chapters", context.state.outbasename);
-        context.state.mkvtoolnix_chapters_file.reset(myfopen(context.state.filename, "wb"));
-        if (!context.state.mkvtoolnix_chapters_file.get())
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            fprintf(context.state.mkvtoolnix_chapters_file.get(), "<?xml version=\"1.0\" encoding=\"ISO - 8859 - 1\"?>\n<Chapters>\n");
-        }
-    }
-    if (context.settings.output_mkvtoolnix==2)
-    {
-        /*
-        <?xml version="1.0" encoding="ISO-8859-1"?>
-        <Chapters>
-            <EditionEntry>
-                <EditionUID>1</EditionUID>
-                <ChapterAtom>
-                    <ChapterDisplay>
-                        <ChapterString>Comercial</ChapterString>
-                    </ChapterDisplay>
-                    <ChapterTimeStart>00:00:00</ChapterTimeStart>
-                    <ChapterTimeEnd>0:05:15.470000</ChapterTimeEnd>
-                </ChapterAtom>
-                <ChapterAtom>
-                    <ChapterDisplay>
-                        <ChapterString>Show</ChapterString>
-                    </ChapterDisplay>
-                    <ChapterTimeStart>0:05:15.470000</ChapterTimeStart>
-                    <ChapterTimeEnd>0:29:39.280000</ChapterTimeEnd>
-                </ChapterAtom>
-            </EditionEntry>
-            <EditionEntry>
-                <EditionFlagOrdered>1</EditionFlagOrdered>
-                <EditionUID>2</EditionUID>
-                <ChapterAtom>
-                    <ChapterDisplay>
-                        <ChapterString>Show</ChapterString>
-                    </ChapterDisplay>
-                    <ChapterFlagEnabled>1</ChapterFlagEnabled>
-                    <ChapterTimeStart>0:05:15.470000</ChapterTimeStart>
-                    <ChapterTimeEnd>0:29:39.280000</ChapterTimeEnd>
-                </ChapterAtom>
-            </EditionEntry>
-        </Chapters>
-        */
-        comskip::checked_format(context.state.filename, "%s.mkvtoolnix.tags", context.state.outbasename);
-        context.state.mkvtoolnix_tags_file.reset(myfopen(context.state.filename, "wb"));
-        if (!context.state.mkvtoolnix_tags_file.get())
-        {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            fprintf(context.state.mkvtoolnix_tags_file.get(), "<?xml version=\"1.0\" encoding=\"ISO - 8859 - 1\"?>\n"\
-                "<Tags>\n"
-                "\t<Tag>\n"\
-                "\t\t<Targets>\n"\
-                "\t\t\t<TargetTypeValue>50</TargetTypeValue>\n"\
-                "\t\t\t<EditionUID>1</EditionUID>\n"\
-                "\t\t</Targets>\n"\
-                "\t\t<Simple>\n"\
-                "\t\t\t<TagLanguage>eng</TagLanguage>\n"\
-                "\t\t\t<Name>TITLE</Name>\n"\
-                "\t\t\t<DefaultLanguage>1</DefaultLanguage>\n"\
-                "\t\t\t<String>With Commercials</String>\n"\
-                "\t\t</Simple>\n"\
-                "\t</Tag>\n"\
-                "\t<Tag>\n"\
-                "\t\t<Targets>\n"\
-                "\t\t\t<TargetTypeValue>50</TargetTypeValue>\n"\
-                "\t\t\t<EditionUID>2</EditionUID>\n"\
-                "\t\t</Targets>\n"\
-                "\t\t<Simple>\n"\
-                "\t\t\t<TagLanguage>eng</TagLanguage>\n"\
-                "\t\t\t<Name>TITLE</Name>\n"\
-                "\t\t\t<DefaultLanguage>1</DefaultLanguage>\n"\
-                "\t\t\t<String>Without Commercials</String>\n"\
-                "\t\t</Simple>\n"\
-                "\t</Tag>\n"\
-                "</Tags>"
-            );
-            context.state.mkvtoolnix_tags_file.reset();
-        }
-    }
 }
 
 #define CLOSEOUTFILE(F) do { if (last) (F).reset(); } while (false)
@@ -704,8 +586,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     int s_start, s_end;
     int count;
     double minutes = F2T(context.state.frame_count)/60;
-    char scomment[80];
-    char ecomment[80];
 
 /*
     // Convert from frame array index to (timecode / fps) for external output
@@ -856,42 +736,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     CLOSEOUTFILE(context.state.videoredo_file);
 
-    if (context.state.videoredo3_file.get() && prev < start && end - start > 2)
-    {
-        /*
-              <cut Sequence="2" CutStart="00:00:05;10" CutEnd="00:00:20;16" Elapsed="00:00:02;01"> <CutTimeStart>54000113</CutTimeStart> <CutTimeEnd>206400112</CutTimeEnd> </cut>
-          */
-        if (i == 0 && context.state.demux_pid)
-            fprintf(context.state.videoredo3_file.get(), "<InputPIDList><VideoStreamPID>%d</VideoStreamPID>\n<AudioStreamPID>%d</AudioStreamPID><SubtitlePID1>%d</SubtitlePID1></InputPIDList>\n", context.state.selected_video_pid, context.state.selected_audio_pid, context.state.selected_subtitle_pid);
-        s_start = max(start-context.settings.videoredo_offset-1,0);
-        s_end = max(end - context.settings.videoredo_offset-1,0);
-        fprintf(context.state.videoredo3_file.get(), "<Cut><CutTimeStart>%.0f</CutTimeStart> <CutTimeEnd>%.0f</CutTimeEnd> </Cut>\n", get_frame_pts(context, s_start) * 10000000, get_frame_pts(context, s_end) * 10000000);
-
-    }
-    if (context.state.videoredo3_file.get())
-    {
-        if (last)
-        {
-//            fprintf(videoredo3_file, "</cutlist></VideoReDoProject>\n");
-            fprintf(context.state.videoredo3_file.get(), "</CutList>\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.videoredo3_file);
-
-    if (context.state.btv_file.get() && prev < start)
-    {
-        strcpy(scomment, dblSecondsToStrMinutes(context, get_frame_pts(context, start)));
-        strcpy(ecomment, dblSecondsToStrMinutes(context, get_frame_pts(context, end)));
-
-        fprintf(context.state.btv_file.get(), "<Region><start comment=\"%s\">%.0f</start><end comment=\"%s\">%.0f</end></Region>\n",
-                scomment, get_frame_pts(context, start) * 10000000, ecomment, get_frame_pts(context, end) * 10000000);
-        if (last)
-        {
-            fprintf(context.state.btv_file.get(), "</cutlist>\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.btv_file);
-
     if (context.state.edl_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
         if (start < 5)
@@ -928,19 +772,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         fprintf(context.state.bcf_file.get(), "1,%.0f,%.0f\n", get_frame_pts(context, start) * 1000.0, get_frame_pts(context, end) * 1000.0);
     }
     CLOSEOUTFILE(context.state.bcf_file);
-
-    if (context.state.edlx_file.get() && !context.state.frame.empty())
-    {
-        if (prev < start /* &&!last */ && end - start > 2)
-        {
-            fprintf(context.state.edlx_file.get(), "<region start=\"%" PRId64 "\" end=\"%" PRId64 "\"/> \n", context.state.frame[start].goppos, context.state.frame[end].goppos);
-        }
-        if (last)
-        {
-            fprintf(context.state.edlx_file.get(), "</regionlist>\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.edlx_file);
 
     if (context.state.womble_file.get())
     {
@@ -1025,20 +856,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     CLOSEOUTFILE(context.state.dvrcut_file);
 
-    if (context.state.dvrmstb_file.get())
-    {
-        if (end - start > 1)
-        {
-            if (start == 1) start = 0;
-            fprintf(context.state.dvrmstb_file.get(), "  <commercial start=\"%f\" end=\"%f\" />\n", get_frame_pts(context, start), get_frame_pts(context, end));
-        }
-        if (last)
-        {
-            fprintf(context.state.dvrmstb_file.get(), " </root>\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.dvrmstb_file);
-
     if (context.state.mpeg2schnitt_file.get())
     {
         if (end - start > 1)
@@ -1052,23 +869,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         }
     }
     CLOSEOUTFILE(context.state.mpeg2schnitt_file);
-
-    if (context.state.cuttermaran_file.get())
-    {
-        if (prev+1 < start)
-        {
-            fprintf(context.state.cuttermaran_file.get(), "<CutElements refVideoFile=\"0\" StartPosition=\"%li\" EndPosition=\"%li\">\n", F2F(prev+1), F2F(start-1));
-            fprintf(context.state.cuttermaran_file.get(), "<CurrentFiles refVideoFiles=\"0\" /> <cutAudioFiles refAudioFile=\"1\" /></CutElements>\n");
-        }
-        if (last)
-        {
-            if (context.settings.cuttermaran_options.c_str()[0] == 0)
-                fprintf(context.state.cuttermaran_file.get(), "<CmdArgs OutFile=\"%s_clean.m2v\" cut=\"true\" unattended=\"true\" snapToCutPoints=\"true\" closeApp=\"true\" />\n</StateData>\n",context.state.inbasename);
-            else
-                fprintf(context.state.cuttermaran_file.get(), "<CmdArgs OutFile=\"%s_clean.m2v\" %s />\n</StateData>\n",context.state.inbasename, context.settings.cuttermaran_options.c_str());
-        }
-    }
-    CLOSEOUTFILE(context.state.cuttermaran_file);
 }
 
 
@@ -1572,10 +1372,13 @@ bool OutputBlocks(RecordingContext& context)
         }
     }
 
-    if (context.state.commercial[context.state.commercial_count].end_frame < context.state.frame_count-2)
+    if (context.state.commercial_count < 0 ||
+        context.state.commercial[context.state.commercial_count].end_frame < context.state.frame_count-2)
         OutputCommercialBlock(context, context.state.commercial_count+1, prev, context.state.frame_count-2, context.state.frame_count-1, true);
 
-    if (context.settings.output_videoredo)
+    WriteXmlOutputFiles(context);
+
+    if (context.settings.output_videoredo && !context.settings.output_videoredo3)
     {
         comskip::checked_format(context.state.filename, "%s.VPrj", context.state.outbasename);
         context.state.videoredo_file.reset(myfopen(context.state.filename, "a+"));
@@ -1589,25 +1392,6 @@ bool OutputBlocks(RecordingContext& context)
         }
     }
 
-    if (context.settings.output_videoredo3)
-    {
-        comskip::checked_format(context.state.filename, "%s.VPrj", context.state.outbasename);
-        context.state.videoredo3_file.reset(myfopen(context.state.filename, "a+"));
-        if (context.state.videoredo3_file.get())
-        {
-            fprintf(context.state.videoredo3_file.get(), "<SceneList>\n");
-            for (i = 0; i < context.state.block_count; i++)
-            {
-// <SceneList>
-//   <SceneMarker Sequence="1" Timecode="00:00:56;00">560560112</SceneMarker>
-// </SceneList>
-                   fprintf(context.state.videoredo3_file.get(), "<SceneMarker Sequence=\"%d\" Timecode=\"%s\">%.0f</SceneMarker>\n", i, dblSecondsToStrMinutes(context, F2T(max(context.state.cblock[i].f_end-context.settings.videoredo_offset-1,0))) , F2T(max(context.state.cblock[i].f_end-context.settings.videoredo_offset-1,0)) * 10000000);
-            }
-            fprintf(context.state.videoredo3_file.get(), "</SceneList>\n");
-            fprintf(context.state.videoredo3_file.get(), "</VideoReDoProject>\n");
-            context.state.videoredo3_file.reset();
-        }
-    }
 
     if (context.settings.output_chapters)
     {
@@ -1623,62 +1407,6 @@ bool OutputBlocks(RecordingContext& context)
         }
     }
 
-    if (context.state.mkvtoolnix_chapters_file.get())
-    {
-        double currentStart = 0;
-        char startTimespan[15];
-        char endTimespan[15];
-
-        if(context.settings.output_mkvtoolnix > 0){
-            fprintf(context.state.mkvtoolnix_chapters_file.get(),"\t<EditionEntry>\n\t\t<EditionUID>1</EditionUID>\n");
-            for (i = 0; i < context.state.block_count; i++)
-            {
-                if(i == 0 || (context.state.cblock[i-1].iscommercial != context.state.cblock[i].iscommercial)){
-                        currentStart = context.state.cblock[i].f_start;
-                }
-                if(i == i-1 || (context.state.cblock[i+1].iscommercial != context.state.cblock[i].iscommercial)){
-                    strcpy(startTimespan, dblSecondsToStrMinutes(context, get_frame_pts(context, currentStart)));
-                    fprintf(context.state.mkvtoolnix_chapters_file.get(),
-                        "\t\t<ChapterAtom>\n"\
-                        "\t\t\t<ChapterDisplay>\n"\
-                        "\t\t\t\t<ChapterString>%s</ChapterString>\n"\
-                        "\t\t\t</ChapterDisplay>\n"\
-                        "\t\t\t<ChapterTimeStart>%s</ChapterTimeStart>\n"\
-                        "\t\t</ChapterAtom>\n"
-                    , context.state.cblock[i].iscommercial ? "Commercial" : "Show", startTimespan);
-                }
-            }
-            fprintf(context.state.mkvtoolnix_chapters_file.get(),"\t</EditionEntry>\n");
-        }
-        if(context.settings.output_mkvtoolnix == 2){
-            fprintf(context.state.mkvtoolnix_chapters_file.get(),"\t<EditionEntry>\n\t\t<EditionUID>2</EditionUID>\n\t\t<EditionFlagOrdered>1</EditionFlagOrdered>\n");
-            for (i = 0; i < context.state.block_count; i++)
-            {
-                if(!context.state.cblock[i].iscommercial){
-                    if(i == 0 || context.state.cblock[i-1].iscommercial){
-                        currentStart = context.state.cblock[i].f_start;
-                    }
-                    if(i == i-1 || context.state.cblock[i+1].iscommercial){
-                        strcpy(startTimespan, dblSecondsToStrMinutes(context, get_frame_pts(context, currentStart)));
-                        strcpy(endTimespan, dblSecondsToStrMinutes(context, get_frame_pts(context, context.state.cblock[i].f_end)));
-                        fprintf(context.state.mkvtoolnix_chapters_file.get(),
-                            "\t\t<ChapterAtom>\n"\
-                            "\t\t\t<ChapterDisplay>\n"\
-                            "\t\t\t\t<ChapterString>Show</ChapterString>\n"\
-                            "\t\t\t</ChapterDisplay>\n"\
-                            "\t\t\t<ChapterFlagEnabled>1</ChapterFlagEnabled>\n"\
-                            "\t\t\t<ChapterTimeStart>%s</ChapterTimeStart>\n"\
-                            "\t\t\t<ChapterTimeEnd>%s</ChapterTimeEnd>\n"\
-                            "\t\t</ChapterAtom>\n"
-                        , startTimespan,endTimespan);
-                    }
-                }
-            }
-            fprintf(context.state.mkvtoolnix_chapters_file.get(),"\t</EditionEntry>\n");
-        }
-        fprintf(context.state.mkvtoolnix_chapters_file.get(),"</Chapters>");
-        context.state.mkvtoolnix_chapters_file.reset();
-    }
 
     if (context.state.reffer_count == -1) {
         context.state.reffer_count = context.state.commercial_count;

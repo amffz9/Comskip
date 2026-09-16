@@ -24,6 +24,7 @@
  */
 
 #include "platform.h"
+#include "analysis_policy.h"
 #include "comskip.h"
 #include "audio_samples.h"
 #include "ffmpeg_resources.h"
@@ -2008,14 +2009,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 
         if (strstr(argv[0],"comskipGUI"))
             context.settings.output_debugwindow = 1;
-        else
-        {
-#ifdef _WIN32
-            //added windows specific
-            SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
-            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-#endif
-        }
+        const comskip::platform::ScopedAnalysisPolicy analysis_policy(
+            strstr(argv[0], "comskipGUI") == nullptr);
         auto executable_directory = std::filesystem::path(std::u8string_view(
             reinterpret_cast<const char8_t*>(argv[0]))).parent_path();
         if (executable_directory.empty()) executable_directory = ".";
@@ -2039,21 +2034,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 #endif
 
 
-#ifdef _WIN32
-        //added windows specific
-//		if (!live_tv) SetThreadPriority(GetCurrentThread(), /* THREAD_MODE_BACKGROUND_BEGIN */ 0x00010000); // This will fail in XP but who cares
-
-#endif
-        /*
-        #define ES_AWAYMODE_REQUIRED    0x00000040
-        #define ES_CONTINUOUS           0x80000000
-        #define ES_SYSTEM_REQUIRED      0x00000001
-        */
-
-#if (_WIN32_WINNT >= 0x0500 || _WIN32_WINDOWS >= 0x0410)
-
-        SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
-#endif
 
 //
 // Wait until recording is complete...
@@ -2383,13 +2363,6 @@ nextpacket:
 //      printf("Exception raised, terminating\n");/* Stage 5 of terminating exception */
 //		exit(result);
 //	}
-#endif
-
-//
-// Clear EXECUTION_STATE flags to disable away mode and allow the system to idle to sleep normally.
-//
-#if (_WIN32_WINNT >= 0x0500 || _WIN32_WINDOWS >= 0x0410)
-    SetThreadExecutionState(ES_CONTINUOUS);
 #endif
 
 #ifdef _WIN32

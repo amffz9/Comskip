@@ -22,7 +22,7 @@ TEST(XmlCutlists, EmptyVideoRedoGolden) {
 }
 TEST(XmlCutlists, VideoRedoPreservesLongUnicodePathsAndRoundedTimes) {
     const std::string filename = std::string(12000, 'x') + "&<>\"' café 日本語 🎞.ts";
-    XmlMediaDescription media{std::filesystem::u8path(filename), {}, StreamIds{101, 102, 103}};
+    XmlMediaDescription media{std::filesystem::path(std::u8string(filename.begin(), filename.end())), {}, StreamIds{101, 102, 103}};
     const std::array intervals{TimeInterval{Seconds{0}, Seconds{1.23456785}}};
     const std::array scenes{SceneMarker{Seconds{3600.125}, 9}};
     std::ostringstream output; write_videoredo3(output, media, intervals, scenes);
@@ -50,7 +50,7 @@ TEST(XmlCutlists, BtvAndDvrmstbPreserveFullAndZeroLengthIntervals) {
     EXPECT_STREQ(d.child("root").child("commercial").attribute("end").value(), "12.500000");
 }
 TEST(XmlCutlists, CuttermaranEscapesNamesAndParsesConfiguredAttributes) {
-    XmlMediaDescription media{{}, std::filesystem::u8path("é&\"<file>"), {}};
+    XmlMediaDescription media{{}, std::filesystem::path(u8"é&\"<file>"), {}};
     const std::array retained{FrameInterval{1, 250}};
     std::ostringstream output;
     write_cuttermaran(output, media, retained, {"cut=\"false\" custom=\"A&amp;B\""});

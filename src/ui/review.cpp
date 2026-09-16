@@ -1009,7 +1009,7 @@ bool ReviewResult(RecordingContext& context)
                         OutputCommercialBlock(context, i, prev, context.state.commercial[i].start_frame, context.state.commercial[i].end_frame, (context.state.commercial[i].end_frame < context.state.frame_count-2 ? false : true));
                         prev = context.state.commercial[i].end_frame;
                     }
-                    if (context.state.commercial[context.state.commercial_count].end_frame < context.state.frame_count-2)
+                    if (context.state.commercial_count < 0 || context.state.commercial[context.state.commercial_count].end_frame < context.state.frame_count-2)
                         OutputCommercialBlock(context, context.state.commercial_count, prev, context.state.frame_count-2, context.state.frame_count-1, true);
                 }
                 else
@@ -1020,9 +1020,10 @@ bool ReviewResult(RecordingContext& context)
                         OutputCommercialBlock(context, i, prev, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, (context.state.reffer[i].end_frame < context.state.frame_count-2 ? false : true));
                         prev = context.state.reffer[i].end_frame;
                     }
-                    if (context.state.reffer[context.state.reffer_count].end_frame < context.state.frame_count-2)
+                    if (context.state.reffer_count < 0 || context.state.reffer[context.state.reffer_count].end_frame < context.state.frame_count-2)
                         OutputCommercialBlock(context, context.state.reffer_count, prev, context.state.frame_count-2, context.state.frame_count-1, true);
                 }
+                WriteXmlOutputFiles(context, !context.state.framearray);
                 context.settings.output_default = false;
                 context.state.oldfrm = -1;
             }
