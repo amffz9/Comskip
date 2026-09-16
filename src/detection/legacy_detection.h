@@ -4,6 +4,7 @@
 struct RecordingContext;
 #include "translator.h"
 #include "scan_geometry.h"
+#include "detector_records.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -24,8 +25,6 @@ struct RecordingContext;
 #include "file_resources.h"
 #include <argtable2.h>
 
-
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -37,14 +36,12 @@ extern "C" {
 #include <libavutil/samplefmt.h>
 }
 
-
 #include "comskip.h"
 #include "commercial_length.h"
 #include "settings_value.h"
 #include <string>
 #include <stdexcept>
 #include <sstream>
-
 
 // Define detection methods
 #define BLACK_FRAME		1
@@ -73,7 +70,6 @@ extern "C" {
 #define FULLSCREEN		true
 #define WIDESCREEN		false
 
-
 #define AR_TREND	 0.8
 #define DEEP_SILENCE	6	//context.settings.max_volume / DEEP_SILENCE defines deep silence
 
@@ -88,7 +84,6 @@ extern "C" {
 #define COMSKIPPUBLIC "public"
 #endif
 
-
 #define MAX(X,Y) (X>Y?X:Y)
 #define MIN(X,Y) (X<Y?X:Y)
 
@@ -96,55 +91,7 @@ extern "C" {
 #define MAX_IDENTIFIERS 300000
 #define MAX_COMMERCIALS 100000
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 extern "C" char osname[];
-
-
 
 #define KDOWN	1
 #define KUP		2
@@ -153,54 +100,9 @@ extern "C" char osname[];
 #define KNEXT	5
 #define KPREV	6
 
-
-
-
-
-
-
-
-
-
 #undef FRAME_WITH_HISTOGRAM
 #undef FRAME_WITH_LOGO
 #undef FRAME_WITH_AR
-
-typedef struct
-{
-//	long	frame;
-    int		brightness;
-    int		schange_percent;
-    int		minY;
-    int		maxY;
-    int		uniform;
-    int		volume;
-    double	currentGoodEdge;
-    double	ar_ratio;
-    bool	logo_present;
-    bool	commercial;
-    int	isblack;
-    int64_t		goppos;
-    double	pts;
-    char    pict_type;
-    int		minX;
-    int		maxX;
-    int		hasBright;
-    int		dimCount;
-    int    cutscenematch;
-    double logo_filter;
-    int    xds;
-    int cur_segment;
-    int audio_channels;
-#ifdef FRAME_WITH_HISTOGRAM
-    int		histogram[256];
-#endif
-} frame_info;
-
-
-
-
-
 
                         // frames per second (NTSC=29.970, PAL=25)
 
@@ -214,65 +116,7 @@ double get_frame_pts(RecordingContext& context, int f);
 
 #define F2F(X) ((long) (F2T(X) * context.settings.fps + 1.5 ))
 
-typedef struct
-{
-    long	frame;
-    int		percentage;
-} schange_info;
-
-
-
-
-
-typedef struct
-{
-    long	frame;
-    int		brightness;
-    long	uniform;
-    int		volume;
-    int		cause;
-} black_frame_info;
-
-
-
-
-
-typedef struct block_info
-{
-    long			f_start;
-    long			f_end;
-    unsigned int	b_head;
-    unsigned int	b_tail;
-    unsigned int	bframe_count;
-    unsigned int	schange_count;
-    double			schange_rate;						// in changes per second
-    double			length;
-    double			score;
-    int				combined_count;
-    int				cc_type;
-//	bool			ar;
-    double			ar_ratio;
-    int			audio_channels;
-    int				cause;
-    int				more;
-    int				less;
-    int				brightness;
-    int				volume;
-    int				silence;
-    int				uniform;
-    int				stdev;
-    char			reffer;
-    double			logo;
-    double			correlation;
-    int				strict;
-    int				iscommercial;
-} block_info;
-
 #define MAX_BLOCKS	1000
-
-
-
-
 
 #define		C_c			(1<<1)
 #define		C_l			(1<<0)
@@ -309,248 +153,28 @@ typedef struct block_info
 #define		C_H7		((long)1<<29)
 #define		C_H8		((long)1<<30)
 
-
 #define C_CUTMASK	(C_c | C_l | C_s | C_a | C_u | C_b | C_t | C_r)
 #define CUTCAUSE(c) ( c & C_CUTMASK)
-
 
 //int minLogo = 30;
 //int maxLogo	= 120;
 
-typedef struct
-{
-    int start;
-    int end;
-} logo_block_info;
-
-
-
-
-
-
-
-
-typedef struct
-{
-    unsigned char	cc1[2];
-    unsigned char	cc2[2];
-} ccPacket;
-
-
-
-
-typedef struct
-{
-    long	start_frame;
-    long	end_frame;
-    int		type;
-} cc_block_info;
-
-
-
-
-
-
-
-
-
-typedef struct
-{
-    long	frame;
-    char	name[40];
-    int		v_chip;
-    int		duration;
-    int		position;
-    int		composite1;
-    int		composite2;
-} XDS_block_info;
-
-
-
-
-
-
-typedef struct
-{
-    long			start_frame;
-    long			end_frame;
-    long			text_len;
-    unsigned char	text[256];
-} cc_text_info;
-
-
-
-
-
-
 #define AR_UNDEF	0.0
-typedef struct
-{
-    int		start;
-    int		end;
-//	bool	ar;
-    double	ar_ratio;
-    int		volume;
-    int		height, width;
-    int		minX,maxX,minY,maxY;
-} ar_block_info;
-
-
-
-
-
-
-
-
-
-
-
 
 #define AC_UNDEF	0
-typedef struct
-{
-    int		start;
-    int		end;
-//	bool	ar;
-    int 	audio_channels;
-} ac_block_info;
-
-
-
-
-
-
-typedef struct
-{
-    long	start;
-    long	end;
-} commercial_list_info;
-
-
-
-
-struct Legacy_commercial_entry
-{
-    long	start_frame;
-    long	end_frame;
-    int		start_block;
-    int		end_block;
-    double	length;
-};
-
-
-
-
-struct Legacy_reffer_entry
-{
-    long	start_frame;
-    long	end_frame;
-};
-
-
-
 
 #define MAX_ASPECT_RATIOS	1000
-struct Legacy_ar_histogram_entry
-{
-    long	frames;
-    double	ar_ratio;
-};
-
-
 
 #define MAX_AUDIO_CHANNELS	12
-struct Legacy_ac_histogram_entry
-{
-    long	frames;
-    int     audio_channels;
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //unsigned int			frame_period;
 //int						audio_framenum = 0;
 //extern int64_t			pts;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #define UNIFORMSCALE 100
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //#define MAXWIDTH	2000
 //#define MAXHEIGHT	1200
-
-
 
 // unsigned char		oldframe[MAXWIDTH*MAXHEIGHT];
 
@@ -558,40 +182,18 @@ struct Legacy_ac_histogram_entry
 
                         // show extra info
 
-
                         // border around edge of video to ignore
 
                         // border from bottom to ignore
 
                         // border from bottom to ignore
 
-
-
                 // frame not black if any pixels checked are greater than this (scale 0 to 255)
-
-
 
                 // frame not pure black if any pixels are greater than this, will check average
             // maximum average brightness for a dim frame to be considered black (scale 0 to
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //int					variable_bitrate = 1;
-
 
 ///brightness (scale 0 to 255)
 
@@ -603,198 +205,27 @@ struct Legacy_ac_histogram_entry
 
                     // set=1 to only mark breaks divisible by 5 as a commercial.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             // If no logo is identified after x seconds into the show - give up.
             // If no logo is identified after x seconds into the show - give up.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // bool				frameIsBlack;
-
-
-
-
-
-
-
-
 
 #define				MAXCSLENGTH		400*300
 #define				MAXCUTSCENES	8
 
-
 void LoadCutScene(RecordingContext& context, const char *filename);
 void RecordCutScene(RecordingContext& context, int frame_count,int brightness);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // int					cssum[MAXCUTSCENES];
 // int					csmatch[MAXCUTSCENES];
-
-
-
-
-
-
-
 
                 // How many frames to compare at a time for logo detection;
 
 // int					logoTrendStartFrame;
 
-
 // int					lastRealLogoChange;
 
-
 // bool				hindsightLogoState = true;
-
 
 #define MULTI_EDGE_BUFFER 0
 #if MULTI_EDGE_BUFFER
@@ -802,89 +233,13 @@ unsigned char **	horiz_edges = NULL;				// rotating storage for detected horizon
 unsigned char **	vert_edges = NULL;					// rotating storage for detected vertical edges
 #else
 
-
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //bool				currentAR;
 //bool				lastAR;
 //bool				showAvgAR;
 
-
-
-
-
-
-
-
 #define MAXTIMEFLAG 2
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Function Prototypes
 bool				BuildBlocks(RecordingContext& context, bool recalc);
@@ -983,40 +338,7 @@ int					RetreiveVolume (int f);
 void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int c);
 extern void DecodeOnePicture(RecordingContext& context, FILE * f, double pts);
 
-
-
 extern "C" int CEW_init(int argc, char *argv[]);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 double get_frame_pts(RecordingContext& context, int f);
 char *CauseString(RecordingContext& context, int i);
@@ -1151,3 +473,4 @@ void close_data(RecordingContext& context);
 #include "recording_context.h"
 
 #endif // COMSKIP_LEGACY_DETECTION_H
+
