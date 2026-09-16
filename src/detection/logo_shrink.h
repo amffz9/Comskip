@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 #include <algorithm>
 #include <cmath>
@@ -18,7 +19,7 @@ inline double checked_logo_shrink_frames(double seconds, double fps) {
     if (!std::isfinite(seconds) || seconds < 0 || !std::isfinite(fps) || fps <= 0 ||
         !std::isfinite(frames) || frames < 0 ||
         frames >= static_cast<double>(std::numeric_limits<int>::max()) + 1.0)
-        throw std::invalid_argument("Logo shrink must fit a nonnegative frame offset");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_shrink_must_fit_a_nonnegative_frame_offset);
     return frames;
 }
 inline LogoShrink logo_shrink(double head, double tail, double fps) {
@@ -28,7 +29,7 @@ inline LogoShrink logo_shrink(double head, double tail, double fps) {
 }
 inline int checked_logo_index(std::int64_t frame) {
     if (frame < std::numeric_limits<int>::min() || frame > std::numeric_limits<int>::max())
-        throw std::out_of_range("Logo shrink arithmetic exceeds the frame index type");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::logo_shrink_arithmetic_exceeds_the_frame_index_type);
     return static_cast<int>(frame);
 }
 struct ClosedLogoBlock { int start; int end; int frames_with_logo; bool retained; };
@@ -38,7 +39,7 @@ inline int add_logo_frames(int count, std::int64_t added) {
 struct StartedLogoBlock { int start; int frames_with_logo; };
 inline StartedLogoBlock start_logo_block(int frame, int sample, int minimum_hits, int count) {
     if (sample <= 0 || minimum_hits <= 0)
-        throw std::invalid_argument("Logo sampling and trend lengths must be positive");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_sampling_and_trend_lengths_must_be_positive);
     const std::int64_t history = static_cast<std::int64_t>(sample) * (minimum_hits - 1LL);
     return {checked_logo_index(std::max<std::int64_t>(static_cast<std::int64_t>(frame) - history, 0)),
             add_logo_frames(count, history)};
@@ -59,7 +60,7 @@ struct LogoScanWindow { int begin; int end; };
 inline LogoScanWindow logo_scan_window(int frame, int last, std::size_t storage, double radius) {
     if (!std::isfinite(radius) || radius < 0 ||
         radius >= static_cast<double>(std::numeric_limits<int>::max()) + 1.0)
-        throw std::invalid_argument("Logo scan radius must fit a nonnegative frame offset");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_scan_radius_must_fit_a_nonnegative_frame_offset);
     const auto limit = std::min<std::size_t>(storage,
         static_cast<std::size_t>(std::max(last, 0)));
     const double begin = std::max(1.0, static_cast<double>(frame) - radius);

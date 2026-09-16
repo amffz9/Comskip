@@ -54,7 +54,7 @@ TEST_F(SidecarAdapter, ReviewReferenceSelectionPreservesSegmentIndicesAndShortCu
     EXPECT_EQ(read(".ffsplit"),"-c copy -ss 0.440 -t 0.360 segment001.ts \n-c copy -ss 1.240 -t 0.680 segment002.ts \n");
     EXPECT_NE(read(".ffmeta").find("START=0\nEND=40\ntitle=Commercial Segment"),std::string::npos);
 }
-TEST_F(SidecarAdapter, EarlyVdrAndEdlAdjustmentsDoNotChangeLaterBsPlayerExports) {
+TEST_F(SidecarAdapter, EarlyEdlAdjustmentsDoNotChangeLaterBsPlayerExports) {
     context->settings.output_bsplayer=true;
     context->state.commercial.resize(1);
     context->state.commercial[0].start_frame=4;
@@ -63,7 +63,7 @@ TEST_F(SidecarAdapter, EarlyVdrAndEdlAdjustmentsDoNotChangeLaterBsPlayerExports)
     OutputCommercialBlock(*context,0,-1,4,10,false);
     WritePlayerExportFiles(*context);
     const auto player=read(".bcf");
-    for (auto* owner : {&context->state.vdr_file,&context->state.edl_file,&context->state.edlp_file}) {
+    for (auto* owner : {&context->state.edl_file,&context->state.edlp_file}) {
         *owner=comskip::platform::temporary_file(); ASSERT_TRUE(*owner);
     }
     OutputCommercialBlock(*context,0,-1,4,10,false);

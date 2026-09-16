@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "detection/reference_comparison.h"
 #include <optional>
 #include <stdexcept>
@@ -10,7 +11,7 @@ void validate(std::span<const CommercialInterval> intervals) {
     FrameIndex previous_end = 0;
     for (const auto& interval : intervals) {
         if (interval.start_frame < previous_end || interval.end_frame < interval.start_frame)
-            throw std::invalid_argument("Reference comparison requires ordered disjoint intervals");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::reference_comparison_requires_ordered_disjoint_intervals);
         previous_end = interval.end_frame;
     }
 }
@@ -21,7 +22,7 @@ bool nearby(FrameIndex first, FrameIndex second, FrameIndex tolerance) {
 std::vector<ReferenceComparisonEvent> compare_reference_intervals(
     std::span<const CommercialInterval> reference,
     std::span<const CommercialInterval> detected, FrameIndex tolerance) {
-    if (tolerance < 0) throw std::invalid_argument("Negative reference comparison tolerance");
+    if (tolerance < 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::negative_reference_comparison_tolerance);
     validate(reference); validate(detected);
     std::vector<ReferenceComparisonEvent> events;
     if (reference.empty() && detected.empty()) return events;
@@ -70,7 +71,7 @@ std::vector<ReferenceComparisonEvent> compare_reference_intervals(
             } else if (found) {
                 state = State::both_commercial; position = found->start_frame;
             } else {
-                throw std::logic_error("Reference comparison lost its active interval");
+                throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::reference_comparison_lost_its_active_interval);
             }
             events.push_back({ReferenceEventKind::false_negative, {previous_position, position}});
             break;
@@ -80,7 +81,7 @@ std::vector<ReferenceComparisonEvent> compare_reference_intervals(
             } else if (expected) {
                 state = State::both_commercial; position = expected->start_frame;
             } else {
-                throw std::logic_error("Reference comparison lost its active interval");
+                throw comskip::diagnostics::DiagnosticError<std::logic_error>(comskip::diagnostics::Code::reference_comparison_lost_its_active_interval);
             }
             events.push_back({ReferenceEventKind::false_positive, {previous_position, position}});
             break;

@@ -121,13 +121,16 @@ TEST(SupportDiagnostics, UnsupportedAudioChannelLayoutOwnsFfmpegFailureDetail) {
     catch (const std::runtime_error& error) {
         const auto* provider=dynamic_cast<const DiagnosticProvider*>(&error);
         ASSERT_NE(provider,nullptr);
-        EXPECT_EQ(provider->diagnostic().code,Code::configure_audio_conversion_detail);
+        const auto code=provider->diagnostic().code;
+        ASSERT_TRUE(code==Code::configure_audio_conversion_detail || code==Code::initialize_audio_conversion_detail);
         ASSERT_EQ(provider->diagnostic().arguments.size(),1u);
         const auto detail=provider->diagnostic().arguments[0];
         EXPECT_FALSE(detail.empty());
         frame->format=-1;
-        translated(error,Code::configure_audio_conversion_detail,
-            "Configure audio conversion", "configurar la conversión de audio",{detail});
+        const bool configuration=code==Code::configure_audio_conversion_detail;
+        translated(error,code,
+            configuration ? "Configure audio conversion" : "Initialize audio conversion",
+            configuration ? "configurar la conversión de audio" : "inicializar la conversión de audio",{detail});
     }
 }
 

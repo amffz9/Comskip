@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
                         "output_ffmeta=1\noutput_ffsplit=1\n"
                         "output_vcf=1\noutput_projectx=1\noutput_avisynth=1\n"
                         "output_zoomplayer_cutlist=1\noutput_zoomplayer_chapter=1\n"
-                        "output_scf=1\noutput_ipodchap=1\noutput_bsplayer=1\n")
+                        "output_scf=1\noutput_ipodchap=1\noutput_bsplayer=1\noutput_vdr=1\n")
     results = []
     for threads in (1, 4):
         destination = root / str(threads)
@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert run.returncode in (0, 1), run.stdout + run.stderr
         assert "Commercials were found." in run.stdout, run.stdout + run.stderr
         files = {extension: (destination / f"sample.{extension}").read_bytes()
-                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf", "chp", "cut", "scf", "chap", "bcf")}
+                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf", "chp", "cut", "scf", "chap", "bcf", "vdr")}
         for extension in ("Xcl", "avs"):
             files[extension] = Path(str(video) + "." + extension).read_bytes()
         rows = list(csv.reader(files["csv"].decode().splitlines()[2:]))
@@ -78,4 +78,21 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert commercials[0].attrib == {"start": "0.000000", "end": "9.920000"}
         results.append(files)
     assert results[0] == results[1], "Serial and parallel outputs differ"
+    legacy_settings = root / "legacy.ini"
+    legacy_settings.write_text(settings.read_text().replace("output_videoredo3=1", "output_videoredo3=0"))
+    legacy_results = []
+    for threads in (1, 4):
+        destination = root / f"legacy-{threads}"
+        destination.mkdir()
+        run = subprocess.run([str(executable), f"--ini={legacy_settings}", f"--threads={threads}",
+                              f"--output={destination}", str(video)], capture_output=True, text=True, timeout=45)
+        assert run.returncode in (0, 1), run.stdout + run.stderr
+        project = (destination / "sample.VPrj").read_bytes()
+        marks = (destination / "sample.vdr").read_bytes()
+        assert project.startswith(f"<Version>2\n<Filename>{video}\n".encode())
+        assert b"<Cut>0:99200000\n" in project, repr(project)
+        assert b"<SceneMarker 0>" in project
+        assert marks.startswith(b"0:00:00.00 start\n") and marks.endswith(b" end\n")
+        legacy_results.append((project, marks))
+    assert legacy_results[0] == legacy_results[1], "Legacy editor serial and parallel outputs differ"
 print("Media decode, INI loading, serial/parallel analysis, and output checks passed")

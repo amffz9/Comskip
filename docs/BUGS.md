@@ -38,7 +38,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B051 | Open: review/caption/subtitle and argument/format/pixel/runtime reasons are cataloged; other application/helper reasons remain. |
 | B059–B063 | Fixed in the logo/player/application stage; all 368 Windows headless and 372 SDL tests pass. Linux proof of this stage remains separate. |
 | B064–B066 | Fixed in the diagnostic/progress stage; all 379 Windows headless and 383 SDL tests pass and the public-speed application builds. |
-| B067 | Corrected GUI build flag and first-frame preview; Windows 383 SDL tests pass. Linux corrected snapshot verification remains pending. |
+| B067 | Fixed at `66d45a8`; actual Linux SDL invalid-font CLI and relocated-font tests pass. One separate fixture issue B071 prevents its full suite from passing. |
+| B068–B070 | Fixed in the editor/geometry/codec stage; all 398 Windows headless and 402 SDL tests pass. |
+| B071 | Cross-version fixture corrected; Windows passes. Corrected Linux verification pending. |
 
 ## Issue evidence and verification
 
@@ -788,6 +790,60 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Verification needed:** Unmodified corrected Linux SDL analysis must fail
   on missing configured font with the selected locale and retain working review
   rendering, event handling and headless behavior.
+
+### B068: Detector initialization masks negative write indices during growth
+
+- **Evidence:** `InitializeFrameArray`, `InitializeBlackArray`, and
+  `InitializeSchangeArray` passed `max(index, count)` to checked growth,
+  hiding a negative index, then wrote directly to `vector[index]`.
+- **Impact:** A negative producer index can write outside owned storage even
+  though the buffer growth helper validates its input.
+- **Status:** Fixed: all nine producers reject negative indices before
+  mutation. Actual preservation/category tests pass within all 398 Windows
+  headless and 402 SDL tests.
+- **Verification needed:** Reject negative indices before buffer/counter
+  mutation in all initialization producers, including caption text storage.
+
+### B069: Reduced-resolution decode option is configured after codec opening
+
+- **Evidence:** Recording decoder setup assigned `codecCtx->lowres` only after
+  `avcodec_open2`, so codec initialization used the default resolution instead
+  of the configured `lowres` setting.
+- **Impact:** Reduced-resolution settings do not initialize decoding as intended.
+- **Status:** Fixed before codec opening. Actual MPEG2 ordinary, explicit,
+  and automatic reduced-resolution decoding passes across worker counts within
+  all 398 Windows headless and 402 SDL tests.
+  Setup extraction also checks the previously ignored parameter-copy status
+  and avoids dereferencing an absent software decoder in hardware logging.
+- **Verification needed:** Actual MPEG2 decoding at configured and automatically
+  chosen reduced resolution, ordinary resolution, and unchanged frame/timing
+  observations across worker counts.
+
+### B070: Closing decoder input leaves borrowed stream pointers dangling
+
+- **Evidence:** `file_close` resets owned codec/input objects and stream indices,
+  but retains `video_st`, `audio_st`, and `subtitle_st`, which belong to the
+  released input. A subsequent failed audio decoder open can test and access
+  the stale `audio_st` pointer in `file_open`.
+- **Impact:** Reopen/error paths can retain invalid borrowed stream references.
+- **Status:** Fixed by clearing borrowed pointers before input release and
+  supporting repeated/null-owner close. Three actual/synthetic lifecycle tests
+  pass within all 398 Windows headless and 402 SDL tests.
+- **Verification needed:** Clear all borrowed references when input ownership
+  ends; actual close/reopen and failed stream selection must preserve safe state.
+
+### B071: Audio diagnostic regression assumes a version-specific failure stage
+
+- **Evidence:** The unmodified `66d45a8` Linux Release tests reject the valid
+  65-channel frame at `swr_init`, while Windows FFmpeg 8 rejects it during
+  `swr_alloc_set_opts2`. The regression asserted only the configuration code.
+- **Impact:** A safe supported-version diagnostic path fails the test even
+  though the runtime preserves the correct category and owned FFmpeg detail.
+- **Status:** Regression accepts either native stage and verifies corresponding
+  localized text. Windows FFmpeg 8 passes within all 398 headless/402 SDL tests;
+  corrected Linux FFmpeg 6 snapshot verification remains pending.
+- **Verification needed:** Both FFmpeg 6 and 8 must reject the real frame with
+  the correct typed stage, owned detail and English/Spanish rendering.
 
 ## Fixed during modernization
 

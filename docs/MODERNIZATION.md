@@ -317,3 +317,33 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-progress-public-{configure,build}.txt`. Other human-facing
   messages, remaining decoder/export decomposition and macOS/interactive SDL
   verification remain required work.
+
+- The unmodified `66d45a8` Linux snapshot finishes headless **373/374**
+  (38.51s), SDL **377/378** (42.51s), and address/undefined/leak sanitizer
+  **373/374** (101.40s), with no sanitizer findings. All three share only
+  B071's FFmpeg-version failure-stage test assumption; runtime rejects the
+  frame safely. Actual localized GUI invalid-font failure and relocated font
+  tests pass, proving B067's correction. Snapshot files were not patched.
+  Exact proof: `bin/linux-verification-66d45a8.md`.
+- The editor/geometry/codec stage passes Windows headless **398/398** (4.03s)
+  and SDL **402/402** (4.98s). VDR and legacy VideoRedo2 exports have typed
+  serializers/finalized adapters, with nine focused tests and complete actual
+  serial/thread output checks. Their legacy project grammar and separate
+  cut/scene timestamp policies stay stable; extracted serializers consistently
+  write LF line endings. Geometry/storage helper errors use owned diagnostics
+  and catalogs; seven regressions cover categories and actual producer state
+  preservation. All nine initialization producers reject negative indices
+  before growth. Codec setup moves into `src/media/decoder_setup.cpp`, checks
+  parameter-copy errors and applies lowres before opening. Real MPEG2 media
+  verifies ordinary, explicit and automatic reduced resolutions with identical
+  serial/thread output and complete audio/timing observations. Borrowed stream
+  references clear before input release; three tests cover Unicode reopen,
+  repeated/null close and all stream kinds. Unused old decoder state fields and
+  dead output handles are removed. B071's regression permits the native FFmpeg
+  configuration or initialization failure stage with matching localized text.
+  Logs: `bin/windows-editor-geometry-build23{,-gui}-{build,test}.txt`.
+  Corrected Linux proof, remaining exporters/decoder decomposition, remaining
+  human messages and macOS/interactive SDL verification remain required work.
+
+  The complete public-speed Release application also builds for this stage;
+  evidence: `bin/windows-editor-geometry-public-build.txt`.

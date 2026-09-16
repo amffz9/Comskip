@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "storage.h"
 #include "legacy_detection.h"
@@ -5,8 +6,10 @@
 
 void InitializeFrameArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (context.state.frame_count > std::numeric_limits<long>::max() - 1000)
-        throw std::length_error("Detection frame index exceeds supported size");
+        throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::detection_frame_index_exceeds_supported_size);
     if (comskip::detection::grow_buffer(context.state.frame, context.state.max_frame_count,
             std::max(i, context.state.frame_count + 1000), 90000, 1))
         Debug(context, 9, "Resizing frame buffer to accommodate %li entries.\n", context.state.max_frame_count);
@@ -35,6 +38,8 @@ void InitializeFrameArray(RecordingContext& context, long i)
 
 void InitializeBlackArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.black, context.state.max_black_count,
             std::max(i, context.state.black_count), 500, 1))
         Debug(context, 9, "Resizing black buffer to accommodate %li entries.\n", context.state.max_black_count);
@@ -47,6 +52,8 @@ void InitializeBlackArray(RecordingContext& context, long i)
 
 void InitializeSchangeArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.schange, context.state.max_schange_count,
             std::max(i, context.state.schange_count), 2000, 1))
         Debug(context, 9, "Resizing schange buffer to accommodate %li entries.\n", context.state.max_schange_count);
@@ -57,6 +64,8 @@ void InitializeSchangeArray(RecordingContext& context, long i)
 
 void InitializeLogoBlockArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.logo_block, context.state.max_logo_block_count,
             std::max(i, context.state.logo_block_count), 20, 2))
         Debug(context, 9, "Resizing logo_block buffer to accommodate %li entries.\n", context.state.max_logo_block_count);
@@ -65,6 +74,8 @@ void InitializeLogoBlockArray(RecordingContext& context, long i)
 
 void InitializeARBlockArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.ar_block, context.state.max_ar_block_count,
             std::max(i, context.state.ar_block_count), 20, 2))
         Debug(context, 9, "Resizing ar_block buffer to accommodate %li entries.\n", context.state.max_ar_block_count);
@@ -73,6 +84,8 @@ void InitializeARBlockArray(RecordingContext& context, long i)
 
 void InitializeACBlockArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.ac_block, context.state.max_ac_block_count,
             std::max(i, context.state.ac_block_count), 20, 2))
         Debug(context, 9, "Resizing ac_block buffer to accommodate %li entries.\n", context.state.max_ac_block_count);
@@ -81,13 +94,17 @@ void InitializeACBlockArray(RecordingContext& context, long i)
 
 void InitializeBlockArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (i < 0 || static_cast<std::size_t>(i) >= context.state.cblock.size())
-        throw std::out_of_range("Detection block initialization exceeds owned storage");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::detection_block_initialization_exceeds_owned_storage);
     context.state.cblock[i] = comskip::detection::empty_block();
 }
 
 void InitializeCCBlockArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.cc_block, context.state.max_cc_block_count,
             std::max(i, context.state.cc_block_count), 100, 2))
         Debug(context, 9, "Resizing cc_block buffer to accommodate %li entries.\n", context.state.max_cc_block_count);
@@ -99,6 +116,8 @@ void InitializeCCBlockArray(RecordingContext& context, long i)
 
 void InitializeCCTextArray(RecordingContext& context, long i)
 {
+    if (i < 0)
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     if (comskip::detection::grow_buffer(context.state.cc_text, context.state.max_cc_text_count,
             std::max(i, context.state.cc_text_count), 100, 1))
         Debug(context, 9, "Resizing cc_text buffer to accommodate %li entries.\n", context.state.max_cc_text_count);

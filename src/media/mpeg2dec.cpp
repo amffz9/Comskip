@@ -42,7 +42,6 @@ using namespace comskip::media;
 #include "frame_conversion.h"
 #include "video_timestamp.h"
 
-#include <argtable2.h>
 #define SELFTEST
 
 
@@ -932,256 +931,6 @@ quit:
 //extern int dxva2_init(AVCodecContext *s);
 
 
-int stream_component_open(RecordingContext& context, VideoState *is, int stream_index)
-{
-    AVFormatContext *pFormatCtx = is->pFormatCtx.get();
-    AVCodecParameters *codecPar = NULL;
-    AVCodecContext *codecCtx;
-    const AVCodec *codec;
-    const AVCodec *codec_hw = NULL;
-
-
-
-    if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
-    {
-        return -1;
-    }
-
-    if (strcmp(pFormatCtx->iformat->name, "mpegts")==0)
-        context.state.demux_pid = 1;
-
-    // Get a pointer to the codec context for the video stream
-
-    codecPar = pFormatCtx->streams[stream_index]->codecpar;
-
-    codec = avcodec_find_decoder(codecPar->codec_id);
-
-    if (context.state.use_qsv && !codec_hw) {
-        if (codecPar->codec_id == AV_CODEC_ID_MJPEG) codec_hw = avcodec_find_decoder_by_name("mjpeg_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_VP8) codec_hw = avcodec_find_decoder_by_name("vp8_qsv");
-        if (codecPar->codec_id == AV_CODEC_ID_VP9) codec_hw = avcodec_find_decoder_by_name("vp9_qsv");
-    }
-
-    if (context.state.use_dxva2 && !codec_hw) {
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
-        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
-        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
-        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
-        if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_dxva2");
-    }
-
-    if (context.state.use_vdpau && !codec_hw) {
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
-        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
-        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
-        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_vdpau");
-    }
-
-    if (context.state.use_cuvid && !codec_hw) {
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
-        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
-        if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
-        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_cuvid");
-        if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_cuvid");
-    }
-
-    // If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
-    if (context.settings.hardware_decode && !codec_hw) {
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
-        if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
-        if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
-        if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
-    }
-
-
-    if (codec_hw != NULL && codec_hw != codec) {
-        fputs(context.translator.format("media_using_codec", codec_hw->name, codec->name).c_str(), stderr);
-        codec = codec_hw;
-    }
-
-    CodecPtr codec_owner(avcodec_alloc_context3(codec));
-    codecCtx = codec_owner.get();
-    if (!codecCtx) throw std::bad_alloc();
-    avcodec_parameters_to_context(codecCtx, codecPar);
-
-    if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
-    {
-        if (!context.settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-
-
-//        codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
-//        codecCtx->flags2 |= AV_CODEC_FLAG2_CHUNKS /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
-
-
-
-        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
-
-#ifdef DONATOR
-           codecCtx->thread_count= context.settings.thread_count;
-#else
-            codecCtx->thread_count= 1;
-#endif
-        }
-
-        if (codecCtx->codec_id == AV_CODEC_ID_H264) {
-            context.state.is_h264 = 1;
-#ifdef DONATOR
-#else
-            Debug(context, 0, "%s", context.translator.text("media_public_h264_speed"));
-#endif
-        }
-        else
-        {
-#ifdef DONATOR
-            int w;
-            if (context.settings.lowres == 10) {
-                w = codecCtx->width;
-                context.settings.lowres = 0;
-                while (w > 600) {
-                    w = w >> 1;
-                    context.settings.lowres++;
-                }
-            }
- //           codecCtx->lowres = lowres;
-#endif
-//            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
-        }
-//        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-
-        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
-#ifdef DONATOR
-           codecCtx->thread_count= context.settings.thread_count;
-#else
-            codecCtx->thread_count= 1;
-#endif
-        }
-    }
-
-    if (!context.settings.hardware_decode) av_dict_set_int(std::inout_ptr(context.state.myoptions), "gray", 1, 0);
-
-
- //       av_dict_set_int(std::inout_ptr(myoptions), "fastint", 1, 0);
- //       av_dict_set_int(std::inout_ptr(myoptions), "skip_alpha", 1, 0);
-//        av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
-
-    if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(context.state.myoptions)) < 0))
-    {
-        fputs(context.translator.text("media_unsupported_codec"), stderr);
-        return -1;
-    }
-
-    switch(codecCtx->codec_type)
-    {
-    case AVMEDIA_TYPE_SUBTITLE:
-        is->subtitleStream = stream_index;
-        is->subtitle_st = pFormatCtx->streams[stream_index];
-        is->subtitle_ctx = std::move(codec_owner);
-        if (context.state.demux_pid)
-            context.state.selected_subtitle_pid = is->subtitle_st->id;
-        break;
-    case AVMEDIA_TYPE_AUDIO:
-        is->audioStream = stream_index;
-        is->audio_st = pFormatCtx->streams[stream_index];
-        is->audio_ctx = std::move(codec_owner);
-//          is->audio_buf_size = 0;
-//          is->audio_buf_index = 0;
-
-        /* averaging filter for audio sync */
-//          is->audio_diff_avg_coef = exp(log(0.01 / AUDIO_DIFF_AVG_NB));
-//          is->audio_diff_avg_count = 0;
-        /* Correct audio only if larger error than this */
-//          is->audio_diff_threshold = 2.0 * SDL_AUDIO_BUFFER_SIZE / codecCtx->sample_rate;
-        if (context.state.demux_pid)
-            context.state.selected_audio_pid = is->audio_st->id;
-
-
-        break;
-    case AVMEDIA_TYPE_VIDEO:
-        is->videoStream = stream_index;
-        is->video_st = pFormatCtx->streams[stream_index];
-        is->dec_ctx = std::move(codec_owner);
-
-//          is->frame_timer = (double)av_gettime() / 1000000.0;
-//          is->frame_last_delay = 40e-3;
-//          is->video_current_pts_time = av_gettime();
-
-        is->pFrame = make_frame();
-        if (!context.settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-//       codecCtx->thread_type = 1; // Frame based threading
-        codecCtx->lowres = min(codecCtx->codec->max_lowres, context.settings.lowres);
-        if (codecCtx->codec_id == AV_CODEC_ID_H264)
-        {
-            context.state.is_h264 = 1;
-#ifdef DONATOR
-#else
-            Debug(context, 0, "%s", context.translator.text("media_public_h264_speed"));
-#endif
-        }
-
-        //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
-#ifdef DONATOR
-           codecCtx->thread_count= context.settings.thread_count;
-#else
-            codecCtx->thread_count= 1;
-#endif
-        }
-        // Mirrors what FFmpeg's own decoders used to set on AVCodecContext
-        // before ticks_per_frame was removed: 2 for MPEG2's field-time
-        // timebase convention, 1 for MPEG1's frame-time one.
-        is->ticks_per_frame = (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO) ? 1 : 2;
-        if (context.state.demux_pid)
-            context.state.selected_video_pid = is->video_st->id;
-        /*
-        MPEG
-                        if(  (codecCtx->skip_frame >= AVDISCARD_NONREF && s2->pict_type==FF_B_TYPE)
-                            ||(codecCtx->skip_frame >= AVDISCARD_NONKEY && s2->pict_type!=FF_I_TYPE)
-                            || codecCtx->skip_frame >= AVDISCARD_ALL)
-
-
-                        if(  (s->avctx->skip_idct >= AVDISCARD_NONREF && s->pict_type == FF_B_TYPE)
-                           ||(codecCtx->skip_idct >= AVDISCARD_NONKEY && s->pict_type != FF_I_TYPE)
-                           || s->avctx->skip_idct >= AVDISCARD_ALL)
-        h.264
-            if(   s->codecCtx->skip_loop_filter >= AVDISCARD_ALL
-               ||(s->codecCtx->skip_loop_filter >= AVDISCARD_NONKEY && h->slice_type_nos != FF_I_TYPE)
-               ||(s->codecCtx->skip_loop_filter >= AVDISCARD_BIDIR  && h->slice_type_nos == FF_B_TYPE)
-               ||(s->codecCtx->skip_loop_filter >= AVDISCARD_NONREF && h->nal_ref_idc == 0))
-
-        Both
-                        if(  (codecCtx->skip_frame >= AVDISCARD_NONREF && s2->pict_type==FF_B_TYPE)
-                            ||(codecCtx->skip_frame >= AVDISCARD_NONKEY && s2->pict_type!=FF_I_TYPE)
-                            || codecCtx->skip_frame >= AVDISCARD_ALL)
-                            break;
-
-        */
-        if (context.settings.skip_B_frames)
-            codecCtx->skip_frame = AVDISCARD_NONREF;
-        //          codecCtx->skip_loop_filter = AVDISCARD_NONKEY;
-//           codecCtx->skip_idct = AVDISCARD_NONKEY;
-
-        break;
-    default:
-        break;
-    }
-
-    return(0);
-}
-
-/* av_dict_set(&options, "video_size", "640x480", 0);
- * if (avformat_open_input(&s, url, NULL, &options) < 0)
- *     abort();
- * av_dict_free(&options);
- */
-
 void file_open(RecordingContext& context)
 {
     VideoState *is;
@@ -1369,33 +1118,19 @@ again:
 
 
 
-void file_close(RecordingContext& context)
-{
-
-
-//    av_freep(&ist->hwaccel_device);
-
-
-    if (context.state.video_owner->dec_ctx.get()) context.state.video_owner->dec_ctx.reset();
-    context.state.video_owner->videoStream = -1;
-//    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
-
-    if (context.state.video_owner->audio_ctx.get()) context.state.video_owner->audio_ctx.reset();
-    context.state.video_owner->audioStream = -1;
-    if (context.state.video_owner->subtitle_ctx.get())  context.state.video_owner->subtitle_ctx.reset();
-    context.state.video_owner->subtitleStream = -1;
-//    is->pFormatCtx.reset();
-
-
-    context.state.video_owner->pFormatCtx.reset();
-
-    context.state.video_owner->frame.reset();
-    context.state.video_owner->pFrame.reset();
-    context.state.video_owner->img_convert_ctx.reset();
-
+void file_close(RecordingContext& context) {
+    if (!context.state.video_owner) return;
+    auto& video = *context.state.video_owner;
+    video.dec_ctx.reset();
+    video.audio_ctx.reset();
+    video.subtitle_ctx.reset();
+    video.videoStream = video.audioStream = video.subtitleStream = -1;
+    // Borrowed stream references cannot outlive the input that owns them.
+    video.video_st = video.audio_st = video.subtitle_st = nullptr;
+    video.pFormatCtx.reset();
+    video.frame.reset();
+    video.pFrame.reset();
+    video.img_convert_ctx.reset();
     context.state.ac3_packet_index = 0;
     context.state.ac3_package_misalignment_count = 0;
-
-
-//  global_video_state = NULL;
-};
+}

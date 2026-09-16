@@ -809,8 +809,6 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
 
     context.state.out_file.reset();
-    context.state.vdr_file.reset();
-    context.state.videoredo_file.reset();
     context.state.edl_file.reset();
     context.state.live_file.reset();
     context.state.edlp_file.reset();

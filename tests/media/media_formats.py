@@ -41,10 +41,10 @@ def read_csv(data):
     return volumes
 
 
-def generate(ffmpeg, path, video_codec, audio_codec, pixel_format, container):
+def generate(ffmpeg, path, video_codec, audio_codec, pixel_format, container, size="160x120"):
     arguments = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                  "-filter_threads", "1", "-f", "lavfi", "-i",
-                 "testsrc2=size=160x120:rate=25:duration=10",
+                 f"testsrc2=size={size}:rate=25:duration=10",
                  "-f", "lavfi", "-i", "sine=frequency=997:sample_rate=48000:duration=10",
                  "-map", "0:v:0", "-map", "1:a:0", "-c:v", video_codec,
                  "-pix_fmt", pixel_format, "-threads", "1", "-c:a", audio_codec,
@@ -53,12 +53,12 @@ def generate(ffmpeg, path, video_codec, audio_codec, pixel_format, container):
     require(run.returncode == 0, f"Fixture generation failed for {path.name}:\n{run.stderr}")
 
 
-def analyze(executable, fixture, directory, threads, alignment=0):
+def analyze(executable, fixture, directory, threads, alignment=0, lowres=0):
     directory.mkdir()
     settings = directory / "settings.ini"
     settings.write_text("detect_method=1\nnum_logo_buffers=2\noutput_framearray=1\n"
                         "output_edl=1\nlive_tv_retries=0\nadded_recording=0\n"
-                        f"verbose=0\nalign_ac3_packets={alignment}\n", encoding="utf-8")
+                        f"verbose=0\nalign_ac3_packets={alignment}\nlowres={lowres}\n", encoding="utf-8")
     run = execute([executable, f"--ini={settings}", f"--threads={threads}",
                    f"--output={directory}", fixture])
     # The legacy commercial-found status is inverted between Windows and Unix.
@@ -119,6 +119,19 @@ def main():
         aligned_parallel, _ = analyze(executable, ac3_fixture, root / "ac3-aligned-parallel", 4, 1)
         require(aligned_serial == aligned_parallel, "Parallel AC3 alignment outputs differ")
         compare_alignment(ac3_volumes, aligned_volumes)
+
+        lowres_fixture = root / "reduced-resolution.ts"
+        generate(ffmpeg, lowres_fixture, "mpeg2video", "ac3", "yuv420p", "mpegts", "640x480")
+        for lowres, width, height in ((0, 640, 480), (1, 320, 240), (10, 320, 240)):
+            serial, _ = analyze(executable, lowres_fixture, root / f"lowres-{lowres}-serial", 1, lowres=lowres)
+            parallel, _ = analyze(executable, lowres_fixture, root / f"lowres-{lowres}-parallel", 4, lowres=lowres)
+            require(serial == parallel, f"Reduced resolution {lowres} changed across worker counts")
+            observations = list(csv.reader(serial["csv"].decode().splitlines()[2:]))
+            measured_width = max(int(row[13]) for row in observations)
+            measured_height = max(int(row[7]) for row in observations)
+            require(width * 0.8 <= measured_width <= width and height * 0.8 <= measured_height <= height,
+                    f"lowres={lowres} did not apply decoded geometry: {measured_width}x{measured_height}")
+        print("Passed ordinary, explicit and automatic reduced-resolution decoding", flush=True)
 
         # A single nonexistent/invalid component differs from a valid long
         # nested path (covered by CliPaths). Let the filesystem report failure

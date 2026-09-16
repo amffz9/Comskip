@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 
 #include <cstddef>
@@ -10,11 +11,11 @@ namespace comskip::detection {
 inline std::size_t checked_image_size(int width, int height, std::size_t channels = 1)
 {
     if (width <= 0 || height <= 0 || channels == 0)
-        throw std::invalid_argument("Image dimensions and channel count must be positive");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::image_dimensions_and_channel_count_must_be_positive);
     const auto row = static_cast<std::size_t>(width);
     const auto rows = static_cast<std::size_t>(height);
     if (row > std::numeric_limits<std::size_t>::max() / rows || row * rows > std::numeric_limits<std::size_t>::max() / channels)
-        throw std::length_error("Image dimensions exceed the addressable buffer size");
+        throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::image_dimensions_exceed_the_addressable_buffer_size);
     return row * rows * channels;
 }
 
@@ -23,7 +24,7 @@ inline void validate_logo_bounds(int width, int height, int minimum_x, int maxim
 {
     if (width <= 0 || height <= 0 || minimum_x < 0 || minimum_y < 0 ||
         maximum_x < minimum_x || maximum_y < minimum_y || maximum_x >= width || maximum_y >= height)
-        throw std::invalid_argument("Persisted logo bounds must lie inside the decoded image");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::persisted_logo_bounds_must_lie_inside_the_decoded_image);
 }
 
 class LumaImageView {
@@ -36,7 +37,7 @@ public:
         : pixels_(pixels), stride_(stride), width_(width), height_(height)
     {
         if (width <= 0 || stride < width || pixels.size() < checked_image_size(stride, height))
-            throw std::invalid_argument("Luma image must contain every decoded row");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::luma_image_must_contain_every_decoded_row);
     }
     // Rounded display canvases can extend beyond the source. Those pixels stay
     // black, rather than reading decoder padding or an adjacent image plane.

@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 #include <algorithm>
 #include <limits>
@@ -12,7 +13,7 @@ bool grow_buffer(std::vector<T, Allocator>& buffer, long& capacity, long index,
                  long increment, long spare = 1)
 {
     if (index < 0 || capacity < 0 || increment <= 0 || spare < 0)
-        throw std::out_of_range("Invalid detection buffer index or capacity");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
     using Size = typename std::vector<T, Allocator>::size_type;
     const Size requested = static_cast<Size>(index) + 1;
     const Size old_capacity = static_cast<Size>(capacity);
@@ -24,12 +25,12 @@ bool grow_buffer(std::vector<T, Allocator>& buffer, long& capacity, long index,
         const Size limit = std::min(buffer.max_size(),
             static_cast<Size>(std::numeric_limits<long>::max()));
         if (next_capacity > limit || steps > (limit - next_capacity) / step)
-            throw std::length_error("Detection buffer capacity exceeds supported size");
+            throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::detection_buffer_capacity_exceeds_supported_size);
         next_capacity += steps * step;
     }
     if (static_cast<Size>(spare) > buffer.max_size()
         || next_capacity > buffer.max_size() - static_cast<Size>(spare))
-        throw std::length_error("Detection buffer capacity exceeds supported size");
+        throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::detection_buffer_capacity_exceeds_supported_size);
     const Size next_size = next_capacity + static_cast<Size>(spare);
     const bool changed = buffer.size() < next_size;
     if (changed)

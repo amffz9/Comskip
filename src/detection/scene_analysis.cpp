@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include <algorithm>
@@ -562,7 +563,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
     comskip::detection::validate_scene_brightness(context.settings.max_brightness,
                                                 context.settings.test_brightness);
     if (!context.state.frame_ptr || context.state.haslogo.size() < sampling.storage_size)
-        throw std::invalid_argument("Scene sampling requires complete image and logo buffers");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::scene_sampling_requires_complete_image_and_logo_buffers);
     context.state.minY = context.settings.border;
     context.state.maxY = context.state.height - context.settings.border;
     context.state.minX = context.settings.border;

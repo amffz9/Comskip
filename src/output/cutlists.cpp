@@ -6,6 +6,7 @@
 #include "ffmpeg_sidecar_adapter.h"
 #include "frame_script_adapter.h"
 #include "player_export_adapter.h"
+#include "legacy_editor_adapter.h"
 #include "csv_field.h"
 #include "edl.h"
 #include <sstream>
@@ -146,63 +147,6 @@ void OpenOutputFiles(RecordingContext& context)
         }
     }
 
-
-    if (context.settings.output_videoredo && !context.settings.output_videoredo3)
-    {
-//<Version>2
-//<Filename>G:\comskip79_46\mpg\MXC_20060518_00000030.mpg
-//<Cut>4255584667:5666994667
-//<Cut>8590582000:11001991000
-//<SceneMarker 0>797115333
-//<SceneMarker 1>1083729555
-//<SceneMarker 2>4254502333
-//<SceneMarker 3>4708947222
-
-        context.state.filename = std::string(context.state.outbasename) + ".VPrj";
-        context.state.videoredo_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.videoredo_file.get())
-        {
-            if (std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.mpegfilename.c_str()))).is_absolute())
-            {
-                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s\n", context.state.mpegfilename.c_str());
-            }
-            else
-            {
-                const auto absolute_name = comskip::platform::path_to_utf8(std::filesystem::absolute(comskip::platform::path_from_utf8(context.state.mpegfilename)));
-                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s\n", absolute_name.c_str());
-            }
-            if (context.state.is_h264)
-            {
-                fprintf(context.state.videoredo_file.get(), "<MPEG Stream Type>4\n");
-            }
-
-//			fclose(videoredo_file);
-            context.settings.output_videoredo = true;
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-
-
-    if (context.settings.output_vdr)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".vdr";
-        context.state.vdr_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.vdr_file.get())
-        {
-//			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
-//			fclose(vdr_file);
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
 
     if (context.settings.output_womble)
     {
@@ -355,24 +299,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         }
     }
     //CLOSEOUTFILE(context.state.out_file);
-
-    if (context.state.vdr_file.get() && prev < start && end - start > 2)
-    {
-        const long vdr_start = start < 5 ? 0 : start;
-        fprintf(context.state.vdr_file.get(), "%s start\n",	dblSecondsToStrMinutesFrames(context, get_frame_pts(context, vdr_start)));
-        fprintf(context.state.vdr_file.get(), "%s end\n", dblSecondsToStrMinutesFrames(context, get_frame_pts(context, end)));
-    }
-    CLOSEOUTFILE(context.state.vdr_file);
-
-    if (context.state.videoredo_file.get() && prev < start && end - start > 2)
-    {
-        if (i == 0 && context.state.demux_pid)
-            fprintf(context.state.videoredo_file.get(), "<VideoStreamPID>%d\n<AudioStreamPID>%d\n<SubtitlePID1>%d\n", context.state.selected_video_pid, context.state.selected_audio_pid, context.state.selected_subtitle_pid);
-        s_start = max(start-context.settings.videoredo_offset-1,0);
-        s_end = max(end - context.settings.videoredo_offset-1,0);
-        fprintf(context.state.videoredo_file.get(), "<Cut>%.0f:%.0f\n", get_frame_pts(context, s_start) * 10000000, get_frame_pts(context, s_end) * 10000000);
-    }
-    CLOSEOUTFILE(context.state.videoredo_file);
 
     if (context.state.edl_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
@@ -958,21 +884,7 @@ bool OutputBlocks(RecordingContext& context)
     WriteFfmpegSidecarFiles(context);
     WriteFrameScriptFiles(context);
     WritePlayerExportFiles(context);
-
-    if (context.settings.output_videoredo && !context.settings.output_videoredo3)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".VPrj";
-        context.state.videoredo_file.reset(myfopen(context.state.filename.c_str(), "a+"));
-        if (context.state.videoredo_file.get())
-        {
-            for (i = 0; i < context.state.block_count; i++)
-            {
-                fprintf(context.state.videoredo_file.get(), "<SceneMarker %d>%.0f\n", i, F2T(max(context.state.cblock[i].f_end-context.settings.videoredo_offset-1,0)) * 10000000);
-            }
-            context.state.videoredo_file.reset();
-        }
-    }
-
+    WriteLegacyEditorFiles(context);
 
     if (context.settings.output_chapters)
     {

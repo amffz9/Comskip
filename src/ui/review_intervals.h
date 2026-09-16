@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 #include <algorithm>
 #include <cstdint>
@@ -16,7 +17,7 @@ std::optional<long> review_interval_boundary(std::span<const Interval> storage,
                                             int last, long current,
                                             IntervalDirection direction) {
     if (last < -1 || (last >= 0 && static_cast<std::size_t>(last) >= storage.size()))
-        throw std::out_of_range("Review interval count exceeds stored intervals");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::review_interval_count_exceeds_stored_intervals);
     const auto intervals = storage.first(static_cast<std::size_t>(last + 1));
     const auto position = static_cast<std::int64_t>(current);
     if (direction == IntervalDirection::next) {

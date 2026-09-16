@@ -9,6 +9,39 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    invalid_legacy_editor_interval,
+    invalid_legacy_editor_geometry,
+    invalid_legacy_editor_scene,
+    invalid_legacy_editor_commercial_range,
+    legacy_editor_timestamp_exceeds_range,
+    cannot_write_legacy_editor_export,
+    copying_recording_decoder_parameters_detail,
+    cannot_initialize_ffmpeg_networking_detail,
+
+    image_dimensions_and_channel_count_must_be_positive,
+    image_dimensions_exceed_the_addressable_buffer_size,
+    persisted_logo_bounds_must_lie_inside_the_decoded_image,
+    luma_image_must_contain_every_decoded_row,
+    invalid_detection_buffer_index_or_capacity,
+    detection_buffer_capacity_exceeds_supported_size,
+    interval_count_does_not_match_owned_storage,
+    interval_count_exceeds_the_supported_index_type,
+    invalid_interval_removal,
+    reference_count_exceeds_the_supported_index_type,
+    invalid_completed_detection_block_count,
+    invalid_detection_block_removal,
+    logo_shrink_must_fit_a_nonnegative_frame_offset,
+    logo_shrink_arithmetic_exceeds_the_frame_index_type,
+    logo_sampling_and_trend_lengths_must_be_positive,
+    logo_scan_radius_must_fit_a_nonnegative_frame_offset,
+    reference_comparison_requires_ordered_disjoint_intervals,
+    negative_reference_comparison_tolerance,
+    reference_comparison_lost_its_active_interval,
+    detection_frame_index_exceeds_supported_size,
+    detection_block_initialization_exceeds_owned_storage,
+    scene_sampling_requires_complete_image_and_logo_buffers,
+    review_interval_count_exceeds_stored_intervals,
+
     score_threshold_invalid_block_count,
     score_threshold_invalid_frame_interval,
     cannot_select_score_threshold,
@@ -284,6 +317,39 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::invalid_legacy_editor_interval: return "diag_invalid_legacy_editor_interval";
+    case Code::invalid_legacy_editor_geometry: return "diag_invalid_legacy_editor_geometry";
+    case Code::invalid_legacy_editor_scene: return "diag_invalid_legacy_editor_scene";
+    case Code::invalid_legacy_editor_commercial_range: return "diag_invalid_legacy_editor_commercial_range";
+    case Code::legacy_editor_timestamp_exceeds_range: return "diag_legacy_editor_timestamp_exceeds_range";
+    case Code::cannot_write_legacy_editor_export: return "diag_cannot_write_legacy_editor_export";
+    case Code::copying_recording_decoder_parameters_detail: return "diag_copying_recording_decoder_parameters_detail";
+    case Code::cannot_initialize_ffmpeg_networking_detail: return "diag_cannot_initialize_ffmpeg_networking_detail";
+
+    case Code::image_dimensions_and_channel_count_must_be_positive: return "diag_image_dimensions_and_channel_count_must_be_positive";
+    case Code::image_dimensions_exceed_the_addressable_buffer_size: return "diag_image_dimensions_exceed_the_addressable_buffer_size";
+    case Code::persisted_logo_bounds_must_lie_inside_the_decoded_image: return "diag_persisted_logo_bounds_must_lie_inside_the_decoded_image";
+    case Code::luma_image_must_contain_every_decoded_row: return "diag_luma_image_must_contain_every_decoded_row";
+    case Code::invalid_detection_buffer_index_or_capacity: return "diag_invalid_detection_buffer_index_or_capacity";
+    case Code::detection_buffer_capacity_exceeds_supported_size: return "diag_detection_buffer_capacity_exceeds_supported_size";
+    case Code::interval_count_does_not_match_owned_storage: return "diag_interval_count_does_not_match_owned_storage";
+    case Code::interval_count_exceeds_the_supported_index_type: return "diag_interval_count_exceeds_the_supported_index_type";
+    case Code::invalid_interval_removal: return "diag_invalid_interval_removal";
+    case Code::reference_count_exceeds_the_supported_index_type: return "diag_reference_count_exceeds_the_supported_index_type";
+    case Code::invalid_completed_detection_block_count: return "diag_invalid_completed_detection_block_count";
+    case Code::invalid_detection_block_removal: return "diag_invalid_detection_block_removal";
+    case Code::logo_shrink_must_fit_a_nonnegative_frame_offset: return "diag_logo_shrink_must_fit_a_nonnegative_frame_offset";
+    case Code::logo_shrink_arithmetic_exceeds_the_frame_index_type: return "diag_logo_shrink_arithmetic_exceeds_the_frame_index_type";
+    case Code::logo_sampling_and_trend_lengths_must_be_positive: return "diag_logo_sampling_and_trend_lengths_must_be_positive";
+    case Code::logo_scan_radius_must_fit_a_nonnegative_frame_offset: return "diag_logo_scan_radius_must_fit_a_nonnegative_frame_offset";
+    case Code::reference_comparison_requires_ordered_disjoint_intervals: return "diag_reference_comparison_requires_ordered_disjoint_intervals";
+    case Code::negative_reference_comparison_tolerance: return "diag_negative_reference_comparison_tolerance";
+    case Code::reference_comparison_lost_its_active_interval: return "diag_reference_comparison_lost_its_active_interval";
+    case Code::detection_frame_index_exceeds_supported_size: return "diag_detection_frame_index_exceeds_supported_size";
+    case Code::detection_block_initialization_exceeds_owned_storage: return "diag_detection_block_initialization_exceeds_owned_storage";
+    case Code::scene_sampling_requires_complete_image_and_logo_buffers: return "diag_scene_sampling_requires_complete_image_and_logo_buffers";
+    case Code::review_interval_count_exceeds_stored_intervals: return "diag_review_interval_count_exceeds_stored_intervals";
+
     case Code::score_threshold_invalid_block_count: return "diag_score_threshold_invalid_block_count";
     case Code::score_threshold_invalid_frame_interval: return "diag_score_threshold_invalid_frame_interval";
     case Code::cannot_select_score_threshold: return "diag_cannot_select_score_threshold";

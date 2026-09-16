@@ -36,8 +36,6 @@ struct RecordingState {
     comskip::platform::FilePtr out_file;
     comskip::platform::FilePtr incommercial_file;
     comskip::platform::FilePtr ini_file;
-    comskip::platform::FilePtr vdr_file;
-    comskip::platform::FilePtr videoredo_file;
     comskip::platform::FilePtr edl_file;
     comskip::platform::FilePtr live_file;
     comskip::platform::FilePtr edlp_file;
@@ -279,7 +277,7 @@ struct RecordingState {
     int pass= 0;
     double test_pts= 0.0;
     int av_log_level=AV_LOG_INFO;
-    DictionaryPtr myoptions{};
+    comskip::media::DictionaryPtr myoptions{};
     std::unique_ptr<VideoState> video_owner{};
     int64_t pev_best_effort_timestamp= 0;
     int video_stream_index= -1;

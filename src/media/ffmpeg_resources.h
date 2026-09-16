@@ -2,8 +2,11 @@
 #include <memory>
 #include <new>
 #include <stdexcept>
+#include <array>
+#include "diagnostic.h"
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavutil/error.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 }
@@ -12,8 +15,13 @@ namespace comskip::media {
 class NetworkSession {
 public:
     NetworkSession() {
-        if (avformat_network_init() < 0)
-            throw std::runtime_error("Cannot initialize FFmpeg networking");
+        const int result = avformat_network_init();
+        if (result < 0) {
+            std::array<char, AV_ERROR_MAX_STRING_SIZE> detail{};
+            av_strerror(result, detail.data(), detail.size());
+            throw diagnostics::DiagnosticError<std::runtime_error>(
+                diagnostics::Code::cannot_initialize_ffmpeg_networking_detail, {detail.data()});
+        }
     }
     ~NetworkSession() { avformat_network_deinit(); }
     NetworkSession(const NetworkSession&) = delete;

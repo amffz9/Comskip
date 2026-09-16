@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #pragma once
 #include "detector_records.h"
 #include <limits>
@@ -21,7 +22,7 @@ inline void reset_blocks(std::vector<block_info>& blocks, long& count) {
 inline void complete_block(std::vector<block_info>& blocks, long& count) {
     if (count < 0 || count == std::numeric_limits<long>::max() ||
         static_cast<std::size_t>(count) + 1 != blocks.size())
-        throw std::out_of_range("Invalid completed detection block count");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_completed_detection_block_count);
     blocks.push_back(empty_block());
     ++count;
 }
@@ -30,7 +31,7 @@ inline void erase_blocks(std::vector<block_info>& blocks, long& count,
                          long first, long removed = 1) {
     if (count < 0 || first < 0 || removed < 0 || first > count || removed > count - first ||
         static_cast<std::size_t>(count) + 1 != blocks.size())
-        throw std::out_of_range("Invalid detection block removal");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_detection_block_removal);
     blocks.erase(blocks.begin() + first, blocks.begin() + first + removed);
     count -= removed;
 }

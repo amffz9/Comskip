@@ -8,6 +8,7 @@ struct AVStream;
 struct AVPacket;
 namespace comskip::localization { class Translator; }
 
+int stream_component_open(RecordingContext& context, VideoState* video, int stream_index);
 void file_open(RecordingContext& context);
 void file_close(RecordingContext& context);
 void DoSeekRequest(RecordingContext& context, VideoState* video);
