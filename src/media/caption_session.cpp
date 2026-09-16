@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <utility>
 #include <format>
+#include <algorithm>
 
 namespace comskip::media {
 CaptionSession::CaptionSession(CaptionOutputOptions options)
@@ -13,21 +14,49 @@ CaptionSession::~CaptionSession() {
 void CaptionSession::open_outputs() {
     if (options_.srt) {
         auto filename = options_.basename; filename += ".srt";
-        outputs_.emplace_back(filename, SubtitleFormat::srt, decoder_.ass_header());
+        outputs_.emplace_back(filename, SubtitleFormat::srt, stream_decoder_ ? stream_decoder_->ass_header() : decoder_.ass_header());
     }
     if (options_.sami) {
         auto filename = options_.basename; filename += ".smi";
-        outputs_.emplace_back(filename, SubtitleFormat::sami, decoder_.ass_header());
+        outputs_.emplace_back(filename, SubtitleFormat::sami, stream_decoder_ ? stream_decoder_->ass_header() : decoder_.ass_header());
     }
 }
 void CaptionSession::write(std::span<const CaptionCue> cues) {
     for (const auto& cue : cues) for (auto& output : outputs_) output.write(cue);
 }
 void CaptionSession::consume(std::span<const std::uint8_t> a53, CaptionTimestamp timestamp) {
+    if (stream_decoder_) return;
     if (finished_) throw std::logic_error("Caption session must be reset after EOF");
     if (last_time_ && timestamp < *last_time_)
         throw std::invalid_argument(std::format("Caption consume time {} precedes {}", timestamp.count(), last_time_->count()));
     const auto cues = decoder_.decode(a53, timestamp); write(cues); last_time_ = timestamp;
+}
+void CaptionSession::select_stream(const AVCodecParameters& parameters, AVRational time_base) {
+    auto decoder = std::make_unique<SubtitleStreamDecoder>(parameters, time_base);
+    if (!stream_decoder_) {
+        outputs_.clear();
+        stream_decoder_ = std::move(decoder);
+        open_outputs();
+    } else {
+        // Reopening the same recording preserves completed cues/destinations.
+        if (decoder->ass_header() != stream_decoder_->ass_header())
+            throw std::runtime_error("Standalone subtitle header changed while reopening the recording");
+        stream_decoder_ = std::move(decoder);
+    }
+}
+void CaptionSession::consume_stream(std::span<const std::uint8_t> packet, std::int64_t pts,
+                                    std::int64_t duration, CaptionTimestamp recording_origin) {
+    if (finished_) throw std::logic_error("Caption session must be reset after EOF");
+    if (!stream_decoder_) throw std::logic_error("Standalone subtitle stream has not been selected");
+    stream_origin_ = recording_origin;
+    auto cues = stream_decoder_->decode(packet, pts, duration);
+    for (auto& cue : cues) {
+        cue.start -= recording_origin;
+        cue.end -= recording_origin;
+        if (cue.end <= CaptionTimestamp{}) continue;
+        cue.start = std::max(cue.start, CaptionTimestamp{});
+        write({&cue, 1});
+    }
 }
 void CaptionSession::consume_stored_packet(std::span<const std::uint8_t> packet, CaptionTimestamp timestamp) {
     const auto a53 = extract_a53_captions(packet);
@@ -35,6 +64,18 @@ void CaptionSession::consume_stored_packet(std::span<const std::uint8_t> packet,
 }
 void CaptionSession::finish(CaptionTimestamp end) {
     if (finished_) return;
+    if (stream_decoder_) {
+        auto cues = stream_decoder_->drain();
+        for (auto& cue : cues) {
+            cue.start -= stream_origin_; cue.end -= stream_origin_;
+            if (cue.end <= CaptionTimestamp{}) continue;
+            cue.start = std::max(cue.start, CaptionTimestamp{});
+            write({&cue, 1});
+        }
+        for (auto& output : outputs_) output.finish();
+        finished_ = true;
+        return;
+    }
     if (last_time_ && end < *last_time_)
         throw std::invalid_argument(std::format("Caption EOF time {} precedes {}", end.count(), last_time_->count()));
     const auto cues = decoder_.drain(end); write(cues);
@@ -44,6 +85,7 @@ void CaptionSession::finish(CaptionTimestamp end) {
 void CaptionSession::reset() {
     // Replaced files are completed/closed before rebuilding fresh decoder state.
     outputs_.clear(); decoder_.reset(); last_time_.reset(); finished_ = false;
+    if (stream_decoder_) stream_decoder_->reset();
     open_outputs();
 }
 }

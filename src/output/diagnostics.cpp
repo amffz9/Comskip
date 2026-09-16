@@ -1,5 +1,6 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include "output/diagnostics.h"
 #include "weighted_scores.h"
 #include "search_path.h"
 #include "checked_format.h"
@@ -299,7 +300,7 @@ void OutputFrame(RecordingContext& context, int frame_number)
     raw.reset(myfopen(array, "w"));
     if (!raw.get())
     {
-        Debug(context, 1, "Could not open frame output file.\n");
+        Debug(context, 1, "%s", context.translator.text("diagnostics_frame_open_failed"));
         return;
     }
 
@@ -422,7 +423,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
                     context.state.reffer[context.state.reffer_count].end_frame = FindFrameWithPts(context, ((double)strtol(split, NULL, 10))/context.settings.fps);
                     if (context.state.reffer[context.state.reffer_count].end_frame < context.state.reffer[context.state.reffer_count].start_frame)
                     {
-                        Debug(context, 0,"Error in .ref file, end < start frame\n");
+                        Debug(context, 0, "%s", context.translator.text("diagnostics_reference_reversed"));
                         context.state.reffer[context.state.reffer_count].end_frame = context.state.reffer[context.state.reffer_count].start_frame + 10;
                     }
                     if (context.settings.sage_framenumber_bug) context.state.reffer[context.state.reffer_count].end_frame *= 2;
@@ -684,7 +685,7 @@ void OutputAspect(RecordingContext& context)
     raw.reset(myfopen(array, "w"));
     if (!raw.get())
     {
-        Debug(context, 1, "Could not open aspect output file.\n");
+        Debug(context, 1, "%s", context.translator.text("diagnostics_aspect_open_failed"));
         return;
     }
 
@@ -730,7 +731,7 @@ return;
     raw.reset(myfopen(array, "w"));
     if (!raw.get())
     {
-        Debug(context, 1, "Could not open raw output file.\n");
+        Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
         return;
     }
     fprintf(raw.get(), "black,frame,brightness,cause,uniform,volume\n");
@@ -772,7 +773,7 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
     raw.reset(myfopen(array, "w"));
     if (!raw.get())
     {
-        Debug(context, 1, "Could not open raw output file.\n");
+        Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
         return;
     }
     fprintf(raw.get(), "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%f",context.settings.fps);

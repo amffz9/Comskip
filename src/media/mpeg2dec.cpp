@@ -1916,7 +1916,10 @@ again:
         subtitle_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, NULL, 0);
         if(subtitle_index >= 0)
         {
+            is->subtitleStream = subtitle_index;
             is->subtitle_st = is->pFormatCtx->streams[subtitle_index];
+            if (context.captions && !context.state.reviewing)
+                context.captions->select_stream(*is->subtitle_st->codecpar, is->subtitle_st->time_base);
             if (context.state.demux_pid)
                 context.state.selected_subtitle_pid = is->subtitle_st->id;
         }
@@ -2244,6 +2247,17 @@ nextpacket:
             {
                 if (packet->size > 0 && packet->data != NULL)
                     audio_packet_process(context, context.state.video_owner.get(), packet);
+            }
+            else if(packet->stream_index == context.state.video_owner->subtitleStream &&
+                    context.captions && !context.state.reviewing && packet->size > 0 && packet->data)
+            {
+                const auto* video = context.state.video_owner->video_st;
+                const auto video_origin = (video->start_time != AV_NOPTS_VALUE ?
+                    video->start_time * av_q2d(video->time_base) : 0.0) +
+                    context.state.initial_pts - context.state.pts_offset;
+                context.captions->consume_stream({packet->data, static_cast<std::size_t>(packet->size)},
+                    packet->pts, packet->duration,
+                    std::chrono::duration_cast<comskip::media::CaptionTimestamp>(std::chrono::duration<double>(video_origin)));
             }
             else
             {

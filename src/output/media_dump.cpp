@@ -1,4 +1,7 @@
 #include "legacy_detection.h"
+#include <format>
+#include <stdexcept>
+#include <string>
 
 
 
@@ -58,32 +61,29 @@ void close_dump(RecordingContext& context)
 
 void dump_data(RecordingContext& context, char *start, int length)
 {
-    char temp[2000];
-    int i;
     if (!context.settings.output_data) return;
+    if (length < 0 || (length > 0 && !start))
+        throw std::invalid_argument("Invalid data dump buffer");
     if (!length) return;
+    if (length > 1900) return;
+    if (context.state.framenum_real < 0 || context.state.framenum_real > 9999999)
+        throw std::out_of_range("Data dump frame number exceeds its seven-digit field");
     if (!context.state.dump_data_file.get())
     {
-        sprintf(temp, "%s.data", context.state.workbasename);
-        context.state.dump_data_file.reset(myfopen(temp, "wb"));
+        const auto filename = std::string(context.state.workbasename) + ".data";
+        context.state.dump_data_file.reset(myfopen(filename.c_str(), "wb"));
+        if (!context.state.dump_data_file) {
+            Debug(context, 1, "%s", context.translator.format("create_failed", strerror(errno), filename).c_str());
+            return;
+        }
     }
-    if (length > 1900)
-        return;
-    sprintf(temp, "%7d:%4d",context.state.framenum_real, length);
-    for (i=0; i<length; i++)
-        temp[i+12] = start[i] & 0xff;
-    fwrite(temp, length+12, 1, context.state.dump_data_file.get());
-
-//	fclose(dump_data_file);
+    auto record = std::format("{:7}:{:4}", context.state.framenum_real, length);
+    record.append(start, static_cast<std::size_t>(length));
+    if (fwrite(record.data(), 1, record.size(), context.state.dump_data_file.get()) != record.size())
+        Debug(context, 1, "%s", context.translator.text("diagnostics_dump_write_failed"));
 }
 
 void close_data(RecordingContext& context)
 {
-    if (context.settings.output_data)
-    {
-    if (context.state.dump_data_file.get()) {
-        context.state.dump_data_file.reset();
-        context.state.dump_data_file.reset();
-    }
-    }
+    context.state.dump_data_file.reset();
 }
