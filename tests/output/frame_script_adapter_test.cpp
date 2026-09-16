@@ -1,7 +1,7 @@
 #include "output/frame_script_adapter.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
-#include "exit_requested.h"
+#include "diagnostic_render.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <filesystem>
@@ -77,12 +77,12 @@ TEST_F(FrameScriptAdapter, UnwritableActualExportReportsSpanishAndPreservesBlock
     context->settings.output_projectx=false; context->settings.output_avisynth=false;
     context->translator=comskip::localization::Translator("es");
     ASSERT_TRUE(std::filesystem::create_directory(directory/"result.vcf"));
-    ::testing::internal::CaptureStderr();
     try { WriteFrameScriptFiles(*context); FAIL()<<"Expected output creation rejection"; }
-    catch (const comskip::ExitRequested& exit) { EXPECT_EQ(exit.status(),6); }
-    const auto message=::testing::internal::GetCapturedStderr();
-    EXPECT_NE(message.find("no se pudo crear el archivo"),std::string::npos);
-    EXPECT_NE(message.find(context->state.outbasename+".vcf"),std::string::npos);
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::output_open);
+        EXPECT_EQ(comskip::localization::render_diagnostic(error.diagnostic(),context->translator),
+                  "No se pudo abrir el archivo de salida: "+context->state.outbasename+".vcf");
+    }
     EXPECT_TRUE(std::filesystem::is_directory(directory/"result.vcf"));
 }
 }

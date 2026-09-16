@@ -1,16 +1,15 @@
 #include "output/legacy_cutlist_adapter.h"
 #include "checked_format.h"
 #include "diagnostic.h"
-#include "exit_requested.h"
 #include "output/legacy_commands.h"
 #include "output/legacy_edit_lists.h"
 #include "output/plain_chapters.h"
+#include "output/output_file.h"
 #include "platform/utf8_paths.h"
 #include "recording_context.h"
 #include <algorithm>
 #include <cmath>
 #include <format>
-#include <fstream>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -115,31 +114,9 @@ void WriteLegacyCutlistFiles(RecordingContext &context, bool use_reference) {
   const auto write = [&](const std::string &name, auto serializer) {
     std::ostringstream data;
     serializer(data);
-    std::ofstream out(comskip::platform::path_from_utf8(name),
-                      std::ios::binary);
-    if (!out && name == s.outbasename + ".chap") {
-      sleep_for_ms(50L);
-      out.clear();
-      out.open(comskip::platform::path_from_utf8(name), std::ios::binary);
-      if (!out) {
-        Debug(context, 0, "%s",
-              context.translator.format("cutlists_write_failed", name).c_str());
-        comskip::request_exit(103);
-      }
-    }
-    if (!out) {
-      fputs(context.translator.format("create_failed", strerror(errno), name)
-                .c_str(),
-            stderr);
-      comskip::request_exit(6);
-    }
-    out << data.str();
-    out.close();
-    if (!out) {
-      Debug(context, 0, "%s",
-            context.translator.format("cutlists_write_failed", name).c_str());
-      comskip::request_exit(6);
-    }
+    write_output_file(name, data.str(), name == s.outbasename + ".chap"
+                                            ? std::chrono::milliseconds{50}
+                                            : std::chrono::milliseconds{});
   };
   if (o.output_womble)
     write(s.outbasename + ".wme",

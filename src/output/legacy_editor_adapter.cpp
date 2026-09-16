@@ -1,12 +1,11 @@
 #include "diagnostic.h"
 #include "output/legacy_editor_adapter.h"
 #include "output/legacy_editor_exports.h"
+#include "output/output_file.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
-#include "exit_requested.h"
 #include <algorithm>
 #include <cmath>
-#include <fstream>
 #include <limits>
 #include <sstream>
 #include <vector>
@@ -56,10 +55,7 @@ void WriteLegacyEditorFiles(RecordingContext& context,bool use_reference) {
     const auto write=[&](const char* extension,auto serializer){
         std::ostringstream contents;serializer(contents);
         const auto filename=state.outbasename+extension;
-        std::ofstream output(comskip::platform::path_from_utf8(filename),std::ios::binary);
-        if(!output){fputs(context.translator.format("create_failed",strerror(errno),filename).c_str(),stderr);comskip::request_exit(6);}
-        output<<contents.str();output.close();
-        if(!output){Debug(context,0,"%s",context.translator.format("cutlists_write_failed",filename).c_str());comskip::request_exit(6);}
+        write_output_file(filename,contents.str());
     };
     if(settings.output_vdr)write(".vdr",[&](auto& out){write_vdr(out,vdr,settings.fps);});
     if(project){

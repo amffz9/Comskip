@@ -4,6 +4,7 @@
 #include "buffer_growth.h"
 
 #include <algorithm>
+#include <format>
 #include <iterator>
 
 void OutputCCBlock(RecordingContext& context, long i)
@@ -1266,7 +1267,7 @@ bool ProcessCCDict(RecordingContext& context)
         return (false);
     }
 
-    Debug(context, 2, "\n\nStarting to process dictionary\n-------------------------------------\n");
+    Debug(context, 2, "%s", context.translator.text("caption_dictionary_start"));
     while (fgets(phrase, sizeof(phrase), dict.get()) != NULL)
     {
         ptr = strchr(phrase, '\n');
@@ -1274,30 +1275,34 @@ bool ProcessCCDict(RecordingContext& context)
         if (strstr(phrase, "-----") != NULL)
         {
             goodPhrase = false;
-            Debug(context, 3, "Finished with good phrases.  Now starting bad phrases.\n");
+            Debug(context, 3, "%s", context.translator.text("caption_dictionary_bad_phrases"));
             continue;
         }
         // just in case the line is empty
         if (strlen(phrase) < 1) continue;
 
-        Debug(context, 3, "Searching for: %s\n", phrase);
+        Debug(context, 3, "%s", context.translator.format("caption_dictionary_search", phrase).c_str());
         for (i = 0; i < context.state.cc_text_count; i++)
         {
             if (strstr(_strupr((char*)context.state.cc_text[i].text), _strupr((char*)phrase)) != NULL)
             {
-                Debug(context, 2, "%s found in cc_text_block %i\n", phrase, i);
+                Debug(context, 2, "%s", context.translator.format("caption_dictionary_found", phrase,
+                    std::format("{}", i)).c_str());
                 if (goodPhrase)
                 {
                     j = FindBlock(context, (context.state.cc_text[i].start_frame + context.state.cc_text[i].end_frame) / 2);
                     if (j == -1)
                     {
-                        Debug(context, 1, "There was an error finding the correct cblock for cc text cblock %i.\n", i);
+                        Debug(context, 1, "%s", context.translator.format("caption_dictionary_block_error",
+                            std::format("{}", i)).c_str());
                     }
                     else
                     {
-                        Debug(context, 3, "Block %i score:\tBefore - %.2f\t", j, context.state.cblock[j].score);
+                        Debug(context, 3, "%s", context.translator.format("scoring_score_before",
+                            std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score)).c_str());
                         context.state.cblock[j].score /= context.state.dictionary_modifier;
-                        Debug(context, 3, "After - %.2f\n", context.state.cblock[j].score);
+                        Debug(context, 3, "%s", context.translator.format("scoring_score_after",
+                            std::format("{:.2f}", context.state.cblock[j].score)).c_str());
                     }
                 }
                 else
@@ -1305,13 +1310,16 @@ bool ProcessCCDict(RecordingContext& context)
                     j = FindBlock(context, (context.state.cc_text[i].start_frame + context.state.cc_text[i].end_frame) / 2);
                     if (j == -1)
                     {
-                        Debug(context, 1, "There was an error finding the correct cblock for cc text cblock %i.\n", i);
+                        Debug(context, 1, "%s", context.translator.format("caption_dictionary_block_error",
+                            std::format("{}", i)).c_str());
                     }
                     else
                     {
-                        Debug(context, 3, "Block %i score:\tBefore - %.2f\t", j, context.state.cblock[j].score);
+                        Debug(context, 3, "%s", context.translator.format("scoring_score_before",
+                            std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score)).c_str());
                         context.state.cblock[j].score *= context.state.dictionary_modifier;
-                        Debug(context, 3, "After - %.2f\n", context.state.cblock[j].score);
+                        Debug(context, 3, "%s", context.translator.format("scoring_score_after",
+                            std::format("{:.2f}", context.state.cblock[j].score)).c_str());
                     }
                 }
             }
@@ -1320,4 +1328,3 @@ bool ProcessCCDict(RecordingContext& context)
 
     return (true);
 }
-

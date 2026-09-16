@@ -2,7 +2,7 @@
 #include "output/cutlist_exports.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
-#include "exit_requested.h"
+#include "diagnostic_render.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <filesystem>
@@ -77,11 +77,12 @@ TEST_F(PlayerAdapter, ActualCreateFailureReportsSpanishAndPreservesBlockingDirec
     context->state.commercial_count=-1;
     context->translator=comskip::localization::Translator("es");
     ASSERT_TRUE(std::filesystem::create_directory(directory/"result.chp"));
-    ::testing::internal::CaptureStderr();
     try {WritePlayerExportFiles(*context); FAIL()<<"Expected export failure";}
-    catch(const comskip::ExitRequested& exit) {EXPECT_EQ(exit.status(),6);}
-    const auto message=::testing::internal::GetCapturedStderr();
-    EXPECT_NE(message.find("no se pudo crear el archivo"),std::string::npos);
+    catch(const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::output_open);
+        EXPECT_EQ(comskip::localization::render_diagnostic(error.diagnostic(),context->translator),
+                  "No se pudo abrir el archivo de salida: "+context->state.outbasename+".chp");
+    }
     EXPECT_TRUE(std::filesystem::is_directory(directory/"result.chp"));
 }
 TEST_F(PlayerAdapter, NormalAndReviewExportsKeepPlainChaptersAndIpodChaptersInDistinctFiles) {

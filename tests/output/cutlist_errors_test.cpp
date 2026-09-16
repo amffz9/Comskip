@@ -6,6 +6,7 @@
 #include "output/cutlist_exports.h"
 #include "checked_format.h"
 #include "exit_requested.h"
+#include "diagnostic_render.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <chrono>
@@ -49,6 +50,22 @@ protected:
         }
         catch (const comskip::ExitRequested& exit) { EXPECT_EQ(exit.status(), status); }
     }
+    std::string expect_output_open() {
+        try {
+            OpenOutputFiles(*context);
+            context->state.frame_count=50;
+            context->state.framenum_real=50;
+            context->state.commercial_count=-1;
+            WritePlayerExportFiles(*context);
+            WriteLegacyCutlistFiles(*context);
+            ADD_FAILURE() << "Expected output-open diagnostic";
+        }
+        catch (const comskip::diagnostics::DiagnosticProvider& error) {
+            EXPECT_EQ(error.diagnostic().code, comskip::diagnostics::Code::output_open);
+            return comskip::localization::render_diagnostic(error.diagnostic(), context->translator);
+        }
+        return {};
+    }
     std::string log() {
         std::ifstream input(directory / "error.log");
         return {std::istreambuf_iterator<char>(input), {}};
@@ -64,8 +81,8 @@ TEST_F(CutlistErrors, ChapterOutputRetryReportsSpanishAndReleasesOwner) {
     context->translator = comskip::localization::Translator("es");
     context->settings.output_default = false;
     context->settings.output_chapters = true;
-    expect_exit(103);
-    EXPECT_EQ(log(), "ERROR al escribir en " + std::string(context->state.outbasename) + ".chap\n");
+    EXPECT_EQ(expect_output_open(), "No se pudo abrir el archivo de salida: " +
+                                      std::string(context->state.outbasename) + ".chap");
     EXPECT_FALSE(std::filesystem::exists(context->state.outbasename + ".chap"));
 }
 TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) {
@@ -73,12 +90,8 @@ TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) 
     context->settings.output_default = false;
     context->settings.output_chapters = false;
     context->settings.output_zoomplayer_cutlist = true;
-    ::testing::internal::CaptureStderr();
-    expect_exit(6);
-    auto message = ::testing::internal::GetCapturedStderr();
-    std::erase(message, '\r');
-    EXPECT_NE(message.find(" - no se pudo crear el archivo "), std::string::npos);
-    EXPECT_NE(message.find(std::string(context->state.outbasename) + ".cut\n"), std::string::npos);
+    EXPECT_EQ(expect_output_open(), "No se pudo abrir el archivo de salida: " +
+                                      std::string(context->state.outbasename) + ".cut");
     EXPECT_FALSE(std::filesystem::exists(context->state.outbasename + ".cut"));
 }
 TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExactly) {

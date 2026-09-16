@@ -3,19 +3,19 @@
 The remaining work is complete only when all items have implementation and
 verification evidence. Passing the current media smoke tests alone is insufficient.
 
-- [ ] Settings are ordinary validated application-owned values, including regional
+- [x] Settings are ordinary validated application-owned values, including regional
   commercial profiles; loading does not mutate process-wide globals.
-- [ ] RecordingState owns per-recording detection, logo, caption, timing, output,
+- [x] RecordingState owns per-recording detection, logo, caption, timing, output,
   and UI state. Interfaces receive their dependencies explicitly. No shared mutable
   globals, singleton accessors, thread-local replacements, or global aliases remain.
 - [ ] FFmpeg resources and files have automatic ownership across normal, error,
   seek, and reopen paths. Lower-level functions return/throw actionable errors
   rather than terminate the process.
-- [ ] The review UI uses SDL across supported platforms with explicit event state,
+- [x] The review UI uses SDL across supported platforms with explicit event state,
   RAII graphics resources, and a deliberate headless backend.
 - [ ] Human-facing messages and review labels use committed catalogs with locale
   selection, fallback, and validated formatting. Machine-readable formats stay stable.
-- [ ] Tests cover independent repeated analyses, seeking/reopening, damaged and
+- [x] Tests cover independent repeated analyses, seeking/reopening, damaged and
   truncated media, stream format changes, known commercial intervals, and exact
   output serializers including escaping and time/frame boundary cases.
 - [ ] Windows and Linux headless/SDL builds and tests are verified;
@@ -376,10 +376,24 @@ than redefine completion around whichever subset currently passes tests.
   Numeric values are formatted at their call sites before insertion into plain
   catalog fields, preserving the legacy decimal widths without a printf-format
   translation layer. The reproducible inventory in
-  `bin/human-message-inventory.md` now reports **237** remaining literal call
+  `bin/human-message-inventory.md` now reports **227** remaining literal call
   sites, down from 337; the six entries still attributed to `scoring.cpp` are
   disabled `#if 0` branches retained by the inventory's documented policy.
   Safe C++23 seek arithmetic and the corrected Womble EOF classification add
   focused and actual-media regressions. Windows passes **420/420** headless and
   **428/428** SDL tests; the public-speed non-donator application also builds.
   Other human-facing messages and Linux verification of this stage remain.
+
+- Caption dictionary-processing diagnostics now use the English and Spanish
+  catalogs with call-site numeric formatting. The reproducible literal-message
+  inventory is down to **227** sites. Five finalized output adapters share one
+  standard-library exact-byte writer; open and close/write failures propagate as
+  owned `output_open`/`output_write` diagnostics instead of terminating inside
+  the adapter. The helper retries plain chapter creation with `std::chrono` and
+  `std::this_thread::sleep_for`, preserving the prior retry policy. Exact UTF-8
+  replacement and missing-parent tests plus actual Spanish adapter failures pass
+  in both Windows configurations. The complete stage passes Windows headless
+  **423/423** and SDL **431/431** tests, and the public non-donator application
+  builds. Logs are `bin/windows-output-errors-build23{,-gui}-{build,test}.txt`
+  and `bin/windows-output-errors-public-build.txt`. Linux verification of this
+  combined stage remains separate.

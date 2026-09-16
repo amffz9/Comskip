@@ -918,3 +918,18 @@ Nonfinite/extreme targets, invalid stream time bases, tick conversion, and
 `start_time` addition could produce undefined or overflowing seek positions.
 Checked standard-library helpers now reject invalid or unrepresentable targets
 before calling FFmpeg seek APIs.
+
+### B078: Finalized output adapters terminate analysis from the lower layer
+
+- **Evidence:** FFmpeg sidecar, frame-script, player, legacy-editor and legacy
+  cut-list adapters called `request_exit` directly after file open or write
+  failure, and several printed to process `stderr` themselves.
+- **Impact:** Embedded and repeated analyses cannot recover at their application
+  boundary or inspect an owned failure path; output code also duplicates file
+  lifecycle and retry handling.
+- **Status:** Fixed. The adapters share a standard-library exact-byte writer
+  which closes deterministically and throws owned `output_open`/`output_write`
+  diagnostics. Chapter creation retains its one retry through `std::chrono`.
+- **Verification:** Exact UTF-8 replacement, retry failure ownership and actual
+  Spanish adapter failures pass within all 423 Windows headless and 431 SDL
+  tests; the public non-donator build succeeds.

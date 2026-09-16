@@ -1,13 +1,12 @@
 #include "diagnostic.h"
 #include "output/frame_script_adapter.h"
 #include "output/frame_scripts.h"
+#include "output/output_file.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
 #include "checked_format.h"
-#include "exit_requested.h"
 #include <algorithm>
 #include <cmath>
-#include <fstream>
 #include <format>
 #include <limits>
 #include <sstream>
@@ -56,16 +55,7 @@ void WriteFrameScriptFiles(RecordingContext& context, bool use_reference) {
     if (count < 0 || previous < state.frame_count - 2) append(previous, state.frame_count - 2);
     const auto write = [&](const std::string& filename, auto serialize) {
         std::ostringstream contents; serialize(contents);
-        std::ofstream output(comskip::platform::path_from_utf8(filename),std::ios::binary);
-        if (!output) {
-            fputs(context.translator.format("create_failed",strerror(errno),filename).c_str(),stderr);
-            comskip::request_exit(6);
-        }
-        output << contents.str(); output.close();
-        if (!output) {
-            Debug(context,0,"%s",context.translator.format("cutlists_write_failed",filename).c_str());
-            comskip::request_exit(6);
-        }
+        write_output_file(filename, contents.str());
     };
     if (settings.output_vcf) write(state.outbasename + ".vcf",[&](auto& out) { write_vcf(out,vcf); });
     if (settings.output_projectx) write(state.mpegfilename + ".Xcl",[&](auto& out) { write_projectx(out,retained); });

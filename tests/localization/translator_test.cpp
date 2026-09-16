@@ -100,3 +100,13 @@ TEST(Translator, FormatsScoringDiagnosticsInEnglishAndSpanish) {
     EXPECT_EQ(spanish.format("scoring_ar_differs", "3", "1.33", "1.78"),
               "La relación de aspecto del bloque 3 (1.33) difiere de la relación de aspecto dominante (1.78).\n");
 }
+TEST(Translator, FormatsCaptionDictionaryDiagnosticsInEnglishAndSpanish) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("caption_dictionary_found", "OPEN NOW", "7"),
+              "OPEN NOW found in cc_text_block 7\n");
+    EXPECT_EQ(spanish.format("caption_dictionary_search", "OFERTA"),
+              "Buscando: OFERTA\n");
+    EXPECT_EQ(spanish.format("caption_dictionary_block_error", "12"),
+              "Se produjo un error al buscar el cblock correcto para el cblock de texto de subtítulos 12.\n");
+}

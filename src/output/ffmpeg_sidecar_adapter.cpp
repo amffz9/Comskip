@@ -1,10 +1,9 @@
 #include "output/ffmpeg_sidecar_adapter.h"
 #include "diagnostic.h"
 #include "output/ffmpeg_sidecars.h"
+#include "output/output_file.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
-#include "exit_requested.h"
-#include <fstream>
 #include <sstream>
 #include <vector>
 
@@ -45,16 +44,7 @@ void WriteFfmpegSidecarFiles(RecordingContext& context, bool use_reference) {
         std::ostringstream buffer;
         serializer(buffer, records);
         const auto filename = context.state.outbasename + extension;
-        std::ofstream output(comskip::platform::path_from_utf8(filename), std::ios::binary);
-        if (!output) {
-            fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        output << buffer.str(); output.close();
-        if (!output) {
-            Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", filename).c_str());
-            comskip::request_exit(6);
-        }
+        write_output_file(filename, buffer.str());
     };
     if (context.settings.output_ffmeta) write(".ffmeta", write_ffmetadata, std::span<const SidecarChapter>{chapters});
     if (context.settings.output_ffsplit) write(".ffsplit", write_ffsplit, std::span<const SidecarShowSegment>{segments});
