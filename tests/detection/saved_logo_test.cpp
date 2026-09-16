@@ -1,12 +1,24 @@
 #include "recording_context.h"
 #include "detection/saved_logo.h"
+#include "localization/diagnostic.h"
 #include <gtest/gtest.h>
 #include <fstream>
 #include <chrono>
+#include <iterator>
 #include <memory>
 void LoadLogoMaskData(RecordingContext&);
 void SaveLogoMaskData(RecordingContext&);
 namespace {
+void expect_diagnostic(const std::exception& error, comskip::diagnostics::Code code,
+                       std::string_view argument = {}) {
+    const auto* provider=dynamic_cast<const comskip::diagnostics::DiagnosticProvider*>(&error);
+    ASSERT_NE(provider,nullptr);
+    EXPECT_EQ(provider->diagnostic().code,code);
+    if (!argument.empty()) {
+        ASSERT_EQ(provider->diagnostic().arguments.size(),1u);
+        EXPECT_EQ(provider->diagnostic().arguments.front(),argument);
+    }
+}
 struct Fixture {
     std::filesystem::path path = std::filesystem::temp_directory_path() /
         std::filesystem::u8path("saved-logo-café-" + std::to_string(
@@ -75,6 +87,54 @@ TEST(SavedLogo, ActualWriterCombinedOnlyFileRoundTripsWithoutLosingGeometryOrMas
     EXPECT_EQ(fixture.context->state.choriz_edgemask[1611],1);
     EXPECT_EQ(fixture.context->state.cvert_edgemask[1611],0);
     EXPECT_EQ(fixture.context->state.clogoMinX,10);
+}
+TEST(SavedLogo, WriterOpenFailureIsTypedAndDoesNotRetainThePath) {
+    Fixture fixture;
+    fixture.context->settings.startOverAfterLogoInfoAvail=true;
+    ASSERT_TRUE(std::filesystem::create_directory(fixture.path));
+    try {
+        SaveLogoMaskData(*fixture.context);
+        FAIL() << "expected an output-open failure";
+    } catch (const std::runtime_error& error) {
+        expect_diagnostic(error,comskip::diagnostics::Code::output_open,
+                          fixture.context->state.logofilename);
+    }
+    EXPECT_TRUE(std::filesystem::remove(fixture.path));
+}
+TEST(SavedLogo, ActualReadOnlyFileReportsOwnedWriteFailureAndCloses) {
+    Fixture fixture;
+    fixture.write("existing");
+    auto stream=comskip::platform::own_file(myfopen(fixture.context->state.logofilename.c_str(),"rb"));
+    ASSERT_TRUE(stream);
+    ASSERT_EQ(std::setvbuf(stream.get(),nullptr,_IONBF,0),0);
+    const comskip::detection::SavedLogo logo{{2,2,0,1,0,1},
+        std::vector<unsigned char>(4),std::vector<unsigned char>(4)};
+    try {
+        comskip::detection::write_saved_logo(*stream,logo,fixture.context->state.logofilename);
+        FAIL() << "expected an output-write failure";
+    } catch (const std::runtime_error& error) {
+        expect_diagnostic(error,comskip::diagnostics::Code::output_write,
+                          fixture.context->state.logofilename);
+    }
+    stream.reset();
+    EXPECT_TRUE(std::filesystem::remove(fixture.path));
+}
+TEST(SavedLogo, WriterRejectsIncompleteBuffersBeforeChangingTheFile) {
+    Fixture fixture;
+    fixture.write("unchanged", "");
+    auto stream=comskip::platform::own_file(myfopen(fixture.context->state.logofilename.c_str(),"r+b"));
+    ASSERT_TRUE(stream);
+    const comskip::detection::SavedLogo logo{{2,2,0,1,0,1},
+        std::vector<unsigned char>(3),std::vector<unsigned char>(4)};
+    try {
+        comskip::detection::write_saved_logo(*stream,logo,fixture.context->state.logofilename);
+        FAIL() << "expected invalid output buffers";
+    } catch (const std::invalid_argument& error) {
+        expect_diagnostic(error,comskip::diagnostics::Code::invalid_saved_logo_output_buffers);
+    }
+    stream.reset();
+    std::ifstream input(fixture.path,std::ios::binary);
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(input),{}),"unchanged");
 }
 TEST(SavedLogo, EveryExtremeOrMalformedMetadataFieldRejectsBeforePublishing) {
     for (const char* key : {"picWidth","picHeight","logoMinX","logoMaxX","logoMinY","logoMaxY"})

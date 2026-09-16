@@ -6,6 +6,7 @@
 #include "logo_geometry.h"
 #include "logo_shrink.h"
 #include "saved_logo.h"
+#include "platform/file_resources.h"
 #include <stdexcept>
 
 namespace {
@@ -1625,107 +1626,23 @@ char CheckFramesForReffer(RecordingContext& context, int start, int end)
 
 void SaveLogoMaskData(RecordingContext& context)
 {
-    FILE*	logo_file;
-    int		x;
-    int		y;
-    logo_file = myfopen(context.state.logofilename.c_str(), "w");
+    auto logo_file=comskip::platform::own_file(myfopen(context.state.logofilename.c_str(), "w"));
     if (!logo_file)
-    {
-        const auto message = context.translator.format("create_failed", strerror(errno), context.state.logofilename);
-        fputs(message.c_str(), stderr);
-        Debug(context, 1, "%s", message.c_str());
-        if(context.settings.startOverAfterLogoInfoAvail)
-            comskip::request_exit(7);
-        return;
-    }
-
-    fprintf(logo_file, "logoMinX=%i\n", context.state.clogoMinX);
-    fprintf(logo_file, "logoMaxX=%i\n", context.state.clogoMaxX);
-    fprintf(logo_file, "logoMinY=%i\n", context.state.clogoMinY);
-    fprintf(logo_file, "logoMaxY=%i\n", context.state.clogoMaxY);
-    fprintf(logo_file, "picWidth=%i\n", context.state.width);
-    fprintf(logo_file, "picHeight=%i\n", context.state.height);
-    if (1)
-    {
-        fprintf(logo_file, "\nCombined Logo Mask\n");
-        fprintf(logo_file, "\202\n");
-        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-        {
-            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-            {
-                switch (context.state.choriz_edgemask[y * context.state.width + x])
-                {
-                case 0:
-                    if (context.state.cvert_edgemask[y * context.state.width + x] == 1)
-                        fprintf(logo_file, "-");
-                    else
-                        fprintf(logo_file, " ");
-                    break;
-
-                case 1:
-                    if (context.state.cvert_edgemask[y * context.state.width + x] == 1)
-                        fprintf(logo_file, "+");
-                    else
-                        fprintf(logo_file, "|");
-                    break;
-                }
-            }
-
-            fprintf(logo_file, "\n");
-        }
-
-    }
-    else
-    {
-        fprintf(logo_file, "\nHorizonatal Logo Mask\n");
-        fprintf(logo_file, "\200\n");
-        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-        {
-            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-            {
-                switch (context.state.choriz_edgemask[y * context.state.width + x])
-                {
-                case 0:
-                    fprintf(logo_file, " ");
-                    break;
-
-                case 1:
-                    fprintf(logo_file, "|");
-                    break;
-                }
-            }
-
-            fprintf(logo_file, "\n");
-        }
-
-        fprintf(logo_file, "\nVertical Logo Mask\n");
-        fprintf(logo_file, "\201\n");
-        for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-        {
-            for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-            {
-                switch (context.state.cvert_edgemask[y * context.state.width + x])
-                {
-                case 0:
-                    fprintf(logo_file, " ");
-                    break;
-
-                case 1:
-                    fprintf(logo_file, "-");
-                    break;
-                }
-            }
-
-            fprintf(logo_file, "\n");
-        }
-    }
-
-    fclose(logo_file);
+        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+            comskip::diagnostics::Code::output_open,{context.state.logofilename});
+    comskip::detection::write_saved_logo(*logo_file,
+        {context.state.width,context.state.height,context.state.clogoMinX,context.state.clogoMaxX,
+         context.state.clogoMinY,context.state.clogoMaxY},context.state.choriz_edgemask,
+        context.state.cvert_edgemask,context.state.logofilename);
+    auto* closing=logo_file.release();
+    if (std::fclose(closing)!=0)
+        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+            comskip::diagnostics::Code::output_write,{context.state.logofilename});
 }
 
 void LoadLogoMaskData(RecordingContext& context)
 {
-    FILE* txt_file;
+    comskip::platform::FilePtr txt_file;
     char data[2000];
     char* ptr = nullptr;
     long tmpLong = 0;
@@ -1742,7 +1659,10 @@ void LoadLogoMaskData(RecordingContext& context)
         {context.settings.edge_radius, context.settings.edge_step, context.settings.border,
          context.settings.logo_at_side != 0, context.settings.logo_at_bottom != 0, context.settings.subtitles != 0},
         MAXWIDTH, MAXHEIGHT);
-    logo_file.reset();
+    auto* closing_logo=logo_file.release();
+    if (std::fclose(closing_logo)!=0)
+        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+            comskip::diagnostics::Code::cannot_read_saved_logo);
     context.state.videowidth = context.state.width = loaded.geometry.width;
     context.state.height = loaded.geometry.height;
     context.state.ensure_pixel_buffers(true);
@@ -1769,11 +1689,11 @@ void LoadLogoMaskData(RecordingContext& context)
     _flushall();
     if (context.settings.output_default)
     {
-        txt_file = myfopen(context.state.out_filename.c_str(), "r");
+        txt_file.reset(myfopen(context.state.out_filename.c_str(), "r"));
         if (!txt_file)
         {
             sleep_for_ms(50L);
-            txt_file = myfopen(context.state.out_filename.c_str(), "r");
+            txt_file.reset(myfopen(context.state.out_filename.c_str(), "r"));
             if (!txt_file)
             {
                 Debug(context, 0, "%s", context.translator.format("detection_output_read_failed", context.state.out_filename.c_str()).c_str());
@@ -1783,13 +1703,13 @@ void LoadLogoMaskData(RecordingContext& context)
         }
 
 
-        if(fseek( txt_file, 0L, SEEK_SET ))
+        if(fseek( txt_file.get(), 0L, SEEK_SET ))
         {
             Debug(context, 0, "%s", context.translator.text("detection_output_seek_failed"));
         }
 
 
-        while (fgets(data, 1999, txt_file) != NULL)
+        while (fgets(data, 1999, txt_file.get()) != NULL)
         {
             if (strstr(data, "FILE PROCESSING COMPLETE") != NULL)
             {
@@ -1807,7 +1727,13 @@ void LoadLogoMaskData(RecordingContext& context)
                 }
             }
         }
-        fclose(txt_file);
+        if (std::ferror(txt_file.get()))
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                comskip::diagnostics::Code::cannot_read_detection_output,{context.state.out_filename});
+        auto* closing_output=txt_file.release();
+        if (std::fclose(closing_output)!=0)
+            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                comskip::diagnostics::Code::cannot_read_detection_output,{context.state.out_filename});
     }
     Debug(context, 10, "The last frame found in %s was %i\n", context.state.out_filename.c_str(), context.state.lastFrame);
 }

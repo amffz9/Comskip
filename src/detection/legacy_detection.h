@@ -308,30 +308,22 @@ void				BuildCommListAsYouGo(RecordingContext& context);
 void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int c);
 
 
-double get_frame_pts(RecordingContext& context, int f);
 char *CauseString(RecordingContext& context, int i);
-double ValidateBlackFrames(RecordingContext& context, long reason, double ratio, int remove);
-bool BuildBlocks(RecordingContext& context, bool recalc);
 void FindLogoThreshold(RecordingContext& context);
 void CleanLogoBlocks(RecordingContext& context);
 void InitScanLines(RecordingContext& context);
 void InitHasLogo(RecordingContext& context);
 void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int grf, bool forceRefresh);
-void Recalc(RecordingContext& context);
 bool ReviewResult(RecordingContext& context);
 int DetectCommercials(RecordingContext& context, int f, double pts);
 int Max(int i,int j);
 int Min(int i,int j);
-double AverageARForBlock(RecordingContext& context, int start, int end);
 int AverageACForBlock(RecordingContext& context, int start, int end);
 double	FindARFromHistogram(RecordingContext& context, double ar_ratio);
 void FillARHistogram(RecordingContext& context, bool refill);
 void FillACHistogram(RecordingContext& context, bool refill);
-void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int c);
-bool BuildMasterCommList(RecordingContext& context);
 bool WithinDivisibleTolerance(double test_number, double divisor, double tolerance);
 void BuildPunish(RecordingContext& context);
-void WeighBlocks(RecordingContext& context);
 
 
 void WriteXmlOutputFiles(RecordingContext& context, bool use_reference);
@@ -341,54 +333,18 @@ char CompareLetter(RecordingContext& context, int value, int average, int i);
 
 
 
-bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
-bool IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
-char* intSecondsToStrMinutes(RecordingContext& context, int seconds);
-char* dblSecondsToStrMinutes(RecordingContext& context, double seconds);
-char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds);
 void LoadIniFile(RecordingContext& context);
 void LoadIniFile(RecordingContext& context, const comskip::localization::Translator& translator);
-FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator);
 void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, int maxX);
 void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int maxX);
 void ProcessACInfoInit(RecordingContext& context, int audio_channels);
 void ProcessACInfo(RecordingContext& context, int audio_channels);
 int MatchCutScene(RecordingContext& context, unsigned char *cutscene);
-void RecordCutScene(RecordingContext& context, int frame_count, int brightness);
-void LoadCutScene(RecordingContext& context, const char *filename);
 void ScanBottom(RecordingContext& context, intptr_t arg);
 void ScanTop(RecordingContext& context, intptr_t arg);
 void ScanLeft(RecordingContext& context, intptr_t arg);
 void ScanRight(RecordingContext& context, intptr_t arg);
 void DetectCredits(RecordingContext& context, int frame_count);
-bool CheckSceneHasChanged(RecordingContext& context);
-void PrintLogoFrameGroups(RecordingContext& context);
-void PrintCCBlocks(RecordingContext& context);
-void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNumber);
-double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame);
-double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame);
-void InitProcessLogoTest(RecordingContext& context);
-bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close);
-void ResetLogoBuffers(RecordingContext& context);
-void FillLogoBuffer(RecordingContext& context);
-bool SearchForLogoEdges(RecordingContext& context);
-int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned char* test);
-void SetEdgeMaskArea(RecordingContext& context, unsigned char* temp);
-int CountEdgePixels(RecordingContext& context);
-void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int direction);
-void DumpEdgeMasks(RecordingContext& context);
-bool CheckFramesForLogo(RecordingContext& context, int start, int end);
-double CalculateLogoFraction(RecordingContext& context, int start, int end);
-bool CheckFrameForLogo(RecordingContext& context, int i);
-char CheckFramesForCommercial(RecordingContext& context, int start, int end);
-char CheckFramesForReffer(RecordingContext& context, int start, int end);
-void SaveLogoMaskData(RecordingContext& context);
-void LoadLogoMaskData(RecordingContext& context);
-int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame);
-void Debug(RecordingContext& context, int level, const char * fmt, ...);
-void InitLogoBuffers(RecordingContext& context);
-void InitComSkip(RecordingContext& context);
-void PrintArgs(RecordingContext& context);
 
 
 
@@ -399,10 +355,7 @@ void PrintArgs(RecordingContext& context);
 
 
 
-void SetARofBlocks(RecordingContext& context);
 
-int FindBlock(RecordingContext& context, long frame);
-void BuildCommListAsYouGo(RecordingContext& context);
 double get_fps(RecordingContext& context);
 void set_fps(RecordingContext& context, double fp);
 void set_frame_volume(RecordingContext& context, unsigned int f, int volume);

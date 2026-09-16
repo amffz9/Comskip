@@ -4,6 +4,7 @@
 #include "localization/diagnostic.h"
 #include <limits>
 #include <string>
+#include <format>
 
 namespace comskip::detection {
 namespace {
@@ -73,5 +74,28 @@ SavedLogo read_saved_logo(std::FILE& stream, SavedLogoGeometry fallback,
     mask(0x81);
     if (seek_marker(stream,0x82)) mask(0x82);
     return result;
+}
+void write_saved_logo(std::FILE& stream, SavedLogoGeometry g,
+                      std::span<const unsigned char> horizontal,
+                      std::span<const unsigned char> vertical, std::string_view path) {
+    validate_logo_bounds(g.width,g.height,g.minimum_x,g.maximum_x,g.minimum_y,g.maximum_y);
+    const auto size=checked_image_size(g.width,g.height);
+    if (horizontal.size()<size || vertical.size()<size)
+        throw Error<std::invalid_argument>(Code::invalid_saved_logo_output_buffers);
+    std::string output=std::format("logoMinX={}\nlogoMaxX={}\nlogoMinY={}\nlogoMaxY={}\npicWidth={}\npicHeight={}\n\nCombined Logo Mask\n\202\n",
+        g.minimum_x,g.maximum_x,g.minimum_y,g.maximum_y,g.width,g.height);
+    for (int y=g.minimum_y;y<=g.maximum_y;++y) {
+        for (int x=g.minimum_x;x<=g.maximum_x;++x) {
+            const auto index=static_cast<std::size_t>(y)*g.width+x;
+            output.push_back(horizontal[index] ? (vertical[index] ? '+' : '|') :
+                             (vertical[index] ? '-' : ' '));
+        }
+        output.push_back('\n');
+    }
+    if (std::fwrite(output.data(),1,output.size(),&stream)!=output.size())
+        throw Error<std::runtime_error>(Code::output_write,{std::string(path)});
+}
+void write_saved_logo(std::FILE& stream, const SavedLogo& logo, std::string_view path) {
+    write_saved_logo(stream,logo.geometry,logo.horizontal,logo.vertical,path);
 }
 }

@@ -933,3 +933,44 @@ before calling FFmpeg seek APIs.
 - **Verification:** Exact UTF-8 replacement, retry failure ownership and actual
   Spanish adapter failures pass within all 423 Windows headless and 431 SDL
   tests; the public non-donator build succeeds.
+
+### B079: Saved-logo output could silently truncate or corrupt its mask
+
+- **Evidence:** `SaveLogoMaskData` ignored every `fprintf` result and the final
+  `fclose` result. A failed destination could leave a partial metadata or mask
+  file while analysis continued as though it had succeeded.
+- **Impact:** A later run can consume an incomplete saved-logo cache and either
+  lose logo detection or fail far from the original write error.
+- **Status:** Fixed. The writer validates its source buffers, checks the exact
+  byte count, checks close, and reports owned output diagnostics.
+- **Verification:** Round-trip, read-only destination, invalid-buffer,
+  open-failure and removable-file regressions pass in all 427 Windows headless
+  and 435 SDL tests. Linux verification remains part of the next snapshot run.
+
+### B080: Saved-logo loading used manually owned streams
+
+- **Evidence:** `LoadLogoMaskData` kept the saved-logo input and optional
+  detector-output input in raw `FILE*` variables. Exceptional parsing paths
+  depended on individual manual close calls, and detector-output read and close
+  failures had no structured error.
+- **Impact:** Repeated or embedded analysis could retain a file handle after a
+  malformed file, and callers could not distinguish detector-output read
+  failures from unrelated output errors.
+- **Status:** Fixed. Both inputs now have scoped ownership; every explicit close
+  is checked and detector-output failures carry an owned path diagnostic.
+- **Verification:** Malformed and successful load tests release the source path
+  immediately and pass in both complete Windows configurations. Linux
+  verification remains part of the next snapshot run.
+
+### B081: XDS program-length logging reads a missing variadic argument
+
+- **Evidence:** The program-length diagnostic contained six integer conversions
+  after its frame prefix but supplied only five corresponding values.
+- **Impact:** Enabling this diagnostic invokes undefined variadic behavior and
+  can print arbitrary data or fail while processing otherwise valid XDS input.
+- **Status:** Fixed by the catalog migration. The deterministic message accepts
+  the three elapsed fields actually decoded by the parser and formats all values
+  before insertion into a validated plain-field catalog entry.
+- **Verification:** English and Spanish catalog tests preserve the decoded
+  program length and elapsed hour/minute/second values. Both complete Windows
+  configurations pass without the former missing variadic argument.

@@ -110,3 +110,15 @@ TEST(Translator, FormatsCaptionDictionaryDiagnosticsInEnglishAndSpanish) {
     EXPECT_EQ(spanish.format("caption_dictionary_block_error", "12"),
               "Se produjo un error al buscar el cblock correcto para el cblock de texto de subtítulos 12.\n");
 }
+TEST(Translator, FormatsCaptionXdsDiagnosticsInEnglishAndSpanish) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("caption_xds_program_start", "42", "09", "05", "7", "4"),
+              "XDS[42]: Program Start Time 09:05 7/4\n");
+    EXPECT_EQ(spanish.format("caption_xds_program_name", "42", "Noticias"),
+              "XDS[42]: Nombre del programa: Noticias\n");
+    EXPECT_EQ(spanish.format("caption_xds_vchip", "42", " 8", " f", "10", "20"),
+              "XDS[42]: V-Chip:  8  f 10 20\n");
+    EXPECT_EQ(english.format("caption_xds_bytes", "42", " 1  a ff"),
+              "XDS[42]:  1  a ff ");
+}

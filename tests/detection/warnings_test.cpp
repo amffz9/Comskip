@@ -1,7 +1,7 @@
 #include "recording_context.h"
-#include "exit_requested.h"
 #include "checked_format.h"
 #include "detection/legacy_detection.h"
+#include "localization/diagnostic_render.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <filesystem>
@@ -51,25 +51,38 @@ TEST_F(DetectionWarnings, MissingCutfileUsesEnglishFallback) {
     LoadCutScene(*context, filename.c_str());
     EXPECT_EQ(log(), "Can't open cutfile \"" + filename + "\"\n");
 }
-TEST_F(DetectionWarnings, OptionalLogoSaveFailureReturnsWithoutWritingToNullFile) {
+TEST_F(DetectionWarnings, OptionalLogoSaveFailureReturnsAnOwnedDiagnostic) {
     context->translator = comskip::localization::Translator("es");
     context->settings.startOverAfterLogoInfoAvail = false;
     comskip::checked_format(context->state.logofilename, "%s", (directory / "missing-directory" / "logo.txt").string().c_str());
-    EXPECT_NO_THROW(SaveLogoMaskData(*context));
-    EXPECT_NE(log().find("no se pudo crear el archivo"), std::string::npos);
+    try {
+        SaveLogoMaskData(*context);
+        FAIL() << "Logo save must report its open failure";
+    } catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code, comskip::diagnostics::Code::output_open);
+        ASSERT_EQ(error.diagnostic().arguments.size(), 1u);
+        EXPECT_EQ(error.diagnostic().arguments.front(), context->state.logofilename);
+        EXPECT_EQ(comskip::localization::render_diagnostic(error.diagnostic(), context->translator),
+            "No se pudo abrir el archivo de salida: " + context->state.logofilename);
+    }
+    EXPECT_TRUE(log().empty());
     EXPECT_FALSE(std::filesystem::exists(directory / "missing-directory"));
 }
-TEST_F(DetectionWarnings, RequiredLogoSaveFailurePreservesExitStatusAndReleasesOwnership) {
+TEST_F(DetectionWarnings, RequiredLogoSaveFailureUsesTheSameOwnedDiagnostic) {
     context->settings.startOverAfterLogoInfoAvail = true;
     comskip::checked_format(context->state.logofilename, "%s",
         (directory / "missing-directory" / "logo.txt").string().c_str());
     try {
         SaveLogoMaskData(*context);
         FAIL() << "Required logo save must report failure";
-    } catch (const comskip::ExitRequested& error) {
-        EXPECT_EQ(error.status(), 7);
+    } catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code, comskip::diagnostics::Code::output_open);
+        ASSERT_EQ(error.diagnostic().arguments.size(), 1u);
+        EXPECT_EQ(error.diagnostic().arguments.front(), context->state.logofilename);
+        EXPECT_EQ(comskip::localization::render_diagnostic(error.diagnostic(), context->translator),
+            "Could not open output file: " + context->state.logofilename);
     }
-    EXPECT_NE(log().find("logo.txt"), std::string::npos);
+    EXPECT_TRUE(log().empty());
     EXPECT_FALSE(std::filesystem::exists(directory / "missing-directory"));
 }
 }

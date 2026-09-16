@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <format>
 #include <iterator>
+#include <utility>
 
 void OutputCCBlock(RecordingContext& context, long i)
 {
@@ -188,7 +189,17 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
         context.state.firstXDS = 0;
         if (newXDS)
         {
-            Debug(context, 10, "XDS[%i]: %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x ", context.state.framenum, context.state.AddXDS_XDSbuf[0], context.state.AddXDS_XDSbuf[1], context.state.AddXDS_XDSbuf[2], context.state.AddXDS_XDSbuf[3], context.state.AddXDS_XDSbuf[4], context.state.AddXDS_XDSbuf[5], context.state.AddXDS_XDSbuf[6], context.state.AddXDS_XDSbuf[7], context.state.AddXDS_XDSbuf[8], context.state.AddXDS_XDSbuf[9], context.state.AddXDS_XDSbuf[10], context.state.AddXDS_XDSbuf[11]);
+            const auto frame = std::format("{}", context.state.framenum);
+            const auto xds_debug = [&](const char* key, auto&&... values) {
+                Debug(context, 10, "%s", context.translator.format(key,
+                    std::forward<decltype(values)>(values)...).c_str());
+            };
+            xds_debug("caption_xds_bytes", frame,
+                std::format("{:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x}",
+                    context.state.AddXDS_XDSbuf[0], context.state.AddXDS_XDSbuf[1], context.state.AddXDS_XDSbuf[2],
+                    context.state.AddXDS_XDSbuf[3], context.state.AddXDS_XDSbuf[4], context.state.AddXDS_XDSbuf[5],
+                    context.state.AddXDS_XDSbuf[6], context.state.AddXDS_XDSbuf[7], context.state.AddXDS_XDSbuf[8],
+                    context.state.AddXDS_XDSbuf[9], context.state.AddXDS_XDSbuf[10]));
 
             context.state.AddXDS_XDSbuf[context.state.AddXDS_c-2] = 0;
             for (i=2; i < context.state.AddXDS_c-2; i++)
@@ -206,12 +217,21 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 }
                 if (type == 0x01)
                 {
-                    Debug(context, 10, "XDS[%i]: Program Start Time %02d:%02d %d/%d\n", context.state.framenum, context.state.AddXDS_XDSbuf[3] & 0x3f, context.state.AddXDS_XDSbuf[2] & 0x3f ,  context.state.AddXDS_XDSbuf[5] & 0x1f,  context.state.AddXDS_XDSbuf[4] & 0x0f);
+                    xds_debug("caption_xds_program_start", frame,
+                        std::format("{:02}", context.state.AddXDS_XDSbuf[3] & 0x3f),
+                        std::format("{:02}", context.state.AddXDS_XDSbuf[2] & 0x3f),
+                        std::format("{}", context.state.AddXDS_XDSbuf[5] & 0x1f),
+                        std::format("{}", context.state.AddXDS_XDSbuf[4] & 0x0f));
                 }
                 else if (type == 0x02)
                 {
 //					Debug(10, "XDS[%i]: Program Length\n", XDSbuf[2] & 0x38, XDSbuf[2] & 0x4f ,  XDSbuf[3] & 0x4f,  XDSbuf[3] & 0xb0);
-                    Debug(context, 10, "XDS[%i]: Program length %d:%d, elapsed %d:%d:%d.%d\n", context.state.framenum, context.state.AddXDS_XDSbuf[3] & 0x3f, context.state.AddXDS_XDSbuf[2] & 0x3f,  context.state.AddXDS_XDSbuf[5] & 0x3f,  context.state.AddXDS_XDSbuf[4] & 0x3f ,  context.state.AddXDS_XDSbuf[6] & 0x3f);
+                    xds_debug("caption_xds_program_length", frame,
+                        std::format("{}", context.state.AddXDS_XDSbuf[3] & 0x3f),
+                        std::format("{}", context.state.AddXDS_XDSbuf[2] & 0x3f),
+                        std::format("{}", context.state.AddXDS_XDSbuf[5] & 0x3f),
+                        std::format("{}", context.state.AddXDS_XDSbuf[4] & 0x3f),
+                        std::format("{}", context.state.AddXDS_XDSbuf[6] & 0x3f));
                     if ( (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3] != context.state.XDS_block[context.state.XDS_block_count].duration)
                     {
                         Add_XDS_block(context);
@@ -257,16 +277,22 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                         strncpy(context.state.XDS_block[context.state.XDS_block_count].name, (const char*) &context.state.AddXDS_XDSbuf[2], n - 1);
                         context.state.XDS_block[context.state.XDS_block_count].name[n - 1] = '\0';
                     }
-                    Debug(context, 10, "XDS[%i]: Program Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_program_name", frame,
+                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
 //		XDS_block[XDS_block_count].name[0] = 0;
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x04)
                 {
-                    Debug(context, 10, "XDS[%i]: Program Type: %02x\n", context.state.framenum, context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_program_type", frame,
+                        std::format("{:02x}", context.state.AddXDS_XDSbuf[2]));
                 }
                 else if (type == 0x05)
                 {
-                    Debug(context, 10, "XDS[%i]: V-Chip: %2x %2x %2x %2x\n", context.state.framenum, context.state.AddXDS_XDSbuf[2] & 0x38, context.state.AddXDS_XDSbuf[2] & 0x4f ,  context.state.AddXDS_XDSbuf[3] & 0x4f,  context.state.AddXDS_XDSbuf[3] & 0xb0);
+                    xds_debug("caption_xds_vchip", frame,
+                        std::format("{:2x}", context.state.AddXDS_XDSbuf[2] & 0x38),
+                        std::format("{:2x}", context.state.AddXDS_XDSbuf[2] & 0x4f),
+                        std::format("{:2x}", context.state.AddXDS_XDSbuf[3] & 0x4f),
+                        std::format("{:2x}", context.state.AddXDS_XDSbuf[3] & 0xb0));
                     if ( (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3] != context.state.XDS_block[context.state.XDS_block_count].v_chip)
                     {
                         Add_XDS_block(context);
@@ -278,52 +304,58 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x86)
                 {
-                    Debug(context, 10, "XDS[%i]: Audio Streams \n", context.state.framenum);
+                    xds_debug("caption_xds_audio_streams", frame);
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x07)
                 {
-                    Debug(context, 10, "XDS[%i]: Caption Stream\n", context.state.framenum);
+                    xds_debug("caption_xds_caption_stream", frame);
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x08)
                 {
-                    Debug(context, 10, "XDS[%i]: Copy Management\n", context.state.framenum);
+                    xds_debug("caption_xds_copy_management", frame);
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x89)
                 {
-                    Debug(context, 10, "XDS[%i]: Aspect Ratio\n", context.state.framenum);
+                    xds_debug("caption_xds_aspect_ratio", frame);
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x8c)
                 {
-                    Debug(context, 10, "XDS[%i]: Program Data, Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_program_data", frame,
+                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x0d)
                 {
-                    Debug(context, 10, "XDS[%i]: Miscellaneous Data: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_misc_data", frame,
+                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x010)
                 {
-                    Debug(context, 10, "XDS[%i]: Program Description: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_program_description", frame,
+                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
                 }
                 else
-                    Debug(context, 10, "XDS[%i]: Unknown\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_unknown", frame);
 
             }
             else if (context.state.AddXDS_XDSbuf[0] == 0x85)
             {
                 if (context.state.AddXDS_XDSbuf[1] == 0x01)
                 {
-                    Debug(context, 10, "XDS[%i]: Network Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_network_name", frame,
+                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x02)
                 {
-                    Debug(context, 10, "XDS[%i]: Network Call Name: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_network_call_name", frame,
+                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
                 }
                 else
-                    Debug(context, 10, "XDS[%i]: Unknown\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    xds_debug("caption_xds_unknown", frame);
             }
             else if (context.state.AddXDS_XDSbuf[0] == 0x0d)
             {
-                Debug(context, 10, "XDS[%i]: Private Data: %s\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                xds_debug("caption_xds_private_data", frame,
+                    reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
             }
             else
             {
@@ -336,7 +368,8 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                         context.state.AddXDS_XDSbuf[i] = '_';
                 }
                 context.state.AddXDS_XDSbuf[context.state.AddXDS_c - 2] = 0;
-                Debug(context, 10, "XDS[%i]: %s\n", context.state.framenum, context.state.AddXDS_XDSbuf);
+                xds_debug("caption_xds_text", frame,
+                    reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf));
             }
         }
         for (i = 0; i < 256; i++)

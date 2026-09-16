@@ -101,6 +101,8 @@ enum class Code {
 
     invalid_video_caption_timestamp,
     cannot_read_saved_logo,
+    cannot_read_detection_output,
+    invalid_saved_logo_output_buffers,
     truncated_saved_logo_mask,
     saved_logo_metadata_exceeds_frame_range,
     saved_logo_dimensions_exceed_supported_limits,
@@ -432,10 +434,12 @@ constexpr std::string_view message_id(Code code) {
 
     case Code::invalid_video_caption_timestamp: return "diag_invalid_video_caption_timestamp";
     case Code::cannot_read_saved_logo: return "diag_cannot_read_saved_logo";
+    case Code::cannot_read_detection_output: return "diag_cannot_read_detection_output";
     case Code::truncated_saved_logo_mask: return "diag_truncated_saved_logo_mask";
     case Code::saved_logo_metadata_exceeds_frame_range: return "diag_saved_logo_metadata_exceeds_frame_range";
     case Code::saved_logo_dimensions_exceed_supported_limits: return "diag_saved_logo_dimensions_exceed_supported_limits";
     case Code::invalid_saved_logo_mask_character: return "diag_invalid_saved_logo_mask_character";
+    case Code::invalid_saved_logo_output_buffers: return "diag_invalid_saved_logo_output_buffers";
     case Code::invalid_player_export_interval: return "diag_invalid_player_export_interval";
     case Code::invalid_player_chapter_mark: return "diag_invalid_player_chapter_mark";
     case Code::invalid_scf_frame_mark: return "diag_invalid_scf_frame_mark";

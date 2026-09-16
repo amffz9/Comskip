@@ -376,7 +376,7 @@ than redefine completion around whichever subset currently passes tests.
   Numeric values are formatted at their call sites before insertion into plain
   catalog fields, preserving the legacy decimal widths without a printf-format
   translation layer. The reproducible inventory in
-  `bin/human-message-inventory.md` now reports **227** remaining literal call
+  `bin/human-message-inventory.md` now reports **208** remaining literal call
   sites, down from 337; the six entries still attributed to `scoring.cpp` are
   disabled `#if 0` branches retained by the inventory's documented policy.
   Safe C++23 seek arithmetic and the corrected Womble EOF classification add
@@ -384,9 +384,9 @@ than redefine completion around whichever subset currently passes tests.
   **428/428** SDL tests; the public-speed non-donator application also builds.
   Other human-facing messages and Linux verification of this stage remain.
 
-- Caption dictionary-processing diagnostics now use the English and Spanish
-  catalogs with call-site numeric formatting. The reproducible literal-message
-  inventory is down to **227** sites. Five finalized output adapters share one
+- Caption dictionary-processing and XDS diagnostics now use the English and
+  Spanish catalogs with call-site numeric and hexadecimal formatting. The
+  reproducible literal-message inventory is down to **208** sites. Five finalized output adapters share one
   standard-library exact-byte writer; open and close/write failures propagate as
   owned `output_open`/`output_write` diagnostics instead of terminating inside
   the adapter. The helper retries plain chapter creation with `std::chrono` and
@@ -397,3 +397,24 @@ than redefine completion around whichever subset currently passes tests.
   builds. Logs are `bin/windows-output-errors-build23{,-gui}-{build,test}.txt`
   and `bin/windows-output-errors-public-build.txt`. Linux verification of this
   combined stage remains separate.
+
+- The unmodified `8737c0b` Linux snapshot passes headless Release **415/415**
+  (35.46s), SDL dummy Release **423/423** (34.62s), and the complete
+  address/undefined/leak sanitizer suite **415/415** (127.28s), without findings
+  or suppressions. This verifies the remaining legacy cut-list extraction,
+  decoder split, safe seek arithmetic, Womble EOF correction and scoring
+  localization on GCC 14 / FFmpeg 6.1. Exact commands and logs are in
+  `bin/linux-verification-8737c0b.md`.
+
+- Saved-logo input and output now use scoped standard-library ownership. The
+  writer validates complete masks, checks exact writes and close, and propagates
+  owned diagnostics instead of logging or exiting inside the storage layer.
+  XDS diagnostics use the committed English and Spanish catalogs; the migration
+  also fixes the program-length diagnostic's missing variadic argument. Forty-seven
+  exact duplicate declarations were removed from the legacy detection header.
+  Windows passes **427/427** headless and **435/435** SDL tests, and the public
+  non-donator application builds. Logs are
+  `bin/windows-logo-xds-build23{,-gui}-{build,test}.txt` and
+  `bin/windows-logo-xds-public-build.txt`. The reproducible literal-message
+  inventory remains at **208** active sites. Linux verification of this snapshot
+  remains separate.
