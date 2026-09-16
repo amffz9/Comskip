@@ -30,6 +30,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B035 | Fixed at `931ee71`; three consecutive-stall tests cover threshold, periodic reporting, progress reset, and independence; the integrated application passes all 256 Windows tests. |
 | B036 | Fixed at `931ee71`; all 256 Windows headless tests and all 256 tests in a fresh, unmodified Windows SDL `build-gui` snapshot pass. All six previously timed-out CLI media tests now complete; the actual directory-name regression and filename conventions are covered. |
 | B038, B039, B040, B042, B043 | Fixed at `b1f9e86`; all 270 Windows tests pass, including checked brightness/geometry, actual zero-border/empty scenes, fractional-rate CSV replay, and invalid-rate rejection before state mutation. Linux sanitizer verification of this stage remains separate. |
+| B041, B044 | Fixed at `07aa466`; all 279 Windows headless and all 279 unmodified Windows SDL snapshot tests pass. Nine geometry/filter tests cover extreme settings, ordinary edges, short/full histories, required buffers, and persisted bounds. Linux sanitizer verification is running separately. |
 
 ## Issue evidence and verification
 
@@ -491,6 +492,17 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Validate the current observation and clip recent
   history before writes; test short and ordinary histories with exact filtering
   behavior and invalid counts under sanitizers.
+
+### B045: Timing restart writes duplicate CSV headers
+
+- **Evidence:** Decoder restart calls `open_timing_diagnostics`, which writes
+  the separator/column header, then immediately calls `write_timing_header`
+  again. This was also the old `DUMP_OPEN`/`DUMP_HEADER` macro behavior.
+- **Impact:** Restarted timing output has two separator/column header pairs,
+  disrupting ordinary CSV consumers.
+- **Fix/verification needed:** Exactly one header per newly truncated timing
+  file, with restart and row-output regressions. The audio extraction retains
+  the legacy bytes so this correction can be reviewed separately.
 
 ## Fixed during modernization
 

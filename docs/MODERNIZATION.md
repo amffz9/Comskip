@@ -191,3 +191,20 @@ than redefine completion around whichever subset currently passes tests.
   Both behaviors have actual legacy CSV replay tests. Logo scan/filter arithmetic
   and short-history handling remain open as B041/B044; sanitizer verification
   of this exact scene stage remains separate.
+- At `07aa466`, all 279 Windows headless tests and all 279 tests in an
+  unmodified Windows SDL snapshot pass (7.15 seconds for SDL). Nine new tests
+  cover validated logo scan axes, overflow bounds, ordinary edge detection,
+  short/full filter histories, required buffers, and persisted rectangles.
+  Unsafe logo scan macros are removed. Canonical analysis, decoder, and audio
+  headers replace ad hoc declarations in implementations and tests. SDL uses
+  the dummy driver; exact proof is in `bin/windows-verification-07aa466.md`.
+  Linux sanitizer verification of this stage is running separately.
+- At `baadc09`, all 284 Windows headless tests pass. Audio analysis and packet
+  processing live in `src/media/audio_analysis.cpp`; explicit timing functions
+  replace macros that captured local variables. Five timing tests cover exact
+  rows, seek suppression, optional file failure/recovery, restart output, and
+  exception cleanup. The duplicate restart header remains separate as B045.
+- CI now defines headless and SDL jobs on Windows, Linux, and macOS plus a
+  Linux address/undefined/leak sanitizer job. The seven-job YAML and build
+  script syntax were checked locally. This configuration is not evidence of
+  a successful remote run or macOS application behavior.
