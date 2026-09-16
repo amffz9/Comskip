@@ -64,18 +64,6 @@ extern "C" {
 
 
 
-#define SDL_AUDIO_BUFFER_SIZE 1024
-#define MAX_AUDIOQ_SIZE (5 * 16 * 1024)
-#define MAX_VIDEOQ_SIZE (5 * 256 * 1024)
-#define AV_SYNC_THRESHOLD 0.01
-#define AV_NOSYNC_THRESHOLD 10.0
-#define SAMPLE_CORRECTION_PERCENT_MAX 30
-#define AUDIO_DIFF_AVG_NB 10
-#define FF_ALLOC_EVENT   (SDL_USEREVENT)
-#define FF_REFRESH_EVENT (SDL_USEREVENT + 1)
-#define FF_QUIT_EVENT (SDL_USEREVENT + 2)
-#define VIDEO_PICTURE_QUEUE_SIZE 1
-#define DEFAULT_AV_SYNC_TYPE AV_SYNC_ADUIO_MASTER
 
 
 int convert_frame_to_8bit_owned(AVFrame* frame, ScalerPtr& context) {
@@ -85,12 +73,6 @@ int convert_frame_to_8bit_owned(AVFrame* frame, ScalerPtr& context) {
     return result;
 }
 
-typedef struct VideoPicture
-{
-    int width, height; /* source height & width */
-    int allocated;
-    double pts;
-} VideoPicture;
 
 
 
@@ -99,16 +81,8 @@ typedef struct VideoPicture
 
 
 
-enum
-{
-    AV_SYNC_AUDIO_MASTER,
-    AV_SYNC_VIDEO_MASTER,
-    AV_SYNC_EXTERNAL_MASTER,
-};
 
 
-/* Since we only have one decoding thread, the Big Struct
-   can be global in case we need it. */
 
 
 
@@ -129,7 +103,6 @@ enum
 
 
 
-#define USE_ASF 1
 
 
 //#include "mpeg2convert.h"
@@ -163,8 +136,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 
 
-#define PIDS	100
-#define PID_MASK	0x1fff
 
 
 
@@ -198,8 +169,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 //#define BYTERATE	((int)(21400 * 25 / get_fps()))
 
-#define   FSEEK    _fseeki64
-#define   FTELL    _ftelli64
 // The following two functions are undocumented and not included in any public header,
 // so we need to declare them ourselves
 //extern int  _fseeki64(FILE *, int64_t, int);
@@ -251,9 +220,6 @@ void ProcessCCData(RecordingContext& context);
 //extern double fps;
 
 extern double get_fps(RecordingContext& context);
-extern int get_samplerate();
-extern int get_channels();
-extern void add_volumes(int *volumes, int nr_frames);
 extern void set_frame_volume(RecordingContext& context, uint32_t framenr, int volume);
 
 extern double get_frame_pts(RecordingContext& context, int f);
@@ -263,7 +229,6 @@ extern double get_frame_pts(RecordingContext& context, int f);
 
 
 
-#define MAX_FRAMES_WITHOUT_SOUND	100
 
 
 

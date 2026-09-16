@@ -120,11 +120,6 @@ struct ac_block_info {
     int audio_channels;
 };
 
-struct commercial_list_info {
-    long start;
-    long end;
-};
-
 struct Legacy_commercial_entry {
     long start_frame;
     long end_frame;

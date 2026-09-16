@@ -105,7 +105,6 @@ struct RecordingState {
     std::vector<ac_block_info> ac_block;
     long ac_block_count= 0;
     long max_ac_block_count{};
-    commercial_list_info * commercial_list= NULL;
     int commercial_count= -1;
     Legacy_commercial_entry commercial[100000]{};
     int reffer_count= -1;
