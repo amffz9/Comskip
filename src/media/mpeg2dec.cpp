@@ -1627,7 +1627,6 @@ again:
 
                     comskip::media::close_timing_diagnostics(context);
                     comskip::media::open_timing_diagnostics(context);
-                    comskip::media::write_timing_header(context);
                     close_data(context);
 #ifdef PROCESS_CC
                     if (context.captions) context.captions->reset();
