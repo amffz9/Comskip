@@ -244,6 +244,8 @@ if(COMSKIP_BUILD_APP)
         src/output/cutlists.cpp
         src/output/diagnostics.cpp
         src/output/media_dump.cpp
+        src/media/audio_analysis.cpp
+        src/media/timing_diagnostics.cpp
         src/media/frame_timing.cpp
         src/media/mpeg2dec.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
     target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
@@ -323,6 +325,9 @@ if(COMSKIP_BUILD_APP)
         add_executable(playback_warnings_test tests/media/playback_warnings_test.cpp)
         target_link_libraries(playback_warnings_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(playback_warnings_test)
+        add_executable(timing_output_test tests/media/timing_output_test.cpp)
+        target_link_libraries(timing_output_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(timing_output_test)
         add_executable(executable_mode_test tests/ui/executable_mode_test.cpp)
         target_link_libraries(executable_mode_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(executable_mode_test PROPERTIES TIMEOUT 30)
