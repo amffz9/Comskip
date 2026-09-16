@@ -21,7 +21,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B022 | Fixed at `54470db`; all six diagnostic-output tests pass, including flush and file removal after disabling demux. |
 | B018, B023 | Open; checked parsing and filename ownership migrations are in progress. |
 | B024 | Fixed at `4839fee`; unsafe conversions and argument counts are rejected, with actual escaped-template output compatibility. All 199 Windows tests pass at that stage. |
-| B025 | Packet ownership fixed at `ed8649b`; five actual lifecycle tests pass on Windows and on the isolated Linux `c4ab1e0` snapshot plus that packet patch under address/undefined/leak sanitizers. Full-suite verification is pending. |
+| B025 | Fixed at `ed8649b`; five actual lifecycle tests pass on Windows. The isolated Linux `c4ab1e0` snapshot plus only that packet patch passes all 177 address/undefined/leak sanitizer tests without findings or suppressions. |
 | B026 | Fixed at `0f98693`; all 200 Windows tests pass, including zero, negative, and excessive observation counts. |
 
 ## Issue evidence and verification

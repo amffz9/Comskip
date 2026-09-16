@@ -103,6 +103,11 @@ than redefine completion around whichever subset currently passes tests.
   missing-timestamp overflow is resolved, but the full-reopen caption test leaks
   210 bytes in three FFmpeg allocations (B025). Complete lifecycle leak safety
   remains unverified.
+  With only the committed ed8649b packet-ownership patch applied to that isolated
+  c4ab1e0 snapshot, all 177 tests pass under address, undefined-behavior, and leak
+  sanitizers (31.83 seconds), with no suppressions. The five actual caption tests
+  also pass a separate full-allocation-stack sanitizer run; B025 is resolved for
+  this tested flow. This evidence does not cover later filename/parser changes.
   Four detector-warning
   regressions pass at 7e011c3, covering both logo-save failure branches. macOS and
   interactive SDL application verification still require evidence.
