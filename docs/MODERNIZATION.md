@@ -118,4 +118,8 @@ than redefine completion around whichever subset currently passes tests.
   settings/observation changes, with six actual input regressions. The FILE
   adapter reads buffered blocks while preserving recording file ownership.
   Frame timestamp lookup is also bounded against actual storage (0f98693).
-  Linux verification of this full stage is pending.
+  The unmodified bbbf019 snapshot passes all 202 Linux tests in headless Release
+  (14.89 seconds), SDL Release with dummy video (13.51 seconds), and headless
+  address/undefined/leak sanitizer Debug (36.41 seconds). No sanitizer findings
+  or suppressions occurred. This covers the committed filename and parser stage,
+  while full CLI path migration, B028/B029, and interactive SDL remain separate.
