@@ -23,3 +23,15 @@ are independent of the interface language.
 
 These are configuration defaults, not runtime state: frame counters, decoded
 dimensions, histograms, and format/protocol constants remain in code.
+
+## Language and message catalogs
+
+English and Spanish catalogs in `locales/` are embedded at build time. Select
+the interface language with `--language=en`, `--language=es`, or the `language`
+INI setting. The command-line choice takes precedence.
+
+Set `locale_directory="path/to/catalogs"` in an INI override to load an editable
+`en.ini` or `es.ini` catalog at runtime. Missing message keys fall back to the
+embedded English catalog. Formatting placeholders are validated before use.
+Primary CLI, media, and review messages are localized; some configuration,
+detector, and output diagnostics still need catalog entries.
