@@ -20,6 +20,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B021 | Overflow fixed at `8a4bda6`; three focused Windows tests pass. Full path support is tracked separately as B023. |
 | B022 | Fixed at `54470db`; all six diagnostic-output tests pass, including flush and file removal after disabling demux. |
 | B018, B023 | Open; checked parsing and filename ownership migrations are in progress. |
+| B024 | Fixed at `4839fee`; unsafe conversions and argument counts are rejected, with actual escaped-template output compatibility. All 199 Windows tests pass at that stage. |
+| B025 | Packet ownership fixed at `ed8649b`; five actual lifecycle tests pass on Windows. Leak-sanitizer verification is pending. |
+| B026 | Bounds fix and regression are implemented but not yet verified. |
 
 ## Issue evidence and verification
 
