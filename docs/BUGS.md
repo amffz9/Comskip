@@ -26,9 +26,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B026 | Fixed at `0f98693`; all 200 Windows tests pass, including zero, negative, and excessive observation counts. |
 | B029, B030 | Fixed at `1e8f795`; all 226 Windows tests pass, including six actual reference and six block tests. Its isolated, unmodified Linux snapshot passes all 222 address/undefined/leak sanitizer tests without findings or suppressions (56.68 seconds). |
 | B031, B032, B033, B037 | Fixed at `931ee71`; all 256 Windows tests pass. Eight storage/live cases cover 100,001 entries, safe insertion, empty live status, complete classification reset, and enabled/disabled logo and silence filtering. Navigation was separately fixed at `e520374`. Linux verification of the integration stage is running. |
-| B034 | Fixed at `e520374`; six frame-mask tests and settings validation pass within all 241 Windows tests. Linux sanitizer verification of this stage is running separately. |
+| B034 | Fixed at `e520374`; six frame-mask tests and settings validation pass within all 241 Windows tests. Its unmodified Linux snapshot passes all 237 headless, SDL, and address/undefined/leak sanitizer tests. |
 | B035 | Fixed at `931ee71`; three consecutive-stall tests cover threshold, periodic reporting, progress reset, and independence; the integrated application passes all 256 Windows tests. |
-| B036 | Filename-only selection fixed at `931ee71`; actual 150-frame CLI analysis under `GUI`/`build-gui` argv paths and legacy filename convention tests pass within all 256 Windows tests. A fresh complete Windows SDL snapshot run is required to close the original six failures. |
+| B036 | Fixed at `931ee71`; all 256 Windows headless tests and all 256 tests in a fresh, unmodified Windows SDL `build-gui` snapshot pass. All six previously timed-out CLI media tests now complete; the actual directory-name regression and filename conventions are covered. |
+| B038, B039, B040, B042, B043 | Fixed at `b1f9e86`; all 270 Windows tests pass, including checked brightness/geometry, actual zero-border/empty scenes, fractional-rate CSV replay, and invalid-rate rejection before state mutation. Linux sanitizer verification of this stage remains separate. |
 
 ## Issue evidence and verification
 
@@ -462,6 +463,34 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Checked derived scan/filter geometry and wide
   indices, avoiding overflowing products, with extreme settings and real-frame
   tests under sanitizers.
+
+### B042: Zero-border directional sampling starts outside the image
+
+- **Evidence:** `ScanTop` starts at `y=height-border-delta` and immediately
+  indexes that row; border0/delta0 starts after the final row. `ScanRight`
+  similarly starts at `x=videowidth` for zero border, reading padding or the
+  next row and potentially crossing tight-stride storage on the final row.
+- **Fix/verification needed:** Valid last-pixel coordinates at zero border,
+  preserving positive-border sampling, with actual tight-stride scene tests.
+
+### B043: Fully excluded scene samples cause zero-denominator arithmetic
+
+- **Evidence:** When every `haslogo` pixel is excluded from scene sampling,
+  `pixels` remains zero. `scene_analysis.cpp` divides integer brightness and
+  uniformity by it and converts the nonfinite scene-change ratio to int.
+- **Fix/verification needed:** Explicit empty-sample results and bounded
+  normalization, with actual first/subsequent fully excluded frame tests.
+
+### B044: Logo filtering assumes a complete recent sampling window
+
+- **Evidence:** `logo.cpp` `ProcessLogoTest` clears
+  `frame[framenum_real-i]` for every `i<LOGO_SAMPLE` without clipping history.
+  With `logo_filter=1`, fps25, and a valid first frame numbered one, a direct
+  call indexes negative frame positions. Ordinary full sampling-window calls
+  do not establish safety for shorter explicit histories.
+- **Fix/verification needed:** Validate the current observation and clip recent
+  history before writes; test short and ordinary histories with exact filtering
+  behavior and invalid counts under sanitizers.
 
 ## Fixed during modernization
 

@@ -172,6 +172,18 @@ than redefine completion around whichever subset currently passes tests.
   now reach their warning threshold and reset on progress; three tests verify
   the counter. Audio/seek warnings use catalogs with two actual FFmpeg buffer
   error tests. GUI selection checks the executable filename, with real analysis
-  under GUI-named parent directories. Fresh Linux and Windows SDL snapshot
-  verification is running separately. Unsafe brightness/sampling parameters
+  under GUI-named parent directories. A fresh, unmodified Windows SDL snapshot
+  passes all 256 tests from its `build-gui` directory (4.23 seconds), including
+  all six previously timed-out media CLI tests. Exact commands and results are
+  in `bin/windows-verification-931ee71.md`. SDL uses the dummy driver.
+  Linux snapshot verification is running separately. Unsafe brightness/sampling parameters
   remain open as B038–B041.
+- At `b1f9e86`, all 270 Windows headless tests pass. Checked scene geometry
+  and 0–255 brightness thresholds prevent invalid histogram/pixel access and
+  zero normalization. Actual tests cover zero-border padded images, small
+  retained regions, fully excluded samples, and missing buffers before changes.
+  Logo sampling uses a checked positive frame interval; fractional rates sample
+  once per frame, and unrepresentable rates fail before CSV state changes.
+  Both behaviors have actual legacy CSV replay tests. Logo scan/filter arithmetic
+  and short-history handling remain open as B041/B044; sanitizer verification
+  of this exact scene stage remains separate.
