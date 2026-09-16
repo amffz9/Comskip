@@ -153,6 +153,16 @@ and relevant verification; retain the evidence for future regressions.
   opening/writing, and regressions for an unavailable destination, invalid
   lengths, and valid persisted data compatibility.
 
+### B014: Caption session omits its bridge library dependency
+
+- **Evidence:** The Linux build of `3cc57ed` fails to link
+  `CaptionSession::consume_stored_packet`: `extract_a53_captions` is unresolved.
+  CMake listed the bridge library before its consumer without declaring the
+  dependency; Windows linking did not expose this ordering issue.
+- **Fix in progress:** Link `caption_session` publicly to `media_conversion`.
+  The isolated Linux headless snapshot with this exact patch passes 161 tests;
+  GUI and sanitizer verification are still running.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
