@@ -183,6 +183,16 @@ and relevant verification; retain the evidence for future regressions.
   in supported SRT/SAMI output, with overlapping and out-of-order integration
   regressions plus reopen and failure cleanup checks.
 
+### B017: Screen-only frame diagnostics print an uninitialized string
+
+- **Evidence:** `OutputFrameArray` declares `char lp[10]` without initialization
+  and passes it to `%s` in its `screenOnly` branch. No assignment occurs before
+  the print.
+- **Impact:** That diagnostic path can read beyond the array, display unrelated
+  stack bytes, or crash while printing a frame.
+- **Fix/verification needed:** Remove the obsolete string or derive an owned
+  valid label; exercise screen-only output with a stored frame.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
