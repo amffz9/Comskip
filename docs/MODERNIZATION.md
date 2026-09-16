@@ -18,8 +18,9 @@ verification evidence. Passing the current media smoke tests alone is insufficie
 - [ ] Tests cover independent repeated analyses, seeking/reopening, damaged and
   truncated media, stream format changes, known commercial intervals, and exact
   output serializers including escaping and time/frame boundary cases.
-- [ ] Windows, Linux, and macOS headless/SDL builds and tests are verified;
+- [ ] Windows and Linux headless/SDL builds and tests are verified;
   sanitizer checks run where supported. CI configuration alone is not proof.
+  macOS verification is deferred by user instruction (2026-09-15).
 - [ ] Media and output code have focused interfaces and source modules; obsolete
   shared declarations and unsafe ownership/buffer patterns have been removed.
 
@@ -249,7 +250,7 @@ than redefine completion around whichever subset currently passes tests.
   path and rejects unrepresentable recording-duration settings before mutation.
   Logs are `bin/windows-font-settings-{build,test}.txt` and
   `bin/windows-font-gui-{configure,build,test}.txt`. Linux verification of this
-  stage, macOS/interactive SDL, remaining human error reasons and legacy
+  stage, interactive SDL, remaining human error reasons and legacy
   output modules remain separate work.
 
 - The unmodified `c5c8496` Linux SDL Release snapshot passes all **325/325**
@@ -271,7 +272,7 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-scripts-errors-build23-{build,test}.txt` and
   `bin/windows-scripts-errors-build23-gui-{build,test}.txt`.
   Saved-logo metadata/mask safety, remaining player exporters and application
-  orchestration, other human error reasons, and macOS/interactive SDL proof
+  orchestration, other human error reasons, and interactive SDL proof
   remain required work; Linux verification of this stage is separate.
 
 - The logo/player/application stage passes Windows headless **368/368** (16.83s)
@@ -289,7 +290,7 @@ than redefine completion around whichever subset currently passes tests.
   Logs: `bin/windows-logo-player-build23{,-gui}-{build,test}.txt`.
   Other human-facing diagnostics, remaining output/decoder decomposition, the
   chapter filename collision B064, Linux verification of this stage and
-  macOS/interactive SDL proof remain required work.
+  interactive SDL proof remain required work.
 
 - The unmodified `9bcdc2e` Linux snapshot passes headless **343/343** (34.24s)
   and address/undefined/leak sanitizer **343/343** (89.79s), without findings
@@ -315,7 +316,7 @@ than redefine completion around whichever subset currently passes tests.
   subsequent subsampling. Corrected Linux proof is still pending. Logs:
   `bin/windows-diagnostics-progress-build23{,-gui}-{build,test}.txt` and
   `bin/windows-progress-public-{configure,build}.txt`. Other human-facing
-  messages, remaining decoder/export decomposition and macOS/interactive SDL
+  messages, remaining decoder/export decomposition and interactive SDL
   verification remain required work.
 
 - The unmodified `66d45a8` Linux snapshot finishes headless **373/374**
@@ -343,7 +344,7 @@ than redefine completion around whichever subset currently passes tests.
   configuration or initialization failure stage with matching localized text.
   Logs: `bin/windows-editor-geometry-build23{,-gui}-{build,test}.txt`.
   Corrected Linux proof, remaining exporters/decoder decomposition, remaining
-  human messages and macOS/interactive SDL verification remain required work.
+  human messages and interactive SDL verification remain required work.
 
   The complete public-speed Release application also builds for this stage;
   evidence: `bin/windows-editor-geometry-public-build.txt`.
