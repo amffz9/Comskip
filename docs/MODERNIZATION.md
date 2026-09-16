@@ -95,7 +95,10 @@ than redefine completion around whichever subset currently passes tests.
   missing-timestamp media, and three staged/bounded cutscene-loading tests.
   Linux headless and SDL builds of an isolated, unmodified c4ab1e0 snapshot each
   pass all 177 tests (14.09 and 12.88 seconds respectively); SDL uses the dummy
-  driver. Sanitizer verification of that commit is still pending.
+  driver. Its address/undefined/leak sanitizer suite passes 176/177 tests:
+  missing-timestamp overflow is resolved, but the full-reopen caption test leaks
+  210 bytes in three FFmpeg allocations (B025). Complete lifecycle leak safety
+  remains unverified.
   Four detector-warning
   regressions pass at 7e011c3, covering both logo-save failure branches. macOS and
   interactive SDL application verification still require evidence.
