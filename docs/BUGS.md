@@ -273,6 +273,17 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   decoder and CLI, with normal output/settings lookup and failure cleanup on
   Windows and Linux.
 
+### B024: Editable output templates are unchecked printf formats
+
+- **Evidence:** `OpenOutputFiles` passes `avisynth_options` and `dvrcut_options`
+  directly as `fprintf` format strings with one and three string arguments.
+  Settings validation checks `windowtitle`, but not these templates.
+- **Impact:** Unexpected numeric conversions, `%n`, or excess `%s` conversions
+  can read invalid arguments or write through invalid pointers.
+- **Fix/verification needed:** Validate supported legacy string placeholders and
+  escaping before publishing settings, or migrate to typed template formatting;
+  test malformed templates and exact valid output compatibility.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
