@@ -76,7 +76,6 @@ enum class Code {
     missing_reference_filename_extension,
     reference_comparison_count_exceeds_storage,
     csv_observations_exceed_frame_buffer,
-    invalid_data_dump_buffer,
     data_dump_frame_number_exceeds_field,
 
     ffmpeg_eia_608_decoder_is_unavailable,
@@ -414,7 +413,6 @@ constexpr std::string_view message_id(Code code) {
     case Code::missing_reference_filename_extension: return "diag_missing_reference_filename_extension";
     case Code::reference_comparison_count_exceeds_storage: return "diag_reference_comparison_count_exceeds_storage";
     case Code::csv_observations_exceed_frame_buffer: return "diag_csv_observations_exceed_frame_buffer";
-    case Code::invalid_data_dump_buffer: return "diag_invalid_data_dump_buffer";
     case Code::data_dump_frame_number_exceeds_field: return "diag_data_dump_frame_number_exceeds_field";
 
     case Code::ffmpeg_eia_608_decoder_is_unavailable: return "diag_ffmpeg_eia_608_decoder_is_unavailable";

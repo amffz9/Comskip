@@ -11,6 +11,7 @@
 #include <iterator>
 #include <memory>
 #include <random>
+#include <vector>
 
 namespace {
 class DiagnosticOutput : public ::testing::Test {
@@ -40,42 +41,35 @@ protected:
     }
 };
 TEST_F(DiagnosticOutput, BinaryDataRetainsTwelveByteHeaderAndPayload) {
-    std::array<char, 4> payload{'A', '\0', static_cast<char>(0xff), '\n'};
+    std::array<std::uint8_t,4> payload{'A',0,0xff,'\n'};
     context->state.framenum_real = 42;
-    dump_data(*context, payload.data(), static_cast<int>(payload.size()));
+    dump_data(*context,payload);
     close_data(*context);
-    EXPECT_EQ(read("dump.data"), std::string("     42:   4") + std::string(payload.data(), payload.size()));
+    EXPECT_EQ(read("dump.data"),std::string("     42:   4")+
+        std::string(reinterpret_cast<const char*>(payload.data()),payload.size()));
     EXPECT_FALSE(context->state.dump_data_file);
 }
-TEST_F(DiagnosticOutput, DataOpenFailureReportsSpanishAndReturnsSafely) {
+TEST_F(DiagnosticOutput, DataOpenFailureReportsOwnedPathInSpanish) {
     context->translator = comskip::localization::Translator("es");
     comskip::checked_format(context->state.workbasename, "%s", (directory / "missing" / "dump").string().c_str());
-    char payload = 'x';
-    EXPECT_NO_THROW(dump_data(*context, &payload, 1));
-    EXPECT_FALSE(context->state.dump_data_file);
-    const auto message = read("log.txt");
-    EXPECT_NE(message.find("no se pudo crear el archivo"), std::string::npos);
-    EXPECT_NE(message.find("dump.data"), std::string::npos);
-}
-TEST_F(DiagnosticOutput, InvalidBuffersAndFrameFieldsRejectBeforeOpeningOutput) {
-    char payload = 'x';
-    EXPECT_THROW(dump_data(*context, &payload, -1), std::invalid_argument);
-    EXPECT_THROW(dump_data(*context, nullptr, 1), std::invalid_argument);
-    context->state.framenum_real = 10000000;
-    EXPECT_THROW(dump_data(*context, &payload, 1), std::out_of_range);
-    EXPECT_FALSE(std::filesystem::exists(directory / "dump.data"));
-    EXPECT_FALSE(context->state.dump_data_file);
-}
-TEST_F(DiagnosticOutput, ActualInvalidDumpBufferPreservesCategoryAndRendersEnglishSpanish) {
-    try {dump_data(*context,nullptr,1); FAIL()<<"Expected invalid buffer rejection";}
-    catch(const std::invalid_argument& error) {
-        EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("en")),
-            "Invalid data dump buffer");
-        EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("es")),
-            "El búfer de volcado de datos no es válido");
+    const std::array<std::uint8_t,1> payload{'x'};
+    try { dump_data(*context,payload); FAIL() << "Expected output-open diagnostic"; }
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::output_open);
+        EXPECT_EQ(comskip::localization::render_diagnostic(error.diagnostic(),context->translator),
+            "No se pudo abrir el archivo de salida: "+(directory/"missing"/"dump.data").string());
     }
     EXPECT_FALSE(context->state.dump_data_file);
-    EXPECT_FALSE(std::filesystem::exists(directory/"dump.data"));
+}
+TEST_F(DiagnosticOutput, EmptyOversizedAndInvalidFrameDataRejectBeforeOpeningOutput) {
+    EXPECT_NO_THROW(dump_data(*context,{}));
+    const std::vector<std::uint8_t> oversized(1901,'x');
+    EXPECT_NO_THROW(dump_data(*context,oversized));
+    const std::array<std::uint8_t,1> payload{'x'};
+    context->state.framenum_real = 10000000;
+    EXPECT_THROW(dump_data(*context,payload),std::out_of_range);
+    EXPECT_FALSE(std::filesystem::exists(directory / "dump.data"));
+    EXPECT_FALSE(context->state.dump_data_file);
 }
 TEST_F(DiagnosticOutput, ActualCsvBufferBoundsPreserveRangeCategoryAndRenderEnglishSpanish) {
     context->state.frame_count=2;
@@ -117,10 +111,10 @@ TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles)
     dump_video_start(*context);
     ASSERT_TRUE(context->state.dump_audio_file);
     ASSERT_TRUE(context->state.dump_video_file);
-    const char audio[] = "buffered audio";
-    const char video[] = "buffered video";
-    ASSERT_EQ(std::fwrite(audio, 1, sizeof(audio) - 1, context->state.dump_audio_file.get()), sizeof(audio) - 1);
-    ASSERT_EQ(std::fwrite(video, 1, sizeof(video) - 1, context->state.dump_video_file.get()), sizeof(video) - 1);
+    const std::array<std::uint8_t,14> audio{'b','u','f','f','e','r','e','d',' ','a','u','d','i','o'};
+    const std::array<std::uint8_t,14> video{'b','u','f','f','e','r','e','d',' ','v','i','d','e','o'};
+    dump_audio(*context,audio);
+    dump_video(*context,video);
     context->settings.output_demux = false;
     close_dump(*context);
     EXPECT_EQ(read("dump.mp2"), "buffered audio");

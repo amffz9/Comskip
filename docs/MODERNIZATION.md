@@ -481,3 +481,12 @@ than redefine completion around whichever subset currently passes tests.
   headless and **453/453** SDL tests, and the public non-donator application
   builds. Logs are `bin/windows-decoder-training-build23{,-gui}-test.txt`.
   Linux verification remains pending.
+
+- Logo-search and cutpoint diagnostics in `detection.cpp` now use the English
+  and Spanish catalogs with frame widths and three-decimal timestamps formatted
+  at their call sites. The reproducible literal-message inventory is down to
+  **148** active sites. Optional media dumps now accept spans and propagate
+  owned open/write/close diagnostics. Windows passes **445/445** headless and
+  **453/453** SDL tests, and the public non-donator application builds. Logs are
+  `bin/windows-dumps-detection-build23{,-gui}-test.txt`. Linux verification is
+  deferred to the final implementation stage.

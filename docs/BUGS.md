@@ -1123,3 +1123,28 @@ before calling FFmpeg seek APIs.
   with the owned path instead of dereferencing null. Existing exact CSV content
   and checked write/close regressions pass in all 445 Windows headless and 453
   SDL tests. Linux verification remains pending.
+
+### B094: Optional media dumps silently ignored storage failures
+
+- **Evidence:** Raw audio/video dump creation did not check `myfopen`; all raw
+  writes ignored `fwrite`, and close relied on a non-reporting deleter. Data
+  dumps logged and returned on open/write failure, preventing callers from
+  handling incomplete output.
+- **Status:** Fixed. Dump payloads use `std::span<const std::uint8_t>`, all three
+  destinations propagate owned `output_open`/`output_write` diagnostics, and
+  explicit close reports flush failures.
+- **Verification:** Exact binary payload, failed destination, disabled output,
+  size/frame bounds and explicit close regressions pass in all 445 Windows
+  headless and 453 SDL tests. Linux verification remains deferred to the final
+  implementation stage.
+
+### B095: Immediate logo-disappearance logging mismatched variadic arguments
+
+- **Evidence:** The cutpoint diagnostic expected an integer frame followed by a
+  floating-point timestamp, but passed the timestamp first and the integer
+  second. Reading both through the incompatible printf conversions was undefined.
+- **Status:** Fixed. The frame and timestamp are now formatted with C++23
+  `std::format` before insertion into the localized message.
+- **Verification:** Exact English padding and three-decimal timestamp coverage
+  passes within all 445 Windows headless and 453 SDL tests. Linux verification
+  remains deferred to the final implementation stage.

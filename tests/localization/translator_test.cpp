@@ -148,3 +148,15 @@ TEST(Translator, FormatsLogoDiagnosticsWithStableWidthsAndPercentages) {
     EXPECT_EQ(spanish.format("logo_mask_heading", spanish.text("logo_mask_diagonal_1")),
               "\nMáscara de logotipo diagonal 1 \n     ");
 }
+TEST(Translator, FormatsLogoSearchAndCutpointDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("detection_logo_cut_disappears", "    42", "1.250"),
+              "Frame     42 (1.250s) - Cutpoint added when Logo disappears\n");
+    EXPECT_EQ(english.format("detection_logo_cut_after_disappears", "    42", "1.250", "3", "87"),
+              "Frame     42 (1.250s) - Cutpoint added 3 seconds after Logo disappears at change percentage of 87\n");
+    EXPECT_EQ(spanish.format("detection_logo_search_restart", "10", "250"),
+              "\nNo se encontró el logotipo en los fotogramas 10 a 250; se reinicia la búsqueda.\n");
+    EXPECT_EQ(spanish.format("detection_logo_cut_before_appears", "    42", "1.250", "2", "91"),
+              "Fotograma     42 (1.250s) - Punto de corte añadido 2 segundos antes de aparecer el logotipo con un porcentaje de cambio de 91\n");
+}

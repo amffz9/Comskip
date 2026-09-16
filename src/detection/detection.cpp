@@ -6,6 +6,15 @@
 #include "logo_sampling.h"
 #include "logo_shrink.h"
 #include <stdexcept>
+#include <utility>
+
+namespace {
+template <typename... Args>
+void DetectionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+{
+    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+}
+}
 
 int DetectCommercials(RecordingContext& context, int f, double pts)
 {
@@ -87,7 +96,9 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
                 FillLogoBuffer(context);
                 if (context.state.logoBuffersFull)
                 {
-                    Debug(context, 6, "\nLooking For Logo in frames %i to %i.\n", context.state.logoFrameNum[context.state.oldestLogoBuffer], context.state.frame_count);
+                    DetectionDebug(context, 6, "detection_logo_search_frames",
+                        std::format("{}", context.state.logoFrameNum[context.state.oldestLogoBuffer]),
+                        std::format("{}", context.state.frame_count));
                     if(!SearchForLogoEdges(context))
                     {
                         InitComSkip(context);
@@ -132,7 +143,9 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
                     (double)context.state.frames_with_logo / (double)context.state.frame_count < 0.5
                )
             {
-                Debug(context, 6, "\nNo Logo in frames %i to %i, restarting Logo search.\n", context.state.logo_block[context.state.logo_block_count-1].end, context.state.frame_count);
+                DetectionDebug(context, 6, "detection_logo_search_restart",
+                    std::format("{}", context.state.logo_block[context.state.logo_block_count-1].end),
+                    std::format("{}", context.state.frame_count));
                 // First logo found but no logo found after first commercial cblock so search new logo
                 context.state.logoInfoAvailable = false;
                 context.state.secondLogoSearch = true;
@@ -764,7 +777,9 @@ scanagain:
         {
             if (F2L(context.state.logo_block[i].end, context.state.logo_block[i].start) < context.settings.min_commercial_size - 2*context.settings.shrink_logo)
             {
-                Debug(context, 1, "Logo cblock %d deleted because too short (%i s)\n", i, (int)F2L(context.state.logo_block[i].end, context.state.logo_block[i].start) );
+                DetectionDebug(context, 1, "detection_logo_block_too_short",
+                    std::format("{}", i), std::format("{}", static_cast<int>(F2L(
+                        context.state.logo_block[i].end, context.state.logo_block[i].start))));
                 for (t = i; t+1 < context.state.logo_block_count; t++)
                 {
                     context.state.logo_block[t] = context.state.logo_block[t+1];
@@ -784,12 +799,8 @@ scanagain:
                 {
                     j = context.state.logo_block[i].end;
                     InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,0, C_l);
-                    Debug(context,
-                        3,
-                        "Frame %6i (%.3fs) - Cutpoint added when Logo disappears\n",
-                        get_frame_pts(context, j),
-                        j
-                    );
+                    DetectionDebug(context, 3, "detection_logo_cut_disappears",
+                        std::format("{:6}", j), std::format("{:.3f}", get_frame_pts(context, j)));
                     continue;
                 }
 
@@ -867,11 +878,10 @@ scanagain:
                 if (cp != 0)
                 {
                     InsertBlackFrame(context, cp,context.state.frame[cp].brightness,context.state.frame[cp].uniform,context.state.frame[cp].volume, C_l);
-                    Debug(context,
-                        3,
-                        "Frame %6i (%.3fs) - Cutpoint added %i seconds after Logo disappears at change percentage of %d\n",
-                        cp, get_frame_pts(context, cp), (int)F2L(cp, context.state.logo_block[i].end), maxsc
-                    );
+                    DetectionDebug(context, 3, "detection_logo_cut_after_disappears",
+                        std::format("{:6}", cp), std::format("{:.3f}", get_frame_pts(context, cp)),
+                        std::format("{}", static_cast<int>(F2L(cp, context.state.logo_block[i].end))),
+                        std::format("{}", maxsc));
                 }
             }
         }
@@ -888,11 +898,8 @@ scanagain:
                 {
                     j = context.state.logo_block[i].start;
                     InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,0, C_l);
-                    Debug(context,
-                        3,
-                        "Frame %6i (%.3fs) - Cutpoint added when Logo appears\n",
-                        j, get_frame_pts(context, j)
-                    );
+                    DetectionDebug(context, 3, "detection_logo_cut_appears",
+                        std::format("{:6}", j), std::format("{:.3f}", get_frame_pts(context, j)));
 
                     continue;
                 }
@@ -972,11 +979,10 @@ scanagain:
                 if (cp != 0)
                 {
                     InsertBlackFrame(context, cp,context.state.frame[cp].brightness,context.state.frame[cp].uniform,context.state.frame[cp].volume, C_l);
-                    Debug(context,
-                        3,
-                        "Frame %6i (%.3fs) - Cutpoint added %i seconds before Logo appears at change percentage of %d\n",
-                        cp, get_frame_pts(context, cp), (int)F2L(context.state.logo_block[i].start, cp), maxsc
-                    );
+                    DetectionDebug(context, 3, "detection_logo_cut_before_appears",
+                        std::format("{:6}", cp), std::format("{:.3f}", get_frame_pts(context, cp)),
+                        std::format("{}", static_cast<int>(F2L(context.state.logo_block[i].start, cp))),
+                        std::format("{}", maxsc));
                 }
             }
         }

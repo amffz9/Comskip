@@ -1,11 +1,25 @@
 #include "diagnostic.h"
 #include "legacy_detection.h"
 #include "output/media_dump.h"
+#include "output/checked_file.h"
 #include <format>
 #include <stdexcept>
 #include <string>
 
-
+namespace {
+comskip::platform::FilePtr open_dump(std::string_view path) {
+    auto file=comskip::platform::own_file(myfopen(std::string(path).c_str(),"wb"));
+    if (!file)
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_open,{std::string(path)});
+    return file;
+}
+void write_dump(std::FILE& file, std::string_view path, std::span<const std::uint8_t> data) {
+    if (std::fwrite(data.data(),1,data.size(),&file)!=data.size())
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_write,{std::string(path)});
+}
+}
 
 void dump_audio_start(RecordingContext& context)
 {
@@ -13,17 +27,15 @@ void dump_audio_start(RecordingContext& context)
     if (!context.state.dump_audio_file.get())
     {
         const auto filename = std::string(context.state.workbasename) + ".mp2";
-        context.state.dump_audio_file.reset(myfopen(filename.c_str(), "wb"));
+        context.state.dump_audio_file=open_dump(filename);
     }
 }
 
-void dump_audio (RecordingContext& context, char *start, char *end)
+void dump_audio(RecordingContext& context, std::span<const std::uint8_t> data)
 {
     if (!context.settings.output_demux) return;
     if (!context.state.dump_audio_file.get()) return;
-
-    fwrite(start, end-start, 1, context.state.dump_audio_file.get());
-//	fclose(dump_audio_file);
+    write_dump(*context.state.dump_audio_file,std::string(context.state.workbasename)+".mp2",data);
 }
 
 
@@ -34,49 +46,42 @@ void dump_video_start(RecordingContext& context)
     if (!context.state.dump_video_file.get())
     {
         const auto filename = std::string(context.state.workbasename) + ".m2v";
-        context.state.dump_video_file.reset(myfopen(filename.c_str(), "wb"));
+        context.state.dump_video_file=open_dump(filename);
     }
 }
-void dump_video (RecordingContext& context, char *start, char *end)
+void dump_video(RecordingContext& context, std::span<const std::uint8_t> data)
 {
     if (!context.settings.output_demux) return;
     if (!context.state.dump_video_file.get()) return;
-    fwrite(start, end-start, 1, context.state.dump_video_file.get());
-//	fclose(dump_video_file);
+    write_dump(*context.state.dump_video_file,std::string(context.state.workbasename)+".m2v",data);
 }
 
 void close_dump(RecordingContext& context)
 {
-    context.state.dump_audio_file.reset();
-    context.state.dump_video_file.reset();
+    comskip::output::checked_close(context.state.dump_audio_file,std::string(context.state.workbasename)+".mp2");
+    comskip::output::checked_close(context.state.dump_video_file,std::string(context.state.workbasename)+".m2v");
 }
 
 
-void dump_data(RecordingContext& context, char *start, int length)
+void dump_data(RecordingContext& context, std::span<const std::uint8_t> data)
 {
     if (!context.settings.output_data) return;
-    if (length < 0 || (length > 0 && !start))
-        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_data_dump_buffer);
-    if (!length) return;
-    if (length > 1900) return;
+    if (data.empty()) return;
+    if (data.size() > 1900) return;
     if (context.state.framenum_real < 0 || context.state.framenum_real > 9999999)
         throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::data_dump_frame_number_exceeds_field);
     if (!context.state.dump_data_file.get())
     {
         const auto filename = std::string(context.state.workbasename) + ".data";
-        context.state.dump_data_file.reset(myfopen(filename.c_str(), "wb"));
-        if (!context.state.dump_data_file) {
-            Debug(context, 1, "%s", context.translator.format("create_failed", strerror(errno), filename).c_str());
-            return;
-        }
+        context.state.dump_data_file=open_dump(filename);
     }
-    auto record = std::format("{:7}:{:4}", context.state.framenum_real, length);
-    record.append(start, static_cast<std::size_t>(length));
-    if (fwrite(record.data(), 1, record.size(), context.state.dump_data_file.get()) != record.size())
-        Debug(context, 1, "%s", context.translator.text("diagnostics_dump_write_failed"));
+    auto record = std::format("{:7}:{:4}", context.state.framenum_real, data.size());
+    record.append(reinterpret_cast<const char*>(data.data()),data.size());
+    write_dump(*context.state.dump_data_file,std::string(context.state.workbasename)+".data",
+        {reinterpret_cast<const std::uint8_t*>(record.data()),record.size()});
 }
 
 void close_data(RecordingContext& context)
 {
-    context.state.dump_data_file.reset();
+    comskip::output::checked_close(context.state.dump_data_file,std::string(context.state.workbasename)+".data");
 }

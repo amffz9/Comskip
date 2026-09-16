@@ -231,7 +231,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
     if (packet && !context.state.reviewing)
     {
         dump_video_start(context);
-        dump_video(context, (char *)packet->data,(char *) (packet->data + packet->size));
+        dump_video(context,{packet->data,static_cast<std::size_t>(packet->size)});
     }
     real_pts = 0.0;
     pts = 0;
@@ -540,7 +540,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 for (const auto& packet : comskip::media::bridge_a53_captions({sd->data, sd->size})) {
                     std::copy_n(packet.bytes.begin(), packet.size, context.state.ccData);
                     context.state.ccDataLen = static_cast<int>(packet.size);
-                    dump_data(context, reinterpret_cast<char*>(context.state.ccData), context.state.ccDataLen);
+                    dump_data(context,{context.state.ccData,static_cast<std::size_t>(context.state.ccDataLen)});
                     if (context.state.processCC) ProcessCCData(context);
                 }
             }

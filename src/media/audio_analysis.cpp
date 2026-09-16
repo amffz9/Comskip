@@ -246,7 +246,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
     if (!context.state.reviewing)
     {
         dump_audio_start(context);
-        dump_audio(context, (char *)pkt->data,(char *) (pkt->data + pkt->size));
+        dump_audio(context,{pkt->data,static_cast<std::size_t>(pkt->size)});
     }
 
 
