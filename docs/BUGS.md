@@ -17,7 +17,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B006 | Fixed at `3cc57ed`; both failure branches verified by four warning tests at `7e011c3`. |
 | B012, B015, B016, B017, B019 | Fixed at `c4ab1e0`; all 181 Windows tests pass. Full Linux/sanitizer verification is pending. |
 | B020 | Fixed at `589fc7b`; all six settings-value tests pass on Windows. |
-| B018, B021 | Open; parser and review-path improvements are in progress. |
+| B021 | Overflow fixed at `8a4bda6`; three focused Windows tests pass. Full path support is tracked separately as B023. |
+| B022 | Fixed at `54470db`; all six diagnostic-output tests pass, including flush and file removal after disabling demux. |
+| B018, B023 | Open; checked parsing and filename ownership migrations are in progress. |
 
 ## Issue evidence and verification
 
