@@ -8,6 +8,7 @@
 #include "diagnostic_render.h"
 #include "logo_search_time.h"
 #include "arguments.h"
+#include "command_line_value.h"
 
 namespace {
 using comskip::platform::path_from_utf8;
@@ -707,8 +708,12 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (cl_pid->count)
     {
-//		demux_pid = cl_pid->ival[0];
-        sscanf(cl_pid->sval[0],"%x", &context.state.demux_pid);
+        const auto pid=comskip::config::parse_transport_stream_pid(cl_pid->sval[0]);
+        if (!pid) {
+            fputs(translator.format("cli_invalid_argument", "--pid", cl_pid->sval[0]).c_str(), stderr);
+            comskip::request_exit(1);
+        }
+        context.state.demux_pid=*pid;
         fputs(translator.format("setting_pid", std::format("{:x}", context.state.demux_pid)).c_str(), stdout);
     }
 

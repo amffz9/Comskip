@@ -462,3 +462,11 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-video-status-build23{,-gui}-test.txt` and
   `bin/windows-video-status-public-build.txt`. Linux verification remains
   separate.
+
+- Command-line transport-stream PID parsing now uses C++23 `std::expected` and
+  `std::from_chars`, requires the complete hexadecimal value and enforces the
+  13-bit PID range. The real executable rejects malformed suffixes through the
+  localized CLI error path. Windows passes **443/443** headless and **451/451**
+  SDL tests, and the public non-donator application builds. Logs are
+  `bin/windows-pid-parser-build23{,-gui}-test.txt`. Linux verification remains
+  separate.

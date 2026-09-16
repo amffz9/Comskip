@@ -1090,3 +1090,17 @@ before calling FFmpeg seek APIs.
 - **Verification:** A focused regression exercises both one-past-end transition
   directions and passes in both complete Windows suites. Linux sanitizer
   verification remains pending.
+
+### B092: Command-line PID parsing accepted malformed and oversized values
+
+- **Evidence:** `--pid` used unchecked `sscanf("%x")`; it accepted a valid
+  prefix followed by arbitrary text, silently left the previous value when no
+  conversion occurred, and did not enforce the 13-bit transport-stream range.
+- **Status:** Fixed. A C++23 `std::expected`/`std::from_chars` parser requires
+  the complete hexadecimal value, accepts an optional `0x` prefix and limits
+  values to `0x0000`–`0x1fff`. Invalid input follows the localized command-line
+  error path.
+- **Verification:** Both focused parser tests pass in all 443 Windows headless
+  and 451 SDL tests. The real executable rejects `--pid=12junk` with the
+  localized option/value diagnostic and status 1. Linux verification remains
+  pending.
