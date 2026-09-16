@@ -3,6 +3,11 @@
 #include "legacy_detection.h"
 #include <filesystem>
 #include <stdexcept>
+#include <limits>
+#include "input/file_stream.h"
+#include "input/frame_record.h"
+#include "input/reference_file.h"
+#include "input/checked_number.h"
 
 void PrintArgs(RecordingContext& context)
 {
@@ -15,224 +20,71 @@ void PrintArgs(RecordingContext& context)
 
 void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
 {
-    FILE* in_file = input.get();
-    bool	lineProcessed = false;
-    bool	lastLogoTest = false,curLogoTest = false;
-//	bool	isDim = false;
-    char	line[2048]{};
-    char	split[256];
-    int		cont = 0;
-
-    int		minminY=10000,maxmaxY = 0;
-    int		minminX=10000,maxmaxX = 0;
-    int		cutscene_nonzero_count = 0;
-    int old_format = true;
-    int     use_bright = 0;
-    double  t;
-    int		i;
-    int		x;
-    int		f;
-    int		col;
-    int		ccDataFrame;
-
-//	time_t	ltime;
+    bool lastLogoTest = false, curLogoTest = false;
+    char line[2048]{}; // Bounded persisted caption framing, independent of CSV.
+    int cont = 0;
+    int minminY = 10000, maxmaxY = 0, minminX = 10000, maxmaxX = 0;
+    int cutscene_nonzero_count = 0, old_format = true, use_bright = 0;
+    int i, ccDataFrame;
+    if (!input) throw std::invalid_argument("Missing CSV input");
+    comskip::input::FileStreamBuffer buffer(input.get());
+    std::istream source(&buffer);
 again:
+    auto header = comskip::input::read_text_line(source);
+    if (!header) throw std::invalid_argument("CSV input has no header");
+    if (comskip::input::trim_ascii(*header) == "sep=," || comskip::input::trim_ascii(*header) == "sep=;") {
+        header = comskip::input::read_text_line(source);
+        if (!header) throw std::invalid_argument("CSV input has no column header");
+    }
+    const auto rate = comskip::input::parse_frame_rate(*header);
+    const double frame_rate = rate.value_or(context.settings.fps);
+    std::optional<double> previous_time;
+    std::vector<comskip::input::FrameRecord> observations;
+    while (const auto text = comskip::input::read_text_line(source)) {
+        const auto record = comskip::input::parse_frame_record(*text);
+        if (observations.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max() - 2))
+            throw std::length_error("CSV observation count exceeds the frame index range");
+        if (record.number != static_cast<int>(observations.size() + 1))
+            throw std::invalid_argument("CSV frame numbers must be consecutive from one");
+        if (record.min_y < 0 || record.min_x < 0 || record.max_y < record.min_y || record.max_x < record.min_x ||
+            record.max_y > MAXHEIGHT || record.max_x > MAXWIDTH)
+            throw std::invalid_argument("CSV observation has invalid scan bounds");
+        const double timestamp = record.timestamp.value_or((record.number - 1) / frame_rate);
+        if (!std::isfinite(timestamp) || timestamp > static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1e6 - 1 / frame_rate ||
+            (previous_time && timestamp < *previous_time))
+            throw std::invalid_argument("CSV timestamps must be representable and monotonic");
+        previous_time = timestamp;
+        observations.push_back(record);
+    }
+    if (observations.empty()) throw std::invalid_argument("CSV input has no observations");
+    // Validate all syntax and indices before changing recording settings/state.
+    if (rate) context.settings.fps = *rate;
     context.state.logoInfoAvailable = true;
-    if (!in_file)
-    {
-        Debug(context, 0, "Something went wrong... Exiting...\n");
-        comskip::request_exit(22);
-    }
-    if (!fgets(line, sizeof(line), in_file))
-        throw std::invalid_argument("CSV input has no header");
-    if (strcmp(line,"sep=,\n")==0)
-        if (!fgets(line, sizeof(line), in_file))
-            throw std::invalid_argument("CSV input has no column header");
-    t = 0.0;
-    if (line[85] == ';') line [85] = '+';
-    if (strlen(line) > 85)
-    {
-
-        t = ((double)strtol(&line[85], NULL, 10))/100;
-        if (t > 99)
-            t = t / 10.0;
-    }
-//   Debug(1, "T = %f\n",t);
-    if (t > 0)
-        context.settings.fps = t  * 1.00000000000001;
-    if (strlen(line) > 94)
-    {
-        t = ((double)strtol(&line[94], NULL, 10))/100;
-        if (t > 99)
-            t = t / 10.0;
-    }
-    if (t>0)
-        context.settings.fps = t  * 1.00000000000001;
-    if (strlen(line) > 131)
-    {
-        t = strtod(&line[131], NULL);
-
-        // Handle backward compatibility
-        if (strchr(&line[131], '.') == NULL) {
-            t /= 100.0;
-            if (t > 99) {
-                t /= 10.0;
-            }
-
-            if (t>0) {
-                context.settings.fps = t  * 1.00000000000001;
-            }
-        } else {
-            if (t > 0) {
-                context.settings.fps = t;
-            }
-        }
-    }
     InitComSkip(context);
     context.state.frame_count = 1;
     context.state.pict_type = '?';
-    while (fgets(line, sizeof(line), in_file) != NULL)
-    {
-        i = 0;
-        x = 0;
-        col = 0;
-        lineProcessed = false;
-        InitializeFrameArray(context, context.state.frame_count);
-
-//		i, frame[i].brightness, frame[i].schange_percent*5, frame[i].logo_present,
-//				frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,(int)((frame[i].ar_ratio)*100),
-//				(int)(frame[i].currentGoodEdge * 500), frame[i].isblack
-
-        context.state.frame[context.state.frame_count].minX = 0;
-        context.state.frame[context.state.frame_count].maxX = 0;
-        context.state.frame[context.state.frame_count].hasBright = 0;
-        context.state.frame[context.state.frame_count].dimCount = 0;
-        context.state.frame[context.state.frame_count].pts = (context.state.frame_count - 1) / context.settings.fps;
-        context.state.frame[context.state.frame_count].pict_type = '?';
-        context.state.frame[context.state.frame_count].audio_channels = 2;
-
-
-        // Split Line Apart
-        while (line[i] != '\0' && i < (int)sizeof(line) && !lineProcessed)
-        {
-            if (line[i] == ';' || line[i] == ',' || line[i] == '\n')
-            {
-                split[x] = '\0';
-
-                // printf("col = %i\t", col);
-                switch (col)
-                {
-                case 0:
-                    f = strtol(split, NULL, 10);
-                    if (f!= context.state.frame_count)
-                    {
-                        Debug(context, 0, "Shit!!!!\n");
-                        comskip::request_exit(23);
-                    }
-                    break;
-
-                case 1:
-                    context.state.frame[context.state.frame_count].brightness = strtol(split, NULL, 10);
-                    break;
-
-                case 2:
-                    context.state.frame[context.state.frame_count].schange_percent = strtol(split, NULL, 10)/5;
-                    break;
-
-                case 3:
-                    context.state.frame[context.state.frame_count].logo_present = strtol(split, NULL, 10);
-                    break;
-
-                case 4:
-                    context.state.frame[context.state.frame_count].uniform = strtol(split, NULL, 10);
-                    break;
-                case 5:
-                    context.state.frame[context.state.frame_count].volume = strtol(split, NULL, 10);
-                    break;
-                case 6:
-                    context.state.frame[context.state.frame_count].minY = strtol(split, NULL, 10);
-                    if (minminY > context.state.frame[context.state.frame_count].minY) minminY = context.state.frame[context.state.frame_count].minY;
-                    break;
-                case 7:
-                    context.state.frame[context.state.frame_count].maxY = strtol(split, NULL, 10);
-                    if (maxmaxY < context.state.frame[context.state.frame_count].maxY) maxmaxY = context.state.frame[context.state.frame_count].maxY;
-                    break;
-                case 8:
-                    context.state.frame[context.state.frame_count].ar_ratio = strtod(split, NULL);
-                    // Handle files that are before the values was written as a double
-                    if (strchr(split, '.') == NULL) {
-                        context.state.frame[context.state.frame_count].ar_ratio /= 100;
-                    }
-                    break;
-                case 9:
-                    context.state.frame[context.state.frame_count].currentGoodEdge = strtod(split, NULL);
-                    // Handle files that are before the values was written as a double
-                    if (strchr(split, '.') == NULL) {
-                        context.state.frame[context.state.frame_count].currentGoodEdge /= 500;
-                    }
-                    break;
-                case 10:
-                    context.state.frame[context.state.frame_count].isblack = strtol(split, NULL, 10);
-                    if (!(context.state.frame[context.state.frame_count].isblack == 0 || context.state.frame[context.state.frame_count].isblack == 1))
-                        old_format = false;
-                    break;
-                case 11:
-                    context.state.frame[context.state.frame_count].cutscenematch = strtol(split, NULL, 10);
-                    if ( context.state.frame[context.state.frame_count].cutscenematch>0 ) cutscene_nonzero_count++;
-                    break;
-                case 12:
-                    context.state.frame[context.state.frame_count].minX = strtol(split, NULL, 10);
-                    if (minminX > context.state.frame[context.state.frame_count].minX) minminX = context.state.frame[context.state.frame_count].minX;
-                    break;
-                case 13:
-                    context.state.frame[context.state.frame_count].maxX = strtol(split, NULL, 10);
-                    if (maxmaxX < context.state.frame[context.state.frame_count].maxX) maxmaxX = context.state.frame[context.state.frame_count].maxX;
-                    break;
-                case 14:
-                    context.state.frame[context.state.frame_count].hasBright = strtol(split, NULL, 10);
-                    break;
-                case 15:
-                    context.state.frame[context.state.frame_count].dimCount = strtol(split, NULL, 10);
-                    break;
-                case 16:
-                    context.state.frame[context.state.frame_count].pts = strtod(split, NULL);
-                    break;
-                case 17:
-                    context.state.frame[context.state.frame_count].cur_segment = strtol(split, NULL, 10);
-                    break;
-                case 18:
-                    context.state.frame[context.state.frame_count].audio_channels = strtol(split, NULL, 10);
-                    break;
-
-
-                default:
-#ifdef FRAME_WITH_HISTOGRAM
-                    frame[frame_count].histogram[col - 9] = strtol(split, NULL, 10);
-#endif
-                    break;
-                }
-
-                col++;
-                x = 0;
-                split[0] = '\0';
-                if (col > 256 + 9) lineProcessed = true;
-            }
-            else
-            {
-                split[x] = line[i];
-                x++;
-            }
-
-            i++;
-        }
-        if (context.state.frame_count == 1)
-            context.state.frame[0].pts = context.state.frame[1].pts;
-        context.state.frame_count++;
+    for (const auto& record : observations) {
+        InitializeFrameArray(context, record.number);
+        auto& frame = context.state.frame[record.number];
+        frame.brightness = record.brightness; frame.schange_percent = record.scene_change;
+        frame.logo_present = record.logo; frame.uniform = record.uniform; frame.volume = record.volume;
+        frame.minY = record.min_y; frame.maxY = record.max_y;
+        frame.ar_ratio = record.aspect_ratio; frame.currentGoodEdge = record.good_edge;
+        frame.isblack = record.black; frame.cutscenematch = record.cutscene_match;
+        frame.minX = record.min_x; frame.maxX = record.max_x;
+        frame.hasBright = record.bright_count; frame.dimCount = record.dim_count;
+        frame.pts = record.timestamp.value_or((record.number - 1) / context.settings.fps);
+        frame.cur_segment = record.segment; frame.audio_channels = record.audio_channels;
+        frame.pict_type = '?';
+        minminY = std::min(minminY, record.min_y); maxmaxY = std::max(maxmaxY, record.max_y);
+        minminX = std::min(minminX, record.min_x); maxmaxX = std::max(maxmaxX, record.max_x);
+        if (record.black != 0 && record.black != 1) old_format = false;
+        if (record.cutscene_match > 0) ++cutscene_nonzero_count;
+        ++context.state.frame_count;
     }
-
-
-    context.state.frame[context.state.frame_count].pts = (context.state.frame_count - 1) / context.settings.fps; // Should be avg_fps, but is never used.
-
+    observations.clear();
+    context.state.frame[0].pts = context.state.frame[1].pts;
+    context.state.frame[context.state.frame_count].pts = (context.state.frame_count - 1) / context.settings.fps;
     if (!context.state.dump_data_file.get())
     {
         auto companion = std::filesystem::path(std::u8string_view(
@@ -261,7 +113,7 @@ again:
     context.state.last_brightness = context.state.frame[1].brightness;
     Debug(context, 8, "CSV file loaded into memory.\n");
     input.reset();
-    in_file = NULL;
+
     context.state.black_count = 0;
     context.state.logo_block_count = 0;
     context.state.black_count = 0;

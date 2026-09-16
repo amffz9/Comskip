@@ -7,7 +7,8 @@
 #include <string>
 
 namespace comskip::input {
-FrameRecord parse_frame_record(std::string_view line) {
+namespace {
+std::vector<std::string> csv_fields(std::string_view line) {
     if (line.size() > maximum_text_line) throw std::length_error("CSV record exceeds its limit");
     if (line.find('\0') != std::string_view::npos) throw std::invalid_argument("Null character in CSV record");
     const auto delimiter = line.find(',') == std::string_view::npos ? ';' : ',';
@@ -16,6 +17,31 @@ FrameRecord parse_frame_record(std::string_view line) {
     if (document.GetRowCount() != 1) throw std::invalid_argument("Expected one CSV observation");
     auto fields = document.GetRow<std::string>(0);
     if (!fields.empty() && trim_ascii(fields.back()).empty()) fields.pop_back(); // Historical trailing delimiter.
+    return fields;
+}
+}
+std::optional<double> parse_frame_rate(std::string_view header) {
+    auto fields = csv_fields(header);
+    if (fields.size() < 11 || trim_ascii(fields.front()) != "frame")
+        throw std::invalid_argument("Invalid CSV column header");
+    const auto last = trim_ascii(fields.back());
+    if (last.empty()) throw std::invalid_argument("Missing CSV frame rate");
+    if (last.find_first_of("0123456789+-.") != 0) {
+        if (fields.size() == 18 && trim_ascii(fields[16]) == "PTS")
+            throw std::invalid_argument("Invalid CSV frame rate");
+        return std::nullopt;
+    }
+    double rate = parse_number<double>(last, "CSV frame rate");
+    if (last.find('.') == std::string_view::npos) {
+        rate /= 100;
+        if (rate > 99) rate /= 10;
+        rate *= 1.00000000000001; // Legacy frame-time roundoff compensation.
+    }
+    if (rate <= 0) throw std::invalid_argument("CSV frame rate must be positive");
+    return rate;
+}
+FrameRecord parse_frame_record(std::string_view line) {
+    auto fields = csv_fields(line);
     if (fields.size() < 11 || fields.size() > 265) throw std::invalid_argument("Invalid CSV observation column count");
     const auto integer = [&](std::size_t column, std::string_view name, int fallback = 0) {
         return column < fields.size() ? parse_number<int>(fields[column], name) : fallback;

@@ -1,3 +1,5 @@
+#include "input/file_stream.h"
+#include "input/reference_file.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "output/diagnostics.h"
@@ -354,96 +356,43 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     double fpos = 0.0, fneg = 0.0, total = 0.0;
     double	t=0;
     enum {both_show,both_commercial, only_reffer, only_commercial} state;
-    char	line[2048];
-    char	split[256];
-    char	array[MAX_PATH];
     comskip::platform::FilePtr raw;
-    int		x;
-    int		col;
-    bool	lineProcessed;
-    int     frames = 0;
-    char	co,re;
+    int frames = 0;
+    char co,re;
     comskip::platform::FilePtr raw2;
-
-    sprintf(array, "%.*s%s", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename,extension);
-    raw.reset(myfopen(array, "r"));
-    if (!raw.get())
-    {
-        if (context.settings.output_live)
-            goto noreffer;
-        return(0);
-    }
-
-    fgets(line, sizeof(line), raw.get()); // Read first line
-
-    frames = 0;
-    if (strlen(line) > 27)
-        frames = strtol(&line[25], NULL, 10);
-    if (setfps)
-    {
-        if (strlen(line) > 42)
-            t = ((double)strtol(&line[42], NULL, 10))/100;
-        if (t > 99)
-            t = t / 10.0;
-        if (t > 0) {
+    auto basename = std::string(context.state.logfilename);
+    if (basename.ends_with(".log") || basename.ends_with(".txt")) basename.resize(basename.size() - 4);
+    const auto reference_name = basename + extension;
+    raw.reset(myfopen(reference_name.c_str(), "r"));
+    if (!raw) {
+        if (!context.settings.output_live) return 0;
+    } else {
+        comskip::input::FileStreamBuffer buffer(raw.get());
+        std::istream source(&buffer);
+        const auto capacity = std::size(context.state.reffer) - (extension[1] == 't' ? 0 : 1);
+        const auto document = comskip::input::read_reference_file(source, capacity);
+        frames = document.declared_frames;
+        if (setfps && document.frames_per_second) {
+            t = *document.frames_per_second;
             context.settings.fps = t * 1.00000000000001;
             context.state.avg_fps = context.settings.fps;
+            if (t != 59.94) context.settings.sage_framenumber_bug = false;
         }
-        if (t != 59.94)
-            context.settings.sage_framenumber_bug = false;
-    }
-    context.state.reffer_count = -1;
-    fgets(line, sizeof(line), raw.get()); // Skip second line
-    while (fgets(line, sizeof(line), raw.get()) != NULL && strlen(line) > 1)
-    {
-        if (line[strlen(line)-1] != '\n')
-        {
-            strcat(&line[strlen(line)], "\n");
-        }
-        i = 0;
-        x = 0;
-        col = 0;
-        lineProcessed = false;
-        context.state.reffer_count++;
-        // Split Line Apart
-        while (line[i] != '\0' && i < (int)sizeof(line) && !lineProcessed)
-        {
-            if (line[i] == ' ' || line[i] == '\t' || line[i] == '\n')
-            {
-                split[x] = '\0';
-
-                switch (col)
-                {
-                case 0:
-                    context.state.reffer[context.state.reffer_count].start_frame = FindFrameWithPts(context, ((double)strtol(split, NULL, 10))/context.settings.fps);
-                    if (context.settings.sage_framenumber_bug) context.state.reffer[context.state.reffer_count].start_frame *= 2;
-                    break;
-
-                case 1:
-                    context.state.reffer[context.state.reffer_count].end_frame = FindFrameWithPts(context, ((double)strtol(split, NULL, 10))/context.settings.fps);
-                    if (context.state.reffer[context.state.reffer_count].end_frame < context.state.reffer[context.state.reffer_count].start_frame)
-                    {
-                        Debug(context, 0, "%s", context.translator.text("diagnostics_reference_reversed"));
-                        context.state.reffer[context.state.reffer_count].end_frame = context.state.reffer[context.state.reffer_count].start_frame + 10;
-                    }
-                    if (context.settings.sage_framenumber_bug) context.state.reffer[context.state.reffer_count].end_frame *= 2;
-                    lineProcessed = true;
-                    break;
-                }
-                col++;
-                x = 0;
-                split[0] = '\0';
+        context.state.reffer_count = -1;
+        for (const auto& interval : document.intervals) {
+            auto& entry = context.state.reffer[++context.state.reffer_count];
+            entry.start_frame = FindFrameWithPts(context, interval.start_frame / context.settings.fps);
+            entry.end_frame = FindFrameWithPts(context, interval.end_frame / context.settings.fps);
+            if (context.settings.sage_framenumber_bug) entry.start_frame *= 2;
+            if (entry.end_frame < entry.start_frame) {
+                Debug(context, 0, "%s", context.translator.text("diagnostics_reference_reversed"));
+                entry.end_frame = entry.start_frame + 10;
             }
-            else
-            {
-                split[x] = line[i];
-                x++;
-            }
-            i++;
+            if (context.settings.sage_framenumber_bug) entry.end_frame *= 2;
         }
+        raw.reset();
     }
-    raw.reset();
-noreffer:
+
     if (context.state.reffer_count >= 0)
     {
         if (frames == 0)
@@ -456,8 +405,8 @@ noreffer:
     if (extension[1] == 't')
         return(frames);
 
-    sprintf(array, "%.*s.dif", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
-    raw.reset(myfopen(array, "w"));
+    const auto difference_name = basename + ".dif";
+    raw.reset(myfopen(difference_name.c_str(), "w"));
     if (!raw.get())
     {
         return(0);

@@ -15,4 +15,7 @@ struct FrameRecord {
 // rapidcsv owns delimiter/quoting syntax. This adapter applies Comskip's
 // historical numeric scaling and optional-column defaults only.
 FrameRecord parse_frame_record(std::string_view line);
+// Header labels remain in file order; an optional final numeric rate preserves
+// the old integer hundredths/millisecond encoding and modern decimal encoding.
+std::optional<double> parse_frame_rate(std::string_view header);
 }
