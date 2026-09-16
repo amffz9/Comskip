@@ -147,5 +147,16 @@ than redefine completion around whichever subset currently passes tests.
   Application reference comparison and growable detection blocks were integrated
   at `1e8f795`; all 226 Windows tests pass, including empty/full interval lists,
   1,201 blocks, genuine merges, initialization, and empty/final scoring.
-  Linux sanitizer verification of this stage is running separately.
+  Its isolated, unmodified Linux snapshot passes all 222 address, undefined,
+  and leak sanitizer tests (56.68 seconds), without findings or suppressions.
+  Exact commands and logs are in `bin/linux-verification-1e8f795.md`.
   macOS and interactive SDL remain unverified.
+- At `e520374`, all 241 Windows headless tests pass. Frame masking uses a
+  focused span-based module that validates geometry, storage, pixel counts,
+  and percentages before any writes; it preserves padding and keeps configured
+  values unchanged. Five review-navigation tests cover empty/full lists, both
+  boundaries, and extreme cursor positions. Five playback warnings use catalogs;
+  three actual error-path tests cover invalid decoded geometry/stride and an
+  FFmpeg-muxed audio-only input. Linux and Windows SDL snapshot verification
+  of this stage is running separately; fixed interval/live-candidate storage
+  remains open as B031–B033.

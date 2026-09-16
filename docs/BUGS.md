@@ -24,7 +24,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B024 | Fixed at `4839fee`; unsafe conversions and argument counts are rejected, with actual escaped-template output compatibility. All 199 Windows tests pass at that stage. |
 | B025 | Fixed at `ed8649b`; five actual lifecycle tests pass on Windows. The isolated Linux `c4ab1e0` snapshot plus only that packet patch passes all 177 address/undefined/leak sanitizer tests; the unmodified `d9e1ed1` snapshot passes all 210. Neither run has findings or suppressions. |
 | B026 | Fixed at `0f98693`; all 200 Windows tests pass, including zero, negative, and excessive observation counts. |
-| B029, B030 | Fixed at `1e8f795`; all 226 Windows tests pass, including six actual reference and six block tests. Linux sanitizer verification of this integration stage is running. |
+| B029, B030 | Fixed at `1e8f795`; all 226 Windows tests pass, including six actual reference and six block tests. Its isolated, unmodified Linux snapshot passes all 222 address/undefined/leak sanitizer tests without findings or suppressions (56.68 seconds). |
+| B032 | Navigation fixed at `e520374`; five boundary tests and the complete 241-test Windows suite pass. Reference insertion remains open pending growable interval storage. |
+| B034 | Fixed at `e520374`; six frame-mask tests and settings validation pass within all 241 Windows tests. Linux sanitizer verification of this stage is running separately. |
 
 ## Issue evidence and verification
 
