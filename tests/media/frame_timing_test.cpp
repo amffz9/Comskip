@@ -3,6 +3,21 @@
 #include <limits>
 #include <memory>
 
+TEST(FrameTime, FallsBackWithoutObservationsAndBoundsInconsistentCounts) {
+    auto context = std::make_unique<RecordingContext>();
+    context->settings.fps = 25;
+    context->state.frame.resize(3);
+    context->state.frame_count = 0;
+    EXPECT_DOUBLE_EQ(get_frame_pts(*context, 25), 1);
+    context->state.frame_count = std::numeric_limits<int>::min();
+    EXPECT_DOUBLE_EQ(get_frame_pts(*context, 25), 1);
+    context->state.frame_count = std::numeric_limits<int>::max();
+    context->state.frame[1].pts = 0.4;
+    context->state.frame[2].pts = 0.8;
+    EXPECT_DOUBLE_EQ(get_frame_pts(*context, -10), 0.4);
+    EXPECT_DOUBLE_EQ(get_frame_pts(*context, std::numeric_limits<int>::max()), 0.8);
+}
+
 TEST(FrameVolume, IgnoresTerminalAndUnrepresentableIndicesWithoutTouchingStorage) {
     auto context = std::make_unique<RecordingContext>();
     auto& state = context->state;
