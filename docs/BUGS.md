@@ -83,6 +83,19 @@ and relevant verification; retain the evidence for future regressions.
 - **Verification needed:** Actual CSV replay into a different output directory,
   without copying the companion there, matches decoded caption output.
 
+### B008: EOF frames without timestamps can reset the video clock
+
+- **Evidence:** The generated MPEG2/A53 regression accepted a caption at
+  4,800,000 microseconds, then completed at 39,999 microseconds. The EOF frame
+  lacked `best_effort_timestamp`; normalization used a zero timestamp plus
+  residual offset instead of the existing video clock.
+- **Impact:** Caption completion fails and detector/CSV timelines can jump
+  backwards at EOF.
+- **Fix:** Use the existing clock for frames without timestamps, preserving
+  timestamp/offset normalization when a timestamp is available.
+- **Verification needed:** Actual MPEG2/A53 EOF cue and monotonic CSV timing,
+  plus the existing media-format and EOF-drain regressions.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
