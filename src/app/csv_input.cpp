@@ -8,6 +8,7 @@
 #include "input/frame_record.h"
 #include "input/reference_file.h"
 #include "input/checked_number.h"
+#include "detection/logo_sampling.h"
 
 void PrintArgs(RecordingContext& context)
 {
@@ -38,6 +39,7 @@ again:
     }
     const auto rate = comskip::input::parse_frame_rate(*header);
     const double frame_rate = rate.value_or(context.settings.fps);
+    const auto logo_sample = comskip::detection::logo_sampling_interval(frame_rate, context.state.logoFreq);
     std::optional<double> previous_time;
     std::vector<comskip::input::FrameRecord> observations;
     while (const auto text = comskip::input::read_text_line(source)) {
@@ -369,7 +371,7 @@ ccagain:
             context.state.schange_count++;
         }
 
-        if ((context.settings.commDetectMethod & LOGO) && ((i % (int)(context.settings.fps * context.state.logoFreq)) == 0))
+        if ((context.settings.commDetectMethod & LOGO) && i % logo_sample == 0)
         {
             curLogoTest = (context.state.frame[i].currentGoodEdge > context.settings.logo_threshold);
             lastLogoTest = ProcessLogoTest(context, i, curLogoTest, false);

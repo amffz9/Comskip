@@ -120,4 +120,29 @@ TEST_F(ApplicationTextInput, CsvFinalObservationWithoutNewlineKeepsAllTypedColum
     EXPECT_EQ(context->state.frame[150].hasBright, 0); EXPECT_EQ(context->state.frame[150].dimCount, 0);
     EXPECT_EQ(context->state.frame[150].cur_segment, 9); EXPECT_EQ(context->state.frame[150].audio_channels, 6);
 }
+TEST_F(ApplicationTextInput, LegacyCsvFractionalRateUsesPositiveLogoSamplingInterval) {
+    context->settings.fps = 0.5;
+    context->settings.commDetectMethod = BLACK_FRAME | LOGO;
+    std::string text(csv_header.substr(0, csv_header.rfind(',')));
+    text += '\n';
+    for (int frame = 1; frame <= 150; ++frame)
+        text += std::to_string(frame) + ",80,0,0,10,40,1,119,1.333333,0.5,0,0,1,159,7,8," +
+            std::to_string((frame - 1) * 2.0) + ",9,6\n";
+    try { csv(text); FAIL() << "CSV application should return through ExitRequested"; }
+    catch (const comskip::ExitRequested& requested) { EXPECT_EQ(requested.status(), 0); }
+    EXPECT_DOUBLE_EQ(context->settings.fps, 0.5);
+    ASSERT_EQ(context->state.frame_count, 150);
+    EXPECT_DOUBLE_EQ(context->state.frame[150].pts, 298);
+}
+TEST_F(ApplicationTextInput, LegacyCsvUnrepresentableRateRejectsBeforeStateMutation) {
+    context->settings.fps = 1e20;
+    context->settings.commDetectMethod = BLACK_FRAME | LOGO;
+    context->state.frame_count = 77;
+    const auto text = std::string(csv_header.substr(0, csv_header.rfind(','))) +
+        "\n1,80,0,0,10,40,1,119,1.333333,0.5,0\n";
+    EXPECT_THROW(csv(text), std::invalid_argument);
+    EXPECT_EQ(context->state.frame_count, 77);
+    EXPECT_TRUE(context->state.frame.empty());
+    EXPECT_DOUBLE_EQ(context->settings.fps, 1e20);
+}
 }

@@ -1,6 +1,7 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "image_geometry.h"
+#include "logo_sampling.h"
 
 void PrintLogoFrameGroups(RecordingContext& context)
 {
@@ -782,7 +783,7 @@ void InitProcessLogoTest(RecordingContext& context)
 }
 
 
-#define LOGO_SAMPLE (int)(context.settings.fps * context.state.logoFreq)
+#define LOGO_SAMPLE comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq)
 
 bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close)
 {
@@ -833,13 +834,13 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
             // Logo disappeared
             context.state.lastLogoTest = false;
             context.state.logoTrendCounter = 0;
-            context.state.logo_block[context.state.logo_block_count].end = framenum_real - 1 * (int)(context.settings.fps * context.state.logoFreq);
+            context.state.logo_block[context.state.logo_block_count].end = framenum_real - 1 * comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq);
             if (context.state.logo_block[context.state.logo_block_count].end - context.state.logo_block[context.state.logo_block_count].start >
                     2*(int)(context.settings.shrink_logo*context.settings.fps) + (context.settings.shrink_logo_tail*context.settings.fps) )
             {
                 context.state.logo_block[context.state.logo_block_count].end -= (int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
                 context.state.logo_block[context.state.logo_block_count].start += (int)(context.settings.shrink_logo*context.settings.fps);
-                context.state.frames_with_logo -= 2 * (int)(context.settings.fps * context.state.logoFreq) + 2*(int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
+                context.state.frames_with_logo -= 2 * comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) + 2*(int)(context.settings.shrink_logo*context.settings.fps) + (int)(context.settings.shrink_logo_tail*context.settings.fps);
                 if (context.state.framearray)
                 {
                     i = context.state.logo_block[context.state.logo_block_count].end;
@@ -872,8 +873,8 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                 context.state.logoTrendCounter = 0;
                 InitializeLogoBlockArray(context, context.state.logo_block_count + 2);
                 context.state.logo_block[context.state.logo_block_count + 1].start = -1;
-                context.state.logo_block[context.state.logo_block_count].start = max(framenum_real - ((int)(context.settings.fps * context.state.logoFreq) * (context.state.minHitsForTrend - 1)),0);
-                context.state.frames_with_logo +=((int)(context.settings.fps * context.state.logoFreq) * (context.state.minHitsForTrend - 1));
+                context.state.logo_block[context.state.logo_block_count].start = max(framenum_real - (comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) * (context.state.minHitsForTrend - 1)),0);
+                context.state.frames_with_logo +=(comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) * (context.state.minHitsForTrend - 1));
                 if (context.state.framearray)
                 {
                     for (i = context.state.logo_block[context.state.logo_block_count].start; i < framenum_real; i++)

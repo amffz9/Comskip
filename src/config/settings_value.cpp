@@ -73,6 +73,9 @@ Settings load_settings(const Ini& ini, Settings base) {
                 throw std::invalid_argument(std::string(key) + " must be positive");
             if (key == "border" && target < 0)
                 throw std::invalid_argument("border must be nonnegative");
+            if ((key == "max_brightness" || key == "test_brightness") &&
+                (target < 0 || target > 255))
+                throw std::invalid_argument(std::string(key) + " must be between 0 and 255");
             if ((key == "ticker_tape" || key == "top_ticker_tape" ||
                  key == "ignore_side" || key == "ignore_left_side" ||
                  key == "ignore_right_side") && target < 0)

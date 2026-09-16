@@ -1,6 +1,7 @@
 #include "legacy_detection.h"
 #include <format>
 #include "frame_mask.h"
+#include "logo_sampling.h"
 #include <stdexcept>
 
 int DetectCommercials(RecordingContext& context, int f, double pts)
@@ -71,7 +72,8 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
     isBlack = oldBlack_count != context.state.black_count;	/*Gil*/
 
 
-    if ((context.settings.commDetectMethod & LOGO) && ((context.state.frame_count % (int)(context.settings.fps * context.state.logoFreq)) == 0))
+    if ((context.settings.commDetectMethod & LOGO) &&
+        context.state.frame_count % comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) == 0)
     {
         if (!context.state.logoInfoAvailable || (!context.state.lastLogoTest && !context.settings.startOverAfterLogoInfoAvail) )
         {

@@ -4,6 +4,8 @@
 #include <array>
 #include <iterator>
 #include "frame_mask.h"
+#include "scene_sampling.h"
+#include <stdexcept>
 
 void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, int maxX)
 {
@@ -382,7 +384,7 @@ void ScanTop(RecordingContext& context, intptr_t arg)
     while (delta < max_delta)
     {
         x = context.settings.border + delta;
-        y = context.state.height - context.settings.border - delta;
+        y = min(context.state.height - 1, context.state.height - context.settings.border - delta);
         i = y * context.state.width + x;
         i_max = y * context.state.width + context.state.videowidth - context.settings.border - delta;
         i_step = context.state.scan_step;
@@ -471,7 +473,7 @@ void ScanRight(RecordingContext& context, intptr_t arg)
     delta = 0;
     while (delta < max_delta)
     {
-        x = context.state.videowidth - context.settings.border - delta;
+        x = min(context.state.videowidth - 1, context.state.videowidth - context.settings.border - delta);
         y = context.settings.border + delta;
         i = y * context.state.width + x;
         i_step = context.state.scan_step * context.state.width;
@@ -559,15 +561,17 @@ bool CheckSceneHasChanged(RecordingContext& context)
     int  uniform = 0;
     double scale = 1.0;
 
-    if (!context.state.videowidth || !context.state.width || !context.state.height) return (false);
+    const auto sampling = comskip::detection::validate_scene_sampling(
+        context.state.videowidth, context.state.height, context.state.width, context.settings.border);
+    comskip::detection::validate_scene_brightness(context.settings.max_brightness,
+                                                context.settings.test_brightness);
+    if (!context.state.frame_ptr || context.state.haslogo.size() < sampling.storage_size)
+        throw std::invalid_argument("Scene sampling requires complete image and logo buffers");
     context.state.minY = context.settings.border;
     context.state.maxY = context.state.height - context.settings.border;
     context.state.minX = context.settings.border;
     context.state.maxX = context.state.videowidth - context.settings.border;
-    step = 2;
-    if (context.state.videowidth > 1200) step = 3;
-    if (context.state.videowidth > 1800) step = 4;
-    if (context.state.videowidth < 600) step = 1;
+    step = sampling.step;
     context.state.scan_step = step;
 
     if (context.settings.edge_step == 0)
@@ -627,7 +631,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
         ProcessACInfoInit(context, context.state.frame[context.state.frame_count].audio_channels);
 
         for (i = context.settings.max_brightness; i >= 0; i--) context.state.last_brightness += context.state.histogram[i] * i;
-        context.state.last_brightness /= (context.state.width - (context.settings.border * 2)) * (context.state.height - (context.settings.border * 2)) / 16;
+        context.state.last_brightness /= static_cast<long>(sampling.initial_brightness_divisor);
         if (context.state.framearray)
         {
             context.state.frame[context.state.frame_count].brightness = context.state.last_brightness;
@@ -685,6 +689,8 @@ bool CheckSceneHasChanged(RecordingContext& context)
         if (context.state.histogram[i] < context.state.lastHistogram[i]) similar += context.state.histogram[i];
         else similar += context.state.lastHistogram[i];
     }
+    // A valid logo mask can exclude every sample. Keep the empty result zero.
+    pixels = std::max(pixels, 1);
     context.state.brightness /= pixels;
 
     if (context.state.framearray) context.state.frame[context.state.frame_count].hasBright = hasBright;

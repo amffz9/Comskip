@@ -9,6 +9,23 @@ using comskip::config::Ini;
 using comskip::config::default_settings;
 using comskip::config::load_settings;
 
+TEST(SettingsValue, ChecksBrightnessOverridesAndInheritedValues) {
+    const auto base = default_settings();
+    for (auto key : {"max_brightness", "test_brightness"}) {
+        for (int bad : {-1,256})
+            EXPECT_THROW(load_settings(Ini(std::string(key)+"="+std::to_string(bad)),base),
+                         std::invalid_argument);
+        EXPECT_NO_THROW(load_settings(Ini(std::string(key)+"=0"),base));
+        EXPECT_NO_THROW(load_settings(Ini(std::string(key)+"=255"),base));
+    }
+    auto inherited = base;
+    inherited.max_brightness = 256;
+    EXPECT_THROW(load_settings(Ini(""),inherited),std::invalid_argument);
+    inherited = base;
+    inherited.test_brightness = -1;
+    EXPECT_THROW(load_settings(Ini(""),inherited),std::invalid_argument);
+}
+
 TEST(SettingsValue, RejectsInvalidFrameMasksAndAcceptsPercentageLimits) {
     const auto base = default_settings();
     for (const auto key : {"ticker_tape", "top_ticker_tape", "ignore_side",
