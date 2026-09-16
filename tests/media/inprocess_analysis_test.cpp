@@ -1,6 +1,7 @@
 #include "exit_requested.h"
 #include "recording_context.h"
 #include "app/analysis.h"
+#include "localization/diagnostic.h"
 
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -155,6 +156,12 @@ void expect_failure(const std::filesystem::path& fixture, const std::filesystem:
     catch (const comskip::ExitRequested& request) {
         exit_requested = true;
         EXPECT_EQ(request.status(), expected_status);
+    }
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        exit_requested = true;
+        EXPECT_EQ(expected_status, -1);
+        EXPECT_EQ(error.diagnostic().code,
+                  comskip::diagnostics::Code::cannot_open_recording_detail);
     }
     EXPECT_TRUE(exit_requested) << "Failed analysis did not report its error to the application boundary";
     EXPECT_EQ(context->state.frame_count, 0);

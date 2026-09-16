@@ -2,6 +2,7 @@
 #include "app/analysis.h"
 #include "media/ffmpeg_resources.h"
 #include "exit_requested.h"
+#include "localization/diagnostic.h"
 
 #include <gtest/gtest.h>
 #include <bit>
@@ -98,6 +99,12 @@ protected:
         std::vector<char*> argv; for (auto& value : arguments) argv.push_back(value.data()); argv.push_back(nullptr);
         try { return comskip_main(context, static_cast<int>(arguments.size()), argv.data()); }
         catch (const comskip::ExitRequested& requested) { return requested.status(); }
+        catch (const comskip::diagnostics::DiagnosticProvider& error) {
+            if (error.diagnostic().code !=
+                comskip::diagnostics::Code::cannot_open_recording_detail)
+                throw;
+            return -1;
+        }
     }
 };
 TEST_F(CaptionAnalysis, ActualA53RecordingsProduceIndependentSubtitlesAndDrainEof) {
