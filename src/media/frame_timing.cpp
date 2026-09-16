@@ -1,5 +1,6 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include <limits>
 
 double get_fps(RecordingContext& context)
 {
@@ -49,77 +50,12 @@ void set_fps(RecordingContext& context, double fp)
 */
 
 }
-/* no longer used
-
-#define MAX_SAVED_VOLUMES	10000
-
-static struct
-{
-    int frame;
-    int volume;
-} volumes[MAX_SAVED_VOLUMES];
-static int max_fill = 0;
-
-void SaveVolume (int f,int v)
-{
-    int i;
-    for (i = 0; i < MAX_SAVED_VOLUMES; i++)
-    {
-        if (volumes[i].frame ==0)
-        {
-            volumes[i].frame = f;
-            volumes[i].volume = v;
-            if (i > max_fill)
-                max_fill = i;
-            return;
-        }
-    }
-    Debug (1, "Panic volume buffer\n");
-    if (f > 8 * 60 * 60 * 50)  // max 8 hours with fps of 50
-    {
-        Debug(0, "Too many volume panic's, protected file?\n");
-        comskip::request_exit(103);   // exit as probably protected file .
-    }
-
-    for (i = 0; i < MAX_SAVED_VOLUMES; i++)
-    {
-        volumes[i].frame = 0;
-    }
-    max_fill = 0;
-}
-
-int RetreiveVolume (int f)
-{
-    int i;
-    for (i = 0; i <= max_fill; i++)
-    {
-        if (volumes[i].frame ==f)
-        {
-            volumes[i].frame = 0;
-            return(volumes[i].volume);
-        }
-    }
-    return(-1);
-}
-
-
-void ClearVolumeBuffer ()
-{
-    int i;
-    for (i = 0; i <= max_fill; i++)
-    {
-        volumes[i].frame = 0;
-        volumes[i].volume = 0;
-    }
-    max_fill = 0;
-}
-*/
-
 void set_frame_volume(RecordingContext& context, unsigned int f, int volume)
 {
     int i;
     int act_framenum;
     if (!context.state.initialized) return;
+    if (f > static_cast<unsigned int>(std::numeric_limits<int>::max())) return;
 
 //	ascr += 1;
     act_framenum = f;
@@ -127,7 +63,8 @@ void set_frame_volume(RecordingContext& context, unsigned int f, int volume)
     if (act_framenum > 0)
     {
         if (context.state.framearray)
-            if (act_framenum <= context.state.frame_count)
+            if (act_framenum <= context.state.frame_count &&
+                static_cast<std::size_t>(act_framenum) < context.state.frame.size())
             {
  //               Debug(1, "Audio running after video\n");
                 if (context.state.frame[act_framenum].brightness > 5)
@@ -138,16 +75,7 @@ void set_frame_volume(RecordingContext& context, unsigned int f, int volume)
                     context.state.silenceHistogram[(volume < 255 ? volume : 255)]++;
                 }
             }
-/*
-        if (act_framenum > frame_count) {
-            SaveVolume(act_framenum, volume);
-            if (act_framenum  > frame_count + 10000) // too many audio frames without video
-            {
-                Debug(0, "Too much audio without video, protected file or bug?\n");
-                comskip::request_exit(103);   // exit as probably protected file .
-            }
-        }
-*/
+
         i = context.state.black_count-1;
         while (i > 0 && context.state.black[i].frame > act_framenum)
             i--;
@@ -158,6 +86,7 @@ void set_frame_volume(RecordingContext& context, unsigned int f, int volume)
 //	audio_framenum++;
 //	ascr += 1;
 }
+
 
 
 

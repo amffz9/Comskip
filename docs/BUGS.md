@@ -45,6 +45,14 @@ and relevant verification; retain the evidence for future regressions.
 
 ## Fixed during modernization
 
+- **Caption packet/XDS bounds:** Advertised packet counts could consume stale
+  bytes; the validity-bit expression accepted invalid triplets. XDS comparisons
+  could exceed 100-byte rows and append beyond 40 rows, and the first valid
+  packet was discarded. Packet preflight, bounded cache/assembly handling, and
+  five malformed/checksum/recovery regressions address these defects.
+- **Frame-volume terminal index:** `set_frame_volume` accepted an index outside
+  the stored frame span. Storage and integer-representation checks now ignore
+  invalid indices; two tests verify both rejection and valid observation updates.
 - **A53 caption overflow and skipped side data:** `f032ea3` bounds/chunks intact
   triplets, fixes the reused loop index, and adds four framing/preservation tests.
 - **Terminal XML endpoint rejection:** `273490f` accepts the detector's exact

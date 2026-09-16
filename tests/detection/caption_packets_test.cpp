@@ -1,0 +1,107 @@
+#include "recording_context.h"
+#include <gtest/gtest.h>
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace {
+std::unique_ptr<RecordingContext> recording() {
+    auto result = std::make_unique<RecordingContext>();
+    result->state.initialized = true;
+    result->state.framenum = 1;
+    result->state.frame.resize(2);
+    result->state.cc_text.resize(2);
+    result->state.cc_block.resize(2);
+    result->settings.verbose = 0;
+    return result;
+}
+void packet(RecordingContext& context, const std::vector<unsigned char>& bytes, int length) {
+    std::fill(std::begin(context.state.ccData), std::end(context.state.ccData), 0x41);
+    std::copy(bytes.begin(), bytes.end(), context.state.ccData);
+    context.state.ccDataLen = length;
+    ProcessCCData(context);
+}
+void xds(RecordingContext& context, unsigned char type, std::string payload, bool valid = true) {
+    if (payload.size() % 2) payload += ' ';
+    unsigned sum = 1 + type + 15;
+    AddXDS(context, 1, type);
+    for (std::size_t i = 0; i < payload.size(); i += 2) {
+        const auto hi = static_cast<unsigned char>(payload[i]);
+        const auto lo = static_cast<unsigned char>(payload[i + 1]);
+        sum += hi + lo;
+        AddXDS(context, hi, lo);
+    }
+    AddXDS(context, 0x8f, static_cast<unsigned char>((-sum + !valid) & 0x7f));
+}
+}
+
+TEST(CaptionPackets, EveryTruncatedGa94AndLegacyPacketLeavesObservationsUnchanged) {
+    const std::array<std::vector<unsigned char>, 4> packets{{
+        {'G','A','9','4',3,0x41,0,0xfc,'H','I'},
+        {'C','C',1,0xf8,0x82,0xff,0xc8,0x49,0xff,0x80,0x80},
+        {5,2,0,0,0,0,0,4,0,'H','I','J','K'},
+        {5,2,0,0,0,0,0,5,0,0,0,0,0,0,4,0,'H','I','J','K'}
+    }};
+    for (const auto& bytes : packets) for (int length = 0; length < static_cast<int>(bytes.size()); ++length) {
+        auto owner = recording();
+        owner->state.cc.cc1[0] = 17;
+        owner->state.prevccDataLen = 2;
+        owner->state.prevccData[0] = 'O';
+        owner->state.prevccData[1] = 'K';
+        packet(*owner, bytes, length);
+        EXPECT_EQ(owner->state.cc.cc1[0], 17) << "length " << length;
+        EXPECT_EQ(owner->state.cc_text[0].text_len, 0);
+        EXPECT_EQ(owner->state.prevccDataLen, 2);
+        EXPECT_EQ(owner->state.prevccData[0], 'O');
+    }
+}
+TEST(CaptionPackets, RejectsInvalidFlagsAndOversizedDeclaredLengthsThenAcceptsValidText) {
+    auto owner = recording();
+    packet(*owner, {'G','A','9','4',3,0x41,0,0xf8,'N','O'}, 10);
+    EXPECT_EQ(owner->state.cc_text[0].text_len, 0);
+    packet(*owner, {'G','A','9','4',3,0x41,0,0xfc,'H','I'}, 501);
+    EXPECT_EQ(owner->state.cc_text[0].text_len, 0);
+    packet(*owner, {'G','A','9','4',3,0x41,0,0xfc,'H','I'}, 10);
+    EXPECT_EQ(owner->state.cc_text[0].text_len, 2);
+    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), "HI");
+}
+TEST(XdsPackets, FirstValidTitleIsObservedAndBadChecksumCannotReplaceIt) {
+    auto owner = recording();
+    xds(*owner, 3, "ORIGINAL");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "ORIGINAL");
+    const auto count = owner->state.XDS_block_count;
+    xds(*owner, 3, "CORRUPTED", false);
+    EXPECT_EQ(owner->state.XDS_block_count, count);
+    EXPECT_STREQ(owner->state.XDS_block[count].name, "ORIGINAL");
+    xds(*owner, 3, "NEXT");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "NEXT");
+}
+TEST(XdsPackets, LongPacketsAndMoreThanFortyTypesPreserveSubsequentMetadata) {
+    auto owner = recording();
+    xds(*owner, 3, std::string(200, 'L'));
+    xds(*owner, 3, std::string(200, 'M'));
+    EXPECT_EQ(owner->state.XDS_block[owner->state.XDS_block_count].name[0], 'M');
+    for (unsigned char type = 16; type < 80; ++type) xds(*owner, type, "DATA");
+    EXPECT_LE(owner->state.lastXDS, 40);
+    xds(*owner, 3, "FINAL");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "FINAL ");
+}
+TEST(XdsPackets, ShortFieldsAndOverflowedAssemblyCannotReusePreviousPayload) {
+    auto owner = recording();
+    xds(*owner, 2, "ABCD");
+    const auto count = owner->state.XDS_block_count;
+    const auto duration = owner->state.XDS_block[count].duration;
+    xds(*owner, 2, "");
+    EXPECT_EQ(owner->state.XDS_block_count, count);
+    EXPECT_EQ(owner->state.XDS_block[count].duration, duration);
+    const auto position = owner->state.XDS_block[count].position;
+    xds(*owner, 2, "EF"); // Elapsed-position bytes are optional.
+    EXPECT_EQ(owner->state.XDS_block[owner->state.XDS_block_count].duration, ('F' << 8) + 'E');
+    EXPECT_EQ(owner->state.XDS_block[owner->state.XDS_block_count].position, position);
+    xds(*owner, 3, std::string(1100, 'X'));
+    EXPECT_TRUE(owner->state.startXDS);
+    xds(*owner, 3, "RECOVERED");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "RECOVERED ");
+}

@@ -2,6 +2,9 @@
 #include "legacy_detection.h"
 #include "buffer_growth.h"
 
+#include <algorithm>
+#include <iterator>
+
 void OutputCCBlock(RecordingContext& context, long i)
 {
     if (i > 1)
@@ -91,13 +94,20 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
 
     int i,j;
     int newXDS = 0;
+    const bool end_packet = (hi & 0x7f) == 0x0f;
+    if (context.state.AddXDS_c < 0 || context.state.AddXDS_c > MAXXDSBUFFER - 2 ||
+        (context.state.AddXDS_c % 2) != 0) {
+        context.state.AddXDS_c = 0;
+        context.state.startXDS = 1;
+    }
     Init_XDS_block(context);
     if (context.state.startXDS)
     {
-        if ((hi & 0x70) == 0 && hi != 0x8f)
+        if ((hi & 0x70) == 0 && !end_packet)
         {
             context.state.startXDS = 0;
             context.state.AddXDS_c = 0;
+            std::fill(std::begin(context.state.AddXDS_XDSbuf), std::end(context.state.AddXDS_XDSbuf), 0);
             context.state.baseXDS = hi & 0x0f;;
         }
         else
@@ -107,10 +117,10 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
     {
         if ((hi & 0x7f) == context.state.baseXDS + 1)
             return; // COntinueation code
-        if ((hi & 0x70) == 0 && hi != 0x8f)
+        if ((hi & 0x70) == 0 && !end_packet)
             return;
     }
-    if ((hi & 0x01) == 0 && (hi & 0x70) == 0x00 && hi != 0x8f)
+    if ((hi & 0x01) == 0 && (hi & 0x70) == 0x00 && !end_packet)
         return;
     if (hi == 0x86 && (lo == 0x02 || lo == 1))
         return;
@@ -124,23 +134,24 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
     }
     context.state.AddXDS_XDSbuf[context.state.AddXDS_c++] = hi;
     context.state.AddXDS_XDSbuf[context.state.AddXDS_c++] = lo;
-    if (hi == 0x8f)
+    if (end_packet)
     {
         context.state.startXDS = 1;
         j = 0;
         for (i = 0; i < context.state.AddXDS_c; i++)
             j += context.state.AddXDS_XDSbuf[i];
-        if ( (j & 0x7f) != 0)
+        if (context.state.AddXDS_c < 4 || (j & 0x7f) != 0)
         {
             context.state.AddXDS_c = 0;
             return;
         }
+        context.state.lastXDS = std::clamp(context.state.lastXDS, 0, static_cast<int>(std::size(context.state.XDSbuffer)));
         for (i = 0; i < context.state.lastXDS; i++)
         {
             if (context.state.XDSbuffer[i][0] == context.state.AddXDS_XDSbuf[0] && context.state.XDSbuffer[i][1] == context.state.AddXDS_XDSbuf[1])
             {
                 j = 0;
-                while (j < context.state.AddXDS_c)
+                while (j < std::min(context.state.AddXDS_c, 100))
                 {
                     if (context.state.XDSbuffer[i][j] != context.state.AddXDS_XDSbuf[j])
                     {
@@ -157,8 +168,9 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 break;
             }
         }
-        if (i == context.state.lastXDS && !context.state.firstXDS)
+        if (i == context.state.lastXDS)
         {
+            i = std::min(i, static_cast<int>(std::size(context.state.XDSbuffer)) - 1);
             j = 0;
             while (j < 100)
             {
@@ -166,9 +178,11 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 j++;
             }
             newXDS = 1;
-            context.state.lastXDS++;
-            i++;
+            context.state.lastXDS = std::min(context.state.lastXDS + 1, static_cast<int>(std::size(context.state.XDSbuffer)));
         }
+        // The legacy duplicate cache stores only a 100-byte prefix. Longer
+        // packets must still be interpreted when metadata changes in the tail.
+        if (context.state.AddXDS_c > 100) newXDS = 1;
         context.state.firstXDS = 0;
         if (newXDS)
         {
@@ -178,13 +192,21 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
             for (i=2; i < context.state.AddXDS_c-2; i++)
                 context.state.AddXDS_XDSbuf[i] &= 0x7f;
 
-            if (context.state.AddXDS_XDSbuf[0] == 1)
+            if ((context.state.AddXDS_XDSbuf[0] & 0x7f) == 1)
             {
-                if (context.state.AddXDS_XDSbuf[1] == 0x01)
+                const auto type = context.state.AddXDS_XDSbuf[1] & 0x7f;
+                const int payload_length = context.state.AddXDS_c - 4;
+                if ((type == 1 && payload_length < 4) ||
+                    (type == 2 && payload_length < 2) ||
+                    (type == 5 && payload_length < 2)) {
+                    context.state.AddXDS_c = 0;
+                    return;
+                }
+                if (type == 0x01)
                 {
                     Debug(context, 10, "XDS[%i]: Program Start Time %02d:%02d %d/%d\n", context.state.framenum, context.state.AddXDS_XDSbuf[3] & 0x3f, context.state.AddXDS_XDSbuf[2] & 0x3f ,  context.state.AddXDS_XDSbuf[5] & 0x1f,  context.state.AddXDS_XDSbuf[4] & 0x0f);
                 }
-                else if (context.state.AddXDS_XDSbuf[1] == 0x02)
+                else if (type == 0x02)
                 {
 //					Debug(10, "XDS[%i]: Program Length\n", XDSbuf[2] & 0x38, XDSbuf[2] & 0x4f ,  XDSbuf[3] & 0x4f,  XDSbuf[3] & 0xb0);
                     Debug(context, 10, "XDS[%i]: Program length %d:%d, elapsed %d:%d:%d.%d\n", context.state.framenum, context.state.AddXDS_XDSbuf[3] & 0x3f, context.state.AddXDS_XDSbuf[2] & 0x3f,  context.state.AddXDS_XDSbuf[5] & 0x3f,  context.state.AddXDS_XDSbuf[4] & 0x3f ,  context.state.AddXDS_XDSbuf[6] & 0x3f);
@@ -193,7 +215,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                         Add_XDS_block(context);
                         context.state.XDS_block[context.state.XDS_block_count].duration = (context.state.AddXDS_XDSbuf[3] << 8) + context.state.AddXDS_XDSbuf[2];
                     }
-                    if ( (context.state.AddXDS_XDSbuf[4] << 8) + context.state.AddXDS_XDSbuf[5] != context.state.XDS_block[context.state.XDS_block_count].position)
+                    if (payload_length >= 4 && (context.state.AddXDS_XDSbuf[4] << 8) + context.state.AddXDS_XDSbuf[5] != context.state.XDS_block[context.state.XDS_block_count].position)
                     {
                         Add_XDS_block(context);
                         context.state.XDS_block[context.state.XDS_block_count].position = (context.state.AddXDS_XDSbuf[5] << 8) + context.state.AddXDS_XDSbuf[4];
@@ -224,7 +246,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                     */
 
                 }
-                else if (context.state.AddXDS_XDSbuf[1] == 0x83)
+                else if (type == 0x03)
                 {
                     size_t n = sizeof(context.state.XDS_block[context.state.XDS_block_count].name);
                     if (strncmp((const char*) context.state.XDS_block[context.state.XDS_block_count].name, (const char*)&context.state.AddXDS_XDSbuf[2], n) != 0)
@@ -238,9 +260,9 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x04)
                 {
-                    Debug(context, 10, "XDS[%i]: Program Type: %0x\n", context.state.framenum, &context.state.AddXDS_XDSbuf[2]);
+                    Debug(context, 10, "XDS[%i]: Program Type: %02x\n", context.state.framenum, context.state.AddXDS_XDSbuf[2]);
                 }
-                else if (context.state.AddXDS_XDSbuf[1] == 0x85)
+                else if (type == 0x05)
                 {
                     Debug(context, 10, "XDS[%i]: V-Chip: %2x %2x %2x %2x\n", context.state.framenum, context.state.AddXDS_XDSbuf[2] & 0x38, context.state.AddXDS_XDSbuf[2] & 0x4f ,  context.state.AddXDS_XDSbuf[3] & 0x4f,  context.state.AddXDS_XDSbuf[3] & 0xb0);
                     if ( (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3] != context.state.XDS_block[context.state.XDS_block_count].v_chip)
@@ -303,7 +325,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
             }
             else
             {
-                for (i=0; i < 256; i++)
+                for (i=0; i < context.state.AddXDS_c - 2; i++)
                 {
                     context.state.AddXDS_XDSbuf[i] &= 0x7f;
                     if (context.state.AddXDS_XDSbuf[i] < 0x20)
@@ -311,6 +333,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                     else if (context.state.AddXDS_XDSbuf[i] == 0x20)
                         context.state.AddXDS_XDSbuf[i] = '_';
                 }
+                context.state.AddXDS_XDSbuf[context.state.AddXDS_c - 2] = 0;
                 Debug(context, 10, "XDS[%i]: %s\n", context.state.framenum, context.state.AddXDS_XDSbuf);
             }
         }
@@ -772,6 +795,33 @@ void ProcessCCData(RecordingContext& context)
     unsigned char	packetCount;
 
     if (!context.state.initialized) return;
+    // Validate the complete packet before changing screen or deferred-pair
+    // state. A padded backing array is not evidence that bytes were received.
+    const int length = context.state.ccDataLen;
+    const auto* data = context.state.ccData;
+    if (length < 2 || length > static_cast<int>(std::size(context.state.ccData))) return;
+    if (data[0] == 'C' && data[1] == 'C') {
+        if (length < 5 || data[2] != 1 || data[3] != 0xf8 ||
+            length < 5 + ((data[4] & 0x1e) / 2) * 6) return;
+    } else if (data[0] == 'G' && data[1] == 'A') {
+        if (length < 7 || data[2] != '9' || data[3] != '4' || data[4] != 3 ||
+            length < 7 + (data[5] & 0x1f) * 3) return;
+    } else if (data[0] == 5 && data[1] == 2) {
+        if (length < 8) return;
+        const int type = data[7];
+        if (type == 2) {
+            if (length < 13 || (data[11] == 4 && (data[12] & 0x7f) < 32 && length < 14)) return;
+        } else if (type == 4) {
+            if (length < 13) return;
+        } else if (type == 5) {
+            if (length < 18 || context.state.prevccDataLen < 0 ||
+                context.state.prevccDataLen > static_cast<int>(std::size(context.state.prevccData)) ||
+                context.state.prevccDataLen % 2 != 0) return;
+            if (data[14] == 2) {
+                if (length < 20 || (data[18] == 4 && (data[19] & 0x7f) < 32 && length < 21)) return;
+            } else if (length < 20) return;
+        }
+    } else return;
 
     // Reset state on the first frame
     if (context.state.framenum == 0) {
@@ -797,7 +847,7 @@ void ProcessCCData(RecordingContext& context)
             *p++ = ' ';
         }
         *p++ = 0;
-        if (context.state.ccData[0] == 'G')
+        if (context.state.ccData[0] == 'G' && length > 7)
             temp[7*3] = '0' + (temp[7*3] & 0x03);
         Debug(context, 10, "CCData for framenum %4i%c, length:%4i: %s\n", context.state.framenum, context.state.pict_type, context.state.ccDataLen, temp);
 
@@ -939,7 +989,7 @@ void ProcessCCData(RecordingContext& context)
             if (is_GA)
             {
 
-                if (!(context.state.ccData[(i * 3) + offset] & 4) >>2 )
+                if ((context.state.ccData[(i * 3) + offset] & 4) == 0)
                     continue;
                 if (context.state.ccData[(i * 3) + offset] == 0xfa)
                     continue;

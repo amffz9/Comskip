@@ -336,7 +336,6 @@ void				SetARofBlocks(RecordingContext& context);
 int					FindBlock(RecordingContext& context, long frame);
 void				BuildCommListAsYouGo(RecordingContext& context);
 void				BuildCommercial(RecordingContext& context);
-int					RetreiveVolume (int f);
 void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int c);
 extern void DecodeOnePicture(RecordingContext& context, FILE * f, double pts);
 
