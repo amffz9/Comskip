@@ -1,8 +1,19 @@
 #include "legacy_detection.h"
+#include "black_frame_run.h"
 #include "logo_histogram.h"
 #include <algorithm>
 #include <cstdint>
+#include <format>
 #include <limits>
+#include <utility>
+
+namespace {
+template <typename... Args>
+void BlocksDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+{
+    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+}
+}
 
 char *CauseString(RecordingContext& context, int i)
 {
@@ -56,23 +67,23 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
     int total_cause;
     double length,summed_length;
     int incommercial;
-    const char *r = " -undefined- ";
+    const char *r = context.translator.text("blocks_reason_undefined");
     if (reason == C_b)
-        r = "Black Frame  ";
+        r = context.translator.text("blocks_reason_black_frame");
     if (reason == C_v)
-        r = "Volume       ";
+        r = context.translator.text("blocks_reason_volume");
     if (reason == C_s)
-        r = "Scene Change ";
+        r = context.translator.text("blocks_reason_scene_change");
     if (reason == C_c)
-        r = "Change       ";
+        r = context.translator.text("blocks_reason_change");
     if (reason == C_u)
-        r = "Uniform Frame";
+        r = context.translator.text("blocks_reason_uniform_frame");
     if (reason == C_a)
-        r = "Aspect Ratio ";
+        r = context.translator.text("blocks_reason_aspect_ratio");
     if (reason == C_t)
-        r = "Cut Scene    ";
+        r = context.translator.text("blocks_reason_cut_scene");
     if (reason == C_l)
-        r = "Logo         ";
+        r = context.translator.text("blocks_reason_logo");
 
     if (ratio == 0.0)
         return(0.0);
@@ -90,11 +101,10 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
         {
             i++;
         }
-        k = i;
-        while (k < context.state.black_count && (context.state.black[k+1].cause & reason) != 0 && context.state.black[k+1].frame == context.state.black[k].frame+1)
-        {
-            k++;
-        }
+        k = static_cast<int>(comskip::detection::contiguous_black_frame_run_end(
+            std::span<const black_frame_info>{context.state.black.data(),
+                                              static_cast<std::size_t>(context.state.black_count)},
+            static_cast<std::size_t>(i), static_cast<int>(reason)));
         if (i < context.state.black_count)
         {
             length = F2T(context.state.black[(i+k)/2].frame) - F2T(context.state.black[last].frame);
@@ -106,7 +116,8 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
                     if (summed_length < context.settings.min_commercialbreak && summed_length > 4.7 && context.state.black[(i+k)/2].frame < context.state.frame_count * 6 / 7  && context.state.black[last].frame > context.state.frame_count * 1 / 7 )
                     {
                         negative_count++;
-                        Debug (context, 10,"Negative %s cutpoint at %6i, commercial too short\n", r,context.state.black[last].frame);
+                        BlocksDebug(context, 10, "blocks_negative_cutpoint_too_short", r,
+                                    std::format("{:6}", context.state.black[last].frame));
                     }
                     else
                         positive_count++;
@@ -126,7 +137,8 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
                     if (context.state.black[(i+k)/2].frame < context.state.frame_count * 6 / 7)
                     {
                         negative_count++;
-                        Debug (context, 10,"Negative %s cutpoint at %6i, commercial too long\n", r,context.state.black[(i+k)/2].frame);
+                        BlocksDebug(context, 10, "blocks_negative_cutpoint_too_long", r,
+                                    std::format("{:6}", context.state.black[(i+k)/2].frame));
                     }
                 }
                 else
@@ -139,12 +151,17 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
         last = (i+k)/2;
         i = k+1;
     }
-    Debug (context, 1,"Distribution of %s cutting: %3i positive and %3i negative, ratio is %6.4f\n", r,	positive_count, negative_count, (negative_count > 0 ? (double)positive_count / (double)negative_count : 9.99));
+    BlocksDebug(context, 1, "blocks_cut_distribution", r, std::format("{:3}", positive_count),
+                std::format("{:3}", negative_count),
+                std::format("{:6.4f}", negative_count > 0
+                    ? static_cast<double>(positive_count) / static_cast<double>(negative_count)
+                    : 9.99));
 
     if ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) && negative_count > 1)
     {
 
-        Debug (context, 1,"Confidence of %s cutting: %3i negative without good logo is too much\n", r,	negative_count);
+        BlocksDebug(context, 1, "blocks_cut_confidence_without_logo", r,
+                    std::format("{:3}", negative_count));
         if (remove)
         {
             for (k = context.state.black_count - 1; k >= 0; k--)
@@ -220,7 +237,8 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
 
     if (strict_count < 2 || 100*strict_count < 100*count / ratio)
     {
-        Debug (context, 1,"Confidence of %s cutting: %3i out of %3i are strict, too low\n", r,	strict_count, count);
+        BlocksDebug(context, 1, "blocks_cut_confidence_too_low", r,
+                    std::format("{:3}", strict_count), std::format("{:3}", count));
         if (remove)
         {
             for (k = context.state.black_count - 1; k >= 0; k--)
@@ -241,7 +259,8 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
         }
     }
     else
-        Debug (context, 1,"Confidence of %s cutting: %3i out of %3i are strict\n", r,	strict_count, count);
+        BlocksDebug(context, 1, "blocks_cut_confidence", r,
+                    std::format("{:3}", strict_count), std::format("{:3}", count));
     return (count > 0 ? (double)strict_count / (double) count : 0);
 }
 
@@ -284,7 +303,8 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         {
             OutputbrightHistogram(context);
             context.settings.max_avg_brightness = black_threshold = FindBlackThreshold(context, context.settings.black_percentile);
-            Debug(context, 1, "Setting brightness threshold to %i\n", black_threshold);
+            BlocksDebug(context, 1, "blocks_setting_brightness_threshold",
+                        std::format("{}", black_threshold));
         }
         if ((context.settings.intelligent_brightness && context.settings.non_uniformity > 0)
 //			|| 	(commDetectMethod & BLACK_FRAME && non_uniformity == 0) // Diabled
@@ -292,7 +312,8 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         {
             OutputuniformHistogram (context);
             context.settings.non_uniformity = uniform_threshold = FindUniformThreshold(context, context.settings.uniform_percentile);
-            Debug(context, 1, "Setting uniform threshold to %i\n", uniform_threshold);
+            BlocksDebug(context, 1, "blocks_setting_uniform_threshold",
+                        std::format("{}", uniform_threshold));
 
             if (context.settings.commDetectMethod & BLACK_FRAME)
             {
@@ -311,7 +332,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         if (context.state.frame[i-1].volume != -1 && context.state.frame[i].volume == -1 && context.state.frame[i+1].volume != -1)
             j++;
     if (j>0)
-        Debug(context, 9,"Single frames with missing audio: %d\n",j);
+        BlocksDebug(context, 9, "blocks_single_missing_audio_frames", std::format("{}", j));
 
     if (context.settings.non_uniformity < context.state.min_uniform + 100)
         context.settings.non_uniformity = context.state.min_uniform + 100;

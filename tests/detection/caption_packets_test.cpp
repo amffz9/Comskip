@@ -37,6 +37,16 @@ void xds(RecordingContext& context, unsigned char type, std::string payload, boo
 }
 }
 
+TEST(CaptionPackets, CaptionTypeTextReturnsOwnedLocalizedValues) {
+    auto context = recording();
+    context->state.processCC = true;
+    EXPECT_EQ(CCTypeText(*context, NONE), "NONE");
+    EXPECT_EQ(CCTypeText(*context, COMMERCIAL), "COMMERCIAL");
+    EXPECT_EQ(CCTypeText(*context, 73), "73");
+    context->state.processCC = false;
+    EXPECT_TRUE(CCTypeText(*context, ROLLUP).empty());
+}
+
 TEST(CaptionPackets, EveryTruncatedGa94AndLegacyPacketLeavesObservationsUnchanged) {
     const std::array<std::vector<unsigned char>, 4> packets{{
         {'G','A','9','4',3,0x41,0,0xfc,'H','I'},

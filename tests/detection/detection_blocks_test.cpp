@@ -1,5 +1,7 @@
 #include "recording_context.h"
+#include "black_frame_run.h"
 #include <gtest/gtest.h>
+#include <array>
 #include <cmath>
 #include <memory>
 
@@ -19,6 +21,29 @@ std::unique_ptr<RecordingContext> observations(int separators) {
     for (int separator = 1; separator <= separators; ++separator)
         InsertBlackFrame(*context, separator * 50, 0, 0, 0, C_b);
     return context;
+}
+
+TEST(BlackFrameRun, StopsAtLastActiveObservationWithoutInspectingStorageAfterSpan) {
+    const std::array storage{
+        black_frame_info{41, 0, 0, 0, C_b},
+        black_frame_info{42, 0, 0, 0, C_b}, // Contiguous poison outside active range.
+    };
+
+    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(
+                  std::span<const black_frame_info>{storage}.first(1), 0, C_b),
+              0u);
+}
+
+TEST(BlackFrameRun, ExtendsOnlyAcrossMatchingContiguousActiveObservations) {
+    const std::array frames{
+        black_frame_info{41, 0, 0, 0, C_b},
+        black_frame_info{42, 0, 0, 0, C_b | C_s},
+        black_frame_info{44, 0, 0, 0, C_b},
+    };
+
+    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(frames, 0, C_b), 1u);
+    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(frames, frames.size(), C_b),
+              frames.size());
 }
 void terminal(const RecordingContext& context) {
     ASSERT_EQ(context.state.cblock.size(), context.state.block_count + 1);

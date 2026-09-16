@@ -196,3 +196,20 @@ TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
     EXPECT_STREQ(spanish.text("csv_close_window"),
                  "Cierre la ventana cuando termine\n");
 }
+TEST(Translator, FormatsBlockValidationAndThresholdDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("blocks_negative_cutpoint_too_short",
+                             english.text("blocks_reason_black_frame"), "    42"),
+              "Negative Black Frame   cutpoint at     42, commercial too short\n");
+    EXPECT_EQ(english.format("blocks_cut_distribution", english.text("blocks_reason_volume"),
+                             "  7", "  2", "3.5000"),
+              "Distribution of Volume        cutting:   7 positive and   2 negative, ratio is 3.5000\n");
+    EXPECT_EQ(spanish.format("blocks_cut_confidence_too_low",
+                             spanish.text("blocks_reason_scene_change"), "  1", "  8"),
+              "Confianza del corte de Cambio de escena:   1 de   8 son estrictos, demasiado baja\n");
+    EXPECT_EQ(spanish.format("blocks_setting_brightness_threshold", "19"),
+              "Se establece el umbral de brillo en 19\n");
+    EXPECT_EQ(spanish.format("blocks_single_missing_audio_frames", "3"),
+              "Fotogramas aislados sin audio: 3\n");
+}

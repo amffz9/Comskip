@@ -88,10 +88,14 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   `ccData` buffer without validating its range or the complete record.
 - **Impact:** Oversized or negative lengths can overrun the buffer; truncated
   records can feed incomplete caption data into the detector/exporter.
-- **Fix:** Validate framing and bounded payload length before reading or changing
-  observations; retain compatible valid dump replay through the owned session.
-- **Verification needed:** Actual CSV replay with oversized, negative, malformed,
-  and truncated companion records, plus valid captions and failure cleanup.
+- **Status:** Fixed. A focused C++23 stream codec validates exact framing and
+  the caller's payload capacity before allocation or copying. CSV replay reads
+  the complete companion into bounded owned packets before publishing any CSV
+  settings or observations.
+- **Verification:** Actual replay regressions cover oversized, negative and
+  truncated companion records and prove prior settings and observations remain
+  unchanged. All **477/477** Windows headless and **485/485** SDL tests pass,
+  and the public non-donator application builds.
 
 ### B005: Failed cutscene loading passes an integer as a filename
 
@@ -1214,3 +1218,38 @@ before calling FFmpeg seek APIs.
 - **Verification:** Success, allocation-failure and unrelated-exception tests
   cover the boundary. All **468/468** Windows headless and **476/476** SDL tests
   pass, and the public non-donator application builds.
+
+### B101: Black-frame validation can inspect one element past the active range
+
+- **Evidence:** The contiguous-run loop in `ValidateBlackFrames` allows
+  `k == black_count - 1` and then evaluates `black[k + 1]`. The allocation may
+  currently contain spare capacity, but that slot is outside the active
+  black-frame range and its contents do not describe a valid observation.
+- **Impact:** Validation can consume stale/default state when the last active
+  black frame starts or extends a run, producing an incorrect run boundary and
+  potentially reading outside allocated storage when capacity is exact.
+- **Status:** Fixed. Contiguous-run discovery now receives a span containing
+  exactly the active black-frame observations and checks the successor index
+  before reading it.
+- **Verification:** Focused tests cover a contiguous poison record immediately
+  beyond the active span, ordinary run extension and an invalid starting index.
+  All **477/477** Windows headless and **485/485** SDL tests pass, and the
+  public non-donator application builds.
+
+### B102: C stream read failures can appear as ordinary text EOF
+
+- **Evidence:** `FileStreamBuffer::underflow` throws when `fread` reports an
+  error, but its two `std::istream` callers left the default exception mask in
+  place. The iostream layer catches a stream-buffer exception, sets `badbit`,
+  and otherwise lets line parsing observe EOF.
+- **Impact:** A failed CSV or reference-file read can be accepted as a cleanly
+  terminated document, leaving analysis based on a prefix of the input.
+- **Status:** Fixed. Both adapters enable `badbit` exceptions, preserving the
+  owned read diagnostic. Persisted caption records now cross a separate typed
+  `std::expected` boundary with exact field reads and a caller-supplied payload
+  limit.
+- **Verification:** Focused packet tests cover valid consecutive records, clean
+  EOF, malformed and negative fields, each truncated field and rejection before
+  allocation when the declared payload exceeds the destination capacity. All
+  **477/477** Windows headless and **485/485** SDL tests pass, and the public
+  non-donator application builds.

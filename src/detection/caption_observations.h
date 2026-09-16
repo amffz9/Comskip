@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 struct RecordingContext;
 
 // Caption and XDS observations used by commercial detection.
@@ -9,7 +11,7 @@ void ProcessCCData(RecordingContext &context);
 bool CheckOddParity(unsigned char ch);
 void AddNewCCBlock(RecordingContext &context, long current_frame, int type,
                    bool cc_on_screen, bool cc_in_memory);
-char *CCTypeToStr(RecordingContext &context, int type);
+[[nodiscard]] std::string CCTypeText(RecordingContext &context, int type);
 int DetermineCCTypeForBlock(RecordingContext &context, long start, long end);
 bool ProcessCCDict(RecordingContext &context);
 void Init_XDS_block(RecordingContext &context);

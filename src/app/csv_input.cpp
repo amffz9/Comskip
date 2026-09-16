@@ -2,14 +2,39 @@
 #include "exit_requested.h"
 #include "checked_format.h"
 #include "legacy_detection.h"
+#include <algorithm>
 #include <filesystem>
 #include <stdexcept>
 #include <limits>
+#include <utility>
 #include "input/file_stream.h"
+#include "input/caption_packet.h"
 #include "input/frame_record.h"
 #include "input/reference_file.h"
 #include "input/checked_number.h"
 #include "detection/logo_sampling.h"
+
+namespace {
+[[noreturn]] void throw_caption_packet_error(comskip::input::CaptionPacketError error) {
+    using enum comskip::input::CaptionPacketError;
+    using comskip::diagnostics::Code;
+    switch (error) {
+    case truncated_frame_header:
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(Code::truncated_persisted_caption_frame_header);
+    case invalid_frame_header:
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(Code::invalid_persisted_caption_frame_header);
+    case truncated_packet_length:
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(Code::truncated_persisted_caption_packet_length);
+    case invalid_packet_length:
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(Code::invalid_persisted_caption_packet_length);
+    case truncated_packet:
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(Code::truncated_persisted_caption_packet);
+    case read_failure:
+        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(Code::cannot_read_input_file);
+    }
+    std::unreachable();
+}
+}
 
 void PrintArgs(RecordingContext& context)
 {
@@ -23,14 +48,13 @@ void PrintArgs(RecordingContext& context)
 void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
 {
     bool lastLogoTest = false, curLogoTest = false;
-    char line[2048]{}; // Bounded persisted caption framing, independent of CSV.
-    int cont = 0;
     int minminY = 10000, maxmaxY = 0, minminX = 10000, maxmaxX = 0;
     int cutscene_nonzero_count = 0, old_format = true, use_bright = 0;
-    int i, ccDataFrame;
+    int i;
     if (!input) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_csv_input);
     comskip::input::FileStreamBuffer buffer(input.get());
     std::istream source(&buffer);
+    source.exceptions(std::ios::badbit);
 again:
     auto header = comskip::input::read_text_line(source);
     if (!header) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_input_has_no_header);
@@ -60,7 +84,37 @@ again:
         observations.push_back(record);
     }
     if (observations.empty()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_input_has_no_observations);
-    // Validate all syntax and indices before changing recording settings/state.
+
+    comskip::platform::FilePtr opened_caption_file;
+    auto* caption_file = context.state.dump_data_file.get();
+    if (!caption_file)
+    {
+        auto companion = std::filesystem::path(std::u8string_view(
+            reinterpret_cast<const char8_t*>(context.state.inbasename.c_str())));
+        companion += ".data";
+        const auto name = companion.u8string();
+        opened_caption_file.reset(myfopen(reinterpret_cast<const char*>(name.c_str()), "rb"));
+        if (!opened_caption_file && context.state.inbasename != context.state.workbasename)
+            opened_caption_file.reset(myfopen((context.state.workbasename + ".data").c_str(), "rb"));
+        caption_file = opened_caption_file.get();
+    }
+
+    std::vector<comskip::input::PersistedCaptionPacket> caption_packets;
+    if (caption_file) {
+        comskip::input::FileStreamBuffer caption_buffer(caption_file);
+        std::istream caption_source(&caption_buffer);
+        caption_source.exceptions(std::ios::badbit);
+        while (true) {
+            auto result = comskip::input::read_persisted_caption_packet(
+                caption_source, sizeof(context.state.ccData));
+            if (!result) throw_caption_packet_error(result.error());
+            if (!*result) break;
+            caption_packets.push_back(std::move(**result));
+        }
+    }
+    if (opened_caption_file) context.state.dump_data_file = std::move(opened_caption_file);
+
+    // Validate both input files completely before changing recording settings/state.
     if (rate) context.settings.fps = *rate;
     context.state.logoInfoAvailable = true;
     InitComSkip(context);
@@ -88,21 +142,6 @@ again:
     observations.clear();
     context.state.frame[0].pts = context.state.frame[1].pts;
     context.state.frame[context.state.frame_count].pts = (context.state.frame_count - 1) / context.settings.fps;
-    if (!context.state.dump_data_file.get())
-    {
-        auto companion = std::filesystem::path(std::u8string_view(
-            reinterpret_cast<const char8_t*>(context.state.inbasename.c_str())));
-        companion += ".data";
-        const auto name = companion.u8string();
-        context.state.dump_data_file.reset(myfopen(reinterpret_cast<const char*>(name.c_str()), "rb"));
-        if (!context.state.dump_data_file && context.state.inbasename != context.state.workbasename) {
-            const auto alternate_name = context.state.workbasename + ".data";
-            context.state.dump_data_file.reset(myfopen(alternate_name.c_str(), "rb"));
-        }
-    }
-    ccDataFrame = 0;
-
-
     for (i=0; i < 1000 && i < context.state.frame_count; i++)
     {
         if (context.state.frame[i].hasBright > 0)
@@ -122,39 +161,16 @@ again:
     context.state.black_count = 0;
     context.state.schange_count = 0;
     context.state.min_brightness_found = 255;
+    std::size_t caption_index = 0;
     for (i = 1; i < context.state.frame_count; i++)
     {
         context.state.framenum_real = i;
-ccagain:
-        if (context.state.dump_data_file.get() && ccDataFrame == 0)
+        while (caption_index < caption_packets.size() && caption_packets[caption_index].frame <= i)
         {
-            const auto bytes_read = fread(line, 1, 8, context.state.dump_data_file.get());
-            cont = bytes_read != 0;
-            if (bytes_read && bytes_read != 8) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::truncated_persisted_caption_frame_header);
-            if (bytes_read) {
-                line[8] = 0;
-                if (line[7] != ':' || sscanf(line, "%7d", &ccDataFrame) != 1 || ccDataFrame < 0)
-                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_persisted_caption_frame_header);
-            }
-//			ccDataFrame = strtol(line,NULL,7);
-        }
-        if (context.state.dump_data_file.get() )
-        {
-
-            while (cont && ccDataFrame <=i)
-            {
-
-                if (fread(line, 1, 4, context.state.dump_data_file.get()) != 4)
-                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::truncated_persisted_caption_packet_length);
-                line[4]=0;
-                if (sscanf(line,"%4d",&context.state.ccDataLen) != 1 || context.state.ccDataLen < 0 ||
-                    context.state.ccDataLen > static_cast<int>(sizeof(context.state.ccData)))
-                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_persisted_caption_packet_length);
-//			ccDataLen = strtol(line,NULL,4);
-                if (context.state.ccDataLen && fread(context.state.ccData, 1, context.state.ccDataLen,
-                    context.state.dump_data_file.get()) != static_cast<std::size_t>(context.state.ccDataLen))
-                    throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::truncated_persisted_caption_packet);
-                context.state.framenum = ccDataFrame;
+                const auto& caption_packet = caption_packets[caption_index];
+                context.state.ccDataLen = static_cast<int>(caption_packet.payload.size());
+                std::ranges::copy(caption_packet.payload, context.state.ccData);
+                context.state.framenum = caption_packet.frame;
 #ifdef PROCESS_CC
                 if (context.state.processCC) ProcessCCData(context);
                 if (context.captions) context.captions->consume_stored_packet(
@@ -162,10 +178,7 @@ ccagain:
                     std::chrono::duration_cast<comskip::media::CaptionTimestamp>(
                         std::chrono::duration<double>(context.state.frame[i].pts)));
 #endif
-                ccDataFrame = 0;
-                goto ccagain;
-            }
-
+                ++caption_index;
         }
         if (old_format)
         {

@@ -102,6 +102,19 @@ TEST_F(ApplicationTextInput, CsvMalformedFilesRejectBeforeAnyObservationOrSettin
         EXPECT_TRUE(std::filesystem::remove(directory / "input.csv"));
     }
 }
+TEST_F(ApplicationTextInput, MalformedCaptionCompanionRejectsBeforeCsvStatePublication) {
+    context->state.frame_count = 77;
+    const auto valid_csv = std::string(csv_header) +
+        "1,80,0,0,10,40,1,119,1.333333,0.5,0,0,1,159,7,8,0,9,6\n";
+    for (const auto companion : {"      1:  -1", "      1: 501", "      1:   3ab"}) {
+        write(directory / "input.data", companion);
+        EXPECT_THROW(csv(valid_csv), std::invalid_argument);
+        EXPECT_EQ(context->state.frame_count, 77);
+        EXPECT_TRUE(context->state.frame.empty());
+        EXPECT_EQ(context->settings.fps, 25);
+        EXPECT_FALSE(context->state.dump_data_file);
+    }
+}
 TEST_F(ApplicationTextInput, CsvFinalObservationWithoutNewlineKeepsAllTypedColumnsAndDuration) {
     std::string text(csv_header);
     for (int frame = 1; frame <= 150; ++frame) {

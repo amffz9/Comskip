@@ -295,6 +295,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     } else {
         comskip::input::FileStreamBuffer buffer(raw.get());
         std::istream source(&buffer);
+        source.exceptions(std::ios::badbit);
         const auto document = comskip::input::read_reference_file(source);
         std::vector<Legacy_reffer_entry> reference;
         reference.reserve(document.intervals.size());

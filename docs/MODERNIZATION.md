@@ -530,3 +530,22 @@ than redefine completion around whichever subset currently passes tests.
   loading and checked save failures. All **468/468** Windows headless and
   **476/476** SDL tests pass, and the public non-donator application builds.
   Linux verification is deferred to the final implementation stage.
+
+- Persisted caption replay now uses a focused C++23 stream codec returning
+  `std::expected`, with owned packet payloads, `std::from_chars`, exact framing
+  and a caller-provided allocation bound. The CSV adapter processes packets
+  sequentially without raw reads, `sscanf` or control-flow jumps. C-backed
+  iostream adapters now preserve underlying read failures through `badbit`
+  exceptions. Both input files are validated before settings or observations
+  are published. Caption type reporting returns owned strings and active
+  compiled source no longer uses `sprintf`. Windows passes **477/477** headless
+  and **485/485** SDL tests, and the public non-donator application builds.
+
+- Black-frame validation, threshold selection and missing-audio diagnostics in
+  `blocks.cpp` now use the English and Spanish catalogs. Detection-reason labels
+  are translated as complete catalog values while English spacing and numeric
+  widths remain stable at the call sites. The reproducible literal-message
+  inventory is down to **104** active sites. A focused active-span helper also
+  prevents the final black-frame run from inspecting successor storage outside
+  the published observation range. Windows passes **477/477** headless and
+  **485/485** SDL tests. Linux verification remains deferred to the final stage.

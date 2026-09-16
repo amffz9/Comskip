@@ -766,7 +766,7 @@ bool OutputBlocks(RecordingContext& context)
                 CompareLetter(context, context.state.cblock[i].silence,context.state.avg_silence,i),
                 0.0 /*cblock[i].correlation */ ,
                 context.state.cblock[i].stdev,
-                CCTypeToStr(context, context.state.cblock[i].cc_type)
+                CCTypeText(context, context.state.cblock[i].cc_type).c_str()
             );
             if (context.settings.commDetectMethod & LOGO)
             {

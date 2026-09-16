@@ -14,7 +14,9 @@ void CaptionDebug(RecordingContext& context, int level, const char* key, Args&&.
 {
     Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }
-std::string CaptionTypeText(RecordingContext& context, int type)
+}
+
+std::string CCTypeText(RecordingContext& context, int type)
 {
     if (!context.state.processCC)
         return {};
@@ -27,7 +29,6 @@ std::string CaptionTypeText(RecordingContext& context, int type)
     default: return std::format("{}", type);
     }
 }
-}
 
 void OutputCCBlock(RecordingContext& context, long i)
 {
@@ -38,7 +39,7 @@ void OutputCCBlock(RecordingContext& context, long i)
         CaptionDebug(context, 11, "caption_block_line", std::format("{}", i - 2),
             std::format("{:6}", context.state.cc_block[i - 2].start_frame),
             std::format("{:6}", context.state.cc_block[i - 2].end_frame),
-            CaptionTypeText(context, context.state.cc_block[i - 2].type));
+            CCTypeText(context, context.state.cc_block[i - 2].type));
     }
 
     if (i > 0)
@@ -46,7 +47,7 @@ void OutputCCBlock(RecordingContext& context, long i)
         CaptionDebug(context, 11, "caption_block_line", std::format("{}", i - 1),
             std::format("{:6}", context.state.cc_block[i - 1].start_frame),
             std::format("{:6}", context.state.cc_block[i - 1].end_frame),
-            CaptionTypeText(context, context.state.cc_block[i].type));
+            CCTypeText(context, context.state.cc_block[i].type));
     }
 
     if (i <= 0)
@@ -54,7 +55,7 @@ void OutputCCBlock(RecordingContext& context, long i)
         CaptionDebug(context, 11, "caption_block_line", std::format("{}", i),
             std::format("{:6}", context.state.cc_block[i].start_frame),
             std::format("{:6}", context.state.cc_block[i].end_frame),
-            CaptionTypeText(context, context.state.cc_block[i - 1].type));
+            CCTypeText(context, context.state.cc_block[i - 1].type));
     }
 }
 
@@ -840,7 +841,6 @@ void ProcessCCData(RecordingContext& context)
     int cctype = 0;
     int offset;
     char temp[2000];
-    char hex[10];
     unsigned char t;
     unsigned char *p;
     bool			cc1First = false;
@@ -908,9 +908,9 @@ void ProcessCCData(RecordingContext& context)
         p = (unsigned char *)temp;
         for (i = 0; i < context.state.ccDataLen; i++)
         {
-            sprintf(hex, "%2x ",context.state.ccData[i]);
-            *p++ = hex[0];
-            *p++ = hex[1];
+            const auto hex = std::format("{:2x}", context.state.ccData[i]);
+            *p++ = static_cast<unsigned char>(hex[0]);
+            *p++ = static_cast<unsigned char>(hex[1]);
             *p++ = ' ';
         }
         *p++ = 0;
@@ -1136,7 +1136,7 @@ void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool
     else
     {
         CaptionDebug(context, 11, "caption_type_start", std::format("{:6}", current_frame),
-            CaptionTypeText(context, type));
+            CCTypeText(context, type));
         if (context.state.cc_block[context.state.cc_block_count].end_frame == -1)
         {
             CaptionDebug(context, 11, "caption_new_block");
@@ -1166,45 +1166,6 @@ void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool
 
         OutputCCBlock(context, context.state.cc_block_count);
     }
-}
-
-char* CCTypeToStr(RecordingContext& context, int type)
-{
-    if (context.state.processCC)
-    {
-        switch (type)
-        {
-        case NONE:
-            sprintf(context.state.tempString, "NONE");
-            break;
-
-        case ROLLUP:
-            sprintf(context.state.tempString, "ROLLUP");
-            break;
-
-        case PAINTON:
-            sprintf(context.state.tempString, "PAINTON");
-            break;
-
-        case POPON:
-            sprintf(context.state.tempString, "POPON");
-            break;
-
-        case COMMERCIAL:
-            sprintf(context.state.tempString, "COMMERCIAL");
-            break;
-
-        default:
-            sprintf(context.state.tempString, "%d",type);
-            break;
-        }
-    }
-    else
-    {
-        context.state.tempString[0]=0; // was: sprintf(tempString, "");
-    }
-
-    return (context.state.tempString);
 }
 
 int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
@@ -1273,7 +1234,7 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
 
     CaptionDebug(context, 4, "caption_block_summary", std::format("{:6}", start),
         std::format("{:6}", end), std::format("{:2}", cc_block_first),
-        std::format("{:2}", cc_block_last), CaptionTypeText(context, type));
+        std::format("{:2}", cc_block_last), CCTypeText(context, type));
 
     return (type);
 }
