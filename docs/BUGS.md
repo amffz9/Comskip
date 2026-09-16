@@ -105,6 +105,16 @@ and relevant verification; retain the evidence for future regressions.
 - **Fix/verification needed:** Owned per-call formatted storage; exact logging of
   a Unicode message longer than the old buffer, formatting and verbosity gating.
 
+### B010: Forward-slash input paths are not split correctly on Windows
+
+- **Evidence:** Actual caption CSV replay using a forward-slash input path kept
+  its directory inside the output basename; redirected output failed with
+  creation status 6 before caption replay.
+- **Impact:** Valid portable Windows paths can produce incorrect destinations
+  and prevent analysis/replay.
+- **Fix/verification needed:** UTF-8 `std::filesystem` path filename/parent
+  extraction; actual replay using forward slashes and a different output folder.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
