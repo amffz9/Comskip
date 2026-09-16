@@ -4,7 +4,22 @@ Record newly discovered issues here even when fixing them is deferred. Keep
 confirmed defects separate from suspected gaps. Close entries only with a fix
 and relevant verification; retain the evidence for future regressions.
 
-## Open
+## Status
+
+Evidence below describes each issue when it was discovered. This table records
+the current resolution; Windows-only results do not establish sanitizer safety.
+
+| Issues | Current evidence |
+| --- | --- |
+| B001, B004, B005, B007–B011 | Fixed at `3cc57ed`; actual caption lifecycle/replay and warning/logging tests pass on Windows. |
+| B002 | Global writer removed at `3cc57ed`; complete replacement lifecycle leak verification remains pending. |
+| B003, B013, B014 | Fixed at `12be69c`; all 174 Windows tests pass. Linux bridge dependency was also verified on the isolated patched snapshot. |
+| B006 | Fixed at `3cc57ed`; both failure branches verified by four warning tests at `7e011c3`. |
+| B012, B015, B016, B017, B019 | Fixed at `c4ab1e0`; all 181 Windows tests pass. Full Linux/sanitizer verification is pending. |
+| B020 | Fixed at `589fc7b`; all six settings-value tests pass on Windows. |
+| B018, B021 | Open; parser and review-path improvements are in progress. |
+
+## Issue evidence and verification
 
 ### B001: Subtitle output decoder shares state between recordings
 
