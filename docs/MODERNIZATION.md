@@ -53,14 +53,20 @@ than redefine completion around whichever subset currently passes tests.
   SDL rendering verification currently uses the dummy driver on Windows.
 - Pure timed EDL serialization is integrated for standard/live/plus output, with
   boundary/offset/locale/error tests. Seven pugixml XML serializers are integrated
-  into normal and review exports, with ten serializer and seven application
+  into normal and review exports, with ten serializer and nine application
   adapter tests. Live DVRMSTB uses the same library, with four conversion and
   two actual live-detector tests. The obsolete custom XML escaper and seven
-  unused XML file owners are removed. The plist fragment remains to migrate.
+  unused XML file owners are removed. Plist fragment serialization is integrated
+  through pugixml with five pure tests and normal/review/tail compatibility tests;
+  actual media tests parse and compare all eight output families.
 - The A53 caption bridge bounds each packet to 31 intact triplets, preserves
   oversized payloads through ordered chunks, and rejects malformed lengths.
   Four tests cover framing and data preservation. The supporting caption
-  decoder still has shared globals and needs an owned replacement.
+  decoder still has shared globals and needs an owned replacement. An independent
+  FFmpeg caption decoder passes six tests on Windows and Linux, including Linux
+  sanitizers. Owned SRT/SAMI output passes seven Windows tests; application
+  lifecycle integration is pending. Caption/XDS packet and cache bounds have
+  five regressions, and frame-volume storage bounds have two.
 - Windows headless and SDL-enabled application builds each pass 119 tests at
   f032ea3. Scoped Windows
   scheduling/power policies have three native restoration
@@ -69,7 +75,7 @@ than redefine completion around whichever subset currently passes tests.
   repeated analyses within one process, and failure cleanup followed by success.
   CSV replay, weighted-score boundaries, bounded review sampling, and persisted
   logo bounds. SDL rendering uses the dummy driver. Ubuntu GCC 14 / FFmpeg 6.1
-  headless and SDL builds each pass 89 tests. The same suite passes with address,
-  undefined-behavior, and leak sanitizers, including the CSV replay histogram
-  bounds fix (2131eee). These results precede XML integration. macOS and
+  headless and SDL builds each pass 115 tests at f032ea3. The same suite passes
+  with address, undefined-behavior, and leak sanitizers. Windows headless passes
+  139 tests at 28556e6, before the seven new subtitle-output tests. macOS and
   interactive SDL application verification still require evidence.
