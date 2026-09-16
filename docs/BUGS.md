@@ -29,8 +29,11 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B034 | Fixed at `e520374`; six frame-mask tests and settings validation pass within all 241 Windows tests. Its unmodified Linux snapshot passes all 237 headless, SDL, and address/undefined/leak sanitizer tests. |
 | B035 | Fixed at `931ee71`; three consecutive-stall tests cover threshold, periodic reporting, progress reset, and independence; the integrated application passes all 256 Windows tests. |
 | B036 | Fixed at `931ee71`; all 256 Windows headless tests and all 256 tests in a fresh, unmodified Windows SDL `build-gui` snapshot pass. All six previously timed-out CLI media tests now complete; the actual directory-name regression and filename conventions are covered. |
-| B038, B039, B040, B042, B043 | Fixed at `b1f9e86`; all 270 Windows tests pass, including checked brightness/geometry, actual zero-border/empty scenes, fractional-rate CSV replay, and invalid-rate rejection before state mutation. Linux sanitizer verification of this stage remains separate. |
-| B041, B044 | Fixed at `07aa466`; all 279 Windows headless and all 279 unmodified Windows SDL snapshot tests pass. Nine geometry/filter tests cover extreme settings, ordinary edges, short/full histories, required buffers, and persisted bounds. Linux sanitizer verification is running separately. |
+| B038, B039, B040, B042, B043 | Fixed at `b1f9e86`; all 270 Windows tests pass, including checked brightness/geometry, actual zero-border/empty scenes, fractional-rate CSV replay, and invalid-rate rejection before state mutation. The unmodified `07aa466` snapshot also passes all 275 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
+| B041, B044 | Fixed at `07aa466`; all 279 Windows headless and all 279 unmodified Windows SDL snapshot tests pass. Nine geometry/filter tests cover extreme settings, ordinary edges, short/full histories, required buffers, and persisted bounds. Its unmodified snapshot passes all 275 Linux headless, SDL, and address/undefined/leak sanitizer tests without findings or suppressions. |
+
+| B045 | Fixed at `706801f`; all 285 Windows tests pass, including an actual decoder reset/reopen regression and six timing-output tests. |
+| B046–B052 | Open; evidence and verification requirements below. |
 
 ## Issue evidence and verification
 
@@ -500,9 +503,77 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   again. This was also the old `DUMP_OPEN`/`DUMP_HEADER` macro behavior.
 - **Impact:** Restarted timing output has two separator/column header pairs,
   disrupting ordinary CSV consumers.
-- **Fix/verification needed:** Exactly one header per newly truncated timing
-  file, with restart and row-output regressions. The audio extraction retains
-  the legacy bytes so this correction can be reviewed separately.
+- **Resolution:** Fixed at `706801f`: one header per newly truncated file.
+  Six timing tests, including actual reset/reopen and row output, and all
+  285 Windows tests pass. Later Linux/SDL verification remains separate.
+
+### B046: Logo shrink settings can overflow frame conversions
+
+- **Evidence:** `src/detection/logo.cpp:866–870` converts unchecked
+  `shrink_logo * fps` and `shrink_logo_tail * fps` to `int`, then performs
+  integer additions and doubling. Extreme finite settings can exceed `int`.
+- **Status:** Source-confirmed unsafe conversion; no runtime reproduction yet.
+- **Verification needed:** Reject unrepresentable frame offsets before mutation;
+  cover extreme finite settings and ordinary logo shrink behavior.
+
+### B047: Default review font depends on the source checkout
+
+- **Evidence:** `CMakeLists.txt:84` embeds the source-tree NotoSans path;
+  `src/ui/review_window.cpp:112` uses it as the default font.
+- **Status:** Suspected deployment gap. A relocated installation without the
+  original checkout has not been tested.
+- **Verification needed:** Run a copied installation without source assets;
+  provide and verify a portable bundled-resource/default-font resolution.
+
+### B048: Diagnostic CSV filenames are not escaped
+
+- **Evidence:** `src/output/diagnostics.cpp:230,266,446–459` and legacy
+  training writers in `src/output/cutlists.cpp` wrap filenames in quotes
+  without doubling embedded quotes.
+- **Impact:** Legal filenames containing quotes can corrupt CSV fields.
+- **Status:** Source-confirmed escaping omission; filename-specific runtime
+  reproduction pending.
+- **Verification needed:** Parse generated output for filenames containing
+  quotes, commas, and newlines; retain ordinary output compatibility.
+
+### B049: Enabling FFmetadata changes other export formats
+
+- **Evidence:** `src/output/cutlists.cpp:543–544` changes `start` to zero
+  for early cuts while writing FFmetadata. Later writers reuse that argument.
+- **Impact:** Output options can change another format's cut boundaries.
+- **Status:** Source-confirmed shared-argument mutation; paired-output
+  runtime regression pending.
+- **Verification needed:** Compare other exports with FFmetadata enabled and
+  disabled for cuts starting within the first five frames.
+
+### B050: MPEG2Schnitt opening sets the MPEG toolbox flag
+
+- **Evidence:** `src/output/cutlists.cpp:444` sets `output_mpgtx` after
+  successfully opening the MPEG2Schnitt file.
+- **Status:** Source-confirmed wrong flag assignment; downstream impact needs
+  an actual output-option regression.
+- **Verification needed:** Independently enable each format and verify its
+  settings and complete output without changing the other format's state.
+
+### B051: Localized errors retain English application reasons
+
+- **Evidence:** Actual Spanish CLI runs report `Configuración no válida:`
+  followed by English brightness validation, and `Comskip: CSV input has no
+  header` for empty CSV. Reproduction files are under the ignored
+  `bin/localization-error-audit` directory. Settings interpolate raw `what()`;
+  `src/app/main.cpp` destroys the context before its exception handler.
+- **Impact:** Selected localization does not cover actionable error reasons.
+- **Verification needed:** Catalog-backed typed diagnostics rendered at a
+  boundary with a live translator; Spanish settings/parser/output regressions,
+  English fallback, preserved exception categories and exit statuses.
+
+### B052: XML output opening can fail without an error message
+
+- **Evidence:** `src/output/xml_output_adapter.cpp:177` requests exit status
+  6 when opening fails, without reporting the destination or reason.
+- **Status:** Source-confirmed silent failure branch; runtime regression pending.
+- **Verification needed:** An unwritable destination reports its path and a
+  localized actionable reason while retaining the intended exit status.
 
 ## Fixed during modernization
 
