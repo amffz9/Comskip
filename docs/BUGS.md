@@ -284,6 +284,17 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   escaping before publishing settings, or migrate to typed template formatting;
   test malformed templates and exact valid output compatibility.
 
+### B025: Full media reopen leaks FFmpeg allocations
+
+- **Evidence:** The unmodified `c4ab1e0` Linux sanitizer snapshot passes 176 of
+  177 tests. The actual input-reopen test passes its behavior assertions, but
+  LeakSanitizer reports 210 bytes in three FFmpeg allocations (24 direct,
+  138 and 48 indirect).
+- **Status:** Confirmed leak; precise abandoned ownership path is still under
+  investigation. The missing-timestamp overflow no longer occurs.
+- **Verification needed:** Reopen/unwind cleanup and the complete
+  address/undefined/leak sanitizer suite without suppressions.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
