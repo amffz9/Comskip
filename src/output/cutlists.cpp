@@ -7,6 +7,7 @@
 #include "frame_script_adapter.h"
 #include "player_export_adapter.h"
 #include "legacy_editor_adapter.h"
+#include "legacy_cutlist_adapter.h"
 #include "csv_field.h"
 #include "edl.h"
 #include <sstream>
@@ -68,23 +69,6 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.out_file.reset();
     }
 
-    if (context.settings.output_chapters)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".chap";
-        context.state.chapters_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.chapters_file.get())
-        {
-            sleep_for_ms(50L);
-            context.state.chapters_file.reset(myfopen(context.state.filename.c_str(), "w"));
-            if (!context.state.chapters_file.get())
-            {
-                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.filename.c_str()).c_str());
-                comskip::request_exit(103);
-            }
-        }
-        fprintf(context.state.chapters_file.get(), "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",context.state.frame_count-1, (int)(context.settings.fps*100));
-    }
-
     if (context.settings.output_incommercial)
     {
         context.state.filename = std::string(context.state.workbasename) + ".incommercial";
@@ -106,138 +90,6 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.filename = std::string(context.state.outbasename) + ".edl";
         context.state.edl_file.reset(myfopen(context.state.filename.c_str(), "wb"));
         if (!context.state.edl_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_edl = true;
-        }
-    }
-
-/*
-    if (output_live)
-    {
-        filename = std::string(outbasename) + ".live";
-        live_file = myfopen(filename, "wb");
-        if (!live_file)
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            output_live = true;
-        }
-    }
-*/
-    if (context.settings.output_edlp)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".edlp";
-        context.state.edlp_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (!context.state.edlp_file.get())
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-        else
-        {
-            context.settings.output_edlp = true;
-        }
-    }
-
-
-    if (context.settings.output_womble)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".wme";
-        context.state.womble_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.womble_file.get())
-        {
-//			fclose(womble_file);
-            context.settings.output_womble = true;
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_mls)
-    {
-        context.state.filename = std::string(context.state.outbasename) + ".mls";
-        context.state.mls_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.mls_file.get())
-        {
-//			fclose(mls_file);
-            context.settings.output_mls = true;
-//[BookmarkList]
-//PathName= C:\VidTst\Will - Grace - Secrets - Lays.mpg
-//VideoStreamID= 224
-//Format= frame
-//Count= 19
-
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_mpgtx)
-    {
-        context.state.filename = std::string(context.state.outbasename) + "_mpgtx.bat";
-        context.state.mpgtx_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.mpgtx_file.get())
-        {
-//			fclose(mpgtx_file);
-            context.settings.output_mpgtx = true;
-            fprintf(context.state.mpgtx_file.get(), "mpgtx.exe -j -f -o \"%s%s\" \"%s\" ", context.state.mpegfilename.c_str(), ".clean", context.state.mpegfilename.c_str());
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-    if (context.settings.output_dvrcut)
-    {
-        context.state.filename = std::string(context.state.outbasename) + "_dvrcut.bat";
-        context.state.dvrcut_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.dvrcut_file.get())
-        {
-//			fclose(dvrcut_file);
-            if (context.settings.dvrcut_options.c_str()[0] == 0)
-                fprintf(context.state.dvrcut_file.get(), "dvrcut \"%%1\" \"%%2\" ");
-            else
-                fprintf(context.state.dvrcut_file.get(), context.settings.dvrcut_options.c_str(), context.state.inbasename.c_str(), context.state.inbasename.c_str(), context.state.inbasename.c_str()  );
-        }
-        else
-        {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
-        }
-    }
-
-
-    if (context.settings.output_mpeg2schnitt)
-    {
-        context.state.filename = std::string(context.state.inbasename) + "_mpeg2schnitt.bat";
-        context.state.mpeg2schnitt_file.reset(myfopen(context.state.filename.c_str(), "w"));
-        if (context.state.mpeg2schnitt_file.get())
-        {
-//			fclose(mpeg2schnitt_file);
-            context.settings.output_mpeg2schnitt = true;
-// Mpeg2Schnitt.exe %1.m2v /R29.97 /o250 /i550 /o3210 /i4000 /S /E /Z %2.m2v
-            if (context.settings.mpeg2schnitt_options.c_str()[0] == 0)
-                fprintf(context.state.mpeg2schnitt_file.get(), "mpeg2schnitt.exe /S /E /R%5.2f  /Z \"%s\" \"%s\" ", context.settings.fps, "%2", "%1");
-            else
-                fprintf(context.state.mpeg2schnitt_file.get(), "%s ", context.settings.mpeg2schnitt_options.c_str());
-        }
-        else
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
@@ -318,104 +170,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     CLOSEOUTFILE(context.state.edlp_file);
 
-    if (context.state.womble_file.get())
-    {
-// CLIPLIST: #1 show
-// CLIP: morse.mpg
-// 6 0 9963
-        if (!last)
-        {
-            if (start - prev > context.settings.fps)
-            {
-                fprintf(context.state.womble_file.get(), "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename.c_str(),F2F(prev+1), F2F(start) - F2F(prev));
-            }
-// CLIPLIST: #2 commercial
-// CLIP: morse.mpg
-// 6 9963 5196
-
-            fprintf(context.state.womble_file.get(), "CLIPLIST: #%i commercial\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename.c_str(), F2F(start), F2F(end) - F2F(start));
-        }
-        else
-        {
-            if (end - prev > 0)
-                fprintf(context.state.womble_file.get(), "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename.c_str(), F2F(prev+1), F2F(end) - F2F(prev));
-        }
-    }
-    CLOSEOUTFILE(context.state.womble_file);
-
-    if (context.state.mls_file.get())
-    {
-        if (i == 0)
-        {
-            count = (context.state.commercial_count+1)*2+1;
-//            if (commercial[commercial_count].end_frame < frame_count-2)
-//                count += 2;
-            if (start < context.settings.fps)
-                count -= 1;
-            fprintf(context.state.mls_file.get(), "[BookmarkList]\nPathName= %s\nVideoStreamID= 0\nFormat= frame\nCount= %d\n", context.state.mpegfilename.c_str(), count);
-            if (start >= context.settings.fps)
-                fprintf(context.state.mls_file.get(), "%11i 1\n", 0);
-        }
-        else
-            fprintf(context.state.mls_file.get(), "%11li 1\n", F2F(prev));
-        if (!last)
-            fprintf(context.state.mls_file.get(), "%11li 0\n", F2F(start));
-        else if (start < end - 5) {
-            fprintf(context.state.mls_file.get(), "%11li 0\n", F2F(start));
-            fprintf(context.state.mls_file.get(), "%11li 1\n", F2F(end));
-        }
-
-    }
-    CLOSEOUTFILE(context.state.mls_file);
-
-    if (context.state.mpgtx_file.get())
-    {
-        if (!last)
-        {
-            if (start - prev > 0)
-            {
-                fprintf(context.state.mpgtx_file.get(), "[%s-",	(prev < context.settings.fps ? "":intSecondsToStrMinutes(context,  (int)get_frame_pts(context, prev))));
-                fprintf(context.state.mpgtx_file.get(), "%s] ", intSecondsToStrMinutes(context,  (int)get_frame_pts(context, start)));
-            }
-        }
-        else
-        {
-            if (end - prev > 0)
-                fprintf(context.state.mpgtx_file.get(), "[%s-]",	intSecondsToStrMinutes(context,  (int)get_frame_pts(context, prev+1)));
-            fprintf(context.state.mpgtx_file.get(), "\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.mpgtx_file);
-
-    if (context.state.dvrcut_file.get())
-    {
-        if (start - prev > (int)context.settings.fps /* && start > 2*fps */)
-        {
-            fprintf(context.state.dvrcut_file.get(), "%s ",	intSecondsToStrMinutes(context,  (int)get_frame_pts(context, prev)));
-            fprintf(context.state.dvrcut_file.get(), "%s ", intSecondsToStrMinutes(context,  (int)get_frame_pts(context, start)));
-        }
-        if (last)
-        {
-            fprintf(context.state.dvrcut_file.get(), "\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.dvrcut_file);
-
-    if (context.state.mpeg2schnitt_file.get())
-    {
-        if (end - start > 1)
-        {
-            fprintf(context.state.mpeg2schnitt_file.get(), "/o%ld ",	F2F(start));
-            fprintf(context.state.mpeg2schnitt_file.get(), "/i%ld ", F2F(end));
-        }
-        if (last)
-        {
-            fprintf(context.state.mpeg2schnitt_file.get(), "\n");
-        }
-    }
-    CLOSEOUTFILE(context.state.mpeg2schnitt_file);
 }
-
 
 char CompareLetter(RecordingContext& context, int value, int average, int i)
 {
@@ -885,21 +640,7 @@ bool OutputBlocks(RecordingContext& context)
     WriteFrameScriptFiles(context);
     WritePlayerExportFiles(context);
     WriteLegacyEditorFiles(context);
-
-    if (context.settings.output_chapters)
-    {
-//		filename = std::string(outbasename) + ".chap";
-//		chapters_file = myfopen(filename, "a+");
-        if (context.state.chapters_file.get())
-        {
-            for (i = 0; i < context.state.block_count; i++)
-            {
-                fprintf(context.state.chapters_file.get(), "%ld\n", context.state.cblock[i].f_end);
-            }
-            context.state.chapters_file.reset();
-        }
-    }
-
+    WriteLegacyCutlistFiles(context);
 
     if (context.state.reffer_count == -1) {
         std::vector<Legacy_reffer_entry> reference;

@@ -348,3 +348,25 @@ than redefine completion around whichever subset currently passes tests.
 
   The complete public-speed Release application also builds for this stage;
   evidence: `bin/windows-editor-geometry-public-build.txt`.
+
+- The unmodified `f444b33` Linux snapshot passes headless **393/393**
+  (33.24s), SDL with the dummy video driver **397/397** (33.97s), and
+  address/undefined/leak sanitizers **393/393** (113.57s), without findings or
+  suppressions. This verifies the corrected FFmpeg 6 diagnostic path, decoder
+  lifecycle and extracted editor outputs. Exact commands and logs are in
+  `bin/linux-verification-f444b33.md`.
+
+- The remaining legacy cut-list families now use focused serializers and one
+  finalized normal/review adapter. Womble, MLS, mpgtx, DVR Cut,
+  MPEG2Schnitt and plain chapter output have exact serializer and application
+  tests; actual media smoke tests compare every output across worker counts.
+  MLS review headers use the selected interval list. Self-test error records
+  use a checked owned append writer and a committed `selftest_log_file` setting.
+  The former decoder translation unit is split into video decoding, recording
+  input and seeking modules. Windows passes **413/413** headless and **421/421**
+  SDL tests, including four native Windows SDL event tests; the public-speed
+  non-donator application also builds. Logs are
+  `bin/windows-final-exports-build23{,-gui}-{build,test}.txt` and
+  `bin/windows-final-exports-public-build.txt`. Linux verification of this
+  combined stage, remaining human-facing messages, safe seek arithmetic,
+  B074's Womble tail correction and physical interactive UI proof remain.

@@ -1,6 +1,7 @@
 #include "recording_context.h"
 #include "output/frame_script_adapter.h"
 #include "output/player_export_adapter.h"
+#include "output/legacy_cutlist_adapter.h"
 #include "detection/legacy_detection.h"
 #include "output/cutlist_exports.h"
 #include "checked_format.h"
@@ -43,6 +44,7 @@ protected:
             context->state.framenum_real=50;
             context->state.commercial_count=-1;
             WritePlayerExportFiles(*context);
+            WriteLegacyCutlistFiles(*context);
             FAIL() << "Expected output creation failure";
         }
         catch (const comskip::ExitRequested& exit) { EXPECT_EQ(exit.status(), status); }
@@ -64,7 +66,7 @@ TEST_F(CutlistErrors, ChapterOutputRetryReportsSpanishAndReleasesOwner) {
     context->settings.output_chapters = true;
     expect_exit(103);
     EXPECT_EQ(log(), "ERROR al escribir en " + std::string(context->state.outbasename) + ".chap\n");
-    EXPECT_FALSE(context->state.chapters_file);
+    EXPECT_FALSE(std::filesystem::exists(context->state.outbasename + ".chap"));
 }
 TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) {
     context->translator = comskip::localization::Translator("es");
@@ -81,7 +83,7 @@ TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) 
 }
 TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExactly) {
     context->settings = comskip::config::load_settings(comskip::config::Ini(
-        "output_default=0\noutput_avisynth=1\noutput_dvrcut=1\n"
+        "fps=25\noutput_default=0\noutput_avisynth=1\noutput_dvrcut=1\n"
         "avisynth_options=\"%% %s\"\ndvrcut_options=\"%s|%s|%s|%%\""));
     context->state.mpegfilename = (directory / "input.ts").string();
     comskip::checked_format(context->state.outbasename, "%s", (directory / "result").string().c_str());
@@ -91,12 +93,12 @@ TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExac
     context->state.framenum_real=50;
     context->state.commercial_count=-1;
     WriteFrameScriptFiles(*context);
-    context->state.dvrcut_file.reset();
+    WriteLegacyCutlistFiles(*context);
     const auto read = [](const std::filesystem::path& path) {
         std::ifstream file(path);
         return std::string(std::istreambuf_iterator<char>(file), {});
     };
     EXPECT_EQ(read(directory / "input.ts.avs"), "% " + context->state.mpegfilename + "trim(1,49)\n");
-    EXPECT_EQ(read(directory / "result_dvrcut.bat"), "input|input|input|%");
+    EXPECT_EQ(read(directory / "result_dvrcut.bat"), "input|input|input|%0:00:00 0:00:01 \n");
 }
 }

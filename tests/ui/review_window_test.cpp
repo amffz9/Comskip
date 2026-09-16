@@ -110,6 +110,166 @@ TEST(ReviewWindow, HeadlessBuildReportsHowToEnableTheUI)
     EXPECT_FALSE(window.is_open());
 }
 #else
+namespace {
+WindowOptions event_window_options(std::string title = "Review SDL events") {
+    WindowOptions options{160, 120, std::move(title)};
+    options.hidden = true;
+    return options;
+}
+
+SDL_Event key_event(const ReviewWindow& window, Uint32 type, SDL_Keycode key, Uint16 modifiers = KMOD_NONE) {
+    SDL_Event event{};
+    event.type = type;
+    event.key.windowID = window.window_id();
+    event.key.state = type == SDL_KEYDOWN ? SDL_PRESSED : SDL_RELEASED;
+    event.key.keysym.sym = key;
+    event.key.keysym.mod = modifiers;
+    return event;
+}
+
+SDL_Event mouse_button_event(const ReviewWindow& window, Uint32 type, int x, int y, Uint8 button = SDL_BUTTON_LEFT) {
+    SDL_Event event{};
+    event.type = type;
+    event.button.windowID = window.window_id();
+    event.button.button = button;
+    event.button.state = type == SDL_MOUSEBUTTONDOWN ? SDL_PRESSED : SDL_RELEASED;
+    event.button.x = x;
+    event.button.y = y;
+    return event;
+}
+
+bool push_event(SDL_Event event) { return SDL_PushEvent(&event) == 1; }
+}
+
+TEST(ReviewWindow, SdlKeyboardEventsPreserveModifiersAndReleaseState) {
+    ReviewWindow window(event_window_options());
+    window.open();
+    RecordProperty("sdl_video_driver", SDL_GetCurrentVideoDriver());
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYDOWN, SDLK_LEFT, KMOD_SHIFT))) << SDL_GetError();
+    window.refresh();
+    EXPECT_EQ(window.consume_input().key, 'P');
+    EXPECT_TRUE(window.input().shift);
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYUP, SDLK_LEFT))) << SDL_GetError();
+    window.refresh();
+    EXPECT_EQ(window.input().key, 0);
+    EXPECT_FALSE(window.input().shift);
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYDOWN, SDLK_PAGEUP, KMOD_ALT))) << SDL_GetError();
+    window.refresh();
+    EXPECT_EQ(window.consume_input().key, 133);
+    EXPECT_TRUE(window.input().alt);
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYUP, SDLK_PAGEUP))) << SDL_GetError();
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYDOWN, SDLK_w))) << SDL_GetError();
+    window.refresh();
+    EXPECT_EQ(window.consume_input().key, 'W');
+    EXPECT_FALSE(window.input().alt);
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYDOWN, SDLK_LSHIFT, KMOD_SHIFT))) << SDL_GetError();
+    window.refresh();
+    EXPECT_TRUE(window.input().shift);
+    ASSERT_TRUE(push_event(key_event(window, SDL_KEYUP, SDLK_LSHIFT))) << SDL_GetError();
+    window.refresh();
+    EXPECT_FALSE(window.input().shift);
+}
+
+TEST(ReviewWindow, SdlResizeAndMouseEventsScaleDragAndClampCoordinates) {
+    ReviewWindow window(event_window_options());
+    window.open();
+    RecordProperty("sdl_video_driver", SDL_GetCurrentVideoDriver());
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+    auto* native_window = SDL_GetWindowFromID(window.window_id());
+    ASSERT_NE(native_window, nullptr);
+    SDL_SetWindowSize(native_window, 320, 240);
+    window.refresh();
+    int width{}, height{};
+    SDL_GetWindowSize(native_window, &width, &height);
+    ASSERT_EQ(width, 320);
+    ASSERT_EQ(height, 240);
+    ASSERT_TRUE(push_event(mouse_button_event(window, SDL_MOUSEBUTTONDOWN, 160, 120))) << SDL_GetError();
+    window.refresh();
+    auto input = window.consume_input();
+    EXPECT_EQ(input.mouse_x, 80);
+    EXPECT_EQ(input.mouse_y, 60);
+    EXPECT_TRUE(input.mouse_pressed);
+    EXPECT_TRUE(input.mouse_down);
+    SDL_Event motion{};
+    motion.type = SDL_MOUSEMOTION;
+    motion.motion.windowID = window.window_id();
+    motion.motion.state = SDL_BUTTON_LMASK;
+    motion.motion.x = 500;
+    motion.motion.y = -10;
+    ASSERT_TRUE(push_event(motion)) << SDL_GetError();
+    window.refresh();
+    input = window.consume_input();
+    EXPECT_EQ(input.mouse_x, 159);
+    EXPECT_EQ(input.mouse_y, 0);
+    EXPECT_TRUE(input.mouse_pressed);
+    EXPECT_TRUE(input.mouse_down);
+    ASSERT_TRUE(push_event(mouse_button_event(window, SDL_MOUSEBUTTONUP, 500, -10))) << SDL_GetError();
+    window.refresh();
+    input = window.consume_input();
+    EXPECT_FALSE(input.mouse_down);
+    EXPECT_FALSE(input.mouse_pressed);
+    ASSERT_TRUE(push_event(mouse_button_event(window, SDL_MOUSEBUTTONDOWN, 80, 40, SDL_BUTTON_RIGHT))) << SDL_GetError();
+    window.refresh();
+    EXPECT_FALSE(window.input().mouse_down);
+    EXPECT_FALSE(window.input().mouse_pressed);
+}
+
+TEST(ReviewWindow, SdlEventsForAnotherWindowRemainQueuedAndWindowCloseIsLocal) {
+    ReviewWindow first(event_window_options("First review"));
+    ReviewWindow second(event_window_options("Second review"));
+    first.open();
+    second.open();
+    RecordProperty("sdl_video_driver", SDL_GetCurrentVideoDriver());
+    ASSERT_NE(first.window_id(), second.window_id());
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+    ASSERT_TRUE(push_event(key_event(second, SDL_KEYDOWN, SDLK_F1))) << SDL_GetError();
+    ASSERT_TRUE(push_event(key_event(first, SDL_KEYDOWN, SDLK_F2))) << SDL_GetError();
+    first.refresh();
+    EXPECT_EQ(first.consume_input().key, 113);
+    EXPECT_EQ(second.input().key, 0);
+    second.refresh();
+    EXPECT_EQ(second.consume_input().key, 112);
+    EXPECT_EQ(first.input().key, 0);
+    ASSERT_TRUE(push_event(mouse_button_event(second, SDL_MOUSEBUTTONDOWN, 30, 40))) << SDL_GetError();
+    first.refresh();
+    EXPECT_FALSE(first.input().mouse_down);
+    EXPECT_FALSE(second.input().mouse_down);
+    second.refresh();
+    EXPECT_TRUE(second.input().mouse_down);
+    SDL_Event close{};
+    close.type = SDL_WINDOWEVENT;
+    close.window.windowID = second.window_id();
+    close.window.event = SDL_WINDOWEVENT_CLOSE;
+    ASSERT_TRUE(push_event(close)) << SDL_GetError();
+    first.refresh();
+    EXPECT_FALSE(first.input().quit_requested);
+    EXPECT_FALSE(second.input().quit_requested);
+    second.refresh();
+    EXPECT_TRUE(second.input().quit_requested);
+    EXPECT_EQ(second.input().key, 27);
+    EXPECT_TRUE(first.is_open());
+    second.close();
+    EXPECT_FALSE(second.input().quit_requested);
+    EXPECT_TRUE(first.is_open());
+}
+
+TEST(ReviewWindow, SdlQuitEventRequestsExitWithoutTerminatingTheProcess) {
+    ReviewWindow window(event_window_options());
+    window.open();
+    RecordProperty("sdl_video_driver", SDL_GetCurrentVideoDriver());
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+    SDL_Event quit{};
+    quit.type = SDL_QUIT;
+    ASSERT_TRUE(push_event(quit)) << SDL_GetError();
+    window.refresh();
+    EXPECT_TRUE(window.input().quit_requested);
+    EXPECT_EQ(window.input().key, 27);
+    EXPECT_TRUE(window.is_open());
+    window.close();
+    EXPECT_FALSE(window.input().quit_requested);
+}
+
 TEST(ReviewWindow, DummyDriverSupportsLifecycleRenderingEventsAndText)
 {
     // Run this test with SDL_VIDEODRIVER=dummy; no visible window is required.

@@ -1,3 +1,4 @@
+#include "output/selftest_log.h"
 /*
  * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
@@ -216,9 +217,7 @@ nextpacket:
                         {
                             if (context.state.video_owner->video_clock < context.state.selftest_target - 0.05 || context.state.video_owner->video_clock > context.state.selftest_target + 0.05)
                             {
-                                context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                                fprintf(context.state.sample_file.get(), "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.video_owner->filename.c_str(), context.state.video_owner->duration, context.state.video_owner->video_clock );
-                                context.state.sample_file.reset();
+                                comskip::output::write_selftest_log(context.settings.selftest_log_file, "\"{}\": reopen file failed, size={:8.1f}, pts={:6.2f}\n", context.state.video_owner->filename.c_str(), context.state.video_owner->duration, context.state.video_owner->video_clock );
                                 Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                                 comskip::request_exit(1);
                             }
@@ -334,15 +333,13 @@ nextpacket:
         {
             if (context.state.video_owner->video_clock < context.state.selftest_target - 0.08 || context.state.video_owner->video_clock > context.state.selftest_target + 0.08)
             {
-                context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                fprintf(context.state.sample_file.get(), "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
+                comskip::output::write_selftest_log(context.settings.selftest_log_file, "Seek error: target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}\"{}\"\n",
                         context.state.video_owner->seek_pts,
                         context.state.video_owner->video_clock,
                         context.state.video_owner->video_clock - context.state.video_owner->seek_pts,
                         context.state.video_owner->duration,
                         (context.state.video_owner->seek_by_bytes ? "byteseek": "timeseek" ),
                         context.state.video_owner->filename.c_str());
-                context.state.sample_file.reset();
             } else
                 Debug(context,  1,"\nSelftest 1 OK: Seektest\n");
 

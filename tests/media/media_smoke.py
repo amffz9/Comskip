@@ -28,7 +28,9 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
                         "output_ffmeta=1\noutput_ffsplit=1\n"
                         "output_vcf=1\noutput_projectx=1\noutput_avisynth=1\n"
                         "output_zoomplayer_cutlist=1\noutput_zoomplayer_chapter=1\n"
-                        "output_scf=1\noutput_ipodchap=1\noutput_bsplayer=1\noutput_vdr=1\n")
+                        "output_scf=1\noutput_ipodchap=1\noutput_bsplayer=1\noutput_vdr=1\n"
+                        "output_womble=1\noutput_mls=1\noutput_mpgtx=1\noutput_dvrcut=1\n"
+                        "output_mpeg2schnitt=1\noutput_chapters=1\n")
     results = []
     for threads in (1, 4):
         destination = root / str(threads)
@@ -40,7 +42,10 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert run.returncode in (0, 1), run.stdout + run.stderr
         assert "Commercials were found." in run.stdout, run.stdout + run.stderr
         files = {extension: (destination / f"sample.{extension}").read_bytes()
-                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf", "chp", "cut", "scf", "chap", "bcf", "vdr")}
+                 for extension in ("txt", "edl", "csv", "ffmeta", "ffsplit", "vcf", "chp", "cut", "scf", "chap", "ipod.chap", "bcf", "vdr", "wme", "mls")}
+        for name in ("mpgtx", "dvrcut"):
+            files[name] = (destination / f"sample_{name}.bat").read_bytes()
+        files["mpeg2schnitt"] = (root / "sample_mpeg2schnitt.bat").read_bytes()
         for extension in ("Xcl", "avs"):
             files[extension] = Path(str(video) + "." + extension).read_bytes()
         rows = list(csv.reader(files["csv"].decode().splitlines()[2:]))
@@ -62,8 +67,14 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert files["scf"] == (b"CHAPTER01=00:00:00.040\nCHAPTER01NAME=Commercial starts\n"
                                 b"CHAPTER02=00:00:10.000\nCHAPTER02NAME=Commercial ends\n"), repr(files["scf"])
         assert files["bcf"] == b"1,0,9920\n"
-        assert files["chap"].startswith(b"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n")
-        assert files["chap"].endswith(b"CHAPTER02NAME=2\n")
+        assert files["ipod.chap"].startswith(b"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n")
+        assert files["ipod.chap"].endswith(b"CHAPTER02NAME=2\n")
+        assert files["chap"].startswith(b"FILE PROCESSING COMPLETE    249 FRAMES AT  2500\n-------------------\n")
+        assert files["wme"].startswith(b"CLIPLIST: #1 show\n")
+        assert b"[BookmarkList]\n" in files["mls"]
+        assert files["mpgtx"].endswith(b"[0:00:00-]\n")
+        assert files["dvrcut"] == b'dvrcut "%1" "%2" \n'
+        assert files["mpeg2schnitt"].endswith(b"/o1 /i249 \n")
         for extension in ("VPrj", "edlx", "chapters.xml", "cpf", "xml",
                           "mkvtoolnix.chapters", "mkvtoolnix.tags", "plist"):
             files[extension] = (destination / f"sample.{extension}").read_bytes()

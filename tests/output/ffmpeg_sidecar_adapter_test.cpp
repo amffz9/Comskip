@@ -1,6 +1,7 @@
 #include "output/ffmpeg_sidecar_adapter.h"
 #include "output/frame_script_adapter.h"
 #include "output/player_export_adapter.h"
+#include "output/legacy_cutlist_adapter.h"
 #include "cutlist_exports.h"
 #include "output/csv_field.h"
 #include "recording_context.h"
@@ -96,9 +97,11 @@ TEST_F(SidecarAdapter, Mpeg2SchnittDoesNotEnableTheUnrequestedMpgtxFormat) {
     context->settings.output_default=false; context->settings.output_ffmeta=false; context->settings.output_ffsplit=false;
     context->settings.output_mpeg2schnitt=true; context->settings.output_mpgtx=false;
     context->state.mpegfilename="input.ts";
+    context->state.inbasename=context->state.outbasename;
     OpenOutputFiles(*context);
+    WriteLegacyCutlistFiles(*context);
     EXPECT_FALSE(context->settings.output_mpgtx);
-    EXPECT_TRUE(context->state.mpeg2schnitt_file);
+    EXPECT_TRUE(std::filesystem::is_regular_file(directory/"result_mpeg2schnitt.bat"));
 }
 TEST_F(SidecarAdapter, ActualStrictTrainingExportQuotesFilenameWithCommasQuotesAndNewlines) {
     context->state.inbasename="Café, \"recording\"\npart";

@@ -9,6 +9,29 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    invalid_legacy_edit_list_record,
+    invalid_legacy_command_record,
+    invalid_plain_chapter_record,
+    invalid_legacy_cutlist_geometry,
+    invalid_legacy_cutlist_interval,
+    legacy_cutlist_position_exceeds_range,
+    cannot_write_legacy_cutlist_export,
+
+    logo_scan_requires_complete_geometry_sized_pixel_buffers,
+    logo_edge_detection_requires_image_pixels,
+    logo_comparison_requires_image_pixels,
+    logo_closure_exceeds_owned_frame_storage,
+    logo_appearance_exceeds_owned_frame_storage,
+    logo_mask_cleanup_requires_both_pixel_buffers,
+    logo_mask_bounds_require_mask_pixels,
+    invalid_xds_block_index,
+    too_much_xds_data,
+    live_candidate_count_exceeds_supported_index_type,
+    frame_mask_requires_decoded_image_pixels,
+    cannot_open_live_dvrmstb_output,
+    cannot_write_live_dvrmstb_output,
+    cannot_read_recording_ini_file,
+
     invalid_legacy_editor_interval,
     invalid_legacy_editor_geometry,
     invalid_legacy_editor_scene,
@@ -317,6 +340,29 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::invalid_legacy_edit_list_record: return "diag_invalid_legacy_edit_list_record";
+    case Code::invalid_legacy_command_record: return "diag_invalid_legacy_command_record";
+    case Code::invalid_plain_chapter_record: return "diag_invalid_plain_chapter_record";
+    case Code::invalid_legacy_cutlist_geometry: return "diag_invalid_legacy_cutlist_geometry";
+    case Code::invalid_legacy_cutlist_interval: return "diag_invalid_legacy_cutlist_interval";
+    case Code::legacy_cutlist_position_exceeds_range: return "diag_legacy_cutlist_position_exceeds_range";
+    case Code::cannot_write_legacy_cutlist_export: return "diag_cannot_write_legacy_cutlist_export";
+
+    case Code::logo_scan_requires_complete_geometry_sized_pixel_buffers: return "diag_logo_scan_requires_complete_geometry_sized_pixel_buffers";
+    case Code::logo_edge_detection_requires_image_pixels: return "diag_logo_edge_detection_requires_image_pixels";
+    case Code::logo_comparison_requires_image_pixels: return "diag_logo_comparison_requires_image_pixels";
+    case Code::logo_closure_exceeds_owned_frame_storage: return "diag_logo_closure_exceeds_owned_frame_storage";
+    case Code::logo_appearance_exceeds_owned_frame_storage: return "diag_logo_appearance_exceeds_owned_frame_storage";
+    case Code::logo_mask_cleanup_requires_both_pixel_buffers: return "diag_logo_mask_cleanup_requires_both_pixel_buffers";
+    case Code::logo_mask_bounds_require_mask_pixels: return "diag_logo_mask_bounds_require_mask_pixels";
+    case Code::invalid_xds_block_index: return "diag_invalid_xds_block_index";
+    case Code::too_much_xds_data: return "diag_too_much_xds_data";
+    case Code::live_candidate_count_exceeds_supported_index_type: return "diag_live_candidate_count_exceeds_supported_index_type";
+    case Code::frame_mask_requires_decoded_image_pixels: return "diag_frame_mask_requires_decoded_image_pixels";
+    case Code::cannot_open_live_dvrmstb_output: return "diag_cannot_open_live_dvrmstb_output";
+    case Code::cannot_write_live_dvrmstb_output: return "diag_cannot_write_live_dvrmstb_output";
+    case Code::cannot_read_recording_ini_file: return "diag_cannot_read_recording_ini_file";
+
     case Code::invalid_legacy_editor_interval: return "diag_invalid_legacy_editor_interval";
     case Code::invalid_legacy_editor_geometry: return "diag_invalid_legacy_editor_geometry";
     case Code::invalid_legacy_editor_scene: return "diag_invalid_legacy_editor_scene";

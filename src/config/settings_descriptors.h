@@ -199,6 +199,7 @@ inline constexpr auto setting_fields = std::tuple{
         SettingField<std::string>{"cutscenefile7", &Settings::cutscenefile7},
         SettingField<std::string>{"cutscenefile8", &Settings::cutscenefile8},
         SettingField<std::string>{"windowtitle", &Settings::windowtitle},
+        SettingField<std::string>{"selftest_log_file", &Settings::selftest_log_file},
         SettingField<std::string>{"review_font_file", &Settings::review_font_file},
         SettingField<std::string>{"cuttermaran_options", &Settings::cuttermaran_options},
         SettingField<std::string>{"mpeg2schnitt_options", &Settings::mpeg2schnitt_options},

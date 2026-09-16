@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "legacy_detection.h"
 #include "media/audio_analysis.h"
 #include <format>
@@ -61,7 +62,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
     const auto mask_storage = comskip::detection::frame_mask_storage_size(
         context.state.videowidth, context.state.height, context.state.width);
     if (!context.state.frame_ptr)
-        throw std::invalid_argument("Frame mask requires decoded image pixels");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::frame_mask_requires_decoded_image_pixels);
     comskip::detection::apply_frame_mask(
         std::span<unsigned char>(context.state.frame_ptr, mask_storage),
         context.state.videowidth, context.state.height, context.state.width,

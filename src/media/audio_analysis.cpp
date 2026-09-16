@@ -56,10 +56,8 @@ static int retreive_frame_volume(RecordingContext& context, double from_pts, dou
         buffer = &context.state.audio_buffer[first_sample];
 
         volume = 0;
-        if (context.state.sample_file.get()) fprintf(context.state.sample_file.get(), "Frame %i\n", context.state.sound_frame_counter);
         for (i = 0; i < s_per_frame; i++)
         {
-            if (context.state.sample_file.get()) fprintf(context.state.sample_file.get(), "%i\n", *buffer);
             volume += (*buffer>0 ? *buffer : - *buffer);
             buffer++;
         }

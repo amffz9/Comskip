@@ -39,13 +39,7 @@ struct RecordingState {
     comskip::platform::FilePtr edl_file;
     comskip::platform::FilePtr live_file;
     comskip::platform::FilePtr edlp_file;
-    comskip::platform::FilePtr chapters_file;
     comskip::platform::FilePtr log_file;
-    comskip::platform::FilePtr womble_file;
-    comskip::platform::FilePtr mls_file;
-    comskip::platform::FilePtr mpgtx_file;
-    comskip::platform::FilePtr dvrcut_file;
-    comskip::platform::FilePtr mpeg2schnitt_file;
     comskip::platform::FilePtr tuning_file;
     comskip::platform::FilePtr training_file;
     comskip::platform::FilePtr aspect_file;
@@ -286,7 +280,6 @@ struct RecordingState {
     int stream_index{};
     int64_t best_effort_timestamp{};
     int coding_type{};
-    comskip::platform::FilePtr sample_file;
     comskip::platform::FilePtr timing_file;
     int is_AC3{};
     int AC3_rate{};

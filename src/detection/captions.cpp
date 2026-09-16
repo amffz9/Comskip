@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "buffer_growth.h"
@@ -66,9 +67,9 @@ void Add_XDS_block(RecordingContext& context)
     Init_XDS_block(context);
     auto& frame = context.state.frame.at(static_cast<std::size_t>(context.state.framenum));
     if (context.state.XDS_block_count < 0)
-        throw std::out_of_range("Invalid XDS block index");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::invalid_xds_block_index);
     if (context.state.XDS_block_count == std::numeric_limits<long>::max())
-        throw std::length_error("Too much XDS data");
+        throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::too_much_xds_data);
     const long next = context.state.XDS_block_count + 1;
     comskip::detection::grow_buffer(context.state.XDS_block,
         context.state.max_XDS_block_count, next, 2000);

@@ -97,7 +97,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
             while ((count = fread(buffer, 1, sizeof buffer, context.state.ini_file.get())) != 0) data.append(buffer, count);
             bool failed = ferror(context.state.ini_file.get()) != 0;
             context.state.ini_file.reset();
-            if (failed) throw std::runtime_error(translator.text("cli_read_ini_failed"));
+            if (failed) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_read_recording_ini_file, {context.state.inifilename});
             comskip::config::Ini ini(data);
             context.settings = comskip::config::load_settings(ini, context.settings);
             context.state.ini_text += ini.serialize();
@@ -812,10 +812,6 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     context.state.edl_file.reset();
     context.state.live_file.reset();
     context.state.edlp_file.reset();
-    context.state.mls_file.reset();
-    context.state.womble_file.reset();
-    context.state.mpgtx_file.reset();
-    context.state.dvrcut_file.reset();
     context.state.tuning_file.reset();
     context.state.training_file.reset();
 

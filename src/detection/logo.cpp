@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "image_geometry.h"
@@ -17,7 +18,7 @@ comskip::detection::LogoScanGeometry logo_scan(const RecordingContext& context) 
 }
 void require_logo_buffer(std::size_t available, const comskip::detection::LogoScanGeometry& scan) {
     if (available < scan.storage_size)
-        throw std::invalid_argument("Logo scan requires complete geometry-sized pixel buffers");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_scan_requires_complete_geometry_sized_pixel_buffers);
 }
 }
 
@@ -296,7 +297,7 @@ FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)+context.setting
 void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNumber)
 {
     const auto scan = logo_scan(context);
-    if (!frame_ptr) throw std::invalid_argument("Logo edge detection requires image pixels");
+    if (!frame_ptr) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_edge_detection_requires_image_pixels);
     require_logo_buffer(context.state.hor_edgecount.size(), scan);
     require_logo_buffer(context.state.ver_edgecount.size(), scan);
 
@@ -497,7 +498,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
 double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
 {
     const auto scan = logo_scan(context);
-    if (!testFrame) throw std::invalid_argument("Logo comparison requires image pixels");
+    if (!testFrame) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_comparison_requires_image_pixels);
     require_logo_buffer(context.state.choriz_edgemask.size(), scan);
     require_logo_buffer(context.state.cvert_edgemask.size(), scan);
 
@@ -655,7 +656,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
 double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
 {
     const auto scan = logo_scan(context);
-    if (!testFrame) throw std::invalid_argument("Logo comparison requires image pixels");
+    if (!testFrame) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_comparison_requires_image_pixels);
     require_logo_buffer(context.state.thoriz_edgemask.size(), scan);
     require_logo_buffer(context.state.tvert_edgemask.size(), scan);
 
@@ -864,7 +865,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
             // Logo disappeared
             if (context.state.framearray && (framenum_real < 0 ||
                 static_cast<std::size_t>(framenum_real) > context.state.frame.size()))
-                throw std::out_of_range("Logo closure exceeds owned frame storage");
+                throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::logo_closure_exceeds_owned_frame_storage);
             const auto closed = comskip::detection::close_logo_block(
                 context.state.logo_block[context.state.logo_block_count].start, framenum_real,
                 comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq),
@@ -909,7 +910,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                     context.state.minHitsForTrend, context.state.frames_with_logo);
                 if (context.state.framearray && (framenum_real < 0 ||
                     static_cast<std::size_t>(framenum_real) > context.state.frame.size()))
-                    throw std::out_of_range("Logo appearance exceeds owned frame storage");
+                    throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::logo_appearance_exceeds_owned_frame_storage);
                 InitializeLogoBlockArray(context, context.state.logo_block_count + 2);
                 context.state.lastLogoTest = true;
                 context.state.logoTrendCounter = 0;
@@ -1308,7 +1309,7 @@ bool SearchForLogoEdges(RecordingContext& context)
 int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned char* test)
 {
     const auto scan = logo_scan(context);
-    if (!temp || !test) throw std::invalid_argument("Logo mask cleanup requires both pixel buffers");
+    if (!temp || !test) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_mask_cleanup_requires_both_pixel_buffers);
 
     int x;
     int y;
@@ -1369,7 +1370,7 @@ found:
 void SetEdgeMaskArea(RecordingContext& context, unsigned char* temp)
 {
     const auto scan = logo_scan(context);
-    if (!temp) throw std::invalid_argument("Logo mask bounds require mask pixels");
+    if (!temp) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_mask_bounds_require_mask_pixels);
 
     int x;
     int y;

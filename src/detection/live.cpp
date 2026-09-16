@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "checked_format.h"
 #include "legacy_detection.h"
@@ -197,7 +198,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                                 ((onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / context.settings.fps)
                             );
                             if (candidates.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max()))
-                                throw std::length_error("Live candidate count exceeds supported index type");
+                                throw comskip::diagnostics::DiagnosticError<std::length_error>(comskip::diagnostics::Code::live_candidate_count_exceeds_supported_index_type);
                             candidates.push_back({onTheFlyBlackFrame[i], onTheFlyBlackFrame[x], i, x});
                             commercials = static_cast<int>(candidates.size());
 
@@ -358,16 +359,14 @@ void BuildCommListAsYouGo(RecordingContext& context)
                 path += ".xml";
                 std::ofstream output(path, std::ios::binary | std::ios::trunc);
                 if (!output)
-                    throw std::ios_base::failure(std::string("Could not open live DVRMSTB output: ") +
-                                                 context.state.outbasename + ".xml");
+                    throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::cannot_open_live_dvrmstb_output, {context.state.outbasename + ".xml"});
                 try {
                     output.exceptions(std::ios::failbit | std::ios::badbit);
                     const auto text = serialized.str();
                     output.write(text.data(), static_cast<std::streamsize>(text.size()));
                     output.close();
                 } catch (const std::ios_base::failure& error) {
-                    throw std::ios_base::failure(std::string("Could not write live DVRMSTB output: ") +
-                                                 context.state.outbasename + ".xml: " + error.what());
+                    throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::cannot_write_live_dvrmstb_output, {context.state.outbasename + ".xml", error.what()});
                 }
             }
 

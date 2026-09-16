@@ -82,6 +82,12 @@ add_library(comskip_localization src/localization/translator.cpp src/localizatio
 target_include_directories(comskip_localization PUBLIC src/localization PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(comskip_localization PUBLIC comskip_config diagnostics)
 find_package(pugixml CONFIG REQUIRED)
+add_library(selftest_log src/output/selftest_log.cpp)
+target_include_directories(selftest_log PUBLIC src)
+target_link_libraries(selftest_log PUBLIC diagnostics)
+add_library(legacy_cutlist_exports src/output/legacy_edit_lists.cpp src/output/legacy_commands.cpp src/output/plain_chapters.cpp)
+target_include_directories(legacy_cutlist_exports PUBLIC src)
+target_link_libraries(legacy_cutlist_exports PUBLIC diagnostics)
 add_library(legacy_editor_exports src/output/legacy_editor_exports.cpp)
 target_include_directories(legacy_editor_exports PUBLIC src)
 target_link_libraries(legacy_editor_exports PUBLIC diagnostics)
@@ -176,6 +182,12 @@ if(BUILD_TESTING)
     target_link_libraries(translator_test PRIVATE comskip_localization GTest::gtest_main)
     target_compile_definitions(translator_test PRIVATE COMSKIP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     gtest_discover_tests(translator_test)
+    add_executable(selftest_log_test tests/output/selftest_log_test.cpp)
+    target_link_libraries(selftest_log_test PRIVATE selftest_log comskip_localization GTest::gtest_main)
+    gtest_discover_tests(selftest_log_test)
+    add_executable(legacy_cutlist_exports_test tests/output/legacy_cutlist_exports_test.cpp)
+    target_link_libraries(legacy_cutlist_exports_test PRIVATE legacy_cutlist_exports GTest::gtest_main)
+    gtest_discover_tests(legacy_cutlist_exports_test)
     add_executable(legacy_editor_exports_test tests/output/legacy_editor_exports_test.cpp)
     target_link_libraries(legacy_editor_exports_test PRIVATE legacy_editor_exports GTest::gtest_main)
     gtest_discover_tests(legacy_editor_exports_test)
@@ -316,16 +328,17 @@ if(COMSKIP_BUILD_APP)
         src/output/frame_script_adapter.cpp
         src/output/player_export_adapter.cpp
         src/output/legacy_editor_adapter.cpp
+        src/output/legacy_cutlist_adapter.cpp
         src/output/media_dump.cpp
         src/media/audio_analysis.cpp
         src/media/timing_diagnostics.cpp
         src/media/frame_timing.cpp
         src/media/decode_progress.cpp
         src/media/decoder_setup.cpp
-        src/media/mpeg2dec.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
+        src/media/video_decoder.cpp src/media/recording_input.cpp src/media/seeking.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
     target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip_core PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
-    target_link_libraries(comskip_core PUBLIC logo_geometry scene_sampling frame_mask reference_comparison input_text commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars frame_scripts player_exports legacy_editor_exports media_conversion caption_session ${FFMPEG_LIBRARIES}
+    target_link_libraries(comskip_core PUBLIC logo_geometry scene_sampling frame_mask reference_comparison input_text commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars frame_scripts player_exports legacy_editor_exports legacy_cutlist_exports selftest_log media_conversion caption_session ${FFMPEG_LIBRARIES}
         ${ARGTABLE_LIBRARY} Threads::Threads review_window platform_paths)
     add_executable(comskip src/app/main.cpp)
     target_link_libraries(comskip PRIVATE comskip_core)
@@ -351,6 +364,9 @@ if(COMSKIP_BUILD_APP)
         add_executable(saved_logo_test tests/detection/saved_logo_test.cpp)
         target_link_libraries(saved_logo_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(saved_logo_test)
+        add_executable(legacy_cutlist_adapter_test tests/output/legacy_cutlist_adapter_test.cpp)
+        target_link_libraries(legacy_cutlist_adapter_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(legacy_cutlist_adapter_test)
         add_executable(legacy_editor_adapter_test tests/output/legacy_editor_adapter_test.cpp)
         target_link_libraries(legacy_editor_adapter_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(legacy_editor_adapter_test)

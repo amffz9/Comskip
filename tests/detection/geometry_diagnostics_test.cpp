@@ -10,6 +10,8 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include <memory>
+void EdgeDetect(RecordingContext&,unsigned char*,int);
+void Add_XDS_block(RecordingContext&);
 namespace {
 using namespace comskip::detection;
 using namespace comskip::diagnostics;
@@ -88,4 +90,22 @@ TEST(GeometryDiagnostics, EveryActualProducerRejectsNegativeIndexBeforeGrowthOrI
 TEST(GeometryDiagnostics, ReferenceComparisonUsesLocalizedValidation) {
     failure<std::invalid_argument>([]{compare_reference_intervals({}, {},-1);},
         Code::negative_reference_comparison_tolerance,"Negative reference comparison tolerance","comparación de referencia negativa");
+}
+TEST(GeometryDiagnostics, ActualLogoNullPixelsRejectBeforeWritingEdgeState) {
+    auto context=std::make_unique<RecordingContext>();
+    context->state.width=context->state.videowidth=160; context->state.height=120;
+    context->settings.edge_radius=2; context->settings.edge_step=1; context->settings.border=0;
+    context->state.ensure_pixel_buffers(true); context->state.hor_edgecount[0]=17;
+    failure<std::invalid_argument>([&]{EdgeDetect(*context,nullptr,0);},
+        Code::logo_edge_detection_requires_image_pixels,"Logo edge detection requires image pixels","bordes del logotipo requiere píxeles");
+    EXPECT_EQ(context->state.hor_edgecount[0],17);
+}
+TEST(GeometryDiagnostics, ActualXdsIndexRejectsBeforeAddingObservation) {
+    auto context=std::make_unique<RecordingContext>();
+    context->state.frame.resize(1); context->state.frame[0].xds=17;
+    context->state.XDS_block.resize(1); context->state.XDS_block_count=-1;
+    failure<std::out_of_range>([&]{Add_XDS_block(*context);},
+        Code::invalid_xds_block_index,"Invalid XDS block index","Índice de bloque XDS no válido");
+    EXPECT_EQ(context->state.frame[0].xds,17); EXPECT_EQ(context->state.XDS_block_count,-1);
+    EXPECT_EQ(context->state.XDS_block.size(),1u);
 }

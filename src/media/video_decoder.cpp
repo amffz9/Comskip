@@ -1,3 +1,4 @@
+#include "output/selftest_log.h"
 #include "recording_context.h"
 #include "media/decoder.h"
 #include "media/audio_analysis.h"
@@ -37,15 +38,14 @@ using namespace comskip::media;
 #include <algorithm>
 #include <limits>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
+#include <format>
 #include "checked_format.h"
 #include "frame_conversion.h"
 #include "video_timestamp.h"
 
 #define SELFTEST
-
-
-
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -59,11 +59,6 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-
-
-
-
-
 int convert_frame_to_8bit_owned(AVFrame* frame, ScalerPtr& context) {
     auto* raw_context = context.release();
     const int result = comskip::media::convert_frame_to_8bit(frame, raw_context);
@@ -71,37 +66,7 @@ int convert_frame_to_8bit_owned(AVFrame* frame, ScalerPtr& context) {
     return result;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // int width, height;
-
-
-
-
-
-
-
-
-
-
 
 //#include "mpeg2convert.h"
 #include "comskip.h"
@@ -111,51 +76,7 @@ using namespace comskip::media;
 #include <algorithm>
 #include <limits>
 
-
-
-
-void InitComSkip(RecordingContext& context);
-void BuildCommListAsYouGo(RecordingContext& context);
-bool ReviewResult(RecordingContext& context);
-int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet);
-
-
-
-
-
-
-
-
-
-
  //AC3
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //int bitrate;
 
@@ -171,56 +92,13 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 //extern int  _fseeki64(FILE *, int64_t, int);
 //extern int64_t _ftelli64(FILE *);
 
-
-
-
-
-
-
 //test
 
-
-
-
-
-
-
-
-
-
-
-
 //extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
-extern void set_fps(RecordingContext& context, double frame_delay);
-extern void	Debug(RecordingContext& context, int level, const char * fmt, ...);
-int DetectCommercials(RecordingContext& context, int, double);
-bool BuildMasterCommList(RecordingContext& context);
-FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator);
-void ProcessCCData(RecordingContext& context);
-
-
-
-
-
-
-
 
 #define ISSAME(T1,T2) (fabs((T1) - (T2)) < 0.001)
 
 //extern double fps;
-
-extern double get_fps(RecordingContext& context);
-extern void set_frame_volume(RecordingContext& context, uint32_t framenr, int volume);
-
-extern double get_frame_pts(RecordingContext& context, int f);
-
-
-
-
-
-
-
-
 
 void list_codecs(const comskip::localization::Translator& translator)
 {
@@ -245,7 +123,6 @@ void list_codecs(const comskip::localization::Translator& translator)
         }
         printf("\n");
 }
-
 
 int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame         *pFrame , double pts)
 {
@@ -304,9 +181,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     {
         if (context.state.test_pts != pts)
         {
-               context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                fprintf(context.state.sample_file.get(), "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.video_owner->filename.c_str());
-                context.state.sample_file.reset();
+                comskip::output::write_selftest_log(context.settings.selftest_log_file, "Reset file Failed, initial pts = {:6.3f}, seek pts = {:6.3f}, pass = {}, \"{}\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.video_owner->filename.c_str());
                 Debug(context,  1,"\nSelftest %d FAILED: Reset\n", context.state.selftest);
         }
         else
@@ -339,216 +214,6 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     return (res);
 }
 
-void Set_seek(RecordingContext& context, VideoState *is, double pts)
-{
-    AVFormatContext *ic = is->pFormatCtx.get();
-
-    double length = is->duration;
-
-    is->seek_flags = AVSEEK_FLAG_ANY;
-    is->seek_flags = AVSEEK_FLAG_BACKWARD;
-    is->seek_req = true;
-    is->seek_pts = pts;
-#ifdef DEBUG
-    fputs(context.translator.format("media_seek_target", std::format("{:8.2f}", pts)).c_str(), stdout);
-#endif // DEBUG
-
-#define MAX_GOP_SIZE 2.0
-    pts = fmax(0.0,pts-MAX_GOP_SIZE);
-
-    if (is->seek_by_bytes)
-    {
-//                            pos = avio_tell(is->pFormatCtx->pb);
-      uint64_t size =  avio_size(ic->pb);
-        if (length < 0) {
-            is->seek_pos = size*fmax(0,pts-4.0)/(context.state.frame_count * get_fps(context));
-//            Debug(0,"Impossible to reposition this file, aborting\n");
-  //          comskip::request_exit(-1);
-        } else {
-            is->seek_pos = size*fmax(0,pts-4.0)/length;
-        }
-        is->seek_flags |= AVSEEK_FLAG_BYTE;
-    } else {
-        pts = fmax(0,pts+context.state.initial_pts);
-        is->seek_pos = pts / av_q2d(is->video_st->time_base);
-        if (is->video_st->start_time != AV_NOPTS_VALUE)
-        {
-            is->seek_pos += is->video_st->start_time;
-        }
-    }
-}
-
-void DoSeekRequest(RecordingContext& context, VideoState *is)
-{
-    int ret;
-again:
-//           ret = avformat_seek_file(is->pFormatCtx.get(), is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
-    ret = av_seek_frame(is->pFormatCtx.get(), is->videoStream,  is->seek_pos,  is->seek_flags);
-//            ret = av_seek_frame(is->pFormatCtx.get(), -1,  is->seek_pos,  is->seek_flags);
-    context.state.pev_best_effort_timestamp = 0;
-    context.state.best_effort_timestamp = 0;
-    is->video_clock = 0.0;
-    is->audio_clock = 0.0;
-    if(ret < 0)
-    {
-        const char *error_text;
-#if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
-    LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
-        error_text = "Generic";
-#else
-        if (is->pFormatCtx->iformat->read_seek)
-        {
-            error_text = "Format specific";
-        }
-        else if(is->pFormatCtx->iformat->read_timestamp)
-        {
-            error_text = "Frame binary";
-        }
-        else
-        {
-            error_text = "Generic";
-        }
-#endif
-
-        fputs(context.translator.format("media_seek_error", error_text,
-              std::format("{:6.3f}", is->seek_pts), is->pFormatCtx->url).c_str(), stderr);
-
-        if (context.state.selftest)
-        {
-            context.state.sample_file.reset(fopen("seektest.log", "a+"));
-            fprintf(context.state.sample_file.get(), "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
-            context.state.sample_file.reset();
-        }
-
-        if (!is->seek_by_bytes)
-        {
-            is->seek_by_bytes = 1; // Fall back to byte seek
-            Set_seek(context, is, is->seek_pts);
-            goto again;
-        }
-    }
-    if (!is->seek_no_flush)
-    {
-        if(is->audioStream >= 0)
-        {
-            avcodec_flush_buffers(is->audio_ctx.get());
-        }
-        if(is->videoStream >= 0)
-        {
-            avcodec_flush_buffers(is->dec_ctx.get());
-        }
-    }
-    is->seek_no_flush = 0;
-}
-
-void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
-{
-    VideoState *is = context.state.video_owner.get();
-    auto packet_owner = make_packet();
-    AVPacket *packet = packet_owner.get();
-//    int ret;
-
-//    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
-
-    file_open(context);
-    is = context.state.video_owner.get();
-
-    context.state.reviewing = 1;
-    Set_seek(context, is, pts);
-
-    context.state.pev_best_effort_timestamp = 0;
-    context.state.best_effort_timestamp = 0;
-    context.state.pts_offset = 0.0;
-
-//     Debug ( 5,  "Seek to %f\n", pts);
-    context.state.frame_ptr = NULL;
-
-    for(;;)
-    {
-        if(is->quit)
-        {
-            break;
-        }
-        // seek stuff goes here
-        if(is->seek_req)
-        {
-again:      DoSeekRequest(context, is);
-        }
-nextpacket:
-        if(av_read_frame(is->pFormatCtx.get(), packet) < 0)
-        {
-            break;
-        }
-        if (is->seek_req) {
-                double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
-            if (packet->pts==AV_NOPTS_VALUE) {
-                av_packet_unref(packet);
-                goto nextpacket;
-            }
-            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
-                is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 1.1;
-                is->seek_req++;
-                goto again;
-            }
-            is->seek_req = 0;
-        }
-        is->seek_req = 0;
-
-        if(packet->stream_index == is->videoStream)
-        {
-/*
-            if (packet->pts != AV_NOPTS_VALUE)
-                comp_pts = packet->pts;
-            pack_pts = comp_pts; // av_rescale_q(comp_pts, is->video_st->time_base, AV_TIME_BASE_Q);
-            pack_duration = packet->duration; //av_rescale_q(packet->duration, is->video_st->time_base, AV_TIME_BASE_Q);
-            comp_pts += packet->duration;
- */
- //           pass = 0;
-            context.state.retries = 1; // once a frame has been decoded this will be set to zero
-            if (video_packet_process(context, is, packet) )
-            {
-
-                if (context.state.retries == 0) // A frame has been decoded so stop reading packets.
-                {
-#ifdef DEBUG
-    fputs(context.translator.format("media_seek_landed", std::format("{:8.2f}", is->video_clock)).c_str(), stdout);
-#endif // DEBUG
-
-                    av_packet_unref(packet);
-                    break;
-                }
-/*
-                double frame_delay = av_q2d(is->dec_ctxpar->time_base)* is->dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
-                if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
-                if (is->video_clock + (pack_duration * av_q2d(is->video_st->time_base)) >= is->seek_pts)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
- */
-            }
-        }
-        else if(packet->stream_index == is->audioStream)
-        {
-            // audio_packet_process(is, packet);
-        }
-        else
-        {
-            // Do nothing
-        }
-        av_packet_unref(packet);
-    }
-    context.state.reviewing = 0;
-}
-
-
-
-
-
 int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet)
 {
     double frame_delay;
@@ -557,15 +222,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
     double pts;
 //    double dts;
     double real_pts;
-
-
-
-
-
-
-
-
-
 
 //static double prev_frame_delay = 0.0;
 
@@ -670,7 +326,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 //        dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
 
-
         calculated_delay = real_pts - context.state.video_packet_process_prev_real_pts;
 
         if (context.state.framenum < 500)
@@ -747,7 +402,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
             Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->ticks_per_frame, is->ticks_per_frame, repeat, real_pts,calculated_delay);
 #endif // SHOW_VIDEO_TIMING
 
-
         context.state.pts_offset *= 0.9;
         if (!context.state.reviewing && context.settings.timeline_repair) {
             if (context.state.framenum > 1 && fabs(calculated_delay - context.state.pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
@@ -798,10 +452,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
         }
         is->video_clock_submitted = is->video_clock;
 
-
-
-
-
         if (context.state.retries == 0)
         {
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
@@ -812,15 +462,13 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                 {
                    if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
                    {
-                    context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                    fprintf(context.state.sample_file.get(), "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                    comskip::output::write_selftest_log(context.settings.selftest_log_file, "Seek error: target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}, \"{}\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
-                    context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
                    }
                     else
@@ -852,15 +500,13 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                 {
                     if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
                     {
-                        context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                        fprintf(context.state.sample_file.get(), "Reopen error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        comskip::output::write_selftest_log(context.settings.selftest_log_file, "Reopen error: target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}, \"{}\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
-                        context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest 3 FAILED: Reopen\n");
                     }
                     else
@@ -878,15 +524,13 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                         std::format("{:6.2f}", is->video_clock)).c_str());
                     if (context.state.selftest == 1 || context.state.selftest == 3)
                     {
-                        context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                        fprintf(context.state.sample_file.get(), "Seek error : target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        comskip::output::write_selftest_log(context.settings.selftest_log_file, "Seek error : target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}, \"{}\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
-                        context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                         comskip::request_exit(1);
                     }
@@ -927,210 +571,4 @@ quit:
     return 0;
 }
 
-
 //extern int dxva2_init(AVCodecContext *s);
-
-
-void file_open(RecordingContext& context)
-{
-    VideoState *is;
-    int subtitle_index= -1, audio_index= -1, video_index = -1;
-    int openretries = 0;
-
-    if (context.state.video_owner.get() == NULL)
-    {
-        context.state.video_owner = std::make_unique<VideoState>();
-        is = context.state.video_owner.get();
-        // Register all formats and codecs
-        context.state.av_log_level=AV_LOG_INFO;
-
-
-        av_log_set_flags(AV_LOG_SKIP_REPEATED);
-
-        is->videoStream=-1;
-        is->audioStream=-1;
-        is->subtitleStream = -1;
-        is->pFormatCtx.reset();
-
-//        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
-        if (!context.settings.hardware_decode) {
-//            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-            av_dict_set_int(std::inout_ptr(context.state.myoptions), "gray", 1, 0);
-        }
-#ifdef DONATOR
-//        if (thread_count == 1)
-                av_dict_set_int(std::inout_ptr(context.state.myoptions), "threads", context.settings.thread_count, 0);
-//        else
-//            av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
-//           codecCtx->thread_count= thread_count;
-#else
-            av_dict_set_int(std::inout_ptr(context.state.myoptions), "threads", 1, 0);
-//            codecCtx->thread_count= 1;
-#endif
-        av_dict_set_int(std::inout_ptr(context.state.myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
-
-
-    }
-    else
-        is = context.state.video_owner.get();
-    // Open video file
-    if ( is->pFormatCtx.get() == NULL)
-    {
-        is->filename = context.state.mpegfilename;
-        is->pFormatCtx.reset(avformat_alloc_context());
-        if (!is->pFormatCtx) throw std::bad_alloc();
-        is->pFormatCtx->max_analyze_duration *= 4;
-//        pFormatCtx->probesize = 400000;
-again:
-        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), NULL,std::inout_ptr(context.state.myoptions))!=0)
-        {
-            fputs(context.translator.format("media_open_failed", is->filename.c_str()).c_str(), stderr);
-            if (openretries++ < context.settings.live_tv_retries)
-            {
-                sleep_for_ms(1000L);
-                goto again;
-            }
-            comskip::request_exit(-1);
-
-        }
-        is->seek_by_bytes = !!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is->pFormatCtx->iformat->name);
-// #if def _DEBUG
-//        if (is->duration < 5*60 && retries++ < live_tv_retries)
-//        {
-//            sleep_for_ms(4000L);
-//            goto again;
-//        }
-// #en dif
-//     is->pFormatCtx->max_analyze_duration = 320000000;
-//    is->pFormatCtx->thread_count= 2;
-
-        // Retrieve stream information
-        if(avformat_find_stream_info(is->pFormatCtx.get(), 0L )<0)
-        {
-            fputs(context.translator.format("media_stream_info_failed", is->filename.c_str()).c_str(), stderr);
-            comskip::request_exit(-1);
-        }
-        // Dump information about file onto standard error
-        if (context.state.retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename.c_str(), 0);
-    }
-
-    if (!is->frame.get()) {
-        if (!(is->frame = make_frame()))
-            comskip::request_exit(-1);
-    }
-
-    if ( is->videoStream == -1)
-    {
-        video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-        if(video_index >= 0)
-        {
-            stream_component_open(context, is, video_index);
-        }
-        if(is->videoStream < 0)
-        {
-            Debug(context, 0, "%s", context.translator.text("media_video_codec_log_failed"));
-            fputs(context.translator.format("media_video_codec_failed", is->filename.c_str()).c_str(), stderr);
-            comskip::request_exit(-1);
-        }
-
-        if ( is->video_st->duration == AV_NOPTS_VALUE ||  is->video_st->duration < 0)
-            is->duration =  ((float)is->pFormatCtx->duration) / AV_TIME_BASE;
-        else
-            is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
-
-        if (is->duration < 0 && (context.settings.live_tv_retries > 0)) {
-           Debug(context, 0, "%s", context.translator.text("media_duration_warning"));
-        }
-
-
-        /* Calc FPS */
-        if(is->video_st->r_frame_rate.den && is->video_st->r_frame_rate.num)
-        {
-            is->fps = av_q2d(is->video_st->r_frame_rate);
-        }
-        else
-        {
-            Debug(context, 10, "Warning, no stream frame rate, deriving from codec\n");
-            is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame );
-        }
-        set_fps(context,  1.0 / is->fps);
-//        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
-
-
-    }
-
-    if (is->audioStream== -1 && video_index>=0)
-    {
-
-        audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, NULL, 0);
-        if(audio_index >= 0)
-        {
-            stream_component_open(context, is, audio_index);
-            if (is->audio_st)
-                context.state.audio_channels = is->audio_st->codecpar->ch_layout.nb_channels;
-
-            if (is->audioStream < 0)
-            {
-                Debug(context, 1, "%s", context.translator.text("media_audio_decoder_warning"));
-            }
-        }
-
-    }
-
-    if (is->subtitleStream == -1 && video_index>=0)
-    {
-        subtitle_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, NULL, 0);
-        if(subtitle_index >= 0)
-        {
-            is->subtitleStream = subtitle_index;
-            is->subtitle_st = is->pFormatCtx->streams[subtitle_index];
-            if (context.captions && !context.state.reviewing)
-                context.captions->select_stream(*is->subtitle_st->codecpar, is->subtitle_st->time_base);
-            if (context.state.demux_pid)
-                context.state.selected_subtitle_pid = is->subtitle_st->id;
-        }
-
-    }
-    context.state.av_log_level=AV_LOG_ERROR;
-
-
-                    is->seek_req = 0;
-//                    framenum = 0;
-                    context.state.pts_offset = 0.0;
-                    is->video_clock = 0.0;
-                    is->audio_clock = 0.0;
-//                    sound_frame_counter = 0;
-//                    initial_pts = 0.0;
-//                    initial_pts_set = 0;
-//                    initial_apts_set = 0;
-                    context.state.initial_apts = 0;
-                    context.state.apts_offset = 0.0;
-                    context.state.base_apts = 0.0;
-                    context.state.top_apts = 0.0;
-                    context.state.apts = 0.0;
-                    context.state.audio_buffer_ptr = context.state.audio_buffer;
-                    context.state.audio_samples = 0;
-//                    close_data();
-#ifdef PROCESS_CC
-#endif
-
-}
-
-
-
-void file_close(RecordingContext& context) {
-    if (!context.state.video_owner) return;
-    auto& video = *context.state.video_owner;
-    video.dec_ctx.reset();
-    video.audio_ctx.reset();
-    video.subtitle_ctx.reset();
-    video.videoStream = video.audioStream = video.subtitleStream = -1;
-    // Borrowed stream references cannot outlive the input that owns them.
-    video.video_st = video.audio_st = video.subtitle_st = nullptr;
-    video.pFormatCtx.reset();
-    video.frame.reset();
-    video.pFrame.reset();
-    video.img_convert_ctx.reset();
-    context.state.ac3_packet_index = 0;
-    context.state.ac3_package_misalignment_count = 0;
-}

@@ -845,6 +845,40 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Verification needed:** Both FFmpeg 6 and 8 must reject the real frame with
   the correct typed stage, owned detail and English/Spanish rendering.
 
+### B072: Self-test error logging writes through unchecked file handles
+
+- **Evidence:** Seven decoder/application error paths opened `seektest.log`
+  and immediately passed the returned handle to fprintf without checking open.
+- **Impact:** An inaccessible log destination can cause a null FILE write while
+  reporting a seek/reopen error. Failed writes and closes were also ignored.
+- **Status:** Fixed with a checked owned append writer and configurable committed
+  destination. Three focused regressions pass within all 413 Windows headless
+  and 421 SDL tests.
+- **Verification needed:** Failed creation must produce an owned localized path
+  diagnostic, complete append records must survive, and every handle must close.
+
+### B073: MLS review header counts the normal commercial list
+
+- **Evidence:** Legacy MLS review output used `state.commercial_count` for its
+  Count header while serializing the selected reference intervals.
+- **Impact:** Review exports with different list sizes advertise the wrong
+  number of entries.
+- **Status:** Fixed in the finalized adapter. Exact normal/review regressions
+  pass within all 413 Windows headless and 421 SDL tests.
+- **Verification needed:** Different normal/reference sizes must produce a
+  correct header, matching entries and unchanged independent output formats.
+
+### B074: Womble final commercial interval is serialized as retained show
+
+- **Evidence:** Legacy Womble handling marks an interval ending at the recording
+  tail as `last`, then writes the span from the previous boundary to its end as
+  a show clip. The finalized adapter preserves this existing tail policy.
+- **Impact:** An all-commercial recording, or a commercial interval reaching
+  EOF, can be labeled as retained show instead of commercial content.
+- **Status:** Source-confirmed semantic defect; correction and regression pending.
+- **Verification needed:** All-commercial and trailing-commercial recordings
+  must retain only show spans, with correct Womble clip labels and boundaries.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
