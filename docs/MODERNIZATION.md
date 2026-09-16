@@ -376,7 +376,7 @@ than redefine completion around whichever subset currently passes tests.
   Numeric values are formatted at their call sites before insertion into plain
   catalog fields, preserving the legacy decimal widths without a printf-format
   translation layer. The reproducible inventory in
-  `bin/human-message-inventory.md` now reports **189** remaining literal call
+  `bin/human-message-inventory.md` now reports **237** remaining literal call
   sites, down from 337; the six entries still attributed to `scoring.cpp` are
   disabled `#if 0` branches retained by the inventory's documented policy.
   Safe C++23 seek arithmetic and the corrected Womble EOF classification add
@@ -384,10 +384,9 @@ than redefine completion around whichever subset currently passes tests.
   **428/428** SDL tests; the public-speed non-donator application also builds.
   Other human-facing messages and Linux verification of this stage remain.
 
-- Caption dictionary-processing and XDS diagnostics now use the English and
-  Spanish catalogs with call-site numeric and hexadecimal formatting. The
-  reproducible literal-message inventory is down to **189** sites. All active
-  caption diagnostics are catalog-backed; five finalized output adapters share one
+- Caption dictionary-processing diagnostics now use the English and Spanish
+  catalogs with call-site numeric formatting. The reproducible literal-message
+  inventory is down to **227** sites. Five finalized output adapters share one
   standard-library exact-byte writer; open and close/write failures propagate as
   owned `output_open`/`output_write` diagnostics instead of terminating inside
   the adapter. The helper retries plain chapter creation with `std::chrono` and
@@ -430,6 +429,18 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-caption-localization-build23{,-gui}-test.txt` and
   `bin/windows-caption-localization-public-build.txt`. Linux verification of
   this snapshot remains separate.
+
+- Logo detection and caption-summary diagnostics now use the English and
+  Spanish catalogs with numeric widths, percentages and durations formatted at
+  their call sites. Empty caption summaries, failed logo-block lookups and both
+  one-past-end logo transitions are handled before indexing or division. The
+  reproducible literal-message inventory is down to **155** active sites.
+  Core cut-list and live output now use checked writes, flushes and closes with
+  owned open/write diagnostics. Windows passes **441/441** headless and
+  **449/449** SDL tests, and the public non-donator application builds. Logs are
+  `bin/windows-logo-output-build23{,-gui}-test.txt` and
+  `bin/windows-logo-output-public-build.txt`. Linux verification of this stage
+  remains pending.
 
 - Recording startup now reports owned path-and-FFmpeg diagnostics and unwinds
   partial demuxer, codec, frame and borrowed-stream state before rethrowing. A

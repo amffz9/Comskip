@@ -1043,3 +1043,50 @@ before calling FFmpeg seek APIs.
   decode progress.
 - **Status:** Open. Model positioning and self-test completion as explicit
   decoder outcomes before removing the unreachable branch.
+
+### B088: Core cut-list and live output ignored write and close failures
+
+- **Evidence:** Default cut lists, EDL/live files and live commercial-state
+  files used unchecked `fprintf`, `fflush` and deleter-driven close calls. Their
+  repeated open failures also terminated analysis inside the output layer.
+- **Impact:** A full or disconnected destination could silently receive a
+  truncated file, while embedded callers could not recover from open failure.
+- **Status:** Fixed for the core cut-list and live-output paths. They now use
+  owned `output_open`/`output_write` diagnostics, checked writes and explicit
+  checked flush/close while retaining the existing bounded open retry and the
+  optional live `.incommercial` open policy.
+- **Verification:** Focused read-only, successful-close and actual
+  missing-destination regressions pass in all 441 Windows headless and 449 SDL
+  tests. Linux verification remains pending.
+
+### B089: Logo report checked lookup failures after discarding them
+
+- **Evidence:** `PrintLogoFrameGroups` changed negative `FindBlock` results to
+  zero before testing whether either lookup failed, making both failure branches
+  unreachable and allowing an unrelated first block to supply timing data.
+- **Status:** Fixed. Lookup failure is now handled before any index is used.
+- **Verification:** The empty-block report path returns without indexing block
+  storage and passes in both complete Windows suites. Linux sanitizer
+  verification remains pending.
+
+### B090: Empty caption summaries indexed missing storage and divided by zero
+
+- **Evidence:** `PrintCCBlocks` always read `cc_block[0]` and divided caption
+  totals by `framesprocessed` and `fps`, including when those values were zero.
+- **Status:** Fixed. Empty storage produces a complete zero-block heading and
+  returns safely; percentage and duration calculations use zero when their
+  denominator is not positive.
+- **Verification:** The empty/zero-denominator regression passes in all 441
+  Windows headless and 449 SDL tests. Linux sanitizer verification remains
+  pending.
+
+### B091: Logo transition bounds accepted the one-past-end frame index
+
+- **Evidence:** Both logo disappearance and appearance checks rejected frame
+  indices greater than owned storage but accepted `frame.size()`, immediately
+  before loops that index that frame range.
+- **Status:** Fixed. Both transitions now reject indices greater than or equal
+  to the owned frame count.
+- **Verification:** A focused regression exercises both one-past-end transition
+  directions and passes in both complete Windows suites. Linux sanitizer
+  verification remains pending.

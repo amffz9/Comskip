@@ -1,4 +1,5 @@
 #include "output/output_file.h"
+#include "output/checked_file.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <filesystem>
@@ -44,4 +45,35 @@ TEST(OutputFile, MissingParentProducesOwnedOpenDiagnosticAfterOptionalRetry)
         ASSERT_EQ(error.diagnostic().arguments.size(), 1U);
         EXPECT_EQ(error.diagnostic().arguments.front(), filename);
     }
+}
+
+TEST(OutputFile, CheckedCFileReportsOwnedWriteFailureAndReleasesHandle)
+{
+    const auto path=temporary_directory();
+    { std::ofstream initial(path,std::ios::binary); initial << "original"; }
+    auto file=comskip::platform::own_file(std::fopen(path.string().c_str(),"rb"));
+    ASSERT_TRUE(file); ASSERT_EQ(std::setvbuf(file.get(),nullptr,_IONBF,0),0);
+    try {
+        comskip::output::checked_fprintf(*file,path.string(),"replacement\n");
+        FAIL() << "Expected an output-write diagnostic";
+    } catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::output_write);
+        ASSERT_EQ(error.diagnostic().arguments.size(),1u);
+        EXPECT_EQ(error.diagnostic().arguments.front(),path.string());
+    }
+    file.reset();
+    EXPECT_TRUE(std::filesystem::remove(path));
+}
+
+TEST(OutputFile, CheckedCloseConsumesOwnershipAndPreservesBytes)
+{
+    const auto path=temporary_directory();
+    auto file=comskip::platform::own_file(std::fopen(path.string().c_str(),"wb"));
+    ASSERT_TRUE(file);
+    comskip::output::checked_fprintf(*file,path.string(),"complete\n");
+    EXPECT_NO_THROW(comskip::output::checked_close(file,path.string()));
+    EXPECT_FALSE(file);
+    std::ifstream input(path,std::ios::binary);
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>{input},{}),"complete\n");
+    input.close(); EXPECT_TRUE(std::filesystem::remove(path));
 }

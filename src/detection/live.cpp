@@ -1,8 +1,8 @@
 #include "../localization/diagnostic.h"
-#include "exit_requested.h"
 #include "checked_format.h"
 #include "legacy_detection.h"
 #include "output/live_xml.h"
+#include "output/checked_file.h"
 #include "logo_shrink.h"
 #include <filesystem>
 #include <fstream>
@@ -231,8 +231,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
                     if (!context.state.out_file.get())
                     {
-                        Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename.c_str());
-                        comskip::request_exit(103);
+                        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{context.state.out_filename});
                     }
                 }
 //				fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %4i\n-------------------\n",frame_count-1, (int)(fps*100));
@@ -247,8 +246,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     context.state.edl_file.reset(myfopen(filename.c_str(), "wb"));
                     if (!context.state.edl_file.get())
                     {
-                        Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", filename).c_str());
-                        comskip::request_exit(103);
+                        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{filename});
                     }
                 }
             }
@@ -262,8 +260,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     context.state.live_file.reset(myfopen(filename.c_str(), "wb"));
                     if (!context.state.live_file.get())
                     {
-                        Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", filename).c_str());
-                        comskip::request_exit(103);
+                        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{filename});
                     }
                 }
             }
@@ -332,24 +329,21 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     }
 
                     if (context.state.out_file.get())
-                        fprintf(context.state.out_file.get(), "%li\t%li\n", candidates[i].start + context.settings.padding, candidates[i].end - context.settings.padding);
+                        comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", candidates[i].start + context.settings.padding, candidates[i].end - context.settings.padding);
                     if (context.state.edl_file.get())
-                        fprintf(context.state.edl_file.get(), "%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                        comskip::output::checked_fprintf(*context.state.edl_file,std::string(context.state.outbasename)+".edl","%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.state.live_file.get())
-                        fprintf(context.state.live_file.get(), "%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                        comskip::output::checked_fprintf(*context.state.live_file,std::string(context.state.outbasename)+".live","%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.settings.output_dvrmstb)
                         dvrmstb_intervals.push_back({candidates[i].start, candidates[i].end});
                 }
             }
-            if (context.state.out_file.get()) fflush(context.state.out_file.get());
-            if (context.state.out_file.get()) context.state.out_file.reset();
-            context.state.out_file.reset();
-            if (context.state.edl_file.get()) fflush(context.state.edl_file.get());
-            if (context.state.edl_file.get()) context.state.edl_file.reset();
-            context.state.edl_file.reset();
-            if (context.state.live_file.get()) fflush(context.state.live_file.get());
-            if (context.state.live_file.get()) context.state.live_file.reset();
-            context.state.live_file.reset();
+            if (context.state.out_file) comskip::output::checked_flush(*context.state.out_file,context.state.out_filename);
+            comskip::output::checked_close(context.state.out_file,context.state.out_filename);
+            if (context.state.edl_file) comskip::output::checked_flush(*context.state.edl_file,std::string(context.state.outbasename)+".edl");
+            comskip::output::checked_close(context.state.edl_file,std::string(context.state.outbasename)+".edl");
+            if (context.state.live_file) comskip::output::checked_flush(*context.state.live_file,std::string(context.state.outbasename)+".live");
+            comskip::output::checked_close(context.state.live_file,std::string(context.state.outbasename)+".live");
             if (context.settings.output_dvrmstb) {
                 std::ostringstream serialized;
                 comskip::output::write_live_dvrmstb(serialized, dvrmstb_intervals,
@@ -380,10 +374,10 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     goto skipit;
                 }
                 if(context.state.commercial_count >= 0 && context.state.commercial.back().end_frame > context.state.framenum_real - context.settings.incommercial_frames)
-                    fprintf(context.state.incommercial_file.get(), "1\n");
+                    comskip::output::checked_fprintf(*context.state.incommercial_file,filename,"1\n");
                 else
-                    fprintf(context.state.incommercial_file.get(), "0\n");
-                context.state.incommercial_file.reset();
+                    comskip::output::checked_fprintf(*context.state.incommercial_file,filename,"0\n");
+                comskip::output::checked_close(context.state.incommercial_file,filename);
 skipit:
                 ;
             }

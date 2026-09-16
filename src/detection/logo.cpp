@@ -7,7 +7,9 @@
 #include "logo_shrink.h"
 #include "saved_logo.h"
 #include "platform/file_resources.h"
+#include <format>
 #include <stdexcept>
+#include <utility>
 
 namespace {
 comskip::detection::LogoScanGeometry logo_scan(const RecordingContext& context) {
@@ -21,6 +23,21 @@ void require_logo_buffer(std::size_t available, const comskip::detection::LogoSc
     if (available < scan.storage_size)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_scan_requires_complete_geometry_sized_pixel_buffers);
 }
+template <typename... Args>
+void LogoDebug(RecordingContext& context, int level, const char* key, Args&&... args) {
+    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+}
+std::string logo_caption_type(RecordingContext& context, int type) {
+    if (!context.state.processCC) return {};
+    switch (type) {
+    case NONE: return context.translator.text("caption_type_none");
+    case ROLLUP: return context.translator.text("caption_type_rollup");
+    case PAINTON: return context.translator.text("caption_type_painton");
+    case POPON: return context.translator.text("caption_type_popon");
+    case COMMERCIAL: return context.translator.text("caption_type_commercial");
+    default: return std::format("{}", type);
+    }
+}
 }
 
 void PrintLogoFrameGroups(RecordingContext& context)
@@ -30,33 +47,28 @@ void PrintLogoFrameGroups(RecordingContext& context)
     int		f,t;
     int		count = 0;
 
-    Debug(context, 2, "\nLogos detected on the following frames\n--------------------------------------\n");
+    LogoDebug(context, 2, "logo_detected_heading");
     count = 0;
     for (i = 0; i < context.state.logo_block_count; i++)
     {
         f = FindBlock(context, context.state.logo_block[i].start);
         t = FindBlock(context, context.state.logo_block[i].end-2);
-        if (f<0) f = 0;
-        if (t<0) t = 0;
         if (t < 0)
         {
-            Debug (context, 2, "Panic\n");
+            LogoDebug(context, 2, "logo_block_lookup_failed");
             break;
         }
         if (f < 0)
         {
-            Debug (context, 2, "Panic\n");
+            LogoDebug(context, 2, "logo_block_lookup_failed");
             break;
         }
-        Debug(context,
-            2,
-            "Logo start - %6i\tend - %6i\tlength - %s\tbefore:%.1f s\t after:%.1f s\n",
-            context.state.logo_block[i].start,
-            context.state.logo_block[i].end,
+        LogoDebug(context, 2, "logo_block_row",
+            std::format("{:6}", context.state.logo_block[i].start),
+            std::format("{:6}", context.state.logo_block[i].end),
             dblSecondsToStrMinutes(context, F2L(context.state.logo_block[i].end, context.state.logo_block[i].start)),
-            F2L(context.state.logo_block[i].start, context.state.cblock[f].f_start),
-            F2L(context.state.cblock[t].f_end, context.state.logo_block[i].end)
-        );
+            std::format("{:.1f}", F2L(context.state.logo_block[i].start, context.state.cblock[f].f_start)),
+            std::format("{:.1f}", F2L(context.state.cblock[t].f_end, context.state.logo_block[i].end)));
 
         count += context.state.logo_block[i].end - context.state.logo_block[i].start + 1;
 
@@ -104,17 +116,18 @@ void PrintLogoFrameGroups(RecordingContext& context)
 void PrintCCBlocks(RecordingContext& context)
 {
     int i, j;
-    Debug(context, 2, "Combining CC Blocks...\n");
+    const auto duration = [&](int end, int start) {
+        return context.settings.fps > 0 ? F2L(end, start) : 0.0;
+    };
+    LogoDebug(context, 2, "logo_combining_cc_blocks");
     for (i = context.state.cc_block_count - 1; i > 0; i--)
     {
-        if (F2L(context.state.cc_block[i].end_frame, context.state.cc_block[i].start_frame) < 1.0)
+        if (duration(context.state.cc_block[i].end_frame,
+                context.state.cc_block[i].start_frame) < 1.0)
         {
-            Debug(context,
-                4,
-                "Removing cc cblock %i because the length is %.2f.\n",
-                i,
-                F2L(context.state.cc_block[i].end_frame, context.state.cc_block[i].start_frame)
-            );
+            LogoDebug(context, 4, "logo_removing_cc_block", std::format("{}", i),
+                std::format("{:.2f}", duration(context.state.cc_block[i].end_frame,
+                    context.state.cc_block[i].start_frame)));
             for (j = i; j < context.state.cc_block_count - 1; j++)
             {
                 context.state.cc_block[j].start_frame = context.state.cc_block[j + 1].start_frame;
@@ -126,60 +139,46 @@ void PrintCCBlocks(RecordingContext& context)
         }
     }
 
-    Debug(context, 2, "CC's detected on the following frames - %i total blocks\n--------------------------------------\n", context.state.cc_block_count);
-    Debug(context,
-        2,
-        " 0 - CC start - %6i\tend - %6i\ttype - %s",
-        context.state.cc_block[0].start_frame,
-        context.state.cc_block[0].end_frame,
-        CCTypeToStr(context, context.state.cc_block[0].type)
-    );
-    Debug(context, 2, "\tlength - %s\n", dblSecondsToStrMinutes(context, F2L(context.state.cc_block[0].end_frame, context.state.cc_block[0].start_frame)));
+    LogoDebug(context, 2, "logo_cc_detected_heading", std::format("{}", context.state.cc_block_count));
+    if (context.state.cc_block.empty()) {
+        context.state.most_cc_type = NONE;
+        return;
+    }
+    LogoDebug(context, 2, "logo_cc_block_row", " 0",
+        std::format("{:6}", context.state.cc_block[0].start_frame),
+        std::format("{:6}", context.state.cc_block[0].end_frame),
+        logo_caption_type(context, context.state.cc_block[0].type));
+    LogoDebug(context, 2, "logo_cc_block_length",
+        dblSecondsToStrMinutes(context, duration(context.state.cc_block[0].end_frame,
+            context.state.cc_block[0].start_frame)));
     context.state.cc_count[context.state.cc_block[0].type] += context.state.cc_block[0].end_frame - context.state.cc_block[0].start_frame + 1;
 
     for (i = 1; i < context.state.cc_block_count; i++)
     {
-        Debug(context,
-            2,
-            "%2i - CC start - %6i\tend - %6i\ttype - %s",
-            i,
-            context.state.cc_block[i].start_frame,
-            context.state.cc_block[i].end_frame,
-            CCTypeToStr(context, context.state.cc_block[i].type)
-        );
-        Debug(context, 2, "\tlength - %s\n", dblSecondsToStrMinutes(context, F2L(context.state.cc_block[i].end_frame, context.state.cc_block[i].start_frame)));
+        LogoDebug(context, 2, "logo_cc_block_row", std::format("{:2}", i),
+            std::format("{:6}", context.state.cc_block[i].start_frame),
+            std::format("{:6}", context.state.cc_block[i].end_frame),
+            logo_caption_type(context, context.state.cc_block[i].type));
+        LogoDebug(context, 2, "logo_cc_block_length",
+            dblSecondsToStrMinutes(context, duration(context.state.cc_block[i].end_frame,
+                context.state.cc_block[i].start_frame)));
         context.state.cc_count[context.state.cc_block[i].type] += context.state.cc_block[i].end_frame - context.state.cc_block[i].start_frame + 1;
     }
 
-    Debug(context, 2, "\nCaption sums\n---------------------------\n");
-    Debug(context,
-        2,
-        "Pop on captions:   %6i:%5.2f - %s\n",
-        context.state.cc_count[POPON],
-        ((double)context.state.cc_count[POPON] / (double)context.state.framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(context, context.state.cc_count[POPON] / context.settings.fps)
-    );
-    Debug(context,
-        2,
-        "Roll up captions:  %6i:%5.2f - %s\n",
-        context.state.cc_count[ROLLUP],
-        ((double)context.state.cc_count[ROLLUP] / (double)context.state.framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(context, context.state.cc_count[ROLLUP] / context.settings.fps)
-    );
-    Debug(context,
-        2,
-        "Paint on captions: %6i:%5.2f - %s\n",
-        context.state.cc_count[PAINTON],
-        ((double)context.state.cc_count[PAINTON] / (double)context.state.framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(context, context.state.cc_count[PAINTON] / context.settings.fps)
-    );
-    Debug(context,
-        2,
-        "No captions:       %6i:%5.2f - %s\n",
-        context.state.cc_count[NONE],
-        ((double)context.state.cc_count[NONE] / (double)context.state.framesprocessed) * 100.0,
-        dblSecondsToStrMinutes(context, context.state.cc_count[NONE] / context.settings.fps)
-    );
+    LogoDebug(context, 2, "logo_caption_sums_heading");
+    const auto caption_sum = [&](const char* label, int type) {
+        const auto percentage = context.state.framesprocessed > 0
+            ? static_cast<double>(context.state.cc_count[type]) / context.state.framesprocessed * 100.0 : 0.0;
+        const auto seconds = context.settings.fps > 0
+            ? context.state.cc_count[type] / context.settings.fps : 0.0;
+        LogoDebug(context, 2, "logo_caption_sum", label,
+            std::format("{:6}", context.state.cc_count[type]), std::format("{:5.2f}", percentage),
+            dblSecondsToStrMinutes(context, seconds));
+    };
+    caption_sum(context.translator.text("logo_caption_popon"), POPON);
+    caption_sum(context.translator.text("logo_caption_rollup"), ROLLUP);
+    caption_sum(context.translator.text("logo_caption_painton"), PAINTON);
+    caption_sum(context.translator.text("logo_caption_none"), NONE);
     for (i = 0; i <= 4; i++)
     {
         if (context.state.cc_count[i] > context.state.cc_count[context.state.most_cc_type])
@@ -188,7 +187,8 @@ void PrintCCBlocks(RecordingContext& context)
         }
     }
 
-    Debug(context, 2, "The %s type of closed captions were determined to be the most common.\n", CCTypeToStr(context, context.state.most_cc_type));
+    LogoDebug(context, 2, "logo_caption_most_common",
+        logo_caption_type(context, context.state.most_cc_type));
 }
 
 /*
@@ -865,7 +865,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
         {
             // Logo disappeared
             if (context.state.framearray && (framenum_real < 0 ||
-                static_cast<std::size_t>(framenum_real) > context.state.frame.size()))
+                static_cast<std::size_t>(framenum_real) >= context.state.frame.size()))
                 throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::logo_closure_exceeds_owned_frame_storage);
             const auto closed = comskip::detection::close_logo_block(
                 context.state.logo_block[context.state.logo_block_count].start, framenum_real,
@@ -885,13 +885,10 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                     for (; i < framenum_real; i++)
                         context.state.frame[i].logo_present = false;
                 }
-                Debug
-                (context, 3,
-                 "\nEnd logo block %i\tframe %i\tLength - %s\n",
-                 context.state.logo_block_count,
-                 context.state.logo_block[context.state.logo_block_count].end,
-                 dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].end, context.state.logo_block[context.state.logo_block_count].start))
-                );
+                LogoDebug(context, 3, "logo_block_end", std::format("{}", context.state.logo_block_count),
+                    std::format("{}", context.state.logo_block[context.state.logo_block_count].end),
+                    dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].end,
+                        context.state.logo_block[context.state.logo_block_count].start)));
                 context.state.logo_block_count++;
                 InitializeLogoBlockArray(context,  context.state.logo_block_count);
             }
@@ -910,7 +907,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                     comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq),
                     context.state.minHitsForTrend, context.state.frames_with_logo);
                 if (context.state.framearray && (framenum_real < 0 ||
-                    static_cast<std::size_t>(framenum_real) > context.state.frame.size()))
+                    static_cast<std::size_t>(framenum_real) >= context.state.frame.size()))
                     throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::logo_appearance_exceeds_owned_frame_storage);
                 InitializeLogoBlockArray(context, context.state.logo_block_count + 2);
                 context.state.lastLogoTest = true;
@@ -925,22 +922,15 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                 }
                 if (!context.state.logo_block_count)
                 {
-                    Debug(context,
-                        3,
-                        "\t\t\t\tStart logo cblock %i\tframe %i\n",
-                        context.state.logo_block_count,
-                        context.state.logo_block[context.state.logo_block_count].start
-                    );
+                    LogoDebug(context, 3, "logo_block_start", std::format("{}", context.state.logo_block_count),
+                        std::format("{}", context.state.logo_block[context.state.logo_block_count].start));
                 }
                 else
                 {
-                    Debug(context,
-                        3,
-                        "\n\t\t\t\tNonlogo Length - %s\nStart logo cblock %i\tframe %i\n",
+                    LogoDebug(context, 3, "logo_block_start_after_gap",
                         dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].start, context.state.logo_block[context.state.logo_block_count - 1].end)),
-                        context.state.logo_block_count,
-                        context.state.logo_block[context.state.logo_block_count].start
-                    );
+                        std::format("{}", context.state.logo_block_count),
+                        std::format("{}", context.state.logo_block[context.state.logo_block_count].start));
                 }
             }
             else
@@ -1160,29 +1150,27 @@ bool SearchForLogoEdges(RecordingContext& context)
         logoPercentageOfScreen = (double)((context.state.tlogoMaxY - context.state.tlogoMinY) * (context.state.tlogoMaxX - context.state.tlogoMinX)) / (double)(context.state.height * context.state.width);
         if (i > 40000 || logoPercentageOfScreen > context.settings.logo_max_percentage_of_screen)
         {
-            Debug(context,
-                3,
-                "Edge count - %i\tPercentage of screen - %.2f%% TOO BIG, CAN'T BE A LOGO.\n",
-                i,
-                logoPercentageOfScreen * 100
-            );
+            LogoDebug(context, 3, "logo_edge_too_big", std::format("{}", i),
+                std::format("{:.2f}", logoPercentageOfScreen * 100));
 //			logoInfoAvailable = false;
         }
         else
         {
-            Debug(context, 3, "Edge count - %i\tPercentage of screen - %.2f%%, Check: %i\n", i, logoPercentageOfScreen * 100,context.state.doublCheckLogoCount);
+            LogoDebug(context, 3, "logo_edge_check", std::format("{}", i),
+                std::format("{:.2f}", logoPercentageOfScreen * 100),
+                std::format("{}", context.state.doublCheckLogoCount));
 //			logoInfoAvailable = true;
             logoFound = true;
         }
     }
     else
-        Debug(context, 3, "Not enough edge count - %i\n", i);
+        LogoDebug(context, 3, "logo_edge_not_enough", std::format("{}", i));
 
 
     if (logoFound)
     {
         context.state.doublCheckLogoCount++;
-        Debug(context, 3, "Double checking - %i\n", context.state.doublCheckLogoCount );
+        LogoDebug(context, 3, "logo_double_check", std::format("{}", context.state.doublCheckLogoCount));
 
         if (context.state.doublCheckLogoCount > 1)
         {
@@ -1206,7 +1194,9 @@ bool SearchForLogoEdges(RecordingContext& context)
     last_non_logo_frame = context.state.logoFrameNum[context.state.oldestLogoBuffer];
     if (logoFound)
     {
-        Debug(context, 3, "Doublechecking frames %i to %i for logo.\n", context.state.logoFrameNum[context.state.oldestLogoBuffer], context.state.logoFrameNum[context.state.newestLogoBuffer]);
+        LogoDebug(context, 3, "logo_double_check_frames",
+            std::format("{}", context.state.logoFrameNum[context.state.oldestLogoBuffer]),
+            std::format("{}", context.state.logoFrameNum[context.state.newestLogoBuffer]));
         for (i = 0; i < context.settings.num_logo_buffers; i++)
         {
             context.state.currentGoodEdge = DoubleCheckStationLogoEdge(context, context.state.logoFrameBuffer[i].data());
@@ -1229,7 +1219,7 @@ bool SearchForLogoEdges(RecordingContext& context)
             }
             else
             {
-                Debug(context, 7, "Logo not present in frame %i.\n", context.state.logoFrameNum[i]);
+                LogoDebug(context, 7, "logo_not_present", std::format("{}", context.state.logoFrameNum[i]));
             }
         }
     }
@@ -1295,9 +1285,11 @@ bool SearchForLogoEdges(RecordingContext& context)
 
     if (context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail)
     {
-        Debug(context, 3, "Logo found at frame %i\tlogoMinX=%i\tlogoMaxX=%i\tlogoMinY=%i\tlogoMaxY=%i\n", context.state.framenum_real, context.state.clogoMinX, context.state.clogoMaxX, context.state.clogoMinY, context.state.clogoMaxY);
+        LogoDebug(context, 3, "logo_found_bounds", std::format("{}", context.state.framenum_real),
+            std::format("{}", context.state.clogoMinX), std::format("{}", context.state.clogoMaxX),
+            std::format("{}", context.state.clogoMinY), std::format("{}", context.state.clogoMaxY));
         SaveLogoMaskData(context);
-        Debug(context, 3, "******************* End of Logo Processing ***************\n");
+        LogoDebug(context, 3, "logo_processing_end");
         return false;
     }
 
@@ -1435,19 +1427,19 @@ void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int directio
     switch (direction)
     {
     case HORIZ:
-        Debug(context, 1, "\nHorizontal Logo Mask \n     ");
+        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_horizontal"));
         break;
 
     case VERT:
-        Debug(context, 1, "\nVertical Logo Mask \n     ");
+        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_vertical"));
         break;
 
     case DIAG1:
-        Debug(context, 1, "\nDiagonal 1 Logo Mask \n     ");
+        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_diagonal_1"));
         break;
 
     case DIAG2:
-        Debug(context, 1, "\nDiagonal 2 Logo Mask \n     ");
+        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_diagonal_2"));
         break;
     }
 
@@ -1652,7 +1644,7 @@ void LoadLogoMaskData(RecordingContext& context)
         context.state.logoInfoAvailable = false;
         return;
     }
-    Debug(context, 1, "Using %s for logo data.\n", context.state.logofilename.c_str());
+    LogoDebug(context, 1, "logo_using_data", context.state.logofilename);
     auto loaded = comskip::detection::read_saved_logo(*logo_file,
         {context.state.width, context.state.height, context.state.clogoMinX, context.state.clogoMaxX,
          context.state.clogoMinY, context.state.clogoMaxY},
@@ -1735,5 +1727,6 @@ void LoadLogoMaskData(RecordingContext& context)
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                 comskip::diagnostics::Code::cannot_read_detection_output,{context.state.out_filename});
     }
-    Debug(context, 10, "The last frame found in %s was %i\n", context.state.out_filename.c_str(), context.state.lastFrame);
+    LogoDebug(context, 10, "logo_last_frame", context.state.out_filename,
+        std::format("{}", context.state.lastFrame));
 }

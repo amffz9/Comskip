@@ -1,5 +1,4 @@
 #include "platform/utf8_paths.h"
-#include "exit_requested.h"
 #include "cutlist_exports.h"
 #include "checked_format.h"
 #include "xml_output_adapter.h"
@@ -9,6 +8,7 @@
 #include "legacy_editor_adapter.h"
 #include "legacy_cutlist_adapter.h"
 #include "csv_field.h"
+#include "checked_file.h"
 #include "edl.h"
 #include <sstream>
 #include <vector>
@@ -16,7 +16,7 @@
 
 namespace {
 void append_edl_record(RecordingContext& context, FILE* destination, long start, long end,
-                       comskip::output::EdlVariant variant)
+                       comskip::output::EdlVariant variant, std::string_view path)
 {
     using namespace comskip::output;
     const OutputOptions options{context.settings.edl_offset, context.settings.edl_skip_field,
@@ -44,7 +44,8 @@ void append_edl_record(RecordingContext& context, FILE* destination, long start,
     write_edl(serialized, std::span{&interval, 1}, media, options);
     const auto text = serialized.str();
     if (fwrite(text.data(), 1, text.size(), destination) != text.size())
-        throw std::ios_base::failure("Failed writing commercial EDL output");
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_write,{std::string(path)});
 }
 }
 
@@ -61,12 +62,13 @@ void OpenOutputFiles(RecordingContext& context)
             context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
             if (!context.state.out_file.get())
             {
-                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename.c_str()).c_str());
-                comskip::request_exit(103);
+                throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+                    comskip::diagnostics::Code::output_open,{context.state.out_filename});
             }
         }
-        fprintf(context.state.out_file.get(), "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",F2F(context.state.frame_count-1), (int)(context.settings.fps*100));
-        context.state.out_file.reset();
+        comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,
+            "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",F2F(context.state.frame_count-1), (int)(context.settings.fps*100));
+        comskip::output::checked_close(context.state.out_file,context.state.out_filename);
     }
 
     if (context.settings.output_incommercial)
@@ -75,11 +77,11 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.incommercial_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.incommercial_file.get())
         {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
+            throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+                comskip::diagnostics::Code::output_open,{context.state.filename});
         }
-        fprintf(context.state.incommercial_file.get(), "0\n");
-        context.state.incommercial_file.reset();
+        comskip::output::checked_fprintf(*context.state.incommercial_file,context.state.filename,"0\n");
+        comskip::output::checked_close(context.state.incommercial_file,context.state.filename);
     }
 
 
@@ -91,13 +93,11 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.edl_file.reset(myfopen(context.state.filename.c_str(), "wb"));
         if (!context.state.edl_file.get())
         {
-            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
-            comskip::request_exit(6);
+            throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+                comskip::diagnostics::Code::output_open,{context.state.filename});
         }
     }
 }
-
-#define CLOSEOUTFILE(F) do { if (last) (F).reset(); } while (false)
 
 void OutputCommercialBlock(RecordingContext& context, int i, long prev, long start, long end, bool last)
 {
@@ -131,8 +131,8 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "a+"));
         if (context.state.out_file.get())
         {
-            fprintf(context.state.out_file.get(), "%li\t%li\n", F2F(context.settings.sage_framenumber_bug?s_start/2:s_start), F2F(context.settings.sage_framenumber_bug?s_end/2:s_end));
-            context.state.out_file.reset();
+            comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", F2F(context.settings.sage_framenumber_bug?s_start/2:s_start), F2F(context.settings.sage_framenumber_bug?s_end/2:s_end));
+            comskip::output::checked_close(context.state.out_file,context.state.out_filename);
         }
         else  		// If the file can't be opened for writting, wait half a second and try again
         {
@@ -140,13 +140,13 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
             context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "a+"));
             if (context.state.out_file.get())
             {
-                fprintf(context.state.out_file.get(), "%li\t%li\n", F2F(context.settings.sage_framenumber_bug?s_start/2:s_start), F2F(context.settings.sage_framenumber_bug?s_end/2:s_end));
-                context.state.out_file.reset();
+                comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", F2F(context.settings.sage_framenumber_bug?s_start/2:s_start), F2F(context.settings.sage_framenumber_bug?s_end/2:s_end));
+                comskip::output::checked_close(context.state.out_file,context.state.out_filename);
             }
             else  	// If the file still can't be opened for writting, give up and exit
             {
-                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename.c_str()).c_str());
-                comskip::request_exit(103);
+                throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+                    comskip::diagnostics::Code::output_open,{context.state.out_filename});
             }
         }
     }
@@ -154,21 +154,24 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 
     if (context.state.edl_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        append_edl_record(context, context.state.edl_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard);
+        append_edl_record(context, context.state.edl_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard,
+                          std::string(context.state.outbasename)+".edl");
     }
-    CLOSEOUTFILE(context.state.edl_file);
+    if (last) comskip::output::checked_close(context.state.edl_file,std::string(context.state.outbasename)+".edl");
 
     if (context.state.live_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        append_edl_record(context, context.state.live_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard);
+        append_edl_record(context, context.state.live_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard,
+                          std::string(context.state.outbasename)+".live");
     }
-    CLOSEOUTFILE(context.state.live_file);
+    if (last) comskip::output::checked_close(context.state.live_file,std::string(context.state.outbasename)+".live");
 
     if (context.state.edlp_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        append_edl_record(context, context.state.edlp_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::plus);
+        append_edl_record(context, context.state.edlp_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::plus,
+                          std::string(context.state.outbasename)+".edlp");
     }
-    CLOSEOUTFILE(context.state.edlp_file);
+    if (last) comskip::output::checked_close(context.state.edlp_file,std::string(context.state.outbasename)+".edlp");
 
 }
 

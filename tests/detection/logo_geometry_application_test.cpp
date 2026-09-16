@@ -9,6 +9,8 @@
 void EdgeDetect(RecordingContext&,unsigned char*,int);
 bool ProcessLogoTest(RecordingContext&,int,int,int);
 double CheckStationLogoEdge(RecordingContext&,unsigned char*);
+void PrintCCBlocks(RecordingContext&);
+void PrintLogoFrameGroups(RecordingContext&);
 namespace {
 std::unique_ptr<RecordingContext> logo_context() {
     auto context=std::make_unique<RecordingContext>();
@@ -69,5 +71,36 @@ TEST(LogoGeometryApplication, PersistedBoundsAreClippedBeforeNeighbourReads) {
     std::ranges::fill(context->state.cvert_edgemask,1);
     EXPECT_NO_THROW(CheckStationLogoEdge(*context,pixels.data()));
     EXPECT_EQ(context->state.currentGoodEdge,0);
+}
+TEST(LogoGeometryApplication, EmptyCaptionAndLogoReportsAreSafe) {
+    auto context=logo_context();
+    context->state.cc_block.clear();
+    context->state.cc_block_count=0;
+    context->state.framesprocessed=0;
+    context->settings.fps=0;
+    EXPECT_NO_THROW(PrintCCBlocks(*context));
+    EXPECT_EQ(context->state.most_cc_type,NONE);
+    context->state.cc_block.resize(1);
+    context->state.cc_block[0].start_frame=0;
+    context->state.cc_block[0].end_frame=10;
+    context->state.cc_block[0].type=NONE;
+    EXPECT_NO_THROW(PrintCCBlocks(*context));
+    context->state.logo_block={{10,20}};
+    context->state.logo_block_count=1;
+    context->state.cblock.clear();
+    context->state.block_count=0;
+    EXPECT_NO_THROW(PrintLogoFrameGroups(*context));
+}
+TEST(LogoGeometryApplication, FrameStorageEndIsRejectedForBothLogoTransitions) {
+    for (const bool closing : {false,true}) {
+        auto context=logo_context();
+        context->settings.logo_filter=0;
+        context->state.logoFreq=1;
+        context->state.minHitsForTrend=1;
+        context->state.logo_block[0].start=0;
+        context->state.lastLogoTest=closing;
+        EXPECT_THROW(ProcessLogoTest(*context,static_cast<int>(context->state.frame.size()),
+                                     closing ? 0 : 1,0),std::out_of_range);
+    }
 }
 }

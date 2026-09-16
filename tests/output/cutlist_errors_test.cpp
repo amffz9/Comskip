@@ -73,8 +73,9 @@ protected:
 };
 TEST_F(CutlistErrors, DefaultOutputRetryReportsFilenameInEnglish) {
     context->settings.output_default = true;
-    expect_exit(103);
-    EXPECT_EQ(log(), "ERROR writing to " + std::string(context->state.out_filename) + "\n");
+    EXPECT_EQ(expect_output_open(), "Could not open output file: " +
+                                      std::string(context->state.out_filename));
+    EXPECT_TRUE(log().empty());
     EXPECT_FALSE(context->state.out_file);
 }
 TEST_F(CutlistErrors, ChapterOutputRetryReportsSpanishAndReleasesOwner) {

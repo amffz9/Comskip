@@ -136,3 +136,15 @@ TEST(Translator, FormatsCaptionControlAndBlockDiagnostics) {
     EXPECT_STREQ(spanish.text("caption_type_popon"), "EMERGENTE");
     EXPECT_STREQ(english.text("caption_type_commercial"), "COMMERCIAL");
 }
+TEST(Translator, FormatsLogoDiagnosticsWithStableWidthsAndPercentages) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("logo_block_row", "    10", "    20", "0:00:00", "1.2", "3.4"),
+              "Logo start -     10\tend -     20\tlength - 0:00:00\tbefore:1.2 s\t after:3.4 s\n");
+    EXPECT_EQ(english.format("logo_edge_too_big", "401", "12.50"),
+              "Edge count - 401\tPercentage of screen - 12.50% TOO BIG, CAN'T BE A LOGO.\n");
+    EXPECT_EQ(spanish.format("logo_found_bounds", "25", "1", "2", "3", "4"),
+              "Logotipo encontrado en el fotograma 25\tlogoMinX=1\tlogoMaxX=2\tlogoMinY=3\tlogoMaxY=4\n");
+    EXPECT_EQ(spanish.format("logo_mask_heading", spanish.text("logo_mask_diagonal_1")),
+              "\nMáscara de logotipo diagonal 1 \n     ");
+}
