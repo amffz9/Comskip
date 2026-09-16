@@ -71,6 +71,8 @@ Settings load_settings(const Ini& ini, Settings base) {
             if ((key == "thread_count" || key == "num_logo_buffers" ||
                  key == "fps" || key == "edge_radius" || key == "edge_step") && target <= 0)
                 throw std::invalid_argument(std::string(key) + " must be positive");
+            if (key == "border" && target < 0)
+                throw std::invalid_argument("border must be nonnegative");
         }
     });
     if (base.language != "en" && base.language != "es")

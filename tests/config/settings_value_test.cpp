@@ -72,6 +72,16 @@ TEST(SettingsValue, PreservesLegacyValidationAndDelayConvention) {
         EXPECT_THROW(load_settings(Ini(text), base), std::invalid_argument) << text;
     EXPECT_THROW(load_settings(Ini("windowtitle=\"" + std::string(1100, 'x') + "\""), base), std::invalid_argument);
 }
+TEST(SettingsValue, RejectsNegativeScanBordersIncludingInheritedValues) {
+    const auto baseline = default_settings();
+    EXPECT_THROW(load_settings(Ini("border=-1"), baseline), std::invalid_argument);
+    EXPECT_EQ(load_settings(Ini("border=0"), baseline).border, 0);
+    EXPECT_EQ(load_settings(Ini("border=12"), baseline).border, 12);
+    auto invalid = baseline;
+    invalid.border = -1;
+    EXPECT_THROW(load_settings(Ini{}, invalid), std::invalid_argument);
+    EXPECT_EQ(baseline.border, default_settings().border);
+}
 TEST(SettingsValue, ValidatesInheritedBaselineAsWellAsOverrides) {
     auto base = default_settings();
     base.global_threshold = std::numeric_limits<double>::quiet_NaN();
