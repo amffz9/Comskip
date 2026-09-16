@@ -4,6 +4,35 @@
 #include "translator.h"
 #include "arguments.h"
 
+namespace {
+void print_argument_errors(FILE* output, const struct arg_end& errors,
+                           const comskip::localization::Translator& translator) {
+    // Argtable remains responsible for parsing and validation. Its public error
+    // records supply the untranslated option/value; catalogs supply UI text.
+    for (int i = 0; i < errors.count; ++i) {
+        const auto& header = *static_cast<const arg_hdr*>(errors.parent[i]);
+        const std::string_view value = errors.argval[i] ? errors.argval[i] : "";
+        if (header.flag & ARG_TERMINATOR) {
+            switch (errors.error[i]) {
+            case ARG_ELIMIT: fputs(translator.text("cli_too_many_errors"), output); break;
+            case ARG_EMALLOC: fputs(translator.format("cli_insufficient_memory", "Comskip").c_str(), output); break;
+            case ARG_ENOMATCH: fputs(translator.format("cli_unexpected_argument", value).c_str(), output); break;
+            case ARG_EMISSARG: fputs(translator.format("cli_missing_value", value).c_str(), output); break;
+            case ARG_ELONGOPT: fputs(translator.format("cli_invalid_option", value).c_str(), output); break;
+            default:
+                fputs(translator.format("cli_invalid_option",
+                      std::string("-") + static_cast<char>(errors.error[i])).c_str(), output);
+            }
+        } else {
+            const std::string option = header.longopts ? std::string("--") + header.longopts :
+                header.shortopts ? std::string("-") + header.shortopts :
+                header.glossary ? header.glossary : "";
+            fputs(translator.format("cli_invalid_argument", option, value).c_str(), output);
+        }
+    }
+}
+}
+
 double FindNumber(RecordingContext& context, char* data, const char* key, double fallback)
 {
     try {
@@ -16,7 +45,7 @@ double FindNumber(RecordingContext& context, char* data, const char* key, double
         comskip::config::Ini ini(metadata);
         return ini.find(name) ? ini.number<double>(name) : fallback;
     } catch (const std::exception& error) {
-        Debug(context, 0, "Invalid logo metadata: %s\n", error.what());
+        Debug(context, 0, "%s", context.translator.format("cli_invalid_logo_metadata", error.what()).c_str());
         return fallback;
     }
 }
@@ -60,8 +89,7 @@ char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds)
 
 void LoadIniFile(RecordingContext& context)
 {
-    const comskip::localization::Translator translator;
-    LoadIniFile(context, translator);
+    LoadIniFile(context, context.translator);
 }
 
 void LoadIniFile(RecordingContext& context, const comskip::localization::Translator& translator)
@@ -79,8 +107,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
             while ((count = fread(buffer, 1, sizeof buffer, context.state.ini_file.get())) != 0) data.append(buffer, count);
             bool failed = ferror(context.state.ini_file.get()) != 0;
             context.state.ini_file.reset();
-            context.state.ini_file.reset();
-            if (failed) throw std::runtime_error("Could not read INI file");
+            if (failed) throw std::runtime_error(translator.text("cli_read_ini_failed"));
             comskip::config::Ini ini(data);
             context.settings = comskip::config::load_settings(ini, context.settings);
             context.state.ini_text += ini.serialize();
@@ -238,7 +265,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
 
         // NULL entries were detected, some allocations must have failed
-        Debug(context, 0, "%s: insufficient memory\n", context.state.progname);
+        Debug(context, 0, "%s", translator.format("cli_insufficient_memory", context.state.progname).c_str());
         goto exit;
     }
 
@@ -282,7 +309,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         fputs(translator.format("method_cutscenes", CUTSCENE).c_str(), stdout);
         fputs(translator.text("all_methods"), stdout);
         fputs(translator.text("errors"), stdout);
-        arg_print_errors(stdout, end, "ComSkip");
+        print_argument_errors(stdout, *end, translator);
         comskip::request_exit(2);
     }
 
@@ -689,7 +716,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (cl_playnice->count)
     {
         context.state.play_nice = true;
-        Debug(context, 1, "ComSkip playing nice due as per command line.\n");
+        Debug(context, 1, "%s", translator.text("cli_playnice"));
     }
 
     if (cl_detectmethod->count)
@@ -782,18 +809,18 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
         Debug(context,
             1,
-            "\nComSkip throttles back from %.4i to %.4i.\nThe time is now %.4i ",
-            context.settings.play_nice_start,
-            context.settings.play_nice_end,
-            mil_time
+            "%s", translator.format("cli_throttle_schedule",
+                std::format("{:04}", context.settings.play_nice_start),
+                std::format("{:04}", context.settings.play_nice_end),
+                std::format("{:04}", mil_time)).c_str()
         );
         if (context.state.play_nice)
         {
-            Debug(context, 1, "so comskip is running slowly.\n");
+            Debug(context, 1, "%s", translator.text("cli_running_slowly"));
         }
         else
         {
-            Debug(context, 1, "so it's full speed ahead!\n");
+            Debug(context, 1, "%s", translator.text("cli_full_speed"));
         }
     }
 
@@ -807,7 +834,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         logo_file.reset(myfopen(context.state.logofilename, "r+"));
         if (logo_file)
         {
-            Debug(context, 1, "The logo mask file exists.\n");
+            Debug(context, 1, "%s", translator.text("cli_logo_exists"));
             logo_file.reset();
             LoadLogoMaskData(context);
         }
@@ -822,22 +849,17 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     context.state.scf_file.reset();
     context.state.projectx_file.reset();
     context.state.avisynth_file.reset();
-    context.state.cuttermaran_file.reset();
     context.state.videoredo_file.reset();
-    context.state.videoredo3_file.reset();
-    context.state.btv_file.reset();
     context.state.edl_file.reset();
     context.state.ffmeta_file.reset();
     context.state.ffsplit_file.reset();
     context.state.live_file.reset();
     context.state.ipodchap_file.reset();
     context.state.edlp_file.reset();
-    context.state.edlx_file.reset();
     context.state.mls_file.reset();
     context.state.womble_file.reset();
     context.state.mpgtx_file.reset();
     context.state.dvrcut_file.reset();
-    context.state.dvrmstb_file.reset();
     context.state.tuning_file.reset();
     context.state.training_file.reset();
 

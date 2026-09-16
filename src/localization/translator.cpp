@@ -86,10 +86,15 @@ Translator Translator::from_arguments(int argc, char* const* argv) {
     if (ini_path.empty()) ini_path = "comskip.ini";
     std::ifstream input(ini_path, std::ios::binary);
     if (input) {
-        const config::Ini settings(std::string{std::istreambuf_iterator<char>(input), {}});
-        if (const auto* value = settings.find("language")) language = *value;
-        if (const auto* value = settings.find("locale_directory"))
-            catalog_directory = utf8_path(*value);
+        try {
+            const config::Ini settings(std::string{std::istreambuf_iterator<char>(input), {}});
+            if (const auto* value = settings.find("language")) language = *value;
+            if (const auto* value = settings.find("locale_directory"))
+                catalog_directory = utf8_path(*value);
+        } catch (const std::invalid_argument&) {
+            // Preselection must not replace the real loader's localized error
+            // report. A malformed document is still read and rejected there.
+        }
     }
     if (override_language) language = std::move(*override_language);
     if (!catalog_directory.empty()) return Translator(language, catalog_directory);

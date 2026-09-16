@@ -1,5 +1,6 @@
 #include "recording_context.h"
 #include "exit_requested.h"
+#include "a53_caption_bridge.h"
 /*
  * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
@@ -1476,23 +1477,17 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 #ifdef PROCESS_CC
         if (is->pFrame->nb_side_data) {
-            int i;
-            for (i = 0; i < is->pFrame->nb_side_data; i++) {
-                AVFrameSideData *sd = is->pFrame->side_data[i];
+            static_assert(sizeof(context.state.ccData) >= comskip::media::ga94_max_packet_size);
+            for (int side_data_index = 0; side_data_index < is->pFrame->nb_side_data; ++side_data_index) {
+                const AVFrameSideData *sd = is->pFrame->side_data[side_data_index];
                 if (sd->type != AV_FRAME_DATA_A53_CC) continue;
-                context.state.ccDataLen = sd->size + 7;
-                context.state.ccData[0] = 'G';
-                context.state.ccData[1] = 'A';
-                context.state.ccData[2] = '9';
-                context.state.ccData[3] = '4';
-                context.state.ccData[4] = 3;
-                context.state.ccData[5] = sd->size / 3 + 64;
-                for (i=0; i<sd->size; i++) {
-                  context.state.ccData[i+7] = sd->data[i];
+                for (const auto& packet : comskip::media::bridge_a53_captions({sd->data, sd->size})) {
+                    std::copy_n(packet.bytes.begin(), packet.size, context.state.ccData);
+                    context.state.ccDataLen = static_cast<int>(packet.size);
+                    dump_data(context, reinterpret_cast<char*>(context.state.ccData), context.state.ccDataLen);
+                    if (context.state.processCC) ProcessCCData(context);
+                    if (context.settings.output_srt) process_block(context.state.ccData, context.state.ccDataLen);
                 }
-                dump_data(context, (char *)context.state.ccData, (int)context.state.ccDataLen);
-                if (context.state.processCC) ProcessCCData(context);
-                if (context.settings.output_srt) process_block(context.state.ccData, (int)context.state.ccDataLen);
             }
         }
 #endif

@@ -78,3 +78,12 @@ TEST(Translator, LocalizesMediaStartupFailuresAndResults) {
     EXPECT_EQ(spanish.format("media_decode_progress", "00:10", 250, "10.00", "25.00", "1.00", "25.00", 50),
               "00:10 - 250 fotogramas en 10.00 s(25.00 fps), 1.00 s(25.00 fps), 50%");
 }
+TEST(Translator, FormatsCliWarningsAndErrorsWithStableIdentifiers) {
+    const Translator spanish("es");
+    EXPECT_EQ(spanish.format("cli_invalid_option", "--unknown"), "Comskip: opción no válida \"--unknown\"\n");
+    EXPECT_EQ(spanish.format("cli_invalid_argument", "--threads", "bad"),
+              "Comskip: argumento no válido o ausente para --threads: \"bad\"\n");
+    EXPECT_EQ(spanish.format("cli_throttle_schedule", "0600", "1200", "0900"),
+              "\nComskip reduce la velocidad de 0600 a 1200.\nLa hora actual es 0900 ");
+    EXPECT_TRUE(std::string(spanish.text("cli_read_ini_failed")).contains("INI"));
+}
