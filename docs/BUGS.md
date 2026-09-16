@@ -152,6 +152,10 @@ and relevant verification; retain the evidence for future regressions.
 - **Fix/verification needed:** Owned filename and bounded framing, checked file
   opening/writing, and regressions for an unavailable destination, invalid
   lengths, and valid persisted data compatibility.
+- **Resolution:** `12be69c` uses owned filename/framing storage, validates the
+  buffer and frame field, and handles open/write failure. Four Windows output
+  regressions pass, including exact binary framing and invalid inputs. Complete
+  cross-platform verification of this fix remains pending.
 
 ### B014: Caption session omits its bridge library dependency
 
@@ -162,6 +166,9 @@ and relevant verification; retain the evidence for future regressions.
 - **Fix in progress:** Link `caption_session` publicly to `media_conversion`.
   The isolated Linux headless snapshot with this exact patch passes 161 tests;
   GUI and sanitizer verification are still running.
+- **Resolution:** The dependency fix is committed in `12be69c`. The isolated
+  patched snapshot passes all 161 headless and SDL Linux tests. Its sanitizer
+  failures concern the separate timestamp overflow tracked as B015.
 
 ### B015: Missing frame timestamps overflow during delay calculation
 
