@@ -101,10 +101,9 @@ void list_codecs(const comskip::localization::Translator& translator);
 
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
 {
-//	FILE*				ini_file = NULL;
-    FILE*				logo_file = NULL;
-    FILE*				log_file = NULL;
-    FILE*				test_file = NULL;
+    comskip::platform::FilePtr logo_file;
+    comskip::platform::FilePtr log_file;
+    comskip::platform::FilePtr test_file;
     int					i = 0;
 //	int					play_nice_start = -1;
 //	int					play_nice_end = -1;
@@ -290,23 +289,9 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (strcmp(in->extension[0], ".csv") != 0 && strcmp(in->extension[0], ".txt") != 0)
     {
         comskip::checked_format(context.state.mpegfilename, "%s", in->filename[0]);
-        /*		in_file = myfopen(in->filename[0], "rb");
-                fputs(translator.format("opening", in->filename[0]).c_str(), stdout);
-                if (!in_file) {
-                    fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-                    comskip::request_exit(3);
-                }
-        */
 
-/*
-        i = mystat(( char *)in->filename[0], &instat);
-        if (i <0)
-               {
-                   fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-                   comskip::request_exit(3);
 
-               }
-*/
+
         comskip::checked_format(context.state.inbasename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         i = strlen(context.state.inbasename);
         while (i>0 && context.state.inbasename[i-1] != PATH_SEPARATOR)
@@ -316,14 +301,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         strcpy(context.state.shortbasename, &context.state.inbasename[i]);
 
  //       comskip::checked_format(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
-/*
-        test_file = mymyfopen(mpegfilename, "w");
-        if (!test_file)
-        {
-            fputs(translator.format("open_failed", strerror(errno), in->filename[0]).c_str(), stderr);
-            comskip::request_exit(3);
-        }
-*/
+
         comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
     }
     else if (strcmp(in->extension[0], ".csv") == 0)
@@ -339,36 +317,36 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
         comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         comskip::checked_format(context.state.mpegfilename, "%.*s.mpg", (int)strlen(context.state.inbasename), context.state.inbasename);
-        test_file = myfopen(context.state.mpegfilename, "rb");
+        test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.ts", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.tp", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.dvr-ms", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.wtv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.mp4", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.mkv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
@@ -376,7 +354,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
         else
         {
-            fclose(test_file);
+            test_file.reset();
         }
 
 
@@ -405,36 +383,36 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
         comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         comskip::checked_format(context.state.mpegfilename, "%.*s.mpg", (int)strlen(context.state.inbasename), context.state.inbasename);
-        test_file = myfopen(context.state.mpegfilename, "rb");
+        test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.ts", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.tp", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.dvr-ms", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.wtv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.mp4", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
             comskip::checked_format(context.state.mpegfilename, "%.*s.mkv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file = myfopen(context.state.mpegfilename, "rb");
+            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
         }
         if (!test_file)
         {
@@ -442,7 +420,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
         else
         {
-            fclose(test_file);
+            test_file.reset();
         }
 
         i = strlen(context.state.inbasename);
@@ -643,10 +621,10 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (!context.state.loadingTXT && !context.settings.useExistingLogoFile && cl_logo->count==0)
     {
-        logo_file = myfopen(context.state.logofilename, "r");
+        logo_file.reset(myfopen(context.state.logofilename, "r"));
         if(logo_file)
         {
-            fclose(logo_file);
+            logo_file.reset();
             myremove(context.state.logofilename);
         }
     }
@@ -665,7 +643,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (context.settings.verbose)
     {
-        logo_file = myfopen(context.state.logofilename, "r");
+        logo_file.reset(myfopen(context.state.logofilename, "r"));
         if (context.state.loadingTXT)
         {
             // Do nothing to the log file
@@ -673,41 +651,38 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
         else if (context.state.loadingCSV)
         {
-            log_file = myfopen(context.state.logfilename, "w");
+            log_file.reset(myfopen(context.state.logfilename, "w"));
             if (log_file) {
-                fprintf(log_file, "################################################################\n");
-                fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
-                fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
-                fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
-                fprintf(log_file, "################################################################\n");
-                fclose(log_file);
+                fprintf(log_file.get(), "################################################################\n");
+                fprintf(log_file.get(), "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
+                fprintf(log_file.get(), "Loading comskip csv file - %s\n", in->filename[0]);
+                fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
+                fprintf(log_file.get(), "################################################################\n");
+                log_file.reset();
             }
-            log_file = NULL;
         }
         else if (logo_file)
         {
-            fclose(logo_file);
-            log_file = myfopen(context.state.logfilename, "a+");
+            logo_file.reset();
+            log_file.reset(myfopen(context.state.logfilename, "a+"));
             if (log_file) {
-                fprintf(log_file, "################################################################\n");
-                fprintf(log_file, "Starting second pass using %s\n", context.state.logofilename);
-                fprintf(log_file, "Time at start of second run:\n%s", ctime(&ltime));
-                fprintf(log_file, "################################################################\n");
-                fclose(log_file);
+                fprintf(log_file.get(), "################################################################\n");
+                fprintf(log_file.get(), "Starting second pass using %s\n", context.state.logofilename);
+                fprintf(log_file.get(), "Time at start of second run:\n%s", ctime(&ltime));
+                fprintf(log_file.get(), "################################################################\n");
+                log_file.reset();
             }
-            log_file = NULL;
         }
         else
         {
-            log_file = myfopen(context.state.logfilename, "w");
+            log_file.reset(myfopen(context.state.logfilename, "w"));
             if (log_file) {
-                fprintf(log_file, "################################################################\n");
-                fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
-                fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
-                fprintf(log_file, "################################################################\n");
-                fclose(log_file);
+                fprintf(log_file.get(), "################################################################\n");
+                fprintf(log_file.get(), "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
+                fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
+                fprintf(log_file.get(), "################################################################\n");
+                log_file.reset();
             }
-            log_file = NULL;
         }
     }
 
@@ -829,11 +804,11 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (!context.state.loadingTXT)
     {
-        logo_file = myfopen(context.state.logofilename, "r+");
+        logo_file.reset(myfopen(context.state.logofilename, "r+"));
         if (logo_file)
         {
             Debug(context, 1, "The logo mask file exists.\n");
-            fclose(logo_file);
+            logo_file.reset();
             LoadLogoMaskData(context);
         }
     }

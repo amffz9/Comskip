@@ -23,7 +23,6 @@ int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
 void Debug(RecordingContext& context, int level, const char * fmt, ...)
 {
     va_list	ap;
-    FILE *log_file = NULL;
     if(context.settings.verbose < level) return;
 
     va_start(ap, fmt);
@@ -32,14 +31,10 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
 
     if (context.state.output_console)	_cprintf("%s", context.state.debugText);
 
-    if (!log_file)
-        log_file = myfopen(context.state.logfilename, "a+");
-
+    const auto log_file = comskip::platform::own_file(myfopen(context.state.logfilename, "a+"));
     if (log_file)
     {
-        fprintf(log_file, "%s", context.state.debugText);
-        fclose(log_file);
-        log_file = NULL;
+        fprintf(log_file.get(), "%s", context.state.debugText);
     }
 
 
