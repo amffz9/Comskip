@@ -1,0 +1,54 @@
+# Bug log
+
+Record newly discovered issues here even when fixing them is deferred. Keep
+confirmed defects separate from suspected gaps. Close entries only with a fix
+and relevant verification; retain the evidence for future regressions.
+
+## Open
+
+### B001: Subtitle output decoder shares state between recordings
+
+- **Evidence:** `third_party/ccextractor/ccextractor.c:134` declares global
+  `wbout1`/`wbout2`. `CEW_init` is called from application settings loading,
+  while media decoding calls global `process_block`/`CEW_reinit`.
+- **Impact:** Independent subtitle-enabled analyses can replace each other's
+  output and decoder state. Current captionless repeated-analysis tests do not
+  cover this path.
+- **Fix:** Replace supporting subtitle decoding/output with recording-owned
+  FFmpeg resources while retaining detector/XDS observations.
+- **Verification needed:** Two interleaved subtitle-enabled recordings with
+  distinct cues and destinations, failure cleanup, seeking/reset, and EOF cues.
+
+### B002: Repeated subtitle initialization loses writer allocations
+
+- **Evidence:** `init_write` at `third_party/ccextractor/ccextractor.c:403`
+  allocates `buffer` and `data608`; `CEW_init` calls it for both global writers.
+  Reinitialization overwrites these pointers without freeing their old values.
+- **Impact:** Repeated subtitle-enabled application invocations leak writer
+  buffers and decoder state; unchecked allocation failures can also reach
+  `init_eia608` with a null pointer.
+- **Fix:** Eliminate the global writer lifecycle as part of B001.
+- **Verification needed:** Leak sanitizer coverage of repeated subtitle-enabled
+  success/failure runs and automatic resource cleanup.
+
+## Investigation needed
+
+### B003: Selected standalone subtitle streams may not be consumed
+
+- **Evidence:** The media coordinator selects a subtitle stream and records its
+  PID, but the active caption path consumes video-frame A53 side data. The audit
+  found no active standalone subtitle packet decoding/dispatch.
+- **Status:** Potential unsupported-path gap; reproduce before classifying it
+  as a confirmed defect or changing behavior.
+- **Verification needed:** A recording with a standalone subtitle stream and
+  no embedded A53 captions; compare requested subtitle output with its cues.
+
+## Fixed during modernization
+
+- **A53 caption overflow and skipped side data:** `f032ea3` bounds/chunks intact
+  triplets, fixes the reused loop index, and adds four framing/preservation tests.
+- **Terminal XML endpoint rejection:** `273490f` accepts the detector's exact
+  terminal boundary and reads valid GOP metadata; adapter and actual media tests
+  cover the case.
+- **CSV/live histogram indexing:** `2131eee` bounds histogram buckets while
+  retaining measured brightness; CSV replay and Linux sanitizer tests cover it.
