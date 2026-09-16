@@ -308,6 +308,14 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Verification needed:** Zero/negative counts, excessive counts, and valid
   timestamp lookup, followed by application timing regressions.
 
+### B027: Caption-presence marker closes a null file handle
+
+- **Evidence:** The `ccCheck` branch in `DetectCommercials` creates a `.ccyes`
+  or `.ccno` file and calls `fclose` unconditionally after `myfopen`.
+- **Impact:** An unavailable marker destination can crash completed analysis.
+- **Fix/verification needed:** Owned, checked marker creation with localized
+  failure reporting and an actual unavailable-destination regression.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
