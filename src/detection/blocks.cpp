@@ -264,10 +264,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     long b_start, b_end, b_counted;
 //	char *t = "";
 
-//	max_block_count = 80;
-    context.state.max_block_count = MAX_BLOCKS;
-    context.state.block_count = 0;
-//	cblock = malloc(max_block_count * sizeof(block_info));
+    comskip::detection::reset_blocks(context.state.cblock, context.state.block_count);
 
     context.state.recalculate = recalc;
     InitializeBlockArray(context, 0);
@@ -709,8 +706,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                                 CauseString(context, cause),
                                 context.state.cblock[context.state.block_count].b_head, context.state.cblock[context.state.block_count].b_tail);
 
-            context.state.block_count++;
-            InitializeBlockArray(context, context.state.block_count);
+            comskip::detection::complete_block(context.state.cblock, context.state.block_count);
             prev_start = b_end + 1;							//cblock starts at end of black initially
             prev_head = b_end - b_start - b_counted + 1;	//remaining black from previous cblock tail
         }
@@ -735,11 +731,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             context.state.cblock[i-1].length	= F2L(context.state.cblock[i-1].f_end, context.state.cblock[i-1].f_start);
             context.state.cblock[i-1].cause	= context.state.cblock[i].cause;
 
-            for (k = i; k < context.state.block_count-1; k++)
-            {
-                context.state.cblock[k]				= context.state.cblock[k+1];
-            }
-            context.state.block_count--;
+            comskip::detection::erase_blocks(context.state.cblock, context.state.block_count, i);
         }
     }
 #endif
@@ -824,6 +816,7 @@ void FindLogoThreshold(RecordingContext& context)
 
 void CleanLogoBlocks(RecordingContext& context)
 {
+    if (context.state.block_count == 0) return;
     int i,k,n;
 //	double stdev;
     int sum_brightness,v,b, sum_volume,s,sum_silence,sum_uniform;
@@ -849,11 +842,7 @@ void CleanLogoBlocks(RecordingContext& context)
                 context.state.cblock[i-1].length	= F2L(context.state.cblock[i-1].f_end, context.state.cblock[i-1].f_start);
                 context.state.cblock[i-1].cause	= context.state.cblock[i].cause;
 
-                for (k = i; k < context.state.block_count-1; k++)
-                {
-                    context.state.cblock[k] = context.state.cblock[k+1];
-                }
-                context.state.block_count--;
+                comskip::detection::erase_blocks(context.state.cblock, context.state.block_count, i);
             }
         }
     }

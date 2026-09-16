@@ -81,35 +81,9 @@ void InitializeACBlockArray(RecordingContext& context, long i)
 
 void InitializeBlockArray(RecordingContext& context, long i)
 {
-    if (context.state.block_count >= context.state.max_block_count)
-    {
-        Debug(context, 0,"Panic, too many blocks\n");
-        comskip::request_exit(102);
-//		max_block_count += 100;
-//		cblock = realloc(cblock, (max_block_count + 1) * sizeof(block_info));
-//		Debug(9, "Resizing cblock array to accommodate %i blocks.\n", max_block_count);
-    }
-
-    context.state.cblock[i].f_start = 0;
-    context.state.cblock[i].f_end = 0;
-    context.state.cblock[i].b_head = 0;
-    context.state.cblock[i].b_tail = 0;
-    context.state.cblock[i].bframe_count = 0;
-    context.state.cblock[i].schange_count = 0;
-    context.state.cblock[i].schange_rate = 0;
-    context.state.cblock[i].length = 0;
-    context.state.cblock[i].score = 1.0;
-    context.state.cblock[i].combined_count = 0;
-    context.state.cblock[i].ar_ratio = AR_UNDEF;
-    context.state.cblock[i].audio_channels = AC_UNDEF;
-    context.state.cblock[i].brightness = 0;
-    context.state.cblock[i].volume = 0;
-    context.state.cblock[i].silence = 0;
-    context.state.cblock[i].stdev = 0;
-    context.state.cblock[i].cause = 0;
-    context.state.cblock[i].less = 0;
-    context.state.cblock[i].more = 0;
-    context.state.cblock[i].uniform = 0;
+    if (i < 0 || static_cast<std::size_t>(i) >= context.state.cblock.size())
+        throw std::out_of_range("Detection block initialization exceeds owned storage");
+    context.state.cblock[i] = comskip::detection::empty_block();
 }
 
 void InitializeCCBlockArray(RecordingContext& context, long i)

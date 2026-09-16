@@ -69,14 +69,15 @@ TEST_F(ApplicationTextInput, ReferenceLongTokenMissingEndAndInvalidNumberRejectA
         EXPECT_EQ(context->state.reffer_count, 7);
     }
 }
-TEST_F(ApplicationTextInput, ReferenceCapacityReservesComparisonSentinelAndRejectsOverflow) {
+TEST_F(ApplicationTextInput, ReferenceCapacityRejectsOverflowWithoutChangingStoredIntervals) {
     context->state.reffer_count = 7;
     std::string text(reference_header);
     for (std::size_t i = 0; i < std::size(context->state.reffer); ++i) text += "1 2\n";
+    text += "1 2\n";
     write(directory / "record.ref", text);
     EXPECT_THROW(InputReffer(*context, ".ref", 0), std::length_error);
     EXPECT_EQ(context->state.reffer_count, 7);
-    text += "1 2\n"; write(directory / "record.txt", text);
+    write(directory / "record.txt", text);
     EXPECT_THROW(InputReffer(*context, ".txt", 0), std::length_error);
     EXPECT_EQ(context->state.reffer_count, 7);
 }

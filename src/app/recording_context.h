@@ -6,6 +6,7 @@
 #include "translator.h"
 #include "file_resources.h"
 #include "media/caption_session.h"
+#include "detection_blocks.h"
 #include <memory>
 #include <array>
 #include <vector>
@@ -70,9 +71,8 @@ struct RecordingState {
     long black_count= 0;
     std::vector<black_frame_info> black;
     long max_black_count{};
-    struct block_info cblock[1000]{};
+    std::vector<block_info> cblock{comskip::detection::empty_block()};
     long block_count= 0;
-    long max_block_count{};
     std::vector<logo_block_info> logo_block;
     long logo_block_count= 0;
     long max_logo_block_count{};

@@ -40,6 +40,7 @@ protected:
         state.commercial_count = 0; state.commercial[0].start_frame = 4; state.commercial[0].end_frame = 9;
         state.reffer_count = 0; state.reffer[0].start_frame = 6; state.reffer[0].end_frame = 10;
         state.block_count = 3;
+        state.cblock.resize(4, comskip::detection::empty_block());
         state.cblock[0].f_start = 1; state.cblock[0].f_end = 3; state.cblock[0].iscommercial = false;
         state.cblock[1].f_start = 4; state.cblock[1].f_end = 9; state.cblock[1].iscommercial = true;
         state.cblock[2].f_start = 10; state.cblock[2].f_end = 11; state.cblock[2].iscommercial = false;

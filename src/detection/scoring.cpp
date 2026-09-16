@@ -155,6 +155,7 @@ again:
 
 void WeighBlocks(RecordingContext& context)
 {
+    if (context.state.block_count == 0) return;
     int		i;
     int		j;
     int		k;
@@ -187,11 +188,7 @@ void WeighBlocks(RecordingContext& context)
             context.state.cblock[i].b_tail = context.state.cblock[i+2].b_tail;
             context.state.cblock[i].f_end = context.state.cblock[i+2].f_end;
             context.state.cblock[i].length += context.state.cblock[i+1].length + context.state.cblock[i+2].length;
-            for (j = i+1; j < context.state.block_count-2; j++)
-            {
-                context.state.cblock[j] = context.state.cblock[j+2];
-            }
-            context.state.block_count = context.state.block_count - 2;
+            comskip::detection::erase_blocks(context.state.cblock, context.state.block_count, i + 1, 2);
         }
     }
 

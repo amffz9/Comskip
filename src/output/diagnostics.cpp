@@ -1,3 +1,4 @@
+#include "detection/reference_comparison.h"
 #include "platform/utf8_paths.h"
 #include "input/file_stream.h"
 #include "input/reference_file.h"
@@ -353,14 +354,18 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
 {
     int		i;
     long	j;
-    int		k, pk;
+    int k;
     double fpos = 0.0, fneg = 0.0, total = 0.0;
     double	t=0;
-    enum {both_show,both_commercial, only_reffer, only_commercial} state;
     comskip::platform::FilePtr raw;
     int frames = 0;
     char co,re;
     comskip::platform::FilePtr raw2;
+    if (!extension || std::string_view(extension).size() < 2)
+        throw std::invalid_argument("Missing reference filename extension");
+    if (context.state.commercial_count < -1 || context.state.commercial_count >= static_cast<int>(std::size(context.state.commercial)) ||
+        context.state.reffer_count < -1 || context.state.reffer_count >= static_cast<int>(std::size(context.state.reffer)))
+        throw std::out_of_range("Reference comparison count exceeds stored intervals");
     auto basename = std::string(context.state.logfilename);
     if (basename.ends_with(".log") || basename.ends_with(".txt")) basename.resize(basename.size() - 4);
     const auto reference_name = basename + extension;
@@ -370,7 +375,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     } else {
         comskip::input::FileStreamBuffer buffer(raw.get());
         std::istream source(&buffer);
-        const auto capacity = std::size(context.state.reffer) - (extension[1] == 't' ? 0 : 1);
+        const auto capacity = std::size(context.state.reffer);
         const auto document = comskip::input::read_reference_file(source, capacity);
         frames = document.declared_frames;
         if (setfps && document.frames_per_second) {
@@ -414,145 +419,42 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     }
 
 
-//#ifdef faslpositive_negative
-    j = 0;
-    i = 0;
-    state = both_show;
-    k = 0;
-    context.state.commercial[context.state.commercial_count+1].end_frame = context.state.commercial[context.state.commercial_count].end_frame + 2 ;
-    context.state.commercial[context.state.commercial_count+1].start_frame = context.state.commercial[context.state.commercial_count].end_frame + 1;
-    context.state.reffer[context.state.reffer_count+1].end_frame = context.state.commercial[context.state.commercial_count].end_frame + 2 ;
-    context.state.reffer[context.state.reffer_count+1].start_frame = context.state.commercial[context.state.commercial_count].end_frame + 1;
-
-    if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
-    {
-        if (context.settings.output_training>1) raw2.reset(myfopen("quality.csv", "a+"));
-        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
-        total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-        if (raw2.get()) raw2.reset();
-    }
-
-    while ( k < context.state.commercial[context.state.commercial_count].end_frame &&
-            (i <= context.state.reffer_count || j <= context.state.commercial_count) )
-    {
-        pk = k;
-        switch(state)
-        {
-        case both_show:
-            if (i <= context.state.reffer_count && j <= context.state.commercial_count && labs(context.state.reffer[i].start_frame-context.state.commercial[j].start_frame) < 40)
-            {
-                state = both_commercial;
-                k = context.state.commercial[j].start_frame;
+    using comskip::output::CommercialInterval;
+    const auto intervals = [](const auto& storage, int last) {
+        if (last < -1 || last >= static_cast<int>(std::size(storage)))
+            throw std::out_of_range("Reference comparison count exceeds stored intervals");
+        std::vector<CommercialInterval> values;
+        values.reserve(static_cast<std::size_t>(last + 1));
+        for (int index = 0; index <= last; ++index)
+            values.push_back({storage[index].start_frame, storage[index].end_frame});
+        return values;
+    };
+    const auto references = intervals(context.state.reffer, context.state.reffer_count);
+    const auto commercials = intervals(context.state.commercial, context.state.commercial_count);
+    const auto events = comskip::detection::compare_reference_intervals(references, commercials);
+    for (const auto& event : events) {
+        const auto start = static_cast<long>(event.interval.start_frame);
+        const auto end = static_cast<long>(event.interval.end_frame);
+        const auto duration = F2L(end, start);
+        if (event.kind == comskip::detection::ReferenceEventKind::reference_duration) {
+            total += duration;
+            if (context.settings.output_training > 1) {
+                raw2.reset(myfopen("quality.csv", "a+"));
+                if (raw2) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), start, 0.0, 0.0, duration);
             }
-            else if (i > context.state.reffer_count || (j <= context.state.commercial_count && context.state.commercial[j].start_frame < context.state.reffer[i].start_frame) )
-            {
-                state = only_commercial;
-                k = context.state.commercial[j].start_frame;
+        } else {
+            const bool missed = event.kind == comskip::detection::ReferenceEventKind::false_negative;
+            if (missed) fneg += duration; else fpos += duration;
+            if (context.settings.output_training > 1) {
+                raw2.reset(myfopen("quality.csv", "a+"));
+                if (raw2) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), start, missed ? duration : 0.0, missed ? 0.0 : duration, 0.0);
             }
-            else
-            {
-                state = only_reffer;
-                k = context.state.reffer[i].start_frame;
-            }
-            break;
-        case both_commercial:
-            if (i <= context.state.reffer_count && j <= context.state.commercial_count && labs(context.state.reffer[i].end_frame-context.state.commercial[j].end_frame) < 40)
-            {
-                state = both_show;
-                k = context.state.commercial[j].end_frame;
-                if (i <= context.state.reffer_count)
-                {
-                    i++;
-                    if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
-                    {
-                        if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
-                        total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-                        if (raw2.get()) raw2.reset();
-                    }
-                }
-                if (j <= context.state.commercial_count) j++;
-            }
-            else if (i > context.state.reffer_count || (j <= context.state.commercial_count && context.state.commercial[j].end_frame < context.state.reffer[i].end_frame ))
-            {
-                state = only_reffer;
-                k = context.state.commercial[j].end_frame;
-                if (j <= context.state.commercial_count) j++;
-            }
-            else
-            {
-                state = only_commercial;
-                k = context.state.reffer[i].end_frame;
-                if (i <= context.state.reffer_count)
-                {
-                    i++;
-                    if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
-                    {
-                        if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
-                        total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-                        if (raw2.get()) raw2.reset();
-                    }
-                }
-            }
-            break;
-        case only_reffer:
-            if (j > context.state.commercial_count || context.state.reffer[i].end_frame < context.state.commercial[j].start_frame)
-            {
-                state = both_show;
-                if (i <= context.state.reffer_count)
-                    k = context.state.reffer[i].end_frame;
-                else
-                    k = context.state.commercial[context.state.commercial_count].end_frame;
-                if (i <= context.state.reffer_count)
-                {
-                    i++;
-                    if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
-                    {
-                        if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
-                        total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
-                        if (raw2.get()) raw2.reset();
-                    }
-                }
-            }
-            else
-            {
-                state = both_commercial;
-                k = context.state.commercial[j].start_frame;
-            }
-//			fprintf(raw, "False negative at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
-            if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), pk, F2L(k, pk), 0.0, 0.0);
-            fneg += F2L(k,pk);
-            if (raw2.get()) raw2.reset();
-            raw2.reset();
-            break;
-        case only_commercial:
-            if (i > context.state.reffer_count || context.state.commercial[j].end_frame < context.state.reffer[i].start_frame)
-            {
-                state = both_show;
-                k = context.state.commercial[j].end_frame;
-                if (j <= context.state.commercial_count) j++;
-            }
-            else
-            {
-                state = both_commercial;
-                k = context.state.reffer[i].start_frame;
-            }
-//			fprintf(raw, "False positive at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
-            if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), pk, 0.0, F2L(k, pk), 0.0);
-            fpos += F2L(k, pk);
-            if (raw2.get()) raw2.reset();
-            raw2.reset();
-            break;
         }
+        raw2.reset();
     }
     if (context.settings.output_training) raw2.reset(myfopen("quality.csv", "a+"));
-    if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), -1, fneg, fpos, total);
-    if (raw2.get()) raw2.reset();
-
+    if (raw2) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), -1, fneg, fpos, total);
+    raw2.reset();
 //#else
     j = 0;
     i = 0;

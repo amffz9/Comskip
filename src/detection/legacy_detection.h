@@ -121,7 +121,6 @@ double get_frame_pts(RecordingContext& context, int f);
 
 #define F2F(X) ((long) (F2T(X) * context.settings.fps + 1.5 ))
 
-#define MAX_BLOCKS	1000
 
 #define		C_c			(1<<1)
 #define		C_l			(1<<0)
