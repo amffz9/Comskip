@@ -38,8 +38,9 @@ than redefine completion around whichever subset currently passes tests.
   in the recording-owned media coordinator. Networking follows decoder ownership.
 - C++ lower-level exit requests unwind to the application boundary, and scan task
   failures propagate to the caller. Workers support captured recording dependencies.
-- English/Spanish primary CLI catalogs, external editable catalogs, and real CLI
-  selection tests are integrated. Decoder/detector/output/review messages remain.
+- English/Spanish primary CLI, media, and review catalogs, external editable
+  catalogs, and real CLI selection tests are integrated. Some detector,
+  configuration, and output messages remain.
 - Settings values own every committed configuration field and regional profile;
   application callsites now receive an explicit recording context. Detection,
   media, output, and review state have moved into that context. Dynamic detection
@@ -50,12 +51,15 @@ than redefine completion around whichever subset currently passes tests.
   English/Spanish help and labels. Both backend variants pass their six tests;
   SDL rendering verification currently uses the dummy driver on Windows.
 - Pure timed EDL serialization is integrated for standard/live/plus output, with
-  boundary/offset/locale/error tests. Other serializer families remain.
-- Both Windows headless and SDL-enabled application builds pass 89 tests, including
+  boundary/offset/locale/error tests. Seven pugixml XML serializers and ten unit
+  tests are verified on Windows; application integration remains in progress.
+- Windows headless passes 90 tests; the SDL-enabled application build passed
+  89 tests before the latest filesystem change. Coverage includes
   seeking/reopening, damaged/truncated media, stream format changes, independent
   repeated analyses within one process, and failure cleanup followed by success.
   CSV replay, weighted-score boundaries, bounded review sampling, and persisted
-  logo bounds. SDL rendering uses the dummy driver. An earlier Ubuntu GCC 14 /
-  FFmpeg 6.1 snapshot passed 76 tests with address, undefined-behavior, and leak
-  sanitizers; clean verification of the latest tree is pending. macOS and
+  logo bounds. SDL rendering uses the dummy driver. Ubuntu GCC 14 / FFmpeg 6.1
+  headless and SDL builds each pass 89 tests. The same suite passes with address,
+  undefined-behavior, and leak sanitizers, including the CSV replay histogram
+  bounds fix (2131eee). These results precede XML integration. macOS and
   interactive SDL application verification still require evidence.
