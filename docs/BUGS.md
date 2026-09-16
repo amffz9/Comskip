@@ -326,6 +326,15 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Guard indices first, with empty/control-only and
   extended-byte regressions.
 
+### B029: Reference comparison trusts commercial sentinel capacity
+
+- **Evidence:** After valid reference input, comparison indexes
+  `commercial[commercial_count]` even when count is `-1`, and writes the next
+  sentinel beyond the 100,000-entry array when count is 99,999. Reserving a
+  reference slot does not reserve a commercial slot.
+- **Fix/verification needed:** Explicit empty-list and sentinel capacity handling,
+  with real reference comparison for empty and capacity-sized commercial lists.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
