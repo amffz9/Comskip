@@ -50,7 +50,7 @@ than redefine completion around whichever subset currently passes tests.
   strings and path derivation uses UTF-8 filesystem paths. Full CLI analysis with
   Unicode input, INI, and output paths each longer than 1,024 bytes passes on
   Windows, including complete exports and optional caption-marker failure.
-  application callsites now receive an explicit recording context. Detection,
+  Application callsites now receive an explicit recording context. Detection,
   media, output, and review state have moved into that context. Dynamic detection
   buffers, recording files, argument snapshots, and XDS metadata are owned values.
   Pixel buffers and live logo rings allocate for validated recording geometry;
@@ -132,5 +132,20 @@ than redefine completion around whichever subset currently passes tests.
   ad within one frame of separator-derived boundaries and retain all 10,752
   observations with the expected timestamps. This verifies a controlled known
   interval; it does not prove general broadcast detection accuracy.
-  Linux verification of the full path stage is pending. Reference comparison
-  and growable detection blocks remain active work (B029/B030).
+  The unmodified `d9e1ed1` snapshot verifies the full path stage on Ubuntu
+  GCC14 / FFmpeg6.1: headless Release **210/210** (24.25 seconds), SDL Release
+  with dummy video **210/210** (25.16 seconds), and headless Debug with address,
+  undefined-behavior and leak sanitizers **210/210** (52.70 seconds). No source
+  patches, sanitizer findings or suppressions occurred. Each suite runs the
+  actual long Unicode input/INI/output CLI test, optional marker failure,
+  caption control/extended-byte bounds, exact CSV/subtitle roundtrips, and known
+  commercial intervals. Commands and logs are recorded in
+  `bin/linux-verification-d9e1ed1.md`. The snapshot adds four pure reference
+  comparison tests to the 34869fa stage; four Windows-only tests account for
+  the platform count difference. The earlier full Windows result remains
+  210/210 at 34869fa, with the four comparison tests verified separately.
+  Application reference comparison and growable detection blocks were integrated
+  at `1e8f795`; all 226 Windows tests pass, including empty/full interval lists,
+  1,201 blocks, genuine merges, initialization, and empty/final scoring.
+  Linux sanitizer verification of this stage is running separately.
+  macOS and interactive SDL remain unverified.

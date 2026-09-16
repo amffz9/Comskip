@@ -12,18 +12,19 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | Issues | Current evidence |
 | --- | --- |
 | B001, B004, B005, B007–B011 | Fixed at `3cc57ed`; actual caption lifecycle/replay and warning/logging tests pass on Windows. |
-| B002 | Global writer removed at `3cc57ed`; complete replacement lifecycle leak verification remains pending. |
+| B002 | Global writer removed at `3cc57ed`; the unmodified `d9e1ed1` snapshot passes all 210 Linux address/undefined/leak sanitizer tests, including actual caption lifecycle, reopen and failure cleanup. |
 | B003, B013, B014 | Fixed at `12be69c`; all 174 Windows tests pass. Linux bridge dependency was also verified on the isolated patched snapshot. |
 | B006 | Fixed at `3cc57ed`; both failure branches verified by four warning tests at `7e011c3`. |
-| B012, B015, B016, B017, B019 | Fixed at `c4ab1e0`; all 181 Windows tests pass. Full Linux/sanitizer verification is pending. |
+| B012, B015, B016, B017, B019 | Fixed at `c4ab1e0`; all 181 Windows tests pass. The unmodified `d9e1ed1` snapshot passes all 210 Linux headless, SDL and address/undefined/leak sanitizer tests, including exact CSV/subtitle roundtrips and caption overlap/reopen paths. |
 | B020 | Fixed at `589fc7b`; all six settings-value tests pass on Windows. |
 | B021 | Overflow fixed at `8a4bda6`; three focused Windows tests pass. Full path support is tracked separately as B023. |
 | B022 | Fixed at `54470db`; all six diagnostic-output tests pass, including flush and file removal after disabling demux. |
 | B018 | Fixed at `bbbf019`; all 206 Windows tests pass, including six actual input and eight pure parser tests. Its unmodified snapshot passes all 202 Linux tests in headless, SDL, and address/undefined/leak sanitizer builds. B029 remains separate. |
-| B023, B027, B028 | Fixed at `34869fa`; all 210 Windows tests pass, including actual long Unicode CLI paths, optional marker failure, and caption controls/row splitting. Linux path-stage verification is pending. |
+| B023, B027, B028 | Fixed at `34869fa`; all 210 Windows tests pass. The unmodified `d9e1ed1` snapshot passes all 210 Linux headless, SDL and address/undefined/leak sanitizer tests, including actual input/INI/output Unicode paths above 1,024 bytes, optional marker failure, and caption controls/row splitting. |
 | B024 | Fixed at `4839fee`; unsafe conversions and argument counts are rejected, with actual escaped-template output compatibility. All 199 Windows tests pass at that stage. |
-| B025 | Fixed at `ed8649b`; five actual lifecycle tests pass on Windows. The isolated Linux `c4ab1e0` snapshot plus only that packet patch passes all 177 address/undefined/leak sanitizer tests without findings or suppressions. |
+| B025 | Fixed at `ed8649b`; five actual lifecycle tests pass on Windows. The isolated Linux `c4ab1e0` snapshot plus only that packet patch passes all 177 address/undefined/leak sanitizer tests; the unmodified `d9e1ed1` snapshot passes all 210. Neither run has findings or suppressions. |
 | B026 | Fixed at `0f98693`; all 200 Windows tests pass, including zero, negative, and excessive observation counts. |
+| B029, B030 | Fixed at `1e8f795`; all 226 Windows tests pass, including six actual reference and six block tests. Linux sanitizer verification of this integration stage is running. |
 
 ## Issue evidence and verification
 
@@ -156,11 +157,11 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   replay ends it at 5.960 seconds.
 - **Impact:** Replayed caption durations can be shorter by one frame; detector
   replay also lacks that final persisted observation.
-- **Status:** Deferred for a compatible CSV format/timeline fix. The replay
-  regression explicitly checks the current difference instead of treating it
-  as equivalent output.
-- **Verification needed:** Final observation roundtrip and matching EOF cue
-  timing, including compatibility with existing CSV files.
+- **Resolution:** Inclusive observation export and canonical replay counts are
+  fixed at `c4ab1e0`. Actual application tests require exact 6.000-second EOF
+  subtitles, identical EDL/TXT, and stable observation counts through repeated
+  CSV exports. These pass in every `d9e1ed1` Linux configuration, including
+  address/undefined/leak sanitizers.
 
 ### B013: Caption dump writing trusts its path, file handle, and length
 
@@ -271,11 +272,13 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   `inifilename` in 260-byte arrays. The review fallback now protects copying,
   but an otherwise valid longer UTF-8 path cannot fit; CLI basename/settings
   derivation also retains those limits.
-- **Status:** Confirmed portability gap. Input media filename ownership is
-  being migrated first; basename and configuration-path migration must follow.
-- **Verification needed:** Actual long nested Unicode media opened through both
-  decoder and CLI, with normal output/settings lookup and failure cleanup on
-  Windows and Linux.
+- **Resolution:** Input filename ownership is fixed at `4839fee`; the connected
+  basename/config/output graph is owned at `34869fa`. Actual full CLI tests
+  use Unicode input, settings and output paths each longer than 1,024 bytes,
+  verify complete exports, and release files for removal. The Windows full
+  stage passes 210 tests; unmodified `d9e1ed1` passes all 210 Linux headless,
+  SDL and address/undefined/leak sanitizer tests. No application path-size
+  ceiling is imposed; invalid filesystem destinations still report errors.
 
 ### B024: Editable output templates are unchecked printf formats
 
@@ -314,8 +317,10 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Evidence:** The `ccCheck` branch in `DetectCommercials` creates a `.ccyes`
   or `.ccno` file and calls `fclose` unconditionally after `myfopen`.
 - **Impact:** An unavailable marker destination can crash completed analysis.
-- **Fix/verification needed:** Owned, checked marker creation with localized
-  failure reporting and an actual unavailable-destination regression.
+- **Resolution:** `34869fa` uses checked FilePtr marker creation and localized
+  errors. The real CLI test first creates a long Unicode marker, then replaces
+  it with a directory and verifies completed analysis reports the creation
+  failure safely. It passes on Windows and all three `d9e1ed1` Linux builds.
 
 ### B028: Empty caption text is indexed before its length guard
 
@@ -323,8 +328,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   checking text length. A fresh control-only pair can reach this with length
   zero. The stored bytes are already unsigned, so character classification is
   not a separate signed-character defect.
-- **Fix/verification needed:** Guard indices first, with empty/control-only and
-  extended-byte regressions.
+- **Resolution:** `34869fa` checks text length before indexing. Empty/control-only
+  and extended-byte splitting regressions pass on Windows and all three
+  `d9e1ed1` Linux builds, including address/undefined/leak sanitizers.
 
 ### B029: Reference comparison trusts commercial sentinel capacity
 
@@ -344,6 +350,53 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Owned growable blocks with an explicit fully
   initialized terminal, consistent reset/removal, and empty handling. Verify
   more than 1,000 blocks, merges, recalculation, and empty/final scoring.
+
+### B031: Commercial construction exceeds fixed interval storage
+
+- **Evidence:** `src/output/cutlists.cpp` `BuildCommercial` increments
+  `commercial_count` and writes its entry without checking the 100,000-entry
+  capacity. Growable blocks now permit more than 100,000 alternating ad runs.
+- **Impact:** Large interval lists write beyond recording-owned storage.
+- **Fix/verification needed:** Growable commercial storage with safe append,
+  covering more than 100,000 runs and downstream output consumers.
+
+### B032: Review interval navigation and insertion trust unavailable entries
+
+- **Evidence:** `src/ui/review.cpp` previous navigation indexes `-1` for empty
+  lists or positions before the first interval; next navigation indexes past
+  the last interval. Reference insertion shifts/appends beyond capacity when
+  all 100,000 entries are populated.
+- **Fix/verification needed:** Bounded interval navigation and owned insertion,
+  tested for empty lists, both ends, and full-capacity reference editing.
+
+### B033: Live detection indexes empty commercial lists and overfills candidates
+
+- **Evidence:** `src/detection/live.cpp` uses
+  `commercial[commercial_count]` for `output_incommercial` after resetting the
+  count to `-1`, with no nonempty guard when no break is accepted. Candidate
+  `c_start`/`c_end` writes append before the later commercial-capacity guard.
+- **Fix/verification needed:** Owned candidate append and explicit empty state;
+  test no accepted breaks and more than 100,000 candidates.
+
+### B034: Configured frame masks can address pixels outside the frame
+
+- **Evidence:** `src/detection/detection.cpp` applies `ticker_tape`,
+  `top_ticker_tape`, `ignore_side`, `ignore_left_side`, and `ignore_right_side`
+  without checking them against decoded geometry. Height+1 ticker rows and
+  width+1 side masks cross allocation boundaries; percentages above 100 can
+  also exceed frame rows. Settings validation currently does not reject these.
+- **Fix/verification needed:** Validate settings and geometry before pixel
+  access, avoid overflowing percentage multiplication, and test each excessive
+  mask against real frame storage under sanitizers.
+
+### B035: Empty-input warning counter never reaches its threshold
+
+- **Evidence:** `src/media/mpeg2dec.cpp` increments `empty_packet_count` when
+  the video clock is unchanged, checks for more than 1,000 packets, then resets
+  the counter on every unchanged iteration. Starting at zero, it stays at one
+  during the check, so the warning cannot fire.
+- **Fix/verification needed:** Explicit consecutive-stall tracking, reset on
+  clock progress, and regressions for threshold and recovered progress.
 
 ## Fixed during modernization
 
