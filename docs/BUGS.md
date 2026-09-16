@@ -115,6 +115,29 @@ and relevant verification; retain the evidence for future regressions.
 - **Fix/verification needed:** UTF-8 `std::filesystem` path filename/parent
   extraction; actual replay using forward slashes and a different output folder.
 
+### B011: Caption dump stays buffered after successful analysis
+
+- **Evidence:** Replaying captions while the original recording context remained
+  alive produced an empty result: its companion `.data` file was still open and
+  buffered after normal decoder EOF.
+- **Impact:** A completed recording's persisted captions may be unavailable to
+  another analysis until the original context is destroyed.
+- **Fix in progress:** Close the data output at normal EOF. The actual decoder
+  and CSV replay regression now passes; full verification and commit remain.
+
+### B012: CSV replay loses the final frame's duration
+
+- **Evidence:** The CSV writer emits frames `1..<frame_count`. A generated
+  150-frame recording ends its final decoded subtitle at 6.000 seconds, while
+  replay ends it at 5.960 seconds.
+- **Impact:** Replayed caption durations can be shorter by one frame; detector
+  replay also lacks that final persisted observation.
+- **Status:** Deferred for a compatible CSV format/timeline fix. The replay
+  regression explicitly checks the current difference instead of treating it
+  as equivalent output.
+- **Verification needed:** Final observation roundtrip and matching EOF cue
+  timing, including compatibility with existing CSV files.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
