@@ -90,12 +90,12 @@ TEST(ReviewWindow, FontConfigurationPreservesControllerStateAndRejectsInvalidMut
     ReviewWindow window;
     window.process_event(KeyEvent{static_cast<Key>('w')});
     window.process_event(MouseEvent{MouseEvent::Kind::press, 10, 20});
-    window.configure_font(std::filesystem::u8path("café.ttf"), 22);
+    window.configure_font(std::filesystem::path(u8"café.ttf"), 22);
     EXPECT_EQ(window.input().key, 'W'); EXPECT_TRUE(window.input().mouse_down);
     EXPECT_EQ(window.options().font_size, 22);
     EXPECT_THROW(window.configure_font({}, 0), std::invalid_argument);
     EXPECT_EQ(window.options().font_size, 22);
-    EXPECT_EQ(window.options().font_path, std::filesystem::u8path("café.ttf"));
+    EXPECT_EQ(window.options().font_path, std::filesystem::path(u8"café.ttf"));
 }
 
 #if !COMSKIP_BUILD_GUI

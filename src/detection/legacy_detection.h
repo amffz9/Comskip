@@ -12,6 +12,7 @@ struct RecordingContext;
 #include "cutlist_exports.h"
 #include "output/diagnostics.h"
 #include "output/media_dump.h"
+#include "app/debug.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -285,7 +286,6 @@ void				LoadLogoMaskData(RecordingContext& context);
 double				CalculateLogoFraction(RecordingContext& context, int start, int end);
 bool				CheckFrameForLogo(RecordingContext& context, int i);
 int					CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame);
-void				Debug(RecordingContext& context, int level, const char * fmt, ...);
 void				InitProcessLogoTest(RecordingContext& context);
 void				InitComSkip(RecordingContext& context);
 void				InitLogoBuffers(RecordingContext& context);

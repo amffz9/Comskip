@@ -196,6 +196,24 @@ TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
     EXPECT_STREQ(spanish.text("csv_close_window"),
                  "Cierre la ventana cuando termine\n");
 }
+TEST(Translator, FormatsAnalysisLifecycleDiagnosticsWithStableEnglishLayout) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("analysis_retry_packet", 10, 20, 30, 40),
+              "Retry t_pos=10, l_pos=20, t_pts=30, l_pts=40\n");
+    EXPECT_EQ(english.format("analysis_retry", 2, 150, "   12.50"),
+              "\nRetry=2 at frame=150, time=   12.50 seconds\n");
+    EXPECT_EQ(english.format("analysis_parsed_frames", 250, 400, "   25.00"),
+              "\nParsed 250 video frames and 400 audio frames at    25.00 fps\n");
+    EXPECT_STREQ(english.text("analysis_selftest_seek_ok"),
+                 "\nSelftest 1 OK: Seektest\n");
+    EXPECT_EQ(spanish.format("analysis_selftest_failed", 3),
+              "\nAutoprueba 3 FALLIDA\n");
+    EXPECT_EQ(spanish.format("analysis_retry_target", 100, 200),
+              "Posición objetivo del reintento=100, pts=200\n");
+    EXPECT_EQ(spanish.format("analysis_maximum_volume", 32767),
+              "\nEl volumen máximo encontrado es 32767\n");
+}
 TEST(Translator, FormatsBlockValidationAndThresholdDiagnostics) {
     const Translator english;
     const Translator spanish("es");
@@ -212,4 +230,12 @@ TEST(Translator, FormatsBlockValidationAndThresholdDiagnostics) {
               "Se establece el umbral de brillo en 19\n");
     EXPECT_EQ(spanish.format("blocks_single_missing_audio_frames", "3"),
               "Fotogramas aislados sin audio: 3\n");
+}
+TEST(Translator, FormatsDetectorStorageGrowthDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("storage_resize_frame", 90000),
+              "Resizing frame buffer to accommodate 90000 entries.\n");
+    EXPECT_EQ(spanish.format("storage_resize_caption_text", 100),
+              "Se cambia el tamaño del búfer de texto de subtítulos para alojar 100 entradas.\n");
 }

@@ -1,6 +1,7 @@
 #include "recording_context.h"
 #include "detection/saved_logo.h"
 #include "localization/diagnostic.h"
+#include "platform/utf8_paths.h"
 #include <gtest/gtest.h>
 #include <fstream>
 #include <chrono>
@@ -21,7 +22,7 @@ void expect_diagnostic(const std::exception& error, comskip::diagnostics::Code c
 }
 struct Fixture {
     std::filesystem::path path = std::filesystem::temp_directory_path() /
-        std::filesystem::u8path("saved-logo-café-" + std::to_string(
+        comskip::platform::path_from_utf8("saved-logo-café-" + std::to_string(
             std::chrono::steady_clock::now().time_since_epoch().count()) + ".logo");
     std::unique_ptr<RecordingContext> context = std::make_unique<RecordingContext>();
     Fixture() {

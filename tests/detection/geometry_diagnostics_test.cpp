@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include <memory>
+#include <ranges>
 void EdgeDetect(RecordingContext&,unsigned char*,int);
 void Add_XDS_block(RecordingContext&);
 namespace {
@@ -86,6 +87,78 @@ TEST(GeometryDiagnostics, EveryActualProducerRejectsNegativeIndexBeforeGrowthOrI
         EXPECT_EQ(context->state.cc_block[0].start_frame,24); EXPECT_EQ(context->state.cc_text[0].text_len,25);
         EXPECT_EQ(context->state.max_frame_count,0); EXPECT_EQ(context->state.max_black_count,0);
     }
+}
+TEST(GeometryDiagnostics, FrameInitializationClearsReusedStateAndCarriesOnlyXds) {
+    auto context=std::make_unique<RecordingContext>();
+    context->state.frame.resize(2);
+    context->state.max_frame_count=2;
+    context->state.frame[0].xds=42;
+    context->state.frame[0].brightness=17;
+    context->state.frame[1]=frame_info{
+        .brightness=99, .schange_percent=3, .volume=88, .commercial=true,
+        .goppos=77, .logo_filter=6.5, .xds=1, .audio_channels=7,
+    };
+
+    InitializeFrameArray(*context,1);
+
+    const auto& initialized=context->state.frame[1];
+    EXPECT_EQ(initialized.schange_percent,100);
+    EXPECT_EQ(initialized.xds,42);
+    EXPECT_EQ(initialized.ar_ratio,0.0);
+    EXPECT_EQ(initialized.audio_channels,0);
+    EXPECT_EQ(initialized.brightness,0);
+    EXPECT_EQ(initialized.volume,0);
+    EXPECT_FALSE(initialized.commercial);
+    EXPECT_EQ(initialized.goppos,0);
+    EXPECT_EQ(initialized.logo_filter,0.0);
+    EXPECT_EQ(context->state.frame[0].brightness,17);
+}
+TEST(GeometryDiagnostics, StorageInitializersResetReusedRecordsAndPreserveNeighbors) {
+    auto context=std::make_unique<RecordingContext>();
+    context->state.curvolume=31;
+    context->state.black.resize(2); context->state.max_black_count=2;
+    context->state.black[0].brightness=12; context->state.black[1]={9,8,7,6,5};
+    context->state.schange.resize(2); context->state.max_schange_count=2;
+    context->state.schange[0].percentage=12; context->state.schange[1]={8,7};
+    context->state.logo_block.resize(2); context->state.max_logo_block_count=2;
+    context->state.logo_block[0]={1,2}; context->state.logo_block[1]={3,4};
+    context->state.ar_block.resize(2); context->state.max_ar_block_count=2;
+    context->state.ar_block[0].start=1; context->state.ar_block[1].start=3;
+    context->state.ac_block.resize(2); context->state.max_ac_block_count=2;
+    context->state.ac_block[0].start=1; context->state.ac_block[1].start=3;
+    context->state.cc_block.resize(2); context->state.max_cc_block_count=2;
+    context->state.cc_block[0].start_frame=1; context->state.cc_block[1]={3,4,5};
+    context->state.cc_text.resize(2); context->state.max_cc_text_count=2;
+    context->state.cc_text[0].text_len=1; context->state.cc_text[1].text_len=9;
+    context->state.cc_text[1].text[0]='X';
+
+    InitializeBlackArray(*context,1); InitializeSchangeArray(*context,1);
+    InitializeLogoBlockArray(*context,1); InitializeARBlockArray(*context,1);
+    InitializeACBlockArray(*context,1); InitializeCCBlockArray(*context,1);
+    InitializeCCTextArray(*context,1);
+
+    EXPECT_EQ(context->state.black[1].brightness,255); EXPECT_EQ(context->state.black[1].volume,31);
+    EXPECT_EQ(context->state.black[1].frame,0); EXPECT_EQ(context->state.black[1].cause,0);
+    EXPECT_EQ(context->state.schange[1].frame,1); EXPECT_EQ(context->state.schange[1].percentage,100);
+    EXPECT_EQ(context->state.logo_block[1].start,0); EXPECT_EQ(context->state.logo_block[1].end,0);
+    EXPECT_EQ(context->state.ar_block[1].start,0); EXPECT_EQ(context->state.ac_block[1].start,0);
+    EXPECT_EQ(context->state.cc_block[1].start_frame,-1); EXPECT_EQ(context->state.cc_block[1].end_frame,-1);
+    EXPECT_EQ(context->state.cc_block[1].type,0); EXPECT_EQ(context->state.cc_text[1].text_len,0);
+    EXPECT_EQ(context->state.cc_text[1].text[0],0);
+    EXPECT_EQ(context->state.black[0].brightness,12); EXPECT_EQ(context->state.schange[0].percentage,12);
+    EXPECT_EQ(context->state.logo_block[0].start,1); EXPECT_EQ(context->state.ar_block[0].start,1);
+    EXPECT_EQ(context->state.ac_block[0].start,1); EXPECT_EQ(context->state.cc_block[0].start_frame,1);
+    EXPECT_EQ(context->state.cc_text[0].text_len,1);
+}
+TEST(GeometryDiagnostics, ActualStorageGrowthPublishesCapacityAndValueInitializedSpareRecords) {
+    auto context=std::make_unique<RecordingContext>();
+    InitializeLogoBlockArray(*context,21);
+
+    EXPECT_EQ(context->state.max_logo_block_count,40);
+    ASSERT_EQ(context->state.logo_block.size(),42u);
+    EXPECT_TRUE(std::ranges::all_of(context->state.logo_block, [](const logo_block_info& record) {
+        return record.start==0 && record.end==0;
+    }));
 }
 TEST(GeometryDiagnostics, ReferenceComparisonUsesLocalizedValidation) {
     failure<std::invalid_argument>([]{compare_reference_intervals({}, {},-1);},

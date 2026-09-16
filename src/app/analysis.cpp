@@ -38,9 +38,21 @@
 #include "exit_requested.h"
 #include <cmath>
 #include <filesystem>
+#include <format>
+#include <utility>
 
 using namespace comskip::media;
 #define SELFTEST
+
+namespace {
+template<class... Args>
+void analysis_debug(RecordingContext& context, int level, std::string_view message_id,
+                    Args&&... args)
+{
+    const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
+    Debug(context, level, "%s", message.c_str());
+}
+}
 
 int comskip_main (RecordingContext& context, int argc, char ** argv)
 {
@@ -177,7 +189,8 @@ nextpacket:
                     goto again;
                 }
                 if (context.state.retries)
-                    Debug(context,  9,"Retry t_pos=%" PRId64 ", l_pos=%" PRId64 ", t_pts=%" PRId64 ", l_pts=%" PRId64 "\n", last_packet_pos, packet->pos, last_packet_pts, packet->pts);
+                    analysis_debug(context, 9, "analysis_retry_packet", last_packet_pos,
+                                   packet->pos, last_packet_pts, packet->pts);
                 context.state.video_owner->seek_req = 0;
             }
             /*
@@ -209,7 +222,8 @@ nextpacket:
             }
             if(ret < 0 )
             {
-                if (ret == AVERROR_EOF || context.state.video_owner->pFormatCtx->pb->eof_reached)
+                const auto* input = context.state.video_owner->pFormatCtx->pb;
+                if (ret == AVERROR_EOF || (input != nullptr && input->eof_reached))
                 {
                     if (context.state.selftest == 3)   // Either simulated EOF or real EOF before REOPEN_TIME
                     {
@@ -218,7 +232,8 @@ nextpacket:
                             if (context.state.video_owner->video_clock < context.state.selftest_target - 0.05 || context.state.video_owner->video_clock > context.state.selftest_target + 0.05)
                             {
                                 comskip::output::write_selftest_log(context.settings.selftest_log_file, "\"{}\": reopen file failed, size={:8.1f}, pts={:6.2f}\n", context.state.video_owner->filename.c_str(), context.state.video_owner->duration, context.state.video_owner->video_clock );
-                                Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
+                                analysis_debug(context, 1, "analysis_selftest_failed",
+                                               context.state.selftest);
                                 comskip::request_exit(1);
                             }
                         }
@@ -232,7 +247,8 @@ nextpacket:
                             {
                                 context.state.selftest_target = REOPEN_TIME;
                             }
-                            Debug(context,  1,"\nSelftest %d starting: Reopen\n", context.state.selftest);
+                            analysis_debug(context, 1, "analysis_selftest_reopen",
+                                           context.state.selftest);
                             context.state.selftest_target = fmax(context.state.selftest_target,0.5);
                             context.settings.live_tv = 1;
                             context.settings.live_tv_retries = 2;
@@ -253,8 +269,11 @@ nextpacket:
                                 retry_target = context.state.video_owner->video_clock + frame_delay;
                         }
                         file_close(context);
-                        Debug(context,  1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", context.state.retries, context.state.framenum, retry_target);
-                        Debug(context,  9,"Retry target pos=%" PRId64 ", pts=%" PRId64 "\n", last_packet_pos, last_packet_pts);
+                        analysis_debug(context, 1, "analysis_retry",
+                                       context.state.retries, context.state.framenum,
+                                       std::format("{:8.2f}", retry_target));
+                        analysis_debug(context, 9, "analysis_retry_target",
+                                       last_packet_pos, last_packet_pts);
 
                         if (context.state.selftest == 0) sleep_for_ms(4000L);
                         file_open(context);
@@ -347,7 +366,7 @@ nextpacket:
                         (context.state.video_owner->seek_by_bytes ? "byteseek": "timeseek" ),
                         context.state.video_owner->filename.c_str());
             } else
-                Debug(context,  1,"\nSelftest 1 OK: Seektest\n");
+                Debug(context, 1, "%s", context.translator.text("analysis_selftest_seek_ok"));
 
             /*
                             if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
@@ -378,8 +397,9 @@ nextpacket:
 
         tfps = print_decode_progress (context, 1);
 
-        Debug(context,  10,"\nParsed %d video frames and %d audio frames at %8.2f fps\n", context.state.framenum, context.state.sound_frame_counter, tfps);
-        Debug(context,  10,"\nMaximum Volume found is %d\n", context.state.max_volume_found);
+        analysis_debug(context, 10, "analysis_parsed_frames", context.state.framenum,
+                       context.state.sound_frame_counter, std::format("{:8.2f}", tfps));
+        analysis_debug(context, 10, "analysis_maximum_volume", context.state.max_volume_found);
 
 
         context.state.in_file.reset();

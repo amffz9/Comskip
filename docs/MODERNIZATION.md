@@ -549,3 +549,21 @@ than redefine completion around whichever subset currently passes tests.
   prevents the final black-frame run from inspecting successor storage outside
   the published observation range. Windows passes **477/477** headless and
   **485/485** SDL tests. Linux verification remains deferred to the final stage.
+
+- Analysis retry, self-test and completion diagnostics now use the English and
+  Spanish catalogs. The English catalog preserves the existing line breaks and
+  numeric widths, with C++23 `std::format` replacing width-sensitive variadic
+  formatting at the call sites. No active human-message literals remain in
+  `analysis.cpp`; the reproducible inventory is down to **96** active sites.
+  The read-error path also checks FFmpeg's optional I/O context before reading
+  its EOF flag. Windows and Linux verification are pending integration of this
+  batch.
+
+- Detector-buffer growth diagnostics now use the English and Spanish catalogs,
+  reducing the reproducible literal-message inventory to **88** active sites.
+  Storage initialization uses C++23 designated initialization and focused
+  defaults instead of legacy detector macros. Reused records are reset to
+  deterministic values while neighboring observations remain intact; focused
+  tests cover rejection of negative indices, growth/capacity publication,
+  preserved observations and value-initialized spare records. Windows and
+  Linux verification are pending integration of this batch.

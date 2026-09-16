@@ -1253,3 +1253,31 @@ before calling FFmpeg seek APIs.
   allocation when the declared payload exceeds the destination capacity. All
   **477/477** Windows headless and **485/485** SDL tests pass, and the public
   non-donator application builds.
+
+### B103: Analysis dereferences an optional FFmpeg I/O context after read errors
+
+- **Evidence:** The decode loop checked `pFormatCtx->pb->eof_reached` whenever
+  `av_read_frame` returned a non-EOF error. FFmpeg format contexts may have no
+  `AVIOContext`, so `pb` is optional even when the format context is valid.
+- **Impact:** A read error from an input without an `AVIOContext` can crash the
+  analysis while deciding whether the input reached its end.
+- **Status:** Fixed. End-of-input detection now treats a missing I/O context as
+  having no separately reported EOF flag and still recognizes `AVERROR_EOF`.
+- **Verification:** Windows integration tests are pending for this batch; Linux
+  verification remains deferred to the final implementation stage.
+
+### B104: Reused detector records retain stale observation fields
+
+- **Evidence:** The detector storage functions initialized only a subset of a
+  requested record. Logo, aspect-ratio and audio-block functions only grew the
+  backing vector, so calling them for an existing slot performed no
+  initialization at all.
+- **Impact:** Reusing a slot can publish fields from an earlier observation,
+  including commercial flags, positions, block bounds and caption payloads.
+- **Status:** Fixed. Every requested record is now value-initialized before its
+  documented nonzero defaults are applied. Frame XDS inheritance and current
+  black-frame volume remain explicit, and adjacent records are unchanged.
+- **Verification:** Focused tests cover stale-field clearing, neighboring-record
+  preservation, growth/capacity publication, defaults and negative indices.
+  Windows integration tests are pending; Linux remains deferred to the final
+  implementation stage.

@@ -4,6 +4,7 @@
 #include "media/video_decode_status.h"
 #include "media/video_packet_outcome.h"
 #include "localization/diagnostic.h"
+#include "platform/utf8_paths.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <fstream>
@@ -60,8 +61,8 @@ TEST(VideoPacketOutcome, TerminalStatesAreExplicitAndHaveStablePriority) {
 }
 TEST(DecoderLifecycle, MissingUnicodeInputOwnsCauseAndSameContextCanRetryValidMedia) {
     const auto directory=std::filesystem::temp_directory_path();
-    const auto missing=directory/std::filesystem::u8path("missing-recording-café.y4m");
-    const auto valid=directory/std::filesystem::u8path(
+    const auto missing=directory/comskip::platform::path_from_utf8("missing-recording-café.y4m");
+    const auto valid=directory/comskip::platform::path_from_utf8(
         "retry-recording-café-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".y4m");
     struct Cleanup { std::filesystem::path path; ~Cleanup() { std::error_code error; std::filesystem::remove(path,error); } } cleanup{valid};
     auto context=std::make_unique<RecordingContext>();
@@ -89,7 +90,7 @@ TEST(DecoderLifecycle, MissingUnicodeInputOwnsCauseAndSameContextCanRetryValidMe
     file_close(*context); closed(*context->state.video_owner);
 }
 TEST(DecoderLifecycle, ActualUnicodeMediaCloseClearsBorrowedReferencesAndReopens) {
-    const auto path=std::filesystem::temp_directory_path()/std::filesystem::u8path(
+    const auto path=std::filesystem::temp_directory_path()/comskip::platform::path_from_utf8(
         "decoder-café-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+".y4m");
     struct Cleanup { std::filesystem::path path; ~Cleanup() {
         std::error_code error; std::filesystem::remove(path,error);

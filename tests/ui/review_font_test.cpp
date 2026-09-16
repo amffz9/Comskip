@@ -28,14 +28,17 @@ TEST(ReviewFont, DefaultFontRendersAfterRelocation) {
 }
 TEST(ReviewFont, ExternalUnicodeOverrideOpensAndInvalidOverrideDoesNotFallBack) {
     using namespace comskip::ui;
+    const auto utf8_path = [](std::string_view value) {
+        return std::filesystem::path(std::u8string(value.begin(), value.end()));
+    };
     const auto directory = std::filesystem::temp_directory_path() /
-        std::filesystem::u8path("comskip-font-café-" + std::to_string(
+        utf8_path("comskip-font-café-" + std::to_string(
             std::chrono::steady_clock::now().time_since_epoch().count()));
     std::filesystem::create_directory(directory);
     struct Cleanup { std::filesystem::path path; ~Cleanup() {
         std::error_code error; std::filesystem::remove_all(path, error);
     }} cleanup{directory};
-    const auto path = directory / std::filesystem::u8path("café.ttf");
+    const auto path = directory / std::filesystem::path(u8"café.ttf");
     const auto bytes = bundled_font();
     { std::ofstream file(path, std::ios::binary);
       file.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
