@@ -16,15 +16,18 @@ std::optional<std::filesystem::path> find_in_search_path(std::string_view filena
     char separator)
 {
     if (filename.empty()) return {};
+    std::error_code directory_error;
+    const auto base = std::filesystem::absolute(working_directory, directory_error);
+    if (directory_error) return {};
     const auto name = utf8_path(filename);
     const auto probe = [&](const std::filesystem::path& directory)
         -> std::optional<std::filesystem::path> {
-        const auto candidate = (directory.is_absolute() ? directory : working_directory / directory) / name;
+        const auto candidate = (directory.is_absolute() ? directory : base / directory) / name;
         std::error_code error;
         if (std::filesystem::is_regular_file(candidate, error)) return candidate.lexically_normal();
         return {};
     };
-    if (auto found = probe(working_directory)) return found;
+    if (auto found = probe(base)) return found;
     for (const auto entry : search_path | std::views::split(separator)) {
         std::string_view directory(entry.begin(), entry.end());
         if (directory.size() >= 2 && directory.front() == '"' && directory.back() == '"') {

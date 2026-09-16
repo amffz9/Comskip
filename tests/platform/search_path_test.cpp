@@ -8,6 +8,21 @@ std::string utf8(const std::filesystem::path& path) {
     const auto bytes = path.u8string();
     return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
 }
+TEST(SearchPath, ResolvesRelativeWorkingDirectoryAndRelativeEntriesOnce) {
+    const auto relative_root = std::filesystem::path("comskip-relative-path-" +
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const auto root = std::filesystem::current_path() / relative_root;
+    struct Cleanup { std::filesystem::path path; ~Cleanup() {
+        std::error_code ignored; std::filesystem::remove_all(path, ignored);
+    }} cleanup{root};
+    std::filesystem::create_directories(root / "config");
+    { std::ofstream(root / "config" / "comskip.ini") << "search"; }
+    EXPECT_EQ(comskip::platform::find_in_search_path("comskip.ini", "config", relative_root, ';'),
+              root / "config" / "comskip.ini");
+    { std::ofstream(root / "comskip.ini") << "working"; }
+    EXPECT_EQ(comskip::platform::find_in_search_path("comskip.ini", "config", relative_root, ';'),
+              root / "comskip.ini");
+}
 }
 TEST(SearchPath, SearchesWorkingDirectoryBeforeOrderedUnicodeAndQuotedEntries) {
     const auto root = std::filesystem::temp_directory_path() /
