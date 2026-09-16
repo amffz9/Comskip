@@ -163,6 +163,26 @@ and relevant verification; retain the evidence for future regressions.
   The isolated Linux headless snapshot with this exact patch passes 161 tests;
   GUI and sanitizer verification are still running.
 
+### B015: Missing frame timestamps overflow during delay calculation
+
+- **Evidence:** Linux UBSAN stops all five actual caption analysis tests at
+  `mpeg2dec.cpp:1229`: subtracting a previous timestamp from `AV_NOPTS_VALUE`
+  overflows before the later missing-timestamp fallback runs.
+- **Fix/verification needed:** Check both timestamps before arithmetic and avoid
+  overflowing subtraction for valid extreme values; rerun actual EOF tests and
+  the complete sanitizer suite.
+
+### B016: Standalone subtitle output rejects overlapping cues
+
+- **Evidence:** The standalone decoder accepts overlapping/out-of-order cues,
+  but `SubtitleOutput` requires sequential nonoverlapping intervals. The first
+  actual routing fixture covers only nonoverlapping cues.
+- **Impact:** Valid subtitle streams can fail export or lose simultaneously
+  displayed text.
+- **Fix/verification needed:** Preserve simultaneous text/styles and cue timing
+  in supported SRT/SAMI output, with overlapping and out-of-order integration
+  regressions plus reopen and failure cleanup checks.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
