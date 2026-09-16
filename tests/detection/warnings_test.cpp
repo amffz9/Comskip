@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "exit_requested.h"
 #include "checked_format.h"
 #include "detection/legacy_detection.h"
 #include <gtest/gtest.h>
@@ -56,6 +57,19 @@ TEST_F(DetectionWarnings, OptionalLogoSaveFailureReturnsWithoutWritingToNullFile
     comskip::checked_format(context->state.logofilename, "%s", (directory / "missing-directory" / "logo.txt").string().c_str());
     EXPECT_NO_THROW(SaveLogoMaskData(*context));
     EXPECT_NE(log().find("no se pudo crear el archivo"), std::string::npos);
+    EXPECT_FALSE(std::filesystem::exists(directory / "missing-directory"));
+}
+TEST_F(DetectionWarnings, RequiredLogoSaveFailurePreservesExitStatusAndReleasesOwnership) {
+    context->settings.startOverAfterLogoInfoAvail = true;
+    comskip::checked_format(context->state.logofilename, "%s",
+        (directory / "missing-directory" / "logo.txt").string().c_str());
+    try {
+        SaveLogoMaskData(*context);
+        FAIL() << "Required logo save must report failure";
+    } catch (const comskip::ExitRequested& error) {
+        EXPECT_EQ(error.status(), 7);
+    }
+    EXPECT_NE(log().find("logo.txt"), std::string::npos);
     EXPECT_FALSE(std::filesystem::exists(directory / "missing-directory"));
 }
 }

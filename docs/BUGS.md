@@ -71,6 +71,9 @@ and relevant verification; retain the evidence for future regressions.
 - **Impact:** An unwritable logo destination can crash normal analysis.
 - **Fix/verification needed:** Return after the optional-save warning; preserve
   the required-restart error status. Test both branches with a missing directory.
+- **Resolution:** `3cc57ed` returns after optional failure and preserves required
+  failure status 7. Both branches now have passing Windows regressions; all four
+  detector warning tests pass. Cross-platform verification is still pending.
 
 ### B007: Redirected CSV replay searches the output directory for input captions
 
