@@ -1,0 +1,90 @@
+#include "recording_context.h"
+#include "detection/legacy_detection.h"
+#include "output/cutlist_exports.h"
+#include "checked_format.h"
+#include "exit_requested.h"
+#include <gtest/gtest.h>
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <random>
+
+namespace {
+class CutlistErrors : public ::testing::Test {
+protected:
+    std::filesystem::path directory;
+    std::unique_ptr<RecordingContext> context;
+    void SetUp() override {
+        directory = std::filesystem::temp_directory_path() /
+            ("comskip-cuterror-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+             "-" + std::to_string(std::random_device{}()));
+        ASSERT_TRUE(std::filesystem::create_directory(directory));
+        context = std::make_unique<RecordingContext>();
+        context->state.output_console = false;
+        context->settings.verbose = 0;
+        comskip::checked_format(context->state.logfilename, "%s", (directory / "error.log").string().c_str());
+        comskip::checked_format(context->state.outbasename, "%s", (directory / "missing" / "result").string().c_str());
+        comskip::checked_format(context->state.out_filename, "%s", (directory / "missing" / "result.txt").string().c_str());
+    }
+    void TearDown() override {
+        context.reset();
+        std::error_code ignored;
+        std::filesystem::remove_all(directory, ignored);
+    }
+    void expect_exit(int status) {
+        try { OpenOutputFiles(*context); FAIL() << "Expected output creation failure"; }
+        catch (const comskip::ExitRequested& exit) { EXPECT_EQ(exit.status(), status); }
+    }
+    std::string log() {
+        std::ifstream input(directory / "error.log");
+        return {std::istreambuf_iterator<char>(input), {}};
+    }
+};
+TEST_F(CutlistErrors, DefaultOutputRetryReportsFilenameInEnglish) {
+    context->settings.output_default = true;
+    expect_exit(103);
+    EXPECT_EQ(log(), "ERROR writing to " + std::string(context->state.out_filename) + "\n");
+    EXPECT_FALSE(context->state.out_file);
+}
+TEST_F(CutlistErrors, ChapterOutputRetryReportsSpanishAndReleasesOwner) {
+    context->translator = comskip::localization::Translator("es");
+    context->settings.output_default = false;
+    context->settings.output_chapters = true;
+    expect_exit(103);
+    EXPECT_EQ(log(), "ERROR al escribir en " + std::string(context->state.outbasename) + ".chap\n");
+    EXPECT_FALSE(context->state.chapters_file);
+}
+TEST_F(CutlistErrors, ZoomPlayerCreationFailurePreservesExitAndLocalizesStderr) {
+    context->translator = comskip::localization::Translator("es");
+    context->settings.output_default = false;
+    context->settings.output_chapters = false;
+    context->settings.output_zoomplayer_cutlist = true;
+    ::testing::internal::CaptureStderr();
+    expect_exit(6);
+    auto message = ::testing::internal::GetCapturedStderr();
+    std::erase(message, '\r');
+    EXPECT_NE(message.find(" - no se pudo crear el archivo "), std::string::npos);
+    EXPECT_NE(message.find(std::string(context->state.outbasename) + ".cut\n"), std::string::npos);
+    EXPECT_FALSE(context->state.zoomplayer_cutlist_file);
+}
+TEST_F(CutlistErrors, ValidatedOutputTemplatesExpandStringsAndEscapedPercentExactly) {
+    context->settings = comskip::config::load_settings(comskip::config::Ini(
+        "output_default=0\noutput_avisynth=1\noutput_dvrcut=1\n"
+        "avisynth_options=\"%% %s\"\ndvrcut_options=\"%s|%s|%s|%%\""));
+    context->state.mpegfilename = (directory / "input.ts").string();
+    comskip::checked_format(context->state.outbasename, "%s", (directory / "result").string().c_str());
+    comskip::checked_format(context->state.inbasename, "%s", "input");
+    OpenOutputFiles(*context);
+    context->state.avisynth_file.reset();
+    context->state.dvrcut_file.reset();
+    const auto read = [](const std::filesystem::path& path) {
+        std::ifstream file(path);
+        return std::string(std::istreambuf_iterator<char>(file), {});
+    };
+    EXPECT_EQ(read(directory / "input.ts.avs"), "% " + context->state.mpegfilename);
+    EXPECT_EQ(read(directory / "result_dvrcut.bat"), "input|input|input|%");
+}
+}

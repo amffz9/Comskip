@@ -9,14 +9,14 @@
 
 namespace comskip::config {
 namespace {
-void validate_window_title(std::string_view title) {
-    int placeholders = 0;
+void validate_string_template(std::string_view title, std::string_view key, std::size_t maximum) {
+    std::size_t placeholders = 0;
     for (std::size_t i = 0; i < title.size(); ++i) {
         if (title[i] != '%') continue;
         if (++i == title.size() || (title[i] != '%' && title[i] != 's'))
-            throw std::invalid_argument("windowtitle accepts only %s and %%");
-        if (title[i] == 's' && ++placeholders > 1)
-            throw std::invalid_argument("windowtitle accepts at most one filename placeholder");
+            throw std::invalid_argument(std::string(key) + " accepts only %s and %%");
+        if (title[i] == 's' && ++placeholders > maximum)
+            throw std::invalid_argument(std::string(key) + " has too many filename placeholders");
     }
 }
 constexpr auto keys() {
@@ -77,7 +77,9 @@ Settings load_settings(const Ini& ini, Settings base) {
     });
     if (base.language != "en" && base.language != "es")
         throw std::invalid_argument("Unsupported language: " + base.language);
-    validate_window_title(base.windowtitle);
+    validate_string_template(base.windowtitle, "windowtitle", 1);
+    validate_string_template(base.avisynth_options, "avisynth_options", 1);
+    validate_string_template(base.dvrcut_options, "dvrcut_options", 3);
     base.commercial_profile = read_profile(ini, std::move(base.commercial_profile));
     const auto& profile = base.commercial_profile;
     const auto valid_lengths = [](const auto& lengths) {

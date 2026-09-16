@@ -878,7 +878,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         if (context.state.test_pts != pts)
         {
                context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                fprintf(context.state.sample_file.get(), "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.video_owner->filename);
+                fprintf(context.state.sample_file.get(), "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.video_owner->filename.c_str());
                 context.state.sample_file.reset();
                 Debug(context,  1,"\nSelftest %d FAILED: Reset\n", context.state.selftest);
         }
@@ -1400,7 +1400,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                            is->filename);
+                            is->filename.c_str());
                     context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
                    }
@@ -1440,7 +1440,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                            is->filename);
+                            is->filename.c_str());
                         context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest 3 FAILED: Reopen\n");
                     }
@@ -1465,7 +1465,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
                             is->video_clock - is->seek_pts,
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                            is->filename);
+                            is->filename.c_str());
                         context.state.sample_file.reset();
                         Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                         comskip::request_exit(1);
@@ -1773,7 +1773,6 @@ void file_open(RecordingContext& context)
         context.state.video_owner = std::make_unique<VideoState>();
         is = context.state.video_owner.get();
         memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
-        strcpy(is->filename, context.state.mpegfilename);
         // Register all formats and codecs
         context.state.av_log_level=AV_LOG_INFO;
 
@@ -1809,14 +1808,15 @@ void file_open(RecordingContext& context)
     // Open video file
     if ( is->pFormatCtx.get() == NULL)
     {
+        is->filename = context.state.mpegfilename;
         is->pFormatCtx.reset(avformat_alloc_context());
         if (!is->pFormatCtx) throw std::bad_alloc();
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename, NULL,std::inout_ptr(context.state.myoptions))!=0)
+        if(avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), NULL,std::inout_ptr(context.state.myoptions))!=0)
         {
-            fputs(context.translator.format("media_open_failed", is->filename).c_str(), stderr);
+            fputs(context.translator.format("media_open_failed", is->filename.c_str()).c_str(), stderr);
             if (openretries++ < context.settings.live_tv_retries)
             {
                 sleep_for_ms(1000L);
@@ -1839,11 +1839,11 @@ again:
         // Retrieve stream information
         if(avformat_find_stream_info(is->pFormatCtx.get(), 0L )<0)
         {
-            fputs(context.translator.format("media_stream_info_failed", is->filename).c_str(), stderr);
+            fputs(context.translator.format("media_stream_info_failed", is->filename.c_str()).c_str(), stderr);
             comskip::request_exit(-1);
         }
         // Dump information about file onto standard error
-        if (context.state.retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename, 0);
+        if (context.state.retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename.c_str(), 0);
     }
 
     if (!is->frame.get()) {
@@ -1861,7 +1861,7 @@ again:
         if(is->videoStream < 0)
         {
             Debug(context, 0, "Could not open video codec\n");
-            fputs(context.translator.format("media_video_codec_failed", is->filename).c_str(), stderr);
+            fputs(context.translator.format("media_video_codec_failed", is->filename.c_str()).c_str(), stderr);
             comskip::request_exit(-1);
         }
 
@@ -2168,7 +2168,7 @@ nextpacket:
                             if (context.state.video_owner->video_clock < context.state.selftest_target - 0.05 || context.state.video_owner->video_clock > context.state.selftest_target + 0.05)
                             {
                                 context.state.sample_file.reset(fopen("seektest.log", "a+"));
-                                fprintf(context.state.sample_file.get(), "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.video_owner->filename, context.state.video_owner->duration, context.state.video_owner->video_clock );
+                                fprintf(context.state.sample_file.get(), "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", context.state.video_owner->filename.c_str(), context.state.video_owner->duration, context.state.video_owner->video_clock );
                                 context.state.sample_file.reset();
                                 Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
                                 comskip::request_exit(1);
@@ -2300,7 +2300,7 @@ nextpacket:
                         context.state.video_owner->video_clock - context.state.video_owner->seek_pts,
                         context.state.video_owner->duration,
                         (context.state.video_owner->seek_by_bytes ? "byteseek": "timeseek" ),
-                        context.state.video_owner->filename);
+                        context.state.video_owner->filename.c_str());
                 context.state.sample_file.reset();
             } else
                 Debug(context,  1,"\nSelftest 1 OK: Seektest\n");

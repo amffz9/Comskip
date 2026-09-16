@@ -1,5 +1,6 @@
 #pragma once
 #include "ffmpeg_resources.h"
+#include <string>
 using namespace comskip::media;
 typedef struct VideoState
 
@@ -96,7 +97,7 @@ typedef struct VideoState
 
     FramePtr pFrame;
 
-    char            filename[1024];
+    std::string filename;
 
     int             quit;
 

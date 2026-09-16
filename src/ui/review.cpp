@@ -741,7 +741,7 @@ bool ReviewResult(RecordingContext& context)
     context.settings.output_data = 0;
     context.settings.output_srt = 0;
     context.settings.output_smi = 0;
-    if (context.state.mpegfilename[0]) {
+    if (!context.state.mpegfilename.empty()) {
         const auto candidates = comskip::ui::review_media_candidates(context.state.mpegfilename);
         for (std::size_t candidate = 0; candidate < candidates.size(); ++candidate) {
             const auto encoded = candidates[candidate].u8string();
@@ -749,7 +749,7 @@ bool ReviewResult(RecordingContext& context)
             review_file.reset(myfopen(filename.c_str(), "rb"));
             if (!review_file) continue;
             if (candidate != 0) {
-                comskip::checked_format(context.state.mpegfilename, "%s", filename.c_str());
+                context.state.mpegfilename = filename;
                 if (candidate == 1) context.state.demux_pid = 1;
                 else context.state.demux_asf = 1;
             }

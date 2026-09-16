@@ -56,7 +56,7 @@ void OpenOutputFiles(RecordingContext& context)
             context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
             if (!context.state.out_file.get())
             {
-                Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename);
+                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename).c_str());
                 comskip::request_exit(103);
             }
         }
@@ -74,7 +74,7 @@ void OpenOutputFiles(RecordingContext& context)
             context.state.chapters_file.reset(myfopen(context.state.filename, "w"));
             if (!context.state.chapters_file.get())
             {
-                Debug(context, 0, "ERROR writing to %s\n", context.state.filename);
+                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.filename).c_str());
                 comskip::request_exit(103);
             }
         }
@@ -87,7 +87,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.zoomplayer_cutlist_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.zoomplayer_cutlist_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -103,7 +103,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.incommercial_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.incommercial_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         fprintf(context.state.incommercial_file.get(), "0\n");
@@ -119,7 +119,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.zoomplayer_chapter_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.zoomplayer_chapter_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -135,7 +135,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.scf_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.scf_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -150,7 +150,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.edl_file.reset(myfopen(context.state.filename, "wb"));
         if (!context.state.edl_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -165,7 +165,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.ffmeta_file.reset(myfopen(context.state.filename, "wb"));
         if (!context.state.ffmeta_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -180,7 +180,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.ffsplit_file.reset(myfopen(context.state.filename, "wb"));
         if (!context.state.ffsplit_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -195,7 +195,7 @@ void OpenOutputFiles(RecordingContext& context)
         live_file = myfopen(filename, "wb");
         if (!live_file)
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+            fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -210,7 +210,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.ipodchap_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.ipodchap_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -226,7 +226,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.edlp_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.edlp_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -242,7 +242,7 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.bcf_file.reset(myfopen(context.state.filename, "w"));
         if (!context.state.bcf_file.get())
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
         else
@@ -268,14 +268,14 @@ void OpenOutputFiles(RecordingContext& context)
         context.state.videoredo_file.reset(myfopen(context.state.filename, "w"));
         if (context.state.videoredo_file.get())
         {
-            if (context.state.mpegfilename[1] == ':' || context.state.mpegfilename[0] == PATH_SEPARATOR)
+            if (std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.mpegfilename.c_str()))).is_absolute())
             {
-                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s\n", context.state.mpegfilename);
+                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s\n", context.state.mpegfilename.c_str());
             }
             else
             {
                 _getcwd(cwd, 256);
-                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s%c%s\n", cwd, PATH_SEPARATOR, context.state.mpegfilename);
+                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s%c%s\n", cwd, PATH_SEPARATOR, context.state.mpegfilename.c_str());
             }
             if (context.state.is_h264)
             {
@@ -287,7 +287,7 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -305,7 +305,7 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -321,14 +321,14 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
 
     if (context.settings.output_projectx)
     {
-        comskip::checked_format(context.state.filename, "%s.Xcl", context.state.mpegfilename);
+        comskip::checked_format(context.state.filename, "%s.Xcl", context.state.mpegfilename.c_str());
         context.state.projectx_file.reset(myfopen(context.state.filename, "w"));
         if (context.state.projectx_file.get())
         {
@@ -336,26 +336,26 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
 
     if (context.settings.output_avisynth)
     {
-        comskip::checked_format(context.state.filename, "%s.avs", context.state.mpegfilename);
+        comskip::checked_format(context.state.filename, "%s.avs", context.state.mpegfilename.c_str());
         context.state.avisynth_file.reset(myfopen(context.state.filename, "w"));
         if (context.state.avisynth_file.get())
         {
             if (context.settings.avisynth_options.c_str()[0] == 0)
-                fprintf(context.state.avisynth_file.get(), "LoadPlugin(\"MPEG2Dec3.dll\") \nMPEG2Source(\"%s\")\n", context.state.mpegfilename);
+                fprintf(context.state.avisynth_file.get(), "LoadPlugin(\"MPEG2Dec3.dll\") \nMPEG2Source(\"%s\")\n", context.state.mpegfilename.c_str());
             else
-                fprintf(context.state.avisynth_file.get(), context.settings.avisynth_options.c_str(), context.state.mpegfilename);
+                fprintf(context.state.avisynth_file.get(), context.settings.avisynth_options.c_str(), context.state.mpegfilename.c_str());
 
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -371,7 +371,7 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -393,7 +393,7 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -406,11 +406,11 @@ void OpenOutputFiles(RecordingContext& context)
         {
 //			fclose(mpgtx_file);
             context.settings.output_mpgtx = true;
-            fprintf(context.state.mpgtx_file.get(), "mpgtx.exe -j -f -o \"%s%s\" \"%s\" ", context.state.mpegfilename, ".clean", context.state.mpegfilename);
+            fprintf(context.state.mpgtx_file.get(), "mpgtx.exe -j -f -o \"%s%s\" \"%s\" ", context.state.mpegfilename.c_str(), ".clean", context.state.mpegfilename.c_str());
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -429,7 +429,7 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -451,7 +451,7 @@ void OpenOutputFiles(RecordingContext& context)
         }
         else
         {
-            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.filename);
+            fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
             comskip::request_exit(6);
         }
     }
@@ -505,7 +505,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
             }
             else  	// If the file still can't be opened for writting, give up and exit
             {
-                Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename);
+                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename).c_str());
                 comskip::request_exit(103);
             }
         }
@@ -646,18 +646,18 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         {
             if (start - prev > context.settings.fps)
             {
-                fprintf(context.state.womble_file.get(), "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename,F2F(prev+1), F2F(start) - F2F(prev));
+                fprintf(context.state.womble_file.get(), "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename.c_str(),F2F(prev+1), F2F(start) - F2F(prev));
             }
 // CLIPLIST: #2 commercial
 // CLIP: morse.mpg
 // 6 9963 5196
 
-            fprintf(context.state.womble_file.get(), "CLIPLIST: #%i commercial\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename, F2F(start), F2F(end) - F2F(start));
+            fprintf(context.state.womble_file.get(), "CLIPLIST: #%i commercial\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename.c_str(), F2F(start), F2F(end) - F2F(start));
         }
         else
         {
             if (end - prev > 0)
-                fprintf(context.state.womble_file.get(), "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename, F2F(prev+1), F2F(end) - F2F(prev));
+                fprintf(context.state.womble_file.get(), "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, context.state.mpegfilename.c_str(), F2F(prev+1), F2F(end) - F2F(prev));
         }
     }
     CLOSEOUTFILE(context.state.womble_file);
@@ -671,7 +671,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 //                count += 2;
             if (start < context.settings.fps)
                 count -= 1;
-            fprintf(context.state.mls_file.get(), "[BookmarkList]\nPathName= %s\nVideoStreamID= 0\nFormat= frame\nCount= %d\n", context.state.mpegfilename, count);
+            fprintf(context.state.mls_file.get(), "[BookmarkList]\nPathName= %s\nVideoStreamID= 0\nFormat= frame\nCount= %d\n", context.state.mpegfilename.c_str(), count);
             if (start >= context.settings.fps)
                 fprintf(context.state.mls_file.get(), "%11i 1\n", 0);
         }

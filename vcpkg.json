@@ -2,7 +2,7 @@
   "name": "comskip",
   "version-string": "0.83.1",
   "builtin-baseline": "908da3a305a0a8028d9602ab241b433652b3df69",
-  "dependencies": ["argtable2", "ffmpeg", "simpleini", "pugixml"],
+  "dependencies": ["argtable2", "ffmpeg", "simpleini", "pugixml", "rapidcsv"],
   "features": {
     "tests": { "description": "Google Test and generated-media regression suite", "dependencies": ["gtest", {"name": "ffmpeg", "features": ["ffmpeg"]}] },
     "gui": { "description": "SDL review interface", "dependencies": ["sdl2", "sdl2-ttf"] }

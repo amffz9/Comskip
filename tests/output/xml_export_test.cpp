@@ -29,7 +29,7 @@ protected:
         auto& state = context->state; auto& settings = context->settings;
         comskip::checked_format(state.outbasename, "%s", utf8(directory / "result").c_str());
         comskip::checked_format(state.inbasename, "%s", "décode & <input>");
-        comskip::checked_format(state.mpegfilename, "%s", utf8(directory / std::filesystem::path(u8"é & <input>.ts")).c_str());
+        state.mpegfilename = utf8(directory / std::filesystem::path(u8"é & <input>.ts"));
         settings.fps = 25; settings.videoredo_offset = 1;
         settings.output_videoredo3 = true; settings.output_videoredo = true;
         settings.output_edlx = true; settings.output_btv = true;

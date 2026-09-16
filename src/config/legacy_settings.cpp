@@ -315,7 +315,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (strcmp(in->extension[0], ".csv") != 0 && strcmp(in->extension[0], ".txt") != 0)
     {
-        comskip::checked_format(context.state.mpegfilename, "%s", in->filename[0]);
+        context.state.mpegfilename = in->filename[0];
 
 
 
@@ -339,41 +339,41 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
 
         comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        comskip::checked_format(context.state.mpegfilename, "%.*s.mpg", (int)strlen(context.state.inbasename), context.state.inbasename);
-        test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+        context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
+        test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.ts", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".ts";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.tp", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".tp";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.dvr-ms", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".dvr-ms";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.wtv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".wtv";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.mp4", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".mp4";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.mkv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".mkv";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            context.state.mpegfilename[0] = 0;
+            context.state.mpegfilename.clear();
         }
         else
         {
@@ -384,7 +384,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
         strcpy(context.state.shortbasename, &context.state.inbasename[i]);
         comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
-        if (context.state.mpegfilename[0] == 0) comskip::checked_format(context.state.mpegfilename, "%s.mpg", context.state.inbasename);
+        if (context.state.mpegfilename.empty()) context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
     }
     else if (strcmp(in->extension[0], ".txt") == 0)
     {
@@ -401,41 +401,41 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         context.state.in_file.reset();
 
         comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        comskip::checked_format(context.state.mpegfilename, "%.*s.mpg", (int)strlen(context.state.inbasename), context.state.inbasename);
-        test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+        context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
+        test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.ts", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".ts";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.tp", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".tp";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.dvr-ms", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".dvr-ms";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.wtv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".wtv";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.mp4", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".mp4";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            comskip::checked_format(context.state.mpegfilename, "%.*s.mkv", (int)strlen(context.state.inbasename), context.state.inbasename);
-            test_file.reset(myfopen(context.state.mpegfilename, "rb"));
+            context.state.mpegfilename = std::string(context.state.inbasename) + ".mkv";
+            test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         }
         if (!test_file)
         {
-            context.state.mpegfilename[0] = 0;
+            context.state.mpegfilename.clear();
         }
         else
         {
@@ -734,7 +734,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
 
 
-    Debug(context, 9, "Mpeg:\t%s\nExe\t%s\nLogo:\t%s\nIni:\t%s\n", context.state.mpegfilename, context.state.exefilename, context.state.logofilename, context.state.inifilename);
+    Debug(context, 9, "Mpeg:\t%s\nExe\t%s\nLogo:\t%s\nIni:\t%s\n", context.state.mpegfilename.c_str(), context.state.exefilename, context.state.logofilename, context.state.inifilename);
     Debug(context, 1, "\nDetection Methods to be used:\n");
     i = 0;
     if (context.settings.commDetectMethod & BLACK_FRAME)

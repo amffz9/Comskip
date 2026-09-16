@@ -82,6 +82,23 @@ TEST(SettingsValue, RejectsNegativeScanBordersIncludingInheritedValues) {
     EXPECT_THROW(load_settings(Ini{}, invalid), std::invalid_argument);
     EXPECT_EQ(baseline.border, default_settings().border);
 }
+TEST(SettingsValue, RejectsUnsafeOutputTemplatesBeforeReturningCandidate) {
+    const auto base = default_settings();
+    for (const std::string key : {"avisynth_options", "dvrcut_options"}) {
+        for (const std::string format : {"%n", "%d", "%", "%10s", "%s%s%s%s"}) {
+            EXPECT_THROW(load_settings(Ini(key + "=\"" + format + "\""), base), std::invalid_argument)
+                << key << ": " << format;
+        }
+    }
+    EXPECT_THROW(load_settings(Ini("avisynth_options=\"%s%s\""), base), std::invalid_argument);
+    auto inherited = base;
+    inherited.dvrcut_options = "%n";
+    EXPECT_THROW(load_settings(Ini{}, inherited), std::invalid_argument);
+    const auto valid = load_settings(Ini("avisynth_options=\"%% %s\"\ndvrcut_options=\"%s|%s|%s|%%\""), base);
+    EXPECT_EQ(valid.avisynth_options, "%% %s");
+    EXPECT_EQ(valid.dvrcut_options, "%s|%s|%s|%%");
+    EXPECT_EQ(base.avisynth_options, default_settings().avisynth_options);
+}
 TEST(SettingsValue, ValidatesInheritedBaselineAsWellAsOverrides) {
     auto base = default_settings();
     base.global_threshold = std::numeric_limits<double>::quiet_NaN();

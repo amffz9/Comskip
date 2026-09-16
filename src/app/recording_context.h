@@ -124,7 +124,7 @@ struct RecordingState {
     char incomingCommandLine[260]{};
     char logofilename[260]{};
     char logfilename[260]{};
-    char mpegfilename[260]{};
+    std::string mpegfilename;
     char exefilename[260]{};
     char inbasename[260]{};
     char workbasename[260]{};
