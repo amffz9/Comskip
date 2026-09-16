@@ -1,11 +1,16 @@
 #pragma once
 
+#include <cstdint>
+#include <span>
+
 struct RecordingContext;
 
 // Recording diagnostics, histogram thresholds, and reference interval input.
 void FindIniFile(RecordingContext& context);
 double FindScoreThreshold(RecordingContext& context, double percentile);
-void OutputLogoHistogram(RecordingContext& context, int buckets);
+void OutputLogoHistogram(RecordingContext& context,
+                         std::span<const std::uint64_t> histogram,
+                         std::uint64_t denominator);
 void OutputbrightHistogram(RecordingContext& context);
 void OutputuniformHistogram(RecordingContext& context);
 void OutputHistogram(RecordingContext& context, int* histogram, int scale,

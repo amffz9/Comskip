@@ -1023,8 +1023,13 @@ before calling FFmpeg seek APIs.
   above one index outside the array, after earlier entries may already mutate it.
 - **Impact:** A crafted or damaged CSV can cause out-of-bounds memory access and
   leave partial histogram state.
-- **Status:** Open. Extract an atomic span-based histogram calculation, validate
-  every observation and bucket count, and use overflow-safe percentile math.
+- **Status:** Fixed. A focused C++23 module validates the frame span, bucket
+  count and every finite `[0,1]` observation before allocating a result. It uses
+  64-bit counts and overflow-safe percentile math, then publishes the legacy
+  histogram only after the complete calculation succeeds.
+- **Verification:** Boundary buckets, invalid finite/nonfinite values, invalid
+  counts and near-`uint64_t` arithmetic pass in all 434 Windows headless and 442
+  SDL tests. Linux sanitizer verification remains pending for this snapshot.
 
 ### B087: Positioning-error recovery contains unreachable failure handling
 

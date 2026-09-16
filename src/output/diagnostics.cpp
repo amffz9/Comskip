@@ -10,7 +10,9 @@
 #include "weighted_scores.h"
 #include "search_path.h"
 #include "checked_format.h"
+#include <algorithm>
 #include <cstdlib>
+#include <string>
 
 void FindIniFile(RecordingContext& context)
 {
@@ -64,41 +66,31 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
     return *threshold;
 }
 
-void OutputLogoHistogram(RecordingContext& context, int buckets)
+void OutputLogoHistogram(RecordingContext& context,
+                         std::span<const std::uint64_t> histogram,
+                         std::uint64_t denominator)
 {
-    int		i;
-    int		j;
-    long	max = 0;
-    int		columns = 200;
-    double	divisor;
-    char stars[256];
-    long	counter = 0;
-
-    for (i = 0; i < buckets; i++)
-    {
-        if (max < context.state.logoHistogram[i])
-        {
-            max = context.state.logoHistogram[i];
-        }
-    }
-
-    divisor = (double)columns / (double)max;
+    constexpr std::size_t columns = 200;
+    const auto maximum = histogram.empty()
+        ? std::uint64_t{0}
+        : *std::ranges::max_element(histogram);
+    const auto divisor = maximum == 0 ? 0.0 : static_cast<double>(columns) / maximum;
+    std::uint64_t counter = 0;
 
     Debug(context, 8, "Logo Histogram - %.5f\n", divisor);
 
-    for (i = 0; i < buckets; i++)
-    {
-        counter += context.state.logoHistogram[i];
-        stars[0] = 0;
-        if (context.state.logoHistogram[i] > 0)
-        {
-            for (j = 0; j <= (int)(context.state.logoHistogram[i] * divisor); j++)
-            {
-                stars[j] = '*';
-            }
-            stars[j] = 0;
-        }
-        Debug(context, 8, "%.3f - %6i - %.5f %s\n", (double)i/buckets, context.state.logoHistogram[i], (double)counter / (double)context.state.frame_count, stars);
+    for (std::size_t i = 0; i < histogram.size(); ++i) {
+        counter += histogram[i];
+        const auto star_count = histogram[i] == 0
+            ? std::size_t{0}
+            : std::min(columns + 1,
+                       static_cast<std::size_t>(histogram[i] * divisor) + 1);
+        const std::string stars(star_count, '*');
+        const auto fraction = denominator == 0 ? 0.0
+            : static_cast<double>(counter) / static_cast<double>(denominator);
+        Debug(context, 8, "%.3f - %6llu - %.5f %s\n",
+              static_cast<double>(i) / histogram.size(),
+              static_cast<unsigned long long>(histogram[i]), fraction, stars.c_str());
     }
 }
 

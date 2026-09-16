@@ -1,5 +1,8 @@
 #include "legacy_detection.h"
+#include "logo_histogram.h"
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 
 char *CauseString(RecordingContext& context, int i)
 {
@@ -741,38 +744,28 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
 void FindLogoThreshold(RecordingContext& context)
 {
-    int i;
-    int buckets = 20;
-    int counter = 0;
-    if (context.state.framearray)
-    {
-        for (i = 1; i < context.state.frame_count; i += 1 /*(int) fps */ )
-        {
-            context.state.logoHistogram[(int)(context.state.frame[i].currentGoodEdge * (buckets - 1))]++;
-        }
+    constexpr std::size_t buckets = 20;
+    if (context.state.framearray) {
+        if (context.state.frame_count < 0)
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+                comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
+        const auto result = comskip::detection::build_logo_histogram(
+            context.state.frame, static_cast<std::size_t>(context.state.frame_count), buckets);
+        if (!result)
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+                comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
+        if (std::ranges::any_of(result->counts, [](const auto count) {
+                return count > static_cast<std::uint64_t>(std::numeric_limits<int>::max());
+            }))
+            throw comskip::diagnostics::DiagnosticError<std::overflow_error>(
+                comskip::diagnostics::Code::invalid_detection_buffer_index_or_capacity);
 
-        OutputLogoHistogram(context, buckets);
-        counter = 0;
-        for (i = 0; i < buckets; i++)
-        {
-            counter += context.state.logoHistogram[i];
-            if (100 * counter / context.state.frame_count > 40)
-                break;
-        }
-        if (i < buckets/2)
-            i = buckets * 3 / 4;
-        else
-        {
-            if (context.state.logoHistogram[i - 2] < context.state.logoHistogram[i])
-                i -= 2;
-            if (context.state.logoHistogram[i - 1] < context.state.logoHistogram[i])
-                i -= 1;
-            if (context.state.logoHistogram[i - 1] < context.state.logoHistogram[i])
-                i -= 1;
-            if (context.state.logoHistogram[i - 1] < context.state.logoHistogram[i])
-                i -= 1;
-        }
-        context.state.logo_quality = ((double) i + 0.5) / (double) buckets;
+        std::ranges::fill(context.state.logoHistogram, 0);
+        for (std::size_t i = 0; i < result->counts.size(); ++i)
+            context.state.logoHistogram[i] = static_cast<int>(result->counts[i]);
+
+        OutputLogoHistogram(context, result->counts, result->denominator);
+        context.state.logo_quality = result->quality;
         Debug(context, 8, "Set Logo Quality = %.5f\n", context.state.logo_quality);
 
         /*

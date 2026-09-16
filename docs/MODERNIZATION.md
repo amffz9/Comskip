@@ -430,3 +430,15 @@ than redefine completion around whichever subset currently passes tests.
   `bin/windows-caption-localization-build23{,-gui}-test.txt` and
   `bin/windows-caption-localization-public-build.txt`. Linux verification of
   this snapshot remains separate.
+
+- Recording startup now reports owned path-and-FFmpeg diagnostics and unwinds
+  partial demuxer, codec, frame and borrowed-stream state before rethrowing. A
+  missing Unicode input can be followed by a valid open on the same recording
+  context. Logo histogram calculation is a focused C++23 module using spans,
+  `std::expected`, atomic validation and overflow-safe 64-bit percentile math;
+  persisted edge values can no longer index outside the fixed legacy histogram.
+  Windows passes **434/434** headless and **442/442** SDL tests, and the public
+  non-donator application builds. Logs are
+  `bin/windows-input-histogram-build23{,-gui}-test.txt` and
+  `bin/windows-input-histogram-public-build.txt`. Linux verification remains
+  separate.
