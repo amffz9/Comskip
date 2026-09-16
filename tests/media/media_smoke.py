@@ -4,6 +4,7 @@ import csv
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 
 executable = Path(sys.argv[1]).resolve()
 work_root = Path(sys.argv[2]).resolve()
@@ -20,7 +21,10 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
             output.write(b"FRAME\n" + luma + bytes([128]) * (width * height // 2))
     settings = root / "test.ini"
     settings.write_text("detect_method=1\nnum_logo_buffers=2\noutput_framearray=1\n"
-                        "output_edl=1\nlive_tv_retries=0\nadded_recording=0\nverbose=0\n")
+                        "output_edl=1\nlive_tv_retries=0\nadded_recording=0\nverbose=0\n"
+                        "output_videoredo=1\noutput_videoredo3=1\nvideoredo_offset=0\n"
+                        "output_edlx=1\noutput_btv=1\noutput_cuttermaran=1\n"
+                        "output_dvrmstb=1\noutput_mkvtoolnix=2\n")
     results = []
     for threads in (1, 4):
         destination = root / str(threads)
@@ -40,6 +44,18 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         # With the correct 25fps timeline and EOF drain, this short synthetic
         # recording matches a commercial block under the default length policy.
         assert files["edl"] == b"0.00\t9.92\t0\n", "Unexpected commercial intervals"
+        for extension in ("VPrj", "edlx", "chapters.xml", "cpf", "xml",
+                          "mkvtoolnix.chapters", "mkvtoolnix.tags"):
+            files[extension] = (destination / f"sample.{extension}").read_bytes()
+            ET.fromstring(files[extension])
+        project = ET.fromstring(files["VPrj"])
+        assert project.tag == "VideoReDoProject"
+        assert Path(project.findtext("Filename")) == video
+        assert len(project.findall("CutList/Cut")) == 1
+        dvr = ET.fromstring(files["xml"])
+        commercials = dvr.findall("commercial")
+        assert len(commercials) == 1
+        assert commercials[0].attrib == {"start": "0.000000", "end": "9.920000"}
         results.append(files)
     assert results[0] == results[1], "Serial and parallel outputs differ"
 print("Media decode, INI loading, serial/parallel analysis, and output checks passed")
