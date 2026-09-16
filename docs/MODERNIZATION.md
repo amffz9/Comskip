@@ -176,8 +176,12 @@ than redefine completion around whichever subset currently passes tests.
   passes all 256 tests from its `build-gui` directory (4.23 seconds), including
   all six previously timed-out media CLI tests. Exact commands and results are
   in `bin/windows-verification-931ee71.md`. SDL uses the dummy driver.
-  Linux snapshot verification is running separately. Unsafe brightness/sampling parameters
-  remain open as B038–B041.
+  The unmodified Linux snapshot passes all 252 tests in headless Release
+  (34.78 seconds), SDL Release (34.31 seconds), and address/undefined/leak
+  sanitizer Debug (75.79 seconds), without findings or suppressions. Exact
+  commands and dependencies are in `bin/linux-verification-931ee71.md`.
+  Brightness and sampling parameters were addressed in the next stage below;
+  logo scan/filter arithmetic remains open as B041.
 - At `b1f9e86`, all 270 Windows headless tests pass. Checked scene geometry
   and 0–255 brightness thresholds prevent invalid histogram/pixel access and
   zero normalization. Actual tests cover zero-border padded images, small
