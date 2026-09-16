@@ -490,3 +490,14 @@ than redefine completion around whichever subset currently passes tests.
   **453/453** SDL tests, and the public non-donator application builds. Logs are
   `bin/windows-dumps-detection-build23{,-gui}-test.txt`. Linux verification is
   deferred to the final implementation stage.
+
+- Detection histogram, volume-plateau and silence diagnostics now use the
+  English and Spanish catalogs. Aspect ratios, frame counts, cumulative
+  percentages and thresholds retain their call-site formatting. The
+  reproducible literal-message inventory is down to **139** active sites.
+  Frame CSV output is split into a span/ostream serializer with classic-locale
+  numeric output, preflight validation and checked stream status. Volume
+  histogram indexing uses a checked `std::expected` conversion. Windows passes
+  **452/452** headless and **460/460** SDL tests, and the public non-donator
+  application builds. Logs are `bin/windows-frame-csv-build23{,-gui}-test.txt`.
+  Linux verification is deferred to the final implementation stage.

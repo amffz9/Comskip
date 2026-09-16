@@ -160,3 +160,15 @@ TEST(Translator, FormatsLogoSearchAndCutpointDiagnostics) {
     EXPECT_EQ(spanish.format("detection_logo_cut_before_appears", "    42", "1.250", "2", "91"),
               "Fotograma     42 (1.250s) - Punto de corte añadido 2 segundos antes de aparecer el logotipo con un porcentaje de cambio de 91\n");
 }
+TEST(Translator, FormatsDetectionHistogramAndSilenceDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("detection_aspect_histogram_row", " 1.78", "   250", "100.0"),
+              "Aspect Ratio   1.78 found on    250 frames totalling \t100.0%\n");
+    EXPECT_EQ(english.format("detection_audio_histogram_row", "  2", "    75", "60.0"),
+              "Audio channels   2 found on     75 frames totalling \t60.0%\n");
+    EXPECT_EQ(spanish.format("detection_volume_plateau", "20", "12", "30", "4"),
+              "Meseta@[20] fotogramas 12, volumen 30, distancia 4 segundos\n");
+    EXPECT_EQ(spanish.format("detection_long_silent_segment", "100", "149"),
+              "\nSegmento silencioso largo detectado desde los fotogramas 100 hasta 149\n");
+}

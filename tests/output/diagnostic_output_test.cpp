@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -81,9 +82,17 @@ TEST_F(DiagnosticOutput, ActualCsvBufferBoundsPreserveRangeCategoryAndRenderEngl
         EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("es")),
             "Las observaciones CSV exceden el búfer de fotogramas");
     }
-    // The existing writer emits its header before validating observations;
-    // the owned stream must still close when the range diagnostic unwinds.
-    EXPECT_TRUE(std::filesystem::remove(directory/"log.csv"));
+    EXPECT_FALSE(std::filesystem::exists(directory/"log.csv"));
+}
+TEST_F(DiagnosticOutput, InvalidCsvObservationRejectsBeforeCreatingDestination) {
+    context->state.frame_count=1;
+    context->state.frame.resize(2);
+    context->state.frame[1].pts=std::numeric_limits<double>::quiet_NaN();
+    try { OutputFrameArray(*context,false); FAIL() << "Expected invalid CSV output"; }
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::invalid_frame_csv_output);
+    }
+    EXPECT_FALSE(std::filesystem::exists(directory/"log.csv"));
 }
 TEST_F(DiagnosticOutput, AspectOutputOpenFailureIsLocalized) {
     context->translator = comskip::localization::Translator("es");
@@ -104,6 +113,7 @@ TEST_F(DiagnosticOutput, ScreenFrameOutputUsesInitializedLogoValueAndFinalObserv
     auto output = ::testing::internal::GetCapturedStdout();
     std::erase(output, '\r');
     EXPECT_EQ(output, "1\t23\t45\t1\tHistogram\n");
+    EXPECT_FALSE(std::filesystem::exists(directory/"log.csv"));
 }
 TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles) {
     context->settings.output_demux = true;

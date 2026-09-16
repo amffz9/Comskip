@@ -7,11 +7,13 @@
 #include "legacy_detection.h"
 #include "output/diagnostics.h"
 #include "output/csv_field.h"
+#include "output/frame_csv.h"
 #include "weighted_scores.h"
 #include "search_path.h"
 #include "checked_format.h"
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <string>
 
 void FindIniFile(RecordingContext& context)
@@ -603,67 +605,36 @@ return;
 
 void OutputFrameArray(RecordingContext& context, bool screenOnly)
 {
-    int		i;
-#ifdef FRAME_WITH_HISTOGRAM
-    int		k;
-#endif
-//	long	j;
-    std::string array;
-    comskip::platform::FilePtr raw;
-    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".csv"));
-//	Debug(5, "Expanding logo blocks into frame array\n");
-//	for (i = 0; i < logo_block_count; i++) {
-//		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
-//			frame[j].logo_present = true;
-//		}
-//	}
-//	Debug(5, "Expanded logo blocks into frame array\n");
-    raw.reset(myfopen(array.c_str(), "w"));
-    if (!raw.get())
-    {
-        Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
-        return;
-    }
-    fprintf(raw.get(), "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%f",context.settings.fps);
-//	for (k = 0; k < 32; k++) {
-//		fprintf(raw, ",b%3i", k);
-//	}
-    fprintf(raw.get(), "\n");
-
-
-
-    if (screenOnly)
-        Debug(context, 1, "Frame\tBlack\tBrightness\tS_Change\tS_Change Perc\tLogo Present\t%i\n", context.state.frame_count);
-    // Both decoded input and CSV replay count real observations inclusively.
     const int last_observation = context.state.frame_count;
     if (last_observation < 0 || static_cast<std::size_t>(last_observation) >= context.state.frame.size())
         throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::csv_observations_exceed_frame_buffer);
-    for (i = 1; i <= last_observation; i++)
-    {
-        if (screenOnly)
-        {
-            printf("%i\t%i\t%i\t%i\tHistogram\n", i, context.state.frame[i].brightness,
-                   context.state.frame[i].schange_percent, context.state.frame[i].logo_present);
-        }
-        else
-        {
-            fprintf(raw.get(), "%i,%i,%i,%i,%i,%i,%i,%i,%f,%f,%i,%i,%i,%i,%i,%i,%f,%i,%i",
-                    i, context.state.frame[i].brightness, context.state.frame[i].schange_percent*5, context.state.frame[i].logo_present,
-                    context.state.frame[i].uniform, context.state.frame[i].volume,  context.state.frame[i].minY,context.state.frame[i].maxY,context.state.frame[i].ar_ratio,
-                    context.state.frame[i].currentGoodEdge, context.state.frame[i].isblack,context.state.frame[i].cutscenematch,
-                    context.state.frame[i].minX, context.state.frame[i].maxX, context.state.frame[i].hasBright, context.state.frame[i].dimCount, context.state.frame[i].pts,
-                    context.state.frame[i].cur_segment, context.state.frame[i].audio_channels
-                   );
-#ifdef FRAME_WITH_HISTOGRAM
-            for (k = 0; k < 32; k++)
-            {
-                fprintf(raw.get(), ",%i", frame[i].histogram[k]);
-            }
-#endif
-            fprintf(raw.get(), "\n");
-        }
+    const auto observations=std::span(context.state.frame).subspan(1,static_cast<std::size_t>(last_observation));
+    if (screenOnly) {
+        Debug(context,1,"Frame\tBrightness\tS_Change\tLogo Present\t%i\n",last_observation);
+        for (std::size_t index=0; index<observations.size(); ++index)
+            printf("%zu\t%i\t%i\t%i\tHistogram\n",index+1,observations[index].brightness,
+                observations[index].schange_percent,observations[index].logo_present);
+        return;
     }
-
-    raw.reset();
+    try {
+        comskip::output::validate_frame_csv(observations,{context.settings.fps});
+    } catch (const std::invalid_argument&) {
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+            comskip::diagnostics::Code::invalid_frame_csv_output);
+    }
+    const auto path=comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".csv");
+    std::ofstream output(path,std::ios::binary|std::ios::trunc);
+    const auto path_text=comskip::platform::path_to_utf8(path);
+    if (!output)
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_open,{path_text});
+    try {
+        comskip::output::write_frame_csv(output,observations,{context.settings.fps});
+        output.close();
+        if (!output) throw std::ios_base::failure("Failed closing frame CSV output");
+    } catch (const std::ios_base::failure&) {
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_write,{path_text});
+    }
 }
 

@@ -1148,3 +1148,31 @@ before calling FFmpeg seek APIs.
 - **Verification:** Exact English padding and three-decimal timestamp coverage
   passes within all 445 Windows headless and 453 SDL tests. Linux verification
   remains deferred to the final implementation stage.
+
+### B096: Volume-plateau histogram trusts the observed volume as an index
+
+- **Evidence:** Detection increments `platauHistogram[frame.volume / 10]`
+  without validating that the recorded volume maps into the 255-element array.
+- **Impact:** A negative, corrupt or unusually large observation can index
+  outside owned histogram storage during silence calibration.
+- **Status:** Fixed. A C++23 `std::expected` bucket conversion validates width,
+  negative observations and owned histogram capacity before mutation.
+- **Verification:** Boundary/error tests pass in all 452 Windows headless and
+  460 SDL tests. Linux verification remains deferred to the final stage.
+
+### B097: Frame CSV output mutated destinations before validation
+
+- **Evidence:** `OutputFrameArray` opened and truncated its CSV before checking
+  observation bounds, opened the file even for screen-only output, used
+  locale-sensitive `fprintf`, and ignored every write/close result.
+- **Impact:** Invalid state or a screen preview could destroy an existing replay
+  file; storage failures could leave a plausible partial file, and comma-decimal
+  locales could produce output the parser cannot replay.
+- **Status:** Fixed. A focused span/ostream serializer validates all rows before
+  writing, uses the classic locale, reports stream failure and preserves the
+  final observation. The application adapter validates before opening, avoids
+  all file access in screen mode, and maps open/write/close failures to owned
+  diagnostics.
+- **Verification:** Golden roundtrip, empty/final rows, invalid numeric state,
+  failing stream, no-artifact bounds and screen-only regressions pass in all
+  452 Windows headless and 460 SDL tests. Linux verification remains deferred.

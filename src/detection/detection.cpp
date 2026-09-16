@@ -5,6 +5,8 @@
 #include "frame_mask.h"
 #include "logo_sampling.h"
 #include "logo_shrink.h"
+#include "volume_histogram.h"
+#include <array>
 #include <stdexcept>
 #include <utility>
 
@@ -325,12 +327,15 @@ void FillARHistogram(RecordingContext& context, bool refill)
     }
 
     tempCount = 0;
-    Debug(context, 10, "\n\nAfter Sorting - %i\n--------------\n", counter);
+    DetectionDebug(context, 10, "detection_histogram_sorted", std::format("{}", counter));
     i = 0;
     while (i < MAX_ASPECT_RATIOS && context.state.ar_histogram[i].frames > 0)
     {
         tempCount += context.state.ar_histogram[i].frames;
-        Debug(context, 10, "Aspect Ratio  %5.2f found on %6i frames totalling \t%3.1f%c\n", context.state.ar_histogram[i].ar_ratio, context.state.ar_histogram[i].frames, ((double)tempCount / (double)totalFrames)*100,'%');
+        DetectionDebug(context, 10, "detection_aspect_histogram_row",
+            std::format("{:5.2f}", context.state.ar_histogram[i].ar_ratio),
+            std::format("{:6}", context.state.ar_histogram[i].frames),
+            std::format("{:3.1f}", static_cast<double>(tempCount) / totalFrames * 100));
         i++;
     }
 
@@ -394,12 +399,15 @@ void FillACHistogram(RecordingContext& context, bool refill)
     }
 
     tempCount = 0;
-    Debug(context, 10, "\n\nAfter Sorting - %i\n--------------\n", counter);
+    DetectionDebug(context, 10, "detection_histogram_sorted", std::format("{}", counter));
     i = 0;
     while (i < MAX_AUDIO_CHANNELS && context.state.ac_histogram[i].frames > 0)
     {
         tempCount += context.state.ac_histogram[i].frames;
-        Debug(context, 10, "Audio channels %3i found on %6i frames totalling \t%3.1f%c\n", context.state.ac_histogram[i].audio_channels, context.state.ac_histogram[i].frames, ((double)tempCount / (double)totalFrames)*100,'%');
+        DetectionDebug(context, 10, "detection_audio_histogram_row",
+            std::format("{:3}", context.state.ac_histogram[i].audio_channels),
+            std::format("{:6}", context.state.ac_histogram[i].frames),
+            std::format("{:3.1f}", static_cast<double>(tempCount) / totalFrames * 100));
         i++;
     }
 
@@ -465,7 +473,7 @@ bool BuildMasterCommList(RecordingContext& context)
     int		volume_delta;
     int		p_vol, n_vol;
     int		plataus = 0;
-    int		platauHistogram[256];
+    std::array<int,256> platauHistogram{};
 
     double	length;
     double	new_ar_ratio;
@@ -539,8 +547,7 @@ try_again:
         if (context.state.framearray)  			// Find silence volume level
         {
 
-            for (i = 0; i < 255; i++)
-                platauHistogram[i] = 0;
+            platauHistogram.fill(0);
             plataus = 0;
             j = 1;
             for (i = VOLUME_PLATAU_SIZE; i < context.state.frame_count-VOLUME_PLATAU_SIZE;)
@@ -595,19 +602,24 @@ try_again:
                         //if ( abs(frame[i-k-2].volume - frame[i].volume) > VOLUME_DELTA*2 ||
                         //	abs(frame[i+a+2].volume - frame[i].volume) > VOLUME_DELTA*2)
                     {
-                        Debug(context, 8, "Platau@[%d] frames %d, volume %d, distance %d seconds\n", i, k+a, context.state.frame[i].volume, (int)F2L(i,j));
+                        DetectionDebug(context, 8, "detection_volume_plateau", std::format("{}", i),
+                            std::format("{}", k + a), std::format("{}", context.state.frame[i].volume),
+                            std::format("{}", static_cast<int>(F2L(i, j))));
                         j = i;
 //						for (j = i-k; j < i + a; j++)
 //							frame[j].isblack |= C_v;
 
-                        plataus++;
-                        platauHistogram[context.state.frame[i].volume/10]++;
+                        if (const auto bucket=comskip::detection::volume_histogram_bucket(
+                                context.state.frame[i].volume,platauHistogram.size())) {
+                            plataus++;
+                            platauHistogram[*bucket]++;
+                        }
                     }
                 }
                 i += a;
             }
             a = 0;
-            Debug(context, 9, "Vol : #Frames\n");
+            DetectionDebug(context, 9, "detection_volume_histogram_heading");
             for (i = 0; i < 255; i++)
             {
                 a += platauHistogram[i];
@@ -623,7 +635,7 @@ try_again:
                 j += platauHistogram[i++];
             }
             ms = i*10;
-            Debug(context, 7, "Calculated silence level = %d\n", ms);
+            DetectionDebug(context, 7, "detection_silence_level", std::format("{}", ms));
             if (ms > 0 && ms < 10)
                 ms = 10;
             if (ms < 50)
@@ -729,7 +741,8 @@ scanagain:
                 }
                 max_volume *= 4;
          */
-        Debug (context,  1, "Setting max_volume to %i\n", context.settings.max_volume);
+        DetectionDebug(context, 1, "detection_setting_max_volume",
+            std::format("{}", context.settings.max_volume));
     }
 
     if (context.settings.commDetectMethod & LOGO)
@@ -1007,7 +1020,8 @@ scanagain:
                 j = i+1;
                 while (j < context.state.frame_count && context.state.frame[j].volume < 10 ) j++;
                 if ((context.state.frame[j-1].pts - context.state.frame[i].pts) > context.settings.remove_silent_segments) {
-                    Debug(context, 4, "\nDetected a long silent segment from frames %d till %d\n", i, j-1);
+                    DetectionDebug(context, 4, "detection_long_silent_segment",
+                        std::format("{}", i), std::format("{}", j - 1));
                     InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, C_v);
                     InsertBlackFrame(context, j-1,context.state.frame[j-1].brightness,context.state.frame[j-1].uniform,context.state.frame[j].volume, C_v);
                 }
