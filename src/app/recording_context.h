@@ -5,6 +5,7 @@
 #include "review_window.h"
 #include "translator.h"
 #include "file_resources.h"
+#include "media/caption_session.h"
 #include <memory>
 #include <array>
 #include <vector>
@@ -217,7 +218,6 @@ struct RecordingState {
     unsigned char cutscene[8][120000]{};
     int csbrightness[8]{};
     int cslength[8]{};
-    char debugText[20000]{};
     bool logoInfoAvailable{};
     bool secondLogoSearch= false;
     bool logoBuffersFull= false;
@@ -419,12 +419,6 @@ struct RecordingState {
     double video_packet_process_prev_strange_step= 0.0;
     int video_packet_process_prev_strange_framenum= 0;
     int log_callback_report_print_prefix= 1;
-    char LoadSettings_filename[260]{};
-    char * LoadSettings_CEW_argv[10]{};
-    char LoadSettings_caption_arg_0[12]= "comskip.exe";
-    char LoadSettings_caption_arg_1[6]= "-sami";
-    char LoadSettings_caption_arg_2[5]= "-srt";
-    char LoadSettings_caption_arg_3[3]= "-o";
     std::unique_ptr<ScanWorkers> scan_workers;
     char osname[1024]{};
 };
@@ -436,4 +430,5 @@ struct RecordingContext {
     RecordingState state;
     comskip::ui::ReviewWindow window;
     comskip::localization::Translator translator;
+    std::unique_ptr<comskip::media::CaptionSession> captions;
 };

@@ -296,11 +296,11 @@ void LoadCutScene(RecordingContext& context, const char *filename)
         }
         else
         {
-            Debug(context, 1, "ERROR: Loading from cutfile \"%s\" failed\n", c, filename);
+            Debug(context, 1, "%s", context.translator.format("detection_cutfile_read_failed", filename).c_str());
         }
         context.state.cutscene_file.reset();
     } else
-         Debug(context, 1, "Can't open cutfile \"%s\"\n", filename);
+         Debug(context, 1, "%s", context.translator.format("detection_cutfile_open_failed", filename).c_str());
 }
 
 #define OWN_HISTOGRAM_WIDTH 4

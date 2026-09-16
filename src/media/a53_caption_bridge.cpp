@@ -22,4 +22,35 @@ std::vector<Ga94CaptionPacket> bridge_a53_captions(std::span<const std::uint8_t>
     }
     return packets;
 }
+std::vector<std::uint8_t> extract_a53_captions(std::span<const std::uint8_t> packet) {
+    std::vector<std::uint8_t> result;
+    if (packet.size() < 4) return result;
+    if (std::equal(packet.begin(), packet.begin() + 4, "GA94")) {
+        if (packet.size() < 7 || packet[4] != 3) throw std::invalid_argument("Malformed GA94 caption header");
+        const auto length = (packet[5] & 0x1f) * 3u;
+        if (length > packet.size() - 7) throw std::invalid_argument("Truncated GA94 captions");
+        if (packet[5] & 0x40) result.assign(packet.begin() + 7, packet.begin() + 7 + length);
+    } else if (packet[0] == 'C' && packet[1] == 'C' && packet[2] == 1 && packet[3] == 0xf8) {
+        if (packet.size() < 5) throw std::invalid_argument("Truncated DVD caption header");
+        const auto count = (packet[4] & 0x1e) / 2;
+        if (packet.size() - 5 < static_cast<std::size_t>(count) * 6)
+            throw std::invalid_argument("Truncated DVD caption pairs");
+        const int first_field = (packet[4] & 0x80) ? 0 : 1;
+        auto payload = packet.subspan(5);
+        while (payload.size() >= 6 && (payload[0] == 0xfe || payload[0] == 0xff)) {
+            for (int field = 0; field < 2; ++field) {
+                const auto offset = field * 3;
+                result.push_back(payload[offset] == 0xff && field == first_field ? 0xfc : 0xfd);
+                result.push_back(payload[offset + 1]); result.push_back(payload[offset + 2]);
+            }
+            payload = payload.subspan(6);
+        }
+        if (!payload.empty() && (payload[0] == 0xfe || payload[0] == 0xff) && payload.size() != 1)
+            throw std::invalid_argument("Truncated extra DVD captions");
+    } else if ((packet[0] == 0xbb && packet[1] == 2) || (packet[2] == 0x99 && packet[3] == 2)) {
+        if (packet.size() < 8) throw std::invalid_argument("Truncated ReplayTV captions");
+        result = {0xfc, packet[6], packet[7], 0xfd, packet[2], packet[3]};
+    }
+    return result;
+}
 }

@@ -1,5 +1,8 @@
 #include "exit_requested.h"
+#include "checked_format.h"
 #include "legacy_detection.h"
+#include <filesystem>
+#include <stdexcept>
 
 void PrintArgs(RecordingContext& context)
 {
@@ -8,9 +11,6 @@ void PrintArgs(RecordingContext& context)
 }
 
 
-#ifdef PROCESS_CC
-extern "C" long process_block (unsigned char *data, long length);
-#endif
 
 
 void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
@@ -235,8 +235,15 @@ again:
 
     if (!context.state.dump_data_file.get())
     {
-        sprintf(line, "%s.data", context.state.workbasename);
-        context.state.dump_data_file.reset(myfopen(line, "rb"));
+        auto companion = std::filesystem::path(std::u8string_view(
+            reinterpret_cast<const char8_t*>(context.state.inbasename)));
+        companion += ".data";
+        const auto name = companion.u8string();
+        context.state.dump_data_file.reset(myfopen(reinterpret_cast<const char*>(name.c_str()), "rb"));
+        if (!context.state.dump_data_file && strcmp(context.state.inbasename, context.state.workbasename) != 0) {
+            comskip::checked_format(line, "%s.data", context.state.workbasename);
+            context.state.dump_data_file.reset(myfopen(line, "rb"));
+        }
     }
     ccDataFrame = 0;
 
@@ -266,9 +273,14 @@ again:
 ccagain:
         if (context.state.dump_data_file.get() && ccDataFrame == 0)
         {
-            cont = fread(line,8,1,context.state.dump_data_file.get());
-            line[8]=0;
-            sscanf(line,"%7d:",&ccDataFrame);
+            const auto bytes_read = fread(line, 1, 8, context.state.dump_data_file.get());
+            cont = bytes_read != 0;
+            if (bytes_read && bytes_read != 8) throw std::invalid_argument("Truncated persisted caption frame header");
+            if (bytes_read) {
+                line[8] = 0;
+                if (line[7] != ':' || sscanf(line, "%7d", &ccDataFrame) != 1 || ccDataFrame < 0)
+                    throw std::invalid_argument("Invalid persisted caption frame header");
+            }
 //			ccDataFrame = strtol(line,NULL,7);
         }
         if (context.state.dump_data_file.get() )
@@ -277,19 +289,23 @@ ccagain:
             while (cont && ccDataFrame <=i)
             {
 
-                cont = fread(line,4,1,context.state.dump_data_file.get());
-                if (!cont)
-                    break;
+                if (fread(line, 1, 4, context.state.dump_data_file.get()) != 4)
+                    throw std::invalid_argument("Truncated persisted caption packet length");
                 line[4]=0;
-                sscanf(line,"%4d",&context.state.ccDataLen);
+                if (sscanf(line,"%4d",&context.state.ccDataLen) != 1 || context.state.ccDataLen < 0 ||
+                    context.state.ccDataLen > static_cast<int>(sizeof(context.state.ccData)))
+                    throw std::invalid_argument("Invalid persisted caption packet length");
 //			ccDataLen = strtol(line,NULL,4);
-                cont = fread(context.state.ccData,context.state.ccDataLen,1, context.state.dump_data_file.get());
-                if (!cont)
-                    break;
+                if (context.state.ccDataLen && fread(context.state.ccData, 1, context.state.ccDataLen,
+                    context.state.dump_data_file.get()) != static_cast<std::size_t>(context.state.ccDataLen))
+                    throw std::invalid_argument("Truncated persisted caption packet");
                 context.state.framenum = ccDataFrame;
 #ifdef PROCESS_CC
                 if (context.state.processCC) ProcessCCData(context);
-                if (context.settings.output_srt || context.settings.output_smi) process_block(context.state.ccData, (int)context.state.ccDataLen);
+                if (context.captions) context.captions->consume_stored_packet(
+                    {context.state.ccData, static_cast<std::size_t>(context.state.ccDataLen)},
+                    std::chrono::duration_cast<comskip::media::CaptionTimestamp>(
+                        std::chrono::duration<double>(context.state.frame[i].pts)));
 #endif
                 ccDataFrame = 0;
                 goto ccagain;
@@ -523,6 +539,11 @@ ccagain:
         BuildCommListAsYouGo(context);
     }
 
+    if (context.captions) {
+        context.captions->finish(std::chrono::duration_cast<comskip::media::CaptionTimestamp>(
+            std::chrono::duration<double>(context.state.frame[context.state.frame_count - 1].pts + 1 / context.settings.fps)));
+        context.captions.reset();
+    }
     BuildMasterCommList(context);
 
     if (context.settings.output_debugwindow)

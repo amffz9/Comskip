@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include <format>
 
 int DetectCommercials(RecordingContext& context, int f, double pts)
 {
@@ -487,7 +488,7 @@ bool BuildMasterCommList(RecordingContext& context)
 
     if (context.state.frame_count == 0)
     {
-        Debug(context, 1, "No video found\n");
+        Debug(context, 1, "%s", context.translator.text("detection_no_video"));
         return(false);
     }
     Debug(context, 7, "Finished scanning file.  Starting to build Commercial List.\n");
@@ -500,8 +501,9 @@ bool BuildMasterCommList(RecordingContext& context)
     length = F2L(context.state.frame_count-1, 1);
     if (fabs( length - (context.state.frame_count -1)/context.settings.fps) > 0.5) {
         if (fabs(context.state.avg_fps - context.settings.fps)> 1)
-            Debug(context, 1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\nInternal frame numbers will be different from .txt frame numbers\n", context.state.avg_fps, context.settings.fps);
-        Debug(context, 1,"WARNING: Complex timeline or errors in the recording!!!!\nResults may be wrong, .ref input will be misaligned. .txt editing will produce wrong results\nUse .edl output if possible\n");
+            Debug(context, 1, "%s", context.translator.format("detection_framerate_warning",
+                std::format("{:6.3f}", context.state.avg_fps), std::format("{:6.3f}", context.settings.fps)).c_str());
+        Debug(context, 1, "%s", context.translator.text("detection_timeline_warning"));
     }
 
     context.state.frame[context.state.frame_count].pts = context.state.frame[context.state.frame_count-1].pts + 1.0 / context.settings.fps;
@@ -1010,7 +1012,8 @@ scanagain:
 //		}
         if (context.state.logoPercentage < context.settings.logo_fraction - 0.05 || context.state.logoPercentage > context.settings.logo_percentile)
         {
-            Debug(context, 1, "\nNot enough or too much logo's found (%.2f), disabling the use of Logo detection\n",context.state.logoPercentage );
+            Debug(context, 1, "%s", context.translator.format("detection_logo_disabled",
+                std::format("{:.2f}", context.state.logoPercentage)).c_str());
             context.settings.commDetectMethod -= LOGO;
         }
     }

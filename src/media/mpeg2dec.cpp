@@ -823,8 +823,6 @@ again:
 }
 
 #ifdef PROCESS_CC
-extern "C" void CEW_reinit();
-extern "C" long process_block (unsigned char *data, long length);
 #endif
 
 
@@ -1129,6 +1127,15 @@ nextpacket:
 
 
 
+namespace {
+comskip::media::CaptionTimestamp caption_timestamp(double seconds) {
+    if (!std::isfinite(seconds) || seconds >= static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1000000)
+        throw std::invalid_argument("Invalid video caption timestamp");
+    seconds = std::max(0.0, seconds);
+    return std::chrono::duration_cast<comskip::media::CaptionTimestamp>(std::chrono::duration<double>(seconds));
+}
+}
+
 int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet)
 {
     double frame_delay;
@@ -1337,7 +1344,10 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->dec_ctxpar->ticks_per_frame);
 
-        pts = real_pts + context.state.pts_offset;
+        // EOF-drained frames may have no timestamp. Residual repair offset is
+        // relative to an actual PTS; adding it to zero would reset the clock.
+        pts = context.state.best_effort_timestamp == AV_NOPTS_VALUE
+            ? is->video_clock : real_pts + context.state.pts_offset;
 
         calculated_delay = pts - context.state.video_packet_process_prev_pts;
 
@@ -1481,12 +1491,13 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
             for (int side_data_index = 0; side_data_index < is->pFrame->nb_side_data; ++side_data_index) {
                 const AVFrameSideData *sd = is->pFrame->side_data[side_data_index];
                 if (sd->type != AV_FRAME_DATA_A53_CC) continue;
+                if (context.captions && !context.state.reviewing)
+                    context.captions->consume({sd->data, sd->size}, caption_timestamp(pts));
                 for (const auto& packet : comskip::media::bridge_a53_captions({sd->data, sd->size})) {
                     std::copy_n(packet.bytes.begin(), packet.size, context.state.ccData);
                     context.state.ccDataLen = static_cast<int>(packet.size);
                     dump_data(context, reinterpret_cast<char*>(context.state.ccData), context.state.ccDataLen);
                     if (context.state.processCC) ProcessCCData(context);
-                    if (context.settings.output_srt) process_block(context.state.ccData, context.state.ccDataLen);
                 }
             }
         }
@@ -1935,7 +1946,6 @@ again:
 //                    DUMP_HEADER
 //                    close_data();
 #ifdef PROCESS_CC
-//                    if (output_srt || output_smi) CEW_reinit();
 #endif
 
 }
@@ -1976,6 +1986,11 @@ void file_close(RecordingContext& context)
 
 int comskip_main (RecordingContext& context, int argc, char ** argv)
 {
+    context.captions.reset();
+    struct CaptionOwnerGuard {
+        RecordingContext& context;
+        ~CaptionOwnerGuard() { context.captions.reset(); }
+    } caption_owner_guard{context};
     auto packet_owner = make_packet();
     AVPacket* packet = packet_owner.get();
     int result = 0;
@@ -2089,7 +2104,7 @@ again:
                     DUMP_HEADER
                     close_data(context);
 #ifdef PROCESS_CC
-                    if (context.settings.output_srt || context.settings.output_smi) CEW_reinit();
+                    if (context.captions) context.captions->reset();
 #endif
                 }
             }
@@ -2232,16 +2247,7 @@ nextpacket:
             }
             else
             {
-                /*
-                              ccDataLen = (int)packet->size;
-                              for (i=0; i<ccDataLen; i++) {
-                                  ccData[i] = packet->data[i];
-                              }
-                              dump_data((char *)ccData, (int)ccDataLen);
-                                    if (output_srt)
-                                        process_block(ccData, (int)ccDataLen);
-                                    if (processCC) ProcessCCData();
-                */
+
             }
             av_packet_unref(packet);
             if (context.state.video_owner->video_clock == old_clock)
@@ -2306,6 +2312,12 @@ nextpacket:
         {
             context.state.lastFrameCommCalculated = 0;
             BuildCommListAsYouGo(context);
+        }
+
+    close_data(context);
+    if (context.captions) {
+            context.captions->finish(caption_timestamp(context.state.video_owner->video_clock));
+            context.captions.reset();
         }
 
         tfps = print_fps (context, 1);

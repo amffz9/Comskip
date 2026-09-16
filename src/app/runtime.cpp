@@ -1,6 +1,10 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include <algorithm>
+#include <cstdarg>
+#include <cstdio>
+#include <stdexcept>
+#include <string>
 
 int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
 {
@@ -22,23 +26,36 @@ int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
 
 void Debug(RecordingContext& context, int level, const char * fmt, ...)
 {
-    va_list	ap;
     if(context.settings.verbose < level) return;
 
+    va_list ap;
     va_start(ap, fmt);
-    vsnprintf(context.state.debugText, sizeof(context.state.debugText), fmt, ap);
+    std::string message;
+    try {
+        va_list measure;
+        va_copy(measure, ap);
+        const int length = std::vsnprintf(nullptr, 0, fmt, measure);
+        va_end(measure);
+        if (length < 0) throw std::runtime_error("Could not format diagnostic message");
+        message.resize(static_cast<std::size_t>(length) + 1);
+        const int written = std::vsnprintf(message.data(), message.size(), fmt, ap);
+        if (written != length) throw std::runtime_error("Could not format diagnostic message");
+        message.resize(static_cast<std::size_t>(length));
+    } catch (...) {
+        va_end(ap);
+        throw;
+    }
     va_end(ap);
 
-    if (context.state.output_console)	_cprintf("%s", context.state.debugText);
+    if (context.state.output_console) _cprintf("%s", message.c_str());
 
     const auto log_file = comskip::platform::own_file(myfopen(context.state.logfilename, "a+"));
     if (log_file)
     {
-        fprintf(log_file.get(), "%s", context.state.debugText);
+        std::fwrite(message.data(), 1, message.size(), log_file.get());
     }
 
 
-    context.state.debugText[0] = '\0';
 }
 
 void InitLogoBuffers(RecordingContext& context)

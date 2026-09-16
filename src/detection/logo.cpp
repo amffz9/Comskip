@@ -1236,7 +1236,7 @@ bool SearchForLogoEdges(RecordingContext& context)
 
     if (!context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail && (context.state.framenum_real > (int)(context.settings.giveUpOnLogoSearch * context.settings.fps)))
     {
-        Debug(context, 1, "No logo was found after %i frames.\nGiving up", context.state.framenum_real);
+        Debug(context, 1, "%s", context.translator.format("detection_no_logo", context.state.framenum_real).c_str());
         context.settings.commDetectMethod -= LOGO;
     }
     if (context.settings.added_recording > 0)
@@ -1572,10 +1572,12 @@ void SaveLogoMaskData(RecordingContext& context)
     logo_file = myfopen(context.state.logofilename, "w");
     if (!logo_file)
     {
-        fprintf(stderr, "%s - could not create file %s\n", strerror(errno), context.state.logofilename);
-        Debug(context, 1, "%s - could not create file %s\n", strerror(errno), context.state.logofilename);
+        const auto message = context.translator.format("create_failed", strerror(errno), context.state.logofilename);
+        fputs(message.c_str(), stderr);
+        Debug(context, 1, "%s", message.c_str());
         if(context.settings.startOverAfterLogoInfoAvail)
             comskip::request_exit(7);
+        return;
     }
 
     fprintf(logo_file, "logoMinX=%i\n", context.state.clogoMinX);
@@ -1694,7 +1696,7 @@ void LoadLogoMaskData(RecordingContext& context)
     }
     else
     {
-        Debug(context, 0, "Could not find the logo file.\n");
+        Debug(context, 0, "%s", context.translator.text("detection_logo_file_missing"));
         context.state.logoInfoAvailable = false;
         return;
     }
@@ -1833,7 +1835,7 @@ void LoadLogoMaskData(RecordingContext& context)
             txt_file = myfopen(context.state.out_filename, "r");
             if (!txt_file)
             {
-                Debug(context, 0, "ERROR reading from %s\n", context.state.out_filename);
+                Debug(context, 0, "%s", context.translator.format("detection_output_read_failed", context.state.out_filename).c_str());
                 context.state.isSecondPass = false;
                 return;
             }
@@ -1842,7 +1844,7 @@ void LoadLogoMaskData(RecordingContext& context)
 
         if(fseek( txt_file, 0L, SEEK_SET ))
         {
-            Debug(context, 0, "ERROR SEEKING\n");
+            Debug(context, 0, "%s", context.translator.text("detection_output_seek_failed"));
         }
 
 

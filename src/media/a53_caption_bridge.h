@@ -18,4 +18,8 @@ struct Ga94CaptionPacket {
 // Oversized payloads are split without reordering or discarding 608/XDS/708
 // data. Empty input produces no packets; malformed lengths throw.
 std::vector<Ga94CaptionPacket> bridge_a53_captions(std::span<const std::uint8_t> payload);
+// Decode the framing of persisted GA94/DVD/ReplayTV caption packets into raw
+// triplets. Legacy GA94 dumps can omit the final marker. Unrecognized formats
+// contain no supported subtitle data; recognized truncated packets throw.
+std::vector<std::uint8_t> extract_a53_captions(std::span<const std::uint8_t> packet);
 }

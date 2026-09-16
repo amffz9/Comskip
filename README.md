@@ -8,8 +8,7 @@ http://www.kaashoek.com/comskip/
 
 ### C++23 build
 
-The application is being migrated to C++23. FFmpeg and the bundled caption
-library remain C dependencies. Use CMake 3.25+, a C++23 compiler, and vcpkg.
+The application uses C++23 and FFmpeg's C API. Use CMake 3.25+, a C++23 compiler, and vcpkg.
 Google Test is included by the default manifest feature.
 
 ```sh
@@ -26,8 +25,8 @@ Windows DLLs must be beside the executable or on PATH; the vcpkg toolchain norma
 For the optional SDL interface, add `-DVCPKG_MANIFEST_FEATURES=gui` and
 `-DCOMSKIP_BUILD_GUI=ON`.
 
-Source lives in `src/` by responsibility, tests in `tests/`, and bundled C
-caption code in `third_party/`. See `docs/REFACTORING.md` for migration notes.
+Source lives in `src/` by responsibility and tests in `tests/`.
+See `docs/REFACTORING.md` for migration notes.
 
 ### Configuration
 

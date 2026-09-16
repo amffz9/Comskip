@@ -52,4 +52,28 @@ TEST(A53CaptionBridge, RejectsMalformedLengthsAndHandlesEmptyInput) {
         EXPECT_THROW(bridge_a53_captions(payload), std::invalid_argument);
     }
 }
+TEST(A53CaptionBridge, StoredGa94RoundTripsChunkedTripletsAndLegacyMissingTerminator) {
+    const std::vector<std::uint8_t> payload(3000, 0xfc);
+    std::vector<std::uint8_t> recovered;
+    for (const auto& packet : bridge_a53_captions(payload)) {
+        const auto decoded = extract_a53_captions({packet.bytes.data(), packet.size - 1});
+        recovered.insert(recovered.end(), decoded.begin(), decoded.end());
+    }
+    EXPECT_EQ(recovered, payload);
+    const std::array<std::uint8_t, 10> disabled{'G','A','9','4',3,1,0,0xfc,0x94,0x2c};
+    EXPECT_TRUE(extract_a53_captions(disabled).empty());
+}
+TEST(A53CaptionBridge, StoredDvdPairsPreserveBothFieldOrders) {
+    std::array<std::uint8_t, 12> packet{'C','C',1,0xf8,0x82,0xff,0x94,0x20,0xfe,0x91,0x22,0xff};
+    EXPECT_EQ(extract_a53_captions(packet), (std::vector<std::uint8_t>{0xfc,0x94,0x20,0xfd,0x91,0x22}));
+    packet[4] = 2; packet[5] = 0xfe; packet[8] = 0xff;
+    EXPECT_EQ(extract_a53_captions(packet), (std::vector<std::uint8_t>{0xfd,0x94,0x20,0xfc,0x91,0x22}));
+}
+TEST(A53CaptionBridge, StoredRecognizedPacketsRejectTruncation) {
+    const std::vector<std::vector<std::uint8_t>> packets{
+        {'G','A','9','4'}, {'G','A','9','4',3,0x41,0,0xfc},
+        {'C','C',1,0xf8,2,0xff,0x94}, {0xbb,2,0,0,0,0,0x94}};
+    for (const auto& packet : packets) EXPECT_THROW(extract_a53_captions(packet), std::invalid_argument);
+    EXPECT_TRUE(extract_a53_captions(std::array<std::uint8_t,4>{0,1,2,3}).empty());
+}
 }

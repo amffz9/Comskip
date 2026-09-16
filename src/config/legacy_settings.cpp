@@ -320,11 +320,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
 
         comskip::checked_format(context.state.inbasename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        i = strlen(context.state.inbasename);
-        while (i>0 && context.state.inbasename[i-1] != PATH_SEPARATOR)
-        {
-            i--;
-        }
+        i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
         strcpy(context.state.shortbasename, &context.state.inbasename[i]);
 
  //       comskip::checked_format(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
@@ -385,11 +381,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
 
 
-        i = strlen(context.state.inbasename);
-        while (i>0 && context.state.inbasename[i-1] != PATH_SEPARATOR)
-        {
-            i--;
-        }
+        i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
         strcpy(context.state.shortbasename, &context.state.inbasename[i]);
         comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
         if (context.state.mpegfilename[0] == 0) comskip::checked_format(context.state.mpegfilename, "%s.mpg", context.state.inbasename);
@@ -450,11 +442,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             test_file.reset();
         }
 
-        i = strlen(context.state.inbasename);
-        while (i>0 && context.state.inbasename[i-1] != PATH_SEPARATOR)
-        {
-            i--;
-        }
+        i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
         strcpy(context.state.shortbasename, &context.state.inbasename[i]);
         comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
 //		comskip::checked_format(mpegfilename, "%s.mpg", inbasename);
@@ -918,32 +906,13 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 //		in_file = NULL;
     }
 
-    if (!context.state.loadingTXT && (context.settings.output_srt || context.settings.output_smi ))
+    if (!context.state.loadingTXT && (context.settings.output_srt || context.settings.output_smi))
     {
 #ifdef PROCESS_CC
-
-
-        i = 0;
-
-        context.state.LoadSettings_CEW_argv[i++] = context.state.LoadSettings_caption_arg_0;
-        if (context.settings.output_smi)
-        {
-
-        context.state.LoadSettings_CEW_argv[i++] = context.state.LoadSettings_caption_arg_1;
-            context.settings.output_srt = 1;
-            comskip::checked_format(context.state.LoadSettings_filename, "%s.smi", context.state.outbasename);
-        }
-        else
-        {
-
-        context.state.LoadSettings_CEW_argv[i++] = context.state.LoadSettings_caption_arg_2;
-            comskip::checked_format(context.state.LoadSettings_filename, "%s.srt", context.state.outbasename);
-        }
-        context.state.LoadSettings_CEW_argv[i++] = (char *)in->filename[0];
-
-        context.state.LoadSettings_CEW_argv[i++] = context.state.LoadSettings_caption_arg_3;
-        context.state.LoadSettings_CEW_argv[i++] = context.state.LoadSettings_filename;
-        CEW_init (i, context.state.LoadSettings_CEW_argv);
+        const auto basename = std::filesystem::path(std::u8string_view(
+            reinterpret_cast<const char8_t*>(context.state.outbasename)));
+        context.captions = std::make_unique<comskip::media::CaptionSession>(
+            comskip::media::CaptionOutputOptions{basename, context.settings.output_srt, context.settings.output_smi});
 #endif
     }
 

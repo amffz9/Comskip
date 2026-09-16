@@ -7,6 +7,7 @@ struct RecordingContext;
 #include "detector_records.h"
 #include "storage.h"
 #include "caption_observations.h"
+#include "cutlist_exports.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -250,11 +251,11 @@ double				ValidateBlackFrames(RecordingContext& context, long reason, double rat
 int					DetectCommercials(RecordingContext& context, int, double);
 bool				BuildMasterCommList(RecordingContext& context);
 void				WeighBlocks(RecordingContext& context);
-bool				OutputBlocks(RecordingContext& context);
+
 void        OutputAspect(RecordingContext& context);
-void        OutputTraining(RecordingContext& context);
+
 bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close);
-void        OutputStrict(RecordingContext& context, double len, double delta, double tol);
+
 int					InputReffer(RecordingContext& context, const char *ext, int setfps);
 bool				IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
 bool				LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
@@ -310,19 +311,10 @@ int					FindUniformThreshold(RecordingContext& context, double percentile);
 void				OutputFrameArray(RecordingContext& context, bool screenOnly);
 void                OutputBlackArray(RecordingContext& context);
 void				OutputFrame(RecordingContext& context, int frame_number);
-void				OpenOutputFiles(RecordingContext& context);
-void				InitializeFrameArray(RecordingContext& context, long i);
-void				InitializeBlackArray(RecordingContext& context, long i);
-void				InitializeSchangeArray(RecordingContext& context, long i);
-void				InitializeLogoBlockArray(RecordingContext& context, long i);
-void				InitializeARBlockArray(RecordingContext& context, long i);
-void				InitializeACBlockArray(RecordingContext& context, long i);
-void				InitializeBlockArray(RecordingContext& context, long i);
-void				InitializeCCBlockArray(RecordingContext& context, long i);
-void				InitializeCCTextArray(RecordingContext& context, long i);
+
 void				PrintArgs(RecordingContext& context);
 void        close_dump(RecordingContext& context);
-void				OutputCommercialBlock(RecordingContext& context, int i, long prev, long start, long end, bool last);
+
 void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input);
 
 
@@ -335,11 +327,10 @@ void				SetARofBlocks(RecordingContext& context);
 
 int					FindBlock(RecordingContext& context, long frame);
 void				BuildCommListAsYouGo(RecordingContext& context);
-void				BuildCommercial(RecordingContext& context);
+
 void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int c);
 extern void DecodeOnePicture(RecordingContext& context, FILE * f, double pts);
 
-extern "C" int CEW_init(int argc, char *argv[]);
 
 double get_frame_pts(RecordingContext& context, int f);
 char *CauseString(RecordingContext& context, int i);
@@ -366,14 +357,14 @@ bool WithinDivisibleTolerance(double test_number, double divisor, double toleran
 void BuildPunish(RecordingContext& context);
 void WeighBlocks(RecordingContext& context);
 
-void OpenOutputFiles(RecordingContext& context);
+
 void WriteXmlOutputFiles(RecordingContext& context, bool use_reference);
-void OutputCommercialBlock(RecordingContext& context, int i, long prev, long start, long end, bool last);
+
 char CompareLetter(RecordingContext& context, int value, int average, int i);
-void BuildCommercial(RecordingContext& context);
-bool OutputBlocks(RecordingContext& context);
-void OutputStrict(RecordingContext& context, double len, double delta, double tol);
-void OutputTraining(RecordingContext& context);
+
+
+
+
 bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance);
 bool IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict);
 double FindNumber(RecordingContext& context, char* data, const char* key, double fallback);
@@ -465,6 +456,7 @@ void close_data(RecordingContext& context);
 #include "recording_context.h"
 
 #endif // COMSKIP_LEGACY_DETECTION_H
+
 
 
 
