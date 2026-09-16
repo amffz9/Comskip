@@ -43,6 +43,10 @@ than redefine completion around whichever subset currently passes tests.
   and argument errors have catalog coverage and actual error-path tests. Some
   detector and output diagnostics remain.
 - Settings values own every committed configuration field and regional profile;
+  editable output templates reject unsafe printf conversions and excess string
+  arguments. At 4839fee, input media filenames are owned strings; an actual
+  nested Unicode media path longer than 1,024 bytes opens and demuxes on Windows.
+  Remaining basename/config/output fields still limit full CLI path support.
   application callsites now receive an explicit recording context. Detection,
   media, output, and review state have moved into that context. Dynamic detection
   buffers, recording files, argument snapshots, and XDS metadata are owned values.
@@ -102,3 +106,6 @@ than redefine completion around whichever subset currently passes tests.
   Four detector-warning
   regressions pass at 7e011c3, covering both logo-save failure branches. macOS and
   interactive SDL application verification still require evidence.
+- At 4839fee, the complete Windows headless build passes 199 tests, including
+  actual output-template compatibility and cutlist error localization. Eight
+  checked input-parser tests pass; application parser integration is pending.

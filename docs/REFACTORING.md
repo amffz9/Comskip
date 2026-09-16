@@ -19,14 +19,16 @@ The large `legacy_detection.h` still needs replacement with focused interfaces.
 ## Supporting libraries
 
 CMake is the supported build system. vcpkg supplies FFmpeg, SimpleIni, argtable2,
-pugixml, Google Test, and optional SDL2/SDL2_ttf. FFmpeg supplies caption decoding
+pugixml, rapidcsv, Google Test, and optional SDL2/SDL2_ttf. FFmpeg supplies caption decoding
 and SRT encoding. Recording-owned caption sessions manage decoding and output;
 the obsolete bundled caption library has been removed.
 
 FFmpeg demuxes and decodes both audio and video. libswresample converts decoded
 audio into the detector's measurement format; the detector then measures volume.
 SimpleIni owns configuration/catalog syntax, argtable2 owns command-line parsing,
-and pugixml owns XML syntax. Standard C++ provides ownership, paths, synchronization,
+and pugixml owns XML syntax. Checked input modules use rapidcsv for CSV syntax
+and standard `from_chars` for numeric conversion; application integration is
+in progress. Standard C++ provides ownership, paths, synchronization,
 and timing. Windows scheduling and sleep prevention require scoped native calls;
 unsupported platforms retain their scheduling defaults.
 
