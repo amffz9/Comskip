@@ -1,4 +1,5 @@
 #include "exit_requested.h"
+#include "media/decoder.h"
 #include "legacy_detection.h"
 #include "checked_format.h"
 #include "review_messages.h"

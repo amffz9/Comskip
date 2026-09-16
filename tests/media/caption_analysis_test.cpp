@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "app/analysis.h"
 #include "media/ffmpeg_resources.h"
 #include "exit_requested.h"
 
@@ -10,7 +11,6 @@
 #include <random>
 #include <stdexcept>
 
-int comskip_main(RecordingContext&, int, char**);
 namespace {
 using namespace comskip::media;
 std::string utf8(const std::filesystem::path& path) {

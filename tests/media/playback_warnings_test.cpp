@@ -1,4 +1,6 @@
 #include "recording_context.h"
+#include "media/decoder.h"
+#include "media/audio_analysis.h"
 #include "media/ffmpeg_resources.h"
 #include "media/video_state.h"
 #include "exit_requested.h"
@@ -11,9 +13,6 @@
 #include <memory>
 #include <random>
 
-int SubmitFrame(RecordingContext&, AVStream*, AVFrame*, double);
-void file_open(RecordingContext&);
-void sound_to_frames(RecordingContext&, VideoState*, const AVFrame&);
 
 namespace {
 void write_audio_fixture(const std::filesystem::path& path) {

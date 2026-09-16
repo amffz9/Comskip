@@ -1,11 +1,11 @@
 #include "arguments.h"
+#include "analysis.h"
 #include "recording_context.h"
 #include <memory>
 #include "exit_requested.h"
 #include <cstdio>
 #include <exception>
 
-int comskip_main(RecordingContext& context, int argc, char** argv);
 #ifdef _WIN32
 int wmain(int argc, wchar_t** argv) {
     try {

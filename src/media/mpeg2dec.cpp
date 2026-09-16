@@ -1,4 +1,7 @@
 #include "recording_context.h"
+#include "app/analysis.h"
+#include "media/decoder.h"
+#include "media/audio_analysis.h"
 #include "ui/executable_mode.h"
 #include "exit_requested.h"
 #include "a53_caption_bridge.h"
@@ -203,7 +206,6 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 //extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
 extern void set_fps(RecordingContext& context, double frame_delay);
 extern void	Debug(RecordingContext& context, int level, const char * fmt, ...);
-void file_open(RecordingContext& context);
 int DetectCommercials(RecordingContext& context, int, double);
 bool BuildMasterCommList(RecordingContext& context);
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator);

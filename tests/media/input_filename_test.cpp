@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "media/decoder.h"
 #include "media/video_state.h"
 #include <gtest/gtest.h>
 #include <chrono>
@@ -8,8 +9,6 @@
 #include <random>
 #include <string>
 
-void file_open(RecordingContext& context);
-void file_close(RecordingContext& context);
 
 namespace {
 std::string utf8(const std::filesystem::path& value) {

@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include "media/audio_analysis.h"
 #include <format>
 #include "frame_mask.h"
 #include "logo_sampling.h"

@@ -1,4 +1,5 @@
 #include "platform/utf8_paths.h"
+#include "media/decoder.h"
 #include "ui/executable_mode.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
@@ -128,7 +129,6 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
         context.settings.giveUpOnLogoSearch += context.settings.added_recording * 60;
 }
 
-void list_codecs(const comskip::localization::Translator& translator);
 
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
 {

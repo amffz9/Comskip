@@ -1,4 +1,5 @@
 #include "ui/executable_mode.h"
+#include "app/analysis.h"
 #include "recording_context.h"
 #include "exit_requested.h"
 #include <gtest/gtest.h>
@@ -9,7 +10,6 @@
 #include <random>
 #include <vector>
 
-int comskip_main(RecordingContext&, int, char**);
 
 TEST(ExecutableMode, PreservesGuiFilenameConventions) {
     EXPECT_TRUE(comskip::ui::gui_executable("comskipGUI.exe"));

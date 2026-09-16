@@ -2,6 +2,8 @@
 #define COMSKIP_LEGACY_DETECTION_H
 #pragma once
 struct RecordingContext;
+#include "media/decoder.h"
+#include "media/audio_analysis.h"
 #include "translator.h"
 #include "scan_geometry.h"
 #include "detector_records.h"
@@ -271,7 +273,6 @@ bool				CheckSceneHasChanged(RecordingContext& context);
 void				BuildSceneChangeCommList(void);
 void				BuildSceneChangeCommList2(void);
 #endif
-void                backfill_frame_volumes(RecordingContext& context);
 void				PrintLogoFrameGroups(RecordingContext& context);
 void				PrintCCBlocks(RecordingContext& context);
 void				ResetLogoBuffers(RecordingContext& context);
@@ -316,7 +317,6 @@ int					FindBlock(RecordingContext& context, long frame);
 void				BuildCommListAsYouGo(RecordingContext& context);
 
 void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int c);
-extern void DecodeOnePicture(RecordingContext& context, FILE * f, double pts);
 
 
 double get_frame_pts(RecordingContext& context, int f);

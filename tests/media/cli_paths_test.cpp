@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "app/analysis.h"
 #include "exit_requested.h"
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -11,7 +12,6 @@
 #include <string>
 #include <vector>
 
-int comskip_main(RecordingContext&, int, char**);
 
 namespace {
 std::string utf8(const std::filesystem::path& path) {
