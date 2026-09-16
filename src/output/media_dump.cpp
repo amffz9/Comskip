@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include "output/media_dump.h"
 #include <format>
 #include <stdexcept>
 #include <string>
@@ -45,16 +46,7 @@ void dump_video (RecordingContext& context, char *start, char *end)
 
 void close_dump(RecordingContext& context)
 {
-    if (!context.settings.output_demux) return;
-    if (context.state.dump_audio_file.get())
-    {
-        context.state.dump_audio_file.reset();
-    }
     context.state.dump_audio_file.reset();
-    if (context.state.dump_video_file.get())
-    {
-        context.state.dump_video_file.reset();
-    }
     context.state.dump_video_file.reset();
 }
 

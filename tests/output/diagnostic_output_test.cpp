@@ -85,4 +85,25 @@ TEST_F(DiagnosticOutput, ScreenFrameOutputUsesInitializedLogoValueAndFinalObserv
     std::erase(output, '\r');
     EXPECT_EQ(output, "1\t23\t45\t1\tHistogram\n");
 }
+TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles) {
+    context->settings.output_demux = true;
+    dump_audio_start(*context);
+    dump_video_start(*context);
+    ASSERT_TRUE(context->state.dump_audio_file);
+    ASSERT_TRUE(context->state.dump_video_file);
+    const char audio[] = "buffered audio";
+    const char video[] = "buffered video";
+    ASSERT_EQ(std::fwrite(audio, 1, sizeof(audio) - 1, context->state.dump_audio_file.get()), sizeof(audio) - 1);
+    ASSERT_EQ(std::fwrite(video, 1, sizeof(video) - 1, context->state.dump_video_file.get()), sizeof(video) - 1);
+    context->settings.output_demux = false;
+    close_dump(*context);
+    EXPECT_EQ(read("dump.mp2"), "buffered audio");
+    EXPECT_EQ(read("dump.m2v"), "buffered video");
+    EXPECT_FALSE(context->state.dump_audio_file);
+    EXPECT_FALSE(context->state.dump_video_file);
+    // Windows rejects removal of an open CRT file; POSIX still checks flushing.
+    EXPECT_TRUE(std::filesystem::remove(directory / "dump.mp2"));
+    EXPECT_TRUE(std::filesystem::remove(directory / "dump.m2v"));
+    EXPECT_NO_THROW(close_dump(*context));
+}
 }

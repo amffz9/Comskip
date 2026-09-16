@@ -9,6 +9,7 @@ struct RecordingContext;
 #include "caption_observations.h"
 #include "cutlist_exports.h"
 #include "output/diagnostics.h"
+#include "output/media_dump.h"
 // Internal interfaces shared during the incremental detector migration.
 //
 // comskip.c
@@ -301,7 +302,6 @@ void				InitComSkip(RecordingContext& context);
 void				InitLogoBuffers(RecordingContext& context);
 
 void				PrintArgs(RecordingContext& context);
-void        close_dump(RecordingContext& context);
 
 void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input);
 
@@ -419,13 +419,6 @@ void BuildCommListAsYouGo(RecordingContext& context);
 double get_fps(RecordingContext& context);
 void set_fps(RecordingContext& context, double fp);
 void set_frame_volume(RecordingContext& context, unsigned int f, int volume);
-void dump_audio_start(RecordingContext& context);
-void dump_audio (RecordingContext& context, char *start, char *end);
-void dump_video_start(RecordingContext& context);
-void dump_video (RecordingContext& context, char *start, char *end);
-void close_dump(RecordingContext& context);
-void dump_data(RecordingContext& context, char *start, int length);
-void close_data(RecordingContext& context);
 
 #include "recording_context.h"
 

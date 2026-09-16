@@ -231,18 +231,12 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 //extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
 extern void set_fps(RecordingContext& context, double frame_delay);
-extern void dump_video (RecordingContext& context, char *start, char *end);
-extern void dump_audio (RecordingContext& context, char *start, char *end);
 extern void	Debug(RecordingContext& context, int level, const char * fmt, ...);
-extern void dump_video_start(RecordingContext& context);
-extern void dump_audio_start(RecordingContext& context);
 void file_open(RecordingContext& context);
 int DetectCommercials(RecordingContext& context, int, double);
 bool BuildMasterCommList(RecordingContext& context);
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator);
 void ProcessCCData(RecordingContext& context);
-void dump_data(RecordingContext& context, char *start, int length);
-void close_data(RecordingContext& context);
 
 
 
