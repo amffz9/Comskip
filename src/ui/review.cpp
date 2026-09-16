@@ -100,10 +100,11 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             }
             context.state.oheight = (context.state.oheight + 31) & -32;
             context.state.owidth = (context.state.owidth + 31) & -32;
-            comskip::checked_format(t, context.settings.windowtitle.c_str(), context.state.filename);
+            std::string title;
+            comskip::checked_format(title, context.settings.windowtitle.c_str(), context.state.filename);
             context.window.close();
             context.state.ensure_review_graph(context.state.owidth, context.state.oheight + barh);
-            context.window.open(context.state.owidth, context.state.oheight + barh, t);
+            context.window.open(context.state.owidth, context.state.oheight + barh, title);
             context.state.review_source_width = context.state.videowidth;
             context.state.review_source_height = context.state.height;
 
@@ -688,10 +689,11 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                 context.state.divider = 1;
             }
             context.state.owidth = (context.state.owidth + 31) & -32;
-            comskip::checked_format(t, context.settings.windowtitle.c_str(), context.state.filename);
+            std::string title;
+            comskip::checked_format(title, context.settings.windowtitle.c_str(), context.state.filename);
             context.window.close();
             context.state.ensure_review_graph(context.state.owidth, context.state.oheight + barh);
-            context.window.open(context.state.owidth, context.state.oheight + barh, t);
+            context.window.open(context.state.owidth, context.state.oheight + barh, title);
             context.state.review_source_width = context.state.videowidth;
             context.state.review_source_height = context.state.height;
 

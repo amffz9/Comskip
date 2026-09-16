@@ -213,7 +213,7 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
 
 //test
 
-#define DUMP_OPEN if (context.settings.output_timing) { sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename); context.state.timing_file.reset(myfopen(context.state.tempstring, "w")); DUMP_HEADER }
+#define DUMP_OPEN if (context.settings.output_timing) { const auto timing_filename = context.state.inbasename + ".timing.csv"; context.state.timing_file.reset(myfopen(timing_filename.c_str(), "w")); DUMP_HEADER }
 #define DUMP_HEADER if (context.state.timing_file.get()) fprintf(context.state.timing_file.get(), "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
 #define DUMP_TIMING(T, D, P, C, O, S) if (context.state.timing_file.get() && !context.state.csStepping && !context.state.csJumping && !context.state.csStartJump) fprintf(context.state.timing_file.get(), "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
     T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O), (S));
@@ -2026,8 +2026,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             reinterpret_cast<const char8_t*>(argv[0]))).parent_path();
         if (executable_directory.empty()) executable_directory = ".";
         const auto directory_utf8 = executable_directory.u8string();
-        comskip::checked_format(context.state.HomeDir, "%s",
-            reinterpret_cast<const char*>(directory_utf8.c_str()));
+        context.state.HomeDir.assign(directory_utf8.begin(), directory_utf8.end());
 
         context.translator = comskip::localization::Translator::from_arguments(argc, argv);
         fputs(context.translator.format("media_version", PACKAGE_STRING).c_str(), stderr);
@@ -2068,8 +2067,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 
         if (context.settings.output_timing)
         {
-            sprintf(context.state.tempstring, "%s.timing.csv", context.state.inbasename);
-            context.state.timing_file.reset(myfopen(context.state.tempstring, "w"));
+            const auto timing_filename = context.state.inbasename + ".timing.csv";
+            context.state.timing_file.reset(myfopen(timing_filename.c_str(), "w"));
             DUMP_HEADER
         }
 

@@ -67,6 +67,41 @@ TEST(CaptionPackets, RejectsInvalidFlagsAndOversizedDeclaredLengthsThenAcceptsVa
     EXPECT_EQ(owner->state.cc_text[0].text_len, 2);
     EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), "HI");
 }
+TEST(CaptionPackets, ControlOnlyPairsOnEmptyTextPreserveFollowingPrintableText) {
+    auto owner = recording();
+    for (unsigned char control : {0x21, 0x22, 0x23, 0x24}) {
+        owner->state.cc.cc1[0] = 0x14;
+        owner->state.cc.cc1[1] = control;
+        AddCC(*owner, 0);
+        EXPECT_EQ(owner->state.cc_text_count, 0);
+        EXPECT_EQ(owner->state.cc_text[0].text_len, 0);
+        EXPECT_EQ(owner->state.cc_text[0].text[0], 0);
+    }
+    owner->state.cc.cc1[0] = 'H';
+    owner->state.cc.cc1[1] = 'I';
+    AddCC(*owner, 0);
+    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), "HI");
+}
+
+TEST(CaptionPackets, ExtendedCharactersSurviveTextSplittingAndRemainTerminated) {
+    auto owner = recording();
+    for (int pair = 0; pair < 150; ++pair) {
+        owner->state.cc.cc1[0] = '*'; // The basic CEA-608 map stores this as 0xe1.
+        owner->state.cc.cc1[1] = '*';
+        AddCC(*owner, 0);
+    }
+    std::vector<unsigned char> observed;
+    for (long index = 0; index <= owner->state.cc_text_count; ++index) {
+        const auto& row = owner->state.cc_text[index];
+        ASSERT_GE(row.text_len, 0);
+        ASSERT_LT(row.text_len, static_cast<long>(std::size(row.text)));
+        EXPECT_EQ(row.text[row.text_len], 0);
+        observed.insert(observed.end(), row.text, row.text + row.text_len);
+    }
+    EXPECT_GT(owner->state.cc_text_count, 0);
+    EXPECT_EQ(observed, std::vector<unsigned char>(300, 0xe1));
+}
+
 TEST(XdsPackets, FirstValidTitleIsObservedAndBadChecksumCannotReplaceIt) {
     auto owner = recording();
     xds(*owner, 3, "ORIGINAL");

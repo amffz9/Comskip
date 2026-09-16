@@ -1,3 +1,4 @@
+#include "platform/utf8_paths.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include "checked_format.h"
@@ -5,6 +6,8 @@
 #include "arguments.h"
 
 namespace {
+using comskip::platform::path_from_utf8;
+using comskip::platform::path_to_utf8;
 void print_argument_errors(FILE* output, const struct arg_end& errors,
                            const comskip::localization::Translator& translator) {
     // Argtable remains responsible for parsing and validation. Its public error
@@ -96,7 +99,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
 {
     if (!context.state.ini_file.get()) {
         FindIniFile(context);
-        if (*context.state.inifilename) context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
+        if (!context.state.inifilename.empty()) context.state.ini_file.reset(myfopen(context.state.inifilename.c_str(), "r"));
     }
     try {
         context.state.ini_text = comskip::config::defaults().serialize();
@@ -319,13 +322,12 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
 
 
-        comskip::checked_format(context.state.inbasename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
-        strcpy(context.state.shortbasename, &context.state.inbasename[i]);
+        context.state.inbasename = path_to_utf8(path_from_utf8(in->filename[0]).replace_extension());
+        context.state.shortbasename = path_to_utf8(path_from_utf8(context.state.inbasename).filename());
 
  //       comskip::checked_format(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
 
-        comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
+        context.state.inifilename = path_to_utf8(path_from_utf8(context.state.inbasename).parent_path() / "comskip.ini");
     }
     else if (strcmp(in->extension[0], ".csv") == 0)
     {
@@ -338,7 +340,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             comskip::request_exit(4);
         }
 
-        comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        context.state.inbasename = path_to_utf8(path_from_utf8(in->filename[0]).replace_extension());
         context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
         test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         if (!test_file)
@@ -381,9 +383,8 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
 
 
-        i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
-        strcpy(context.state.shortbasename, &context.state.inbasename[i]);
-        comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
+        context.state.shortbasename = path_to_utf8(path_from_utf8(context.state.inbasename).filename());
+        context.state.inifilename = path_to_utf8(path_from_utf8(context.state.inbasename).parent_path() / "comskip.ini");
         if (context.state.mpegfilename.empty()) context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
     }
     else if (strcmp(in->extension[0], ".txt") == 0)
@@ -400,7 +401,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         context.state.in_file.reset();
         context.state.in_file.reset();
 
-        comskip::checked_format(context.state.inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        context.state.inbasename = path_to_utf8(path_from_utf8(in->filename[0]).replace_extension());
         context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
         test_file.reset(myfopen(context.state.mpegfilename.c_str(), "rb"));
         if (!test_file)
@@ -442,9 +443,8 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             test_file.reset();
         }
 
-        i = static_cast<int>(strlen(context.state.inbasename) - std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.inbasename))).filename().u8string().size());
-        strcpy(context.state.shortbasename, &context.state.inbasename[i]);
-        comskip::checked_format(context.state.inifilename, "%.*scomskip.ini", i, context.state.inbasename);
+        context.state.shortbasename = path_to_utf8(path_from_utf8(context.state.inbasename).filename());
+        context.state.inifilename = path_to_utf8(path_from_utf8(context.state.inbasename).parent_path() / "comskip.ini");
 //		comskip::checked_format(mpegfilename, "%s.mpg", inbasename);
     }
     else
@@ -454,74 +454,68 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
     if (cl_ini->count)
     {
-        comskip::checked_format(context.state.inifilename, "%s", cl_ini->filename[0]);
+        context.state.inifilename = std::string(cl_ini->filename[0]);
         fputs(translator.format("setting_ini", context.state.inifilename).c_str(), stdout);
     }
-    context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
+    context.state.ini_file.reset(myfopen(context.state.inifilename.c_str(), "r"));
 
     if (cl_work_fname->count)
     {
-        comskip::checked_format(context.state.shortbasename, "%s", cl_work_fname->filename[0]);
+        context.state.shortbasename = std::string(cl_work_fname->filename[0]);
     }
 
     if (cl_work->count)
     {
-        comskip::checked_format(context.state.outputdirname, "%s", cl_work->filename[0]);
-        i = strlen(context.state.outputdirname);
-        if (i > 0 && context.state.outputdirname[i-1] == PATH_SEPARATOR)
-            context.state.outputdirname[i-1] = 0;
-        comskip::checked_format(context.state.workbasename, "%s%c%s", context.state.outputdirname, PATH_SEPARATOR, context.state.shortbasename);
-        strcpy(context.state.outbasename, context.state.workbasename);
+        context.state.outputdirname = std::string(cl_work->filename[0]);
+        context.state.workbasename = path_to_utf8(path_from_utf8(context.state.outputdirname) / path_from_utf8(context.state.shortbasename));
+        context.state.outbasename = context.state.workbasename;
     }
     else
     {
-        context.state.outputdirname[0] = 0;
-        strcpy(context.state.workbasename, context.state.inbasename);
+        context.state.outputdirname.clear();
+        context.state.workbasename = context.state.inbasename;
     }
 
 
     if (out->count)
     {
-        comskip::checked_format(context.state.outputdirname, "%s", out->filename[0]);
-        i = strlen(context.state.outputdirname);
-        if (i > 0 && context.state.outputdirname[i-1] == PATH_SEPARATOR)
-            context.state.outputdirname[i-1] = 0;
-        comskip::checked_format(context.state.outbasename, "%s%c%s", context.state.outputdirname, PATH_SEPARATOR, context.state.shortbasename);
+        context.state.outputdirname = std::string(out->filename[0]);
+        context.state.outbasename = path_to_utf8(path_from_utf8(context.state.outputdirname) / path_from_utf8(context.state.shortbasename));
     }
     else
     {
-        context.state.outputdirname[0] = 0;
-        strcpy(context.state.outbasename, context.state.inbasename);
+        context.state.outputdirname.clear();
+        context.state.outbasename = context.state.inbasename;
     }
 
     if (cl_work->count && !out->count)   // --output also sets the output file location if not specified as 2nd argument.
     {
-        strcpy(context.state.outbasename, context.state.workbasename);
+        context.state.outbasename = context.state.workbasename;
     }
 
 
-    comskip::checked_format(context.state.logofilename, "%s.logo.txt", context.state.workbasename);
-    comskip::checked_format(context.state.logfilename, "%s.log", context.state.workbasename);
-    comskip::checked_format(context.state.filename, "%s.txt", context.state.outbasename);
-    if (strcmp(context.state.HomeDir, ".") == 0)
+    context.state.logofilename = std::string(context.state.workbasename) + ".logo.txt";
+    context.state.logfilename = std::string(context.state.workbasename) + ".log";
+    context.state.filename = std::string(context.state.outbasename) + ".txt";
+    if (strcmp(context.state.HomeDir.c_str(), ".") == 0)
     {
         if (!context.state.ini_file.get())
         {
-            comskip::checked_format(context.state.inifilename, "comskip.ini");
-            context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
+            context.state.inifilename = "comskip.ini";
+            context.state.ini_file.reset(myfopen(context.state.inifilename.c_str(), "r"));
         }
-        comskip::checked_format(context.state.exefilename, "comskip.exe");
-        comskip::checked_format(context.state.dictfilename, "comskip.dictionary");
+        context.state.exefilename = "comskip.exe";
+        context.state.dictfilename = "comskip.dictionary";
     }
     else
     {
         if (!context.state.ini_file.get())
         {
-            comskip::checked_format(context.state.inifilename, "%s%ccomskip.ini", context.state.HomeDir, PATH_SEPARATOR);
-            context.state.ini_file.reset(myfopen(context.state.inifilename, "r"));
+            context.state.inifilename = path_to_utf8(path_from_utf8(context.state.HomeDir) / "comskip.ini");
+            context.state.ini_file.reset(myfopen(context.state.inifilename.c_str(), "r"));
         }
-        comskip::checked_format(context.state.exefilename, "%s%ccomskip.exe", context.state.HomeDir, PATH_SEPARATOR);
-        comskip::checked_format(context.state.dictfilename, "%s%ccomskip.dictionary", context.state.HomeDir, PATH_SEPARATOR);
+        context.state.exefilename = path_to_utf8(path_from_utf8(context.state.HomeDir) / "comskip.exe");
+        context.state.dictfilename = path_to_utf8(path_from_utf8(context.state.HomeDir) / "comskip.dictionary");
     }
 
     if (cl_cut->count)
@@ -532,7 +526,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (cl_logo->count)
     {
-        comskip::checked_format(context.state.logofilename, "%s", cl_logo->filename[0]);
+        context.state.logofilename = std::string(cl_logo->filename[0]);
         fputs(translator.format("setting_logo", context.state.logofilename).c_str(), stdout);
     }
 
@@ -636,11 +630,11 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (!context.state.loadingTXT && !context.settings.useExistingLogoFile && cl_logo->count==0)
     {
-        logo_file.reset(myfopen(context.state.logofilename, "r"));
+        logo_file.reset(myfopen(context.state.logofilename.c_str(), "r"));
         if(logo_file)
         {
             logo_file.reset();
-            myremove(context.state.logofilename);
+            myremove(context.state.logofilename.c_str());
         }
     }
 
@@ -658,7 +652,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     if (context.settings.verbose)
     {
-        logo_file.reset(myfopen(context.state.logofilename, "r"));
+        logo_file.reset(myfopen(context.state.logofilename.c_str(), "r"));
         if (context.state.loadingTXT)
         {
             // Do nothing to the log file
@@ -666,7 +660,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
         else if (context.state.loadingCSV)
         {
-            log_file.reset(myfopen(context.state.logfilename, "w"));
+            log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
                 fprintf(log_file.get(), "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
@@ -679,10 +673,10 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         else if (logo_file)
         {
             logo_file.reset();
-            log_file.reset(myfopen(context.state.logfilename, "a+"));
+            log_file.reset(myfopen(context.state.logfilename.c_str(), "a+"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Starting second pass using %s\n", context.state.logofilename);
+                fprintf(log_file.get(), "Starting second pass using %s\n", context.state.logofilename.c_str());
                 fprintf(log_file.get(), "Time at start of second run:\n%s", ctime(&ltime));
                 fprintf(log_file.get(), "################################################################\n");
                 log_file.reset();
@@ -690,7 +684,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
         else
         {
-            log_file.reset(myfopen(context.state.logfilename, "w"));
+            log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
                 fprintf(log_file.get(), "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
@@ -734,7 +728,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
 
 
-    Debug(context, 9, "Mpeg:\t%s\nExe\t%s\nLogo:\t%s\nIni:\t%s\n", context.state.mpegfilename.c_str(), context.state.exefilename, context.state.logofilename, context.state.inifilename);
+    Debug(context, 9, "Mpeg:\t%s\nExe\t%s\nLogo:\t%s\nIni:\t%s\n", context.state.mpegfilename.c_str(), context.state.exefilename.c_str(), context.state.logofilename.c_str(), context.state.inifilename.c_str());
     Debug(context, 1, "\nDetection Methods to be used:\n");
     i = 0;
     if (context.settings.commDetectMethod & BLACK_FRAME)
@@ -814,12 +808,12 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     Debug(context, 10, "\nSettings\n--------\n");
     Debug(context, 10, "%s\n", context.state.ini_text.c_str());
-    comskip::checked_format(context.state.out_filename, "%s.txt", context.state.outbasename);
+    context.state.out_filename = std::string(context.state.outbasename) + ".txt";
 
 
     if (!context.state.loadingTXT)
     {
-        logo_file.reset(myfopen(context.state.logofilename, "r+"));
+        logo_file.reset(myfopen(context.state.logofilename.c_str(), "r+"));
         if (logo_file)
         {
             Debug(context, 1, "%s", translator.text("cli_logo_exists"));
@@ -872,7 +866,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
         if(!context.state.isSecondPass)
         {
-            context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+            context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
             if (!context.state.out_file.get())
             {
                 fputs(translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -910,7 +904,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
 #ifdef PROCESS_CC
         const auto basename = std::filesystem::path(std::u8string_view(
-            reinterpret_cast<const char8_t*>(context.state.outbasename)));
+            reinterpret_cast<const char8_t*>(context.state.outbasename.c_str())));
         context.captions = std::make_unique<comskip::media::CaptionSession>(
             comskip::media::CaptionOutputOptions{basename, context.settings.output_srt, context.settings.output_smi});
 #endif

@@ -88,13 +88,13 @@ again:
     if (!context.state.dump_data_file.get())
     {
         auto companion = std::filesystem::path(std::u8string_view(
-            reinterpret_cast<const char8_t*>(context.state.inbasename)));
+            reinterpret_cast<const char8_t*>(context.state.inbasename.c_str())));
         companion += ".data";
         const auto name = companion.u8string();
         context.state.dump_data_file.reset(myfopen(reinterpret_cast<const char*>(name.c_str()), "rb"));
-        if (!context.state.dump_data_file && strcmp(context.state.inbasename, context.state.workbasename) != 0) {
-            comskip::checked_format(line, "%s.data", context.state.workbasename);
-            context.state.dump_data_file.reset(myfopen(line, "rb"));
+        if (!context.state.dump_data_file && context.state.inbasename != context.state.workbasename) {
+            const auto alternate_name = context.state.workbasename + ".data";
+            context.state.dump_data_file.reset(myfopen(alternate_name.c_str(), "rb"));
         }
     }
     ccDataFrame = 0;

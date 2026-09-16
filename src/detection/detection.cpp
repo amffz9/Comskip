@@ -1413,7 +1413,7 @@ again:
     if (context.settings.verbose)
     {
         Debug(context, 1, "\n%i Frames Processed\n", context.state.framesprocessed);
-        context.state.log_file.reset(myfopen(context.state.logfilename, "a+"));
+        context.state.log_file.reset(myfopen(context.state.logfilename.c_str(), "a+"));
         fprintf(context.state.log_file.get(), "################################################################\n");
         time(&ltime);
         fprintf(context.state.log_file.get(), "Time at end of run:\n%s", ctime(&ltime));
@@ -1425,33 +1425,25 @@ again:
 
     if (context.settings.ccCheck && context.state.processCC)
     {
-        char temp[MAX_PATH];
-        FILE* tempFile;
-        if ((context.state.most_cc_type == PAINTON) || (context.state.most_cc_type == ROLLUP) || (context.state.most_cc_type == POPON))
-        {
-            sprintf(temp, "%s.ccyes", context.state.workbasename);
-            tempFile = myfopen(temp, "w");
-            fclose(tempFile);
-            sprintf(temp, "%s.ccno", context.state.workbasename);
-            myremove(temp);
-        }
-        else
-        {
-            sprintf(temp, "%s.ccno", context.state.workbasename);
-            tempFile = myfopen(temp, "w");
-            fclose(tempFile);
-            sprintf(temp, "%s.ccyes", context.state.workbasename);
-            myremove(temp);
+        const bool has_captions = context.state.most_cc_type == PAINTON ||
+            context.state.most_cc_type == ROLLUP || context.state.most_cc_type == POPON;
+        const auto marker_name = context.state.workbasename + (has_captions ? ".ccyes" : ".ccno");
+        const auto marker = comskip::platform::own_file(myfopen(marker_name.c_str(), "w"));
+        if (!marker)
+            Debug(context, 0, "%s", context.translator.format("create_failed", strerror(errno), marker_name).c_str());
+        else {
+            const auto old_marker = context.state.workbasename + (has_captions ? ".ccno" : ".ccyes");
+            myremove(old_marker.c_str());
         }
     }
 
     if (context.settings.deleteLogoFile)
     {
-        logo_file = myfopen(context.state.logofilename, "r");
+        logo_file = myfopen(context.state.logofilename.c_str(), "r");
         if(logo_file)
         {
             fclose(logo_file);
-            myremove(context.state.logofilename);
+            myremove(context.state.logofilename.c_str());
         }
     }
 

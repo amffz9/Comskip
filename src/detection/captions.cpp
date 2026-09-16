@@ -571,7 +571,8 @@ void AddCC(RecordingContext& context, int i)
         }
     }
 
-    if (((!isalpha(context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len - 1])) && (context.state.cc_text[context.state.cc_text_count].text_len > 200)) ||
+    if (((context.state.cc_text[context.state.cc_text_count].text_len > 200) &&
+         !isalpha(static_cast<unsigned char>(context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len - 1]))) ||
             (context.state.cc_text[context.state.cc_text_count].text_len > 245))
     {
         context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
@@ -1258,7 +1259,7 @@ bool ProcessCCDict(RecordingContext& context)
     char*	ptr;
     char	phrase[1024];
     bool	goodPhrase = true;
-    auto dict = comskip::platform::own_file(myfopen(context.state.dictfilename, "r"));
+    auto dict = comskip::platform::own_file(myfopen(context.state.dictfilename.c_str(), "r"));
     if (!dict)
     {
         return (false);

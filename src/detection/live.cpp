@@ -29,7 +29,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
     std::vector<long> ic_start;
     std::vector<long> ic_end;
 #endif
-    char		filename[255];
+    std::string filename;
     int			commercials = 0;
     int			i;
     int			j;
@@ -230,14 +230,14 @@ void BuildCommListAsYouGo(RecordingContext& context)
         {
             if (context.settings.output_default)
             {
-                context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+                context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
                 if (!context.state.out_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+                    context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
                     if (!context.state.out_file.get())
                     {
-                        Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename);
+                        Debug(context, 0, "ERROR writing to %s\n", context.state.out_filename.c_str());
                         comskip::request_exit(103);
                     }
                 }
@@ -245,30 +245,30 @@ void BuildCommListAsYouGo(RecordingContext& context)
             }
             if (context.settings.output_edl)
             {
-                comskip::checked_format(filename, "%s.edl", context.state.outbasename);
-                context.state.edl_file.reset(myfopen(filename, "wb"));
+                filename = std::string(context.state.outbasename) + ".edl";
+                context.state.edl_file.reset(myfopen(filename.c_str(), "wb"));
                 if (!context.state.edl_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.edl_file.reset(myfopen(filename, "wb"));
+                    context.state.edl_file.reset(myfopen(filename.c_str(), "wb"));
                     if (!context.state.edl_file.get())
                     {
-                        Debug(context, 0, "ERROR writing to %s\n", filename);
+                        Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", filename).c_str());
                         comskip::request_exit(103);
                     }
                 }
             }
             if (context.settings.output_live)
             {
-                comskip::checked_format(filename, "%s.live", context.state.outbasename);
-                context.state.live_file.reset(myfopen(filename, "wb"));
+                filename = std::string(context.state.outbasename) + ".live";
+                context.state.live_file.reset(myfopen(filename.c_str(), "wb"));
                 if (!context.state.live_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.live_file.reset(myfopen(filename, "wb"));
+                    context.state.live_file.reset(myfopen(filename.c_str(), "wb"));
                     if (!context.state.live_file.get())
                     {
-                        Debug(context, 0, "ERROR writing to %s\n", filename);
+                        Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", filename).c_str());
                         comskip::request_exit(103);
                     }
                 }
@@ -366,7 +366,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                 comskip::output::write_live_dvrmstb(serialized, dvrmstb_intervals,
                                                    context.settings.fps, context.settings.padding);
                 auto path = std::filesystem::path(std::u8string_view(
-                    reinterpret_cast<const char8_t*>(context.state.outbasename)));
+                    reinterpret_cast<const char8_t*>(context.state.outbasename.c_str())));
                 path += ".xml";
                 std::ofstream output(path, std::ios::binary | std::ios::trunc);
                 if (!output)
@@ -385,11 +385,11 @@ void BuildCommListAsYouGo(RecordingContext& context)
 
             if (context.settings.output_incommercial)
             {
-                comskip::checked_format(filename, "%s.incommercial", context.state.workbasename);
-                context.state.incommercial_file.reset(myfopen(filename, "w"));
+                filename = std::string(context.state.workbasename) + ".incommercial";
+                context.state.incommercial_file.reset(myfopen(filename.c_str(), "w"));
                 if (!context.state.incommercial_file.get())
                 {
-                    fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+                    fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
                     goto skipit;
                 }
                 if(context.state.commercial[context.state.commercial_count].end_frame > context.state.framenum_real - context.settings.incommercial_frames)

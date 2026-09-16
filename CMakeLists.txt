@@ -264,6 +264,9 @@ if(COMSKIP_BUILD_APP)
         add_executable(application_text_input_test tests/input/application_text_input_test.cpp)
         target_link_libraries(application_text_input_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(application_text_input_test)
+        add_executable(cli_paths_test tests/media/cli_paths_test.cpp)
+        target_link_libraries(cli_paths_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(cli_paths_test)
         add_executable(caption_packets_test tests/detection/caption_packets_test.cpp)
         target_link_libraries(caption_packets_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(caption_packets_test)
@@ -285,6 +288,10 @@ if(COMSKIP_BUILD_APP)
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/media_smoke.py" $<TARGET_FILE:comskip>
             "${CMAKE_CURRENT_BINARY_DIR}/integration")
         set_tests_properties(media_smoke PROPERTIES TIMEOUT 120)
+        add_test(NAME commercial_intervals COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/commercial_intervals.py" $<TARGET_FILE:comskip>
+            "${CMAKE_CURRENT_BINARY_DIR}/commercial-intervals")
+        set_tests_properties(commercial_intervals PROPERTIES TIMEOUT 120)
         find_program(FFMPEG_EXECUTABLE NAMES ffmpeg
             HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg"
             PATH_SUFFIXES tools/ffmpeg)

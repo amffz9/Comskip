@@ -1,3 +1,4 @@
+#include "platform/utf8_paths.h"
 #include "exit_requested.h"
 #include "cutlist_exports.h"
 #include "checked_format.h"
@@ -44,19 +45,17 @@ void append_edl_record(RecordingContext& context, FILE* destination, long start,
 
 void OpenOutputFiles(RecordingContext& context)
 {
-    char	tempstr[MAX_PATH];
-    char	cwd[MAX_PATH];
 
     if (context.settings.output_default)
     {
-        context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+        context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
         if (!context.state.out_file.get())
         {
             sleep_for_ms(50L);
-            context.state.out_file.reset(myfopen(context.state.out_filename, "w"));
+            context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
             if (!context.state.out_file.get())
             {
-                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename).c_str());
+                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename.c_str()).c_str());
                 comskip::request_exit(103);
             }
         }
@@ -66,15 +65,15 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_chapters)
     {
-        comskip::checked_format(context.state.filename, "%s.chap", context.state.outbasename);
-        context.state.chapters_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".chap";
+        context.state.chapters_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.chapters_file.get())
         {
             sleep_for_ms(50L);
-            context.state.chapters_file.reset(myfopen(context.state.filename, "w"));
+            context.state.chapters_file.reset(myfopen(context.state.filename.c_str(), "w"));
             if (!context.state.chapters_file.get())
             {
-                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.filename).c_str());
+                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.filename.c_str()).c_str());
                 comskip::request_exit(103);
             }
         }
@@ -83,8 +82,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_zoomplayer_cutlist)
     {
-        comskip::checked_format(context.state.filename, "%s.cut", context.state.outbasename);
-        context.state.zoomplayer_cutlist_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".cut";
+        context.state.zoomplayer_cutlist_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.zoomplayer_cutlist_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -99,8 +98,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_incommercial)
     {
-        comskip::checked_format(context.state.filename, "%s.incommercial", context.state.workbasename);
-        context.state.incommercial_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.workbasename) + ".incommercial";
+        context.state.incommercial_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.incommercial_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -115,8 +114,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_zoomplayer_chapter)
     {
-        comskip::checked_format(context.state.filename, "%s.chp", context.state.outbasename);
-        context.state.zoomplayer_chapter_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".chp";
+        context.state.zoomplayer_chapter_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.zoomplayer_chapter_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -131,8 +130,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_scf)
     {
-        comskip::checked_format(context.state.filename, "%s.scf", context.state.outbasename);
-        context.state.scf_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".scf";
+        context.state.scf_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.scf_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -146,8 +145,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_edl)
     {
-        comskip::checked_format(context.state.filename, "%s.edl", context.state.outbasename);
-        context.state.edl_file.reset(myfopen(context.state.filename, "wb"));
+        context.state.filename = std::string(context.state.outbasename) + ".edl";
+        context.state.edl_file.reset(myfopen(context.state.filename.c_str(), "wb"));
         if (!context.state.edl_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -161,8 +160,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_ffmeta)
     {
-        comskip::checked_format(context.state.filename, "%s.ffmeta", context.state.outbasename);
-        context.state.ffmeta_file.reset(myfopen(context.state.filename, "wb"));
+        context.state.filename = std::string(context.state.outbasename) + ".ffmeta";
+        context.state.ffmeta_file.reset(myfopen(context.state.filename.c_str(), "wb"));
         if (!context.state.ffmeta_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -176,8 +175,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_ffsplit)
     {
-        comskip::checked_format(context.state.filename, "%s.ffsplit", context.state.outbasename);
-        context.state.ffsplit_file.reset(myfopen(context.state.filename, "wb"));
+        context.state.filename = std::string(context.state.outbasename) + ".ffsplit";
+        context.state.ffsplit_file.reset(myfopen(context.state.filename.c_str(), "wb"));
         if (!context.state.ffsplit_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -191,7 +190,7 @@ void OpenOutputFiles(RecordingContext& context)
 /*
     if (output_live)
     {
-        comskip::checked_format(filename, "%s.live", outbasename);
+        filename = std::string(outbasename) + ".live";
         live_file = myfopen(filename, "wb");
         if (!live_file)
         {
@@ -206,8 +205,8 @@ void OpenOutputFiles(RecordingContext& context)
 */
     if (context.settings.output_ipodchap)
     {
-        comskip::checked_format(context.state.filename, "%s.chap", context.state.outbasename);
-        context.state.ipodchap_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".chap";
+        context.state.ipodchap_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.ipodchap_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -222,8 +221,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_edlp)
     {
-        comskip::checked_format(context.state.filename, "%s.edlp", context.state.outbasename);
-        context.state.edlp_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".edlp";
+        context.state.edlp_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.edlp_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -238,8 +237,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_bsplayer)
     {
-        comskip::checked_format(context.state.filename, "%s.bcf", context.state.outbasename);
-        context.state.bcf_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".bcf";
+        context.state.bcf_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (!context.state.bcf_file.get())
         {
             fputs(context.translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
@@ -264,8 +263,8 @@ void OpenOutputFiles(RecordingContext& context)
 //<SceneMarker 2>4254502333
 //<SceneMarker 3>4708947222
 
-        comskip::checked_format(context.state.filename, "%s.VPrj", context.state.outbasename);
-        context.state.videoredo_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".VPrj";
+        context.state.videoredo_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.videoredo_file.get())
         {
             if (std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(context.state.mpegfilename.c_str()))).is_absolute())
@@ -274,8 +273,8 @@ void OpenOutputFiles(RecordingContext& context)
             }
             else
             {
-                _getcwd(cwd, 256);
-                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s%c%s\n", cwd, PATH_SEPARATOR, context.state.mpegfilename.c_str());
+                const auto absolute_name = comskip::platform::path_to_utf8(std::filesystem::absolute(comskip::platform::path_from_utf8(context.state.mpegfilename)));
+                fprintf(context.state.videoredo_file.get(), "<Version>2\n<Filename>%s\n", absolute_name.c_str());
             }
             if (context.state.is_h264)
             {
@@ -296,8 +295,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_vcf)
     {
-        comskip::checked_format(context.state.filename, "%s.vcf", context.state.outbasename);
-        context.state.vcf_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".vcf";
+        context.state.vcf_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.vcf_file.get())
         {
             fprintf(context.state.vcf_file.get(), "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
@@ -312,8 +311,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_vdr)
     {
-        comskip::checked_format(context.state.filename, "%s.vdr", context.state.outbasename);
-        context.state.vdr_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".vdr";
+        context.state.vdr_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.vdr_file.get())
         {
 //			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
@@ -328,8 +327,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_projectx)
     {
-        comskip::checked_format(context.state.filename, "%s.Xcl", context.state.mpegfilename.c_str());
-        context.state.projectx_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.mpegfilename.c_str()) + ".Xcl";
+        context.state.projectx_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.projectx_file.get())
         {
             fprintf(context.state.projectx_file.get(), "CollectionPanel.CutMode=2\n");
@@ -343,8 +342,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_avisynth)
     {
-        comskip::checked_format(context.state.filename, "%s.avs", context.state.mpegfilename.c_str());
-        context.state.avisynth_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.mpegfilename.c_str()) + ".avs";
+        context.state.avisynth_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.avisynth_file.get())
         {
             if (context.settings.avisynth_options.c_str()[0] == 0)
@@ -362,8 +361,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_womble)
     {
-        comskip::checked_format(context.state.filename, "%s.wme", context.state.outbasename);
-        context.state.womble_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".wme";
+        context.state.womble_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.womble_file.get())
         {
 //			fclose(womble_file);
@@ -378,8 +377,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_mls)
     {
-        comskip::checked_format(context.state.filename, "%s.mls", context.state.outbasename);
-        context.state.mls_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + ".mls";
+        context.state.mls_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.mls_file.get())
         {
 //			fclose(mls_file);
@@ -400,8 +399,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_mpgtx)
     {
-        comskip::checked_format(context.state.filename, "%s_mpgtx.bat", context.state.outbasename);
-        context.state.mpgtx_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + "_mpgtx.bat";
+        context.state.mpgtx_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.mpgtx_file.get())
         {
 //			fclose(mpgtx_file);
@@ -417,15 +416,15 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_dvrcut)
     {
-        comskip::checked_format(context.state.filename, "%s_dvrcut.bat", context.state.outbasename);
-        context.state.dvrcut_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.outbasename) + "_dvrcut.bat";
+        context.state.dvrcut_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.dvrcut_file.get())
         {
 //			fclose(dvrcut_file);
             if (context.settings.dvrcut_options.c_str()[0] == 0)
                 fprintf(context.state.dvrcut_file.get(), "dvrcut \"%%1\" \"%%2\" ");
             else
-                fprintf(context.state.dvrcut_file.get(), context.settings.dvrcut_options.c_str(), context.state.inbasename, context.state.inbasename, context.state.inbasename  );
+                fprintf(context.state.dvrcut_file.get(), context.settings.dvrcut_options.c_str(), context.state.inbasename.c_str(), context.state.inbasename.c_str(), context.state.inbasename.c_str()  );
         }
         else
         {
@@ -437,8 +436,8 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_mpeg2schnitt)
     {
-        comskip::checked_format(context.state.filename, "%s_mpeg2schnitt.bat", context.state.inbasename);
-        context.state.mpeg2schnitt_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.inbasename) + "_mpeg2schnitt.bat";
+        context.state.mpeg2schnitt_file.reset(myfopen(context.state.filename.c_str(), "w"));
         if (context.state.mpeg2schnitt_file.get())
         {
 //			fclose(mpeg2schnitt_file);
@@ -488,7 +487,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     if (context.settings.output_default && prev < start /*&& !last */)
     {
-        context.state.out_file.reset(myfopen(context.state.out_filename, "a+"));
+        context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "a+"));
         if (context.state.out_file.get())
         {
             fprintf(context.state.out_file.get(), "%li\t%li\n", F2F(context.settings.sage_framenumber_bug?s_start/2:s_start), F2F(context.settings.sage_framenumber_bug?s_end/2:s_end));
@@ -497,7 +496,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         else  		// If the file can't be opened for writting, wait half a second and try again
         {
             sleep_for_ms(50L);
-            context.state.out_file.reset(myfopen(context.state.out_filename, "a+"));
+            context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "a+"));
             if (context.state.out_file.get())
             {
                 fprintf(context.state.out_file.get(), "%li\t%li\n", F2F(context.settings.sage_framenumber_bug?s_start/2:s_start), F2F(context.settings.sage_framenumber_bug?s_end/2:s_end));
@@ -505,7 +504,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
             }
             else  	// If the file still can't be opened for writting, give up and exit
             {
-                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename).c_str());
+                Debug(context, 0, "%s", context.translator.format("cutlists_write_failed", context.state.out_filename.c_str()).c_str());
                 comskip::request_exit(103);
             }
         }
@@ -1244,8 +1243,8 @@ bool OutputBlocks(RecordingContext& context)
 
     if (context.settings.output_videoredo && !context.settings.output_videoredo3)
     {
-        comskip::checked_format(context.state.filename, "%s.VPrj", context.state.outbasename);
-        context.state.videoredo_file.reset(myfopen(context.state.filename, "a+"));
+        context.state.filename = std::string(context.state.outbasename) + ".VPrj";
+        context.state.videoredo_file.reset(myfopen(context.state.filename.c_str(), "a+"));
         if (context.state.videoredo_file.get())
         {
             for (i = 0; i < context.state.block_count; i++)
@@ -1259,7 +1258,7 @@ bool OutputBlocks(RecordingContext& context)
 
     if (context.settings.output_chapters)
     {
-//		comskip::checked_format(filename, "%s.chap", outbasename);
+//		filename = std::string(outbasename) + ".chap";
 //		chapters_file = myfopen(filename, "a+");
         if (context.state.chapters_file.get())
         {
@@ -1285,8 +1284,8 @@ bool OutputBlocks(RecordingContext& context)
 
     if (context.settings.output_tuning)
     {
-        comskip::checked_format(context.state.filename, "%s.tun", context.state.workbasename);
-        context.state.tuning_file.reset(myfopen(context.state.filename, "w"));
+        context.state.filename = std::string(context.state.workbasename) + ".tun";
+        context.state.tuning_file.reset(myfopen(context.state.filename.c_str(), "w"));
         fprintf(context.state.tuning_file.get(),"max_volume=%6i\n", context.state.min_volume+200);
         fprintf(context.state.tuning_file.get(),"max_avg_brightness=%6i\n", context.state.min_brightness_found+5);
         fprintf(context.state.tuning_file.get(),"max_commercialbreak=%6i\n", context.state.max_logo_gap+10);
@@ -1423,7 +1422,7 @@ void OutputStrict(RecordingContext& context, double len, double delta, double to
 //		fprintf(training_file, "// score, length, fraction, position,combined, ar error, logo, strict \n");
     }
     if (context.state.training_file.get())
-        fprintf(context.state.training_file.get(), "%+f,%+f,%+f, %s\n", len,delta, tol, context.state.inbasename);
+        fprintf(context.state.training_file.get(), "%+f,%+f,%+f, %s\n", len,delta, tol, context.state.inbasename.c_str());
 }
 
 
@@ -1533,7 +1532,7 @@ void OutputTraining(RecordingContext& context)
                     CauseString(context, context.state.cblock[i].cause),
                     CauseString(context, context.state.cblock[i].less),
                     CauseString(context, context.state.cblock[i].more),
-                    context.state.inbasename);
+                    context.state.inbasename.c_str());
 
         }
     }

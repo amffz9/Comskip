@@ -133,8 +133,7 @@ TEST(PixelBuffers, RejectsPersistedLogoBoundsBeforeReadingMaskPixels)
     }
     auto context = std::make_unique<RecordingContext>();
     const auto bytes = path.u8string();
-    ASSERT_LT(bytes.size(), sizeof(context->state.logofilename));
-    std::copy(bytes.begin(), bytes.end(), context->state.logofilename);
+    context->state.logofilename.assign(bytes.begin(), bytes.end());
     EXPECT_THROW(LoadLogoMaskData(*context), std::invalid_argument);
     EXPECT_FALSE(context->state.logoInfoAvailable);
     EXPECT_NO_THROW(std::filesystem::remove(path));

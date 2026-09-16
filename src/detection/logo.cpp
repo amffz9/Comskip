@@ -1569,7 +1569,7 @@ void SaveLogoMaskData(RecordingContext& context)
     FILE*	logo_file;
     int		x;
     int		y;
-    logo_file = myfopen(context.state.logofilename, "w");
+    logo_file = myfopen(context.state.logofilename.c_str(), "w");
     if (!logo_file)
     {
         const auto message = context.translator.format("create_failed", strerror(errno), context.state.logofilename);
@@ -1677,10 +1677,10 @@ void LoadLogoMaskData(RecordingContext& context)
     long	tmpLong = 0;
     size_t	len = 0;
 
-    logo_file = myfopen(context.state.logofilename, "r");
+    logo_file = myfopen(context.state.logofilename.c_str(), "r");
     if (logo_file)
     {
-        Debug(context, 1, "Using %s for logo data.\n", context.state.logofilename);
+        Debug(context, 1, "Using %s for logo data.\n", context.state.logofilename.c_str());
         len = fread(data, 1, 1999, logo_file);
         fclose(logo_file);
         data[len] = '\0';
@@ -1702,7 +1702,7 @@ void LoadLogoMaskData(RecordingContext& context)
     }
 
     context.state.ensure_pixel_buffers(true);
-    logo_file = myfopen(context.state.logofilename, "r");
+    logo_file = myfopen(context.state.logofilename.c_str(), "r");
     /*
         choriz_edgemask = malloc(width * height * sizeof(unsigned char));
         if (choriz_edgemask == NULL) {
@@ -1743,7 +1743,7 @@ void LoadLogoMaskData(RecordingContext& context)
     }
 
     fclose(logo_file);
-    logo_file = myfopen(context.state.logofilename, "r");
+    logo_file = myfopen(context.state.logofilename.c_str(), "r");
     do
     {
         temp = getc(logo_file);
@@ -1769,7 +1769,7 @@ void LoadLogoMaskData(RecordingContext& context)
     }
     fclose(logo_file);
 
-    logo_file = myfopen(context.state.logofilename, "r");
+    logo_file = myfopen(context.state.logofilename.c_str(), "r");
     do
     {
         temp = getc(logo_file);
@@ -1828,14 +1828,14 @@ void LoadLogoMaskData(RecordingContext& context)
     _flushall();
     if (context.settings.output_default)
     {
-        txt_file = myfopen(context.state.out_filename, "r");
+        txt_file = myfopen(context.state.out_filename.c_str(), "r");
         if (!txt_file)
         {
             sleep_for_ms(50L);
-            txt_file = myfopen(context.state.out_filename, "r");
+            txt_file = myfopen(context.state.out_filename.c_str(), "r");
             if (!txt_file)
             {
-                Debug(context, 0, "%s", context.translator.format("detection_output_read_failed", context.state.out_filename).c_str());
+                Debug(context, 0, "%s", context.translator.format("detection_output_read_failed", context.state.out_filename.c_str()).c_str());
                 context.state.isSecondPass = false;
                 return;
             }
@@ -1868,5 +1868,5 @@ void LoadLogoMaskData(RecordingContext& context)
         }
         fclose(txt_file);
     }
-    Debug(context, 10, "The last frame found in %s was %i\n", context.state.out_filename, context.state.lastFrame);
+    Debug(context, 10, "The last frame found in %s was %i\n", context.state.out_filename.c_str(), context.state.lastFrame);
 }

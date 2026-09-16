@@ -1,3 +1,4 @@
+#include "platform/utf8_paths.h"
 #include "input/file_stream.h"
 #include "input/reference_file.h"
 #include "exit_requested.h"
@@ -25,9 +26,9 @@ void FindIniFile(RecordingContext& context)
         if (found) {
             const auto bytes = found->u8string();
             comskip::checked_format(destination, "%s", reinterpret_cast<const char*>(bytes.c_str()));
-            Debug(context, 1, "Path for %s: %s\n", std::string(name).c_str(), destination);
+            Debug(context, 1, "Path for %s: %s\n", std::string(name).c_str(), destination.c_str());
         } else {
-            destination[0] = '\0';
+            destination.clear();
             Debug(context, 1, "%s not found\n", std::string(name).c_str());
         }
     };
@@ -225,7 +226,7 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
     comskip::platform::FilePtr raw;
     if (context.settings.output_training) raw.reset(myfopen("black.csv", "a+"));
 
-    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename);
+    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename.c_str());
     for (i = 0; i < 256; i++)
     {
         totalframes += context.state.brightHistogram[i];
@@ -261,7 +262,7 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
     comskip::platform::FilePtr raw;
 
     if (context.settings.output_training) raw.reset(myfopen("uniform.csv", "a+"));
-    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename);
+    if (raw.get()) fprintf(raw.get(), "\"%s\"", context.state.inbasename.c_str());
 
     for (i = 0; i < 256; i++)
     {
@@ -295,11 +296,11 @@ void OutputFrame(RecordingContext& context, int frame_number)
 {
     int		x,y;
     comskip::platform::FilePtr raw;
-    char	array[MAX_PATH];
-    sprintf(array, "%.*s%i.frm", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename,frame_number);
+    std::string array;
+    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension()) + std::to_string(frame_number) + ".frm";
 
     Debug(context, 5, "Sending frame to file\n");
-    raw.reset(myfopen(array, "w"));
+    raw.reset(myfopen(array.c_str(), "w"));
     if (!raw.get())
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_frame_open_failed"));
@@ -426,7 +427,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
     {
         if (context.settings.output_training>1) raw2.reset(myfopen("quality.csv", "a+"));
-        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
         if (raw2.get()) raw2.reset();
     }
@@ -465,7 +466,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
                     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
                     {
                         if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
                         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
                         if (raw2.get()) raw2.reset();
                     }
@@ -488,7 +489,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
                     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
                     {
                         if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
                         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
                         if (raw2.get()) raw2.reset();
                     }
@@ -509,7 +510,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
                     if (context.state.reffer[i].end_frame - context.state.reffer[i].start_frame > 2)
                     {
                         if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+                        if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), context.state.reffer[i].start_frame, 0.0, 0.0, F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
                         total += F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame);
                         if (raw2.get()) raw2.reset();
                     }
@@ -522,7 +523,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             }
 //			fprintf(raw, "False negative at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, pk, F2L(k, pk), 0.0, 0.0);
+            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), pk, F2L(k, pk), 0.0, 0.0);
             fneg += F2L(k,pk);
             if (raw2.get()) raw2.reset();
             raw2.reset();
@@ -541,7 +542,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             }
 //			fprintf(raw, "False positive at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (context.settings.output_training > 1) raw2.reset(myfopen("quality.csv", "a+"));
-            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, pk, 0.0, F2L(k, pk), 0.0);
+            if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), pk, 0.0, F2L(k, pk), 0.0);
             fpos += F2L(k, pk);
             if (raw2.get()) raw2.reset();
             raw2.reset();
@@ -549,7 +550,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
         }
     }
     if (context.settings.output_training) raw2.reset(myfopen("quality.csv", "a+"));
-    if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename, -1, fneg, fpos, total);
+    if (raw2.get()) fprintf(raw2.get(), "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", context.state.inbasename.c_str(), -1, fneg, fpos, total);
     if (raw2.get()) raw2.reset();
 
 //#else
@@ -624,14 +625,14 @@ void OutputAspect(RecordingContext& context)
 {
     int		i;
 //	long	j;
-    char	array[MAX_PATH];
+    std::string array;
     comskip::platform::FilePtr raw;
 
     if (!context.settings.output_aspect)
         return;
 
-    sprintf(array, "%.*s.aspects", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
-    raw.reset(myfopen(array, "w"));
+    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".aspects"));
+    raw.reset(myfopen(array.c_str(), "w"));
     if (!raw.get())
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_aspect_open_failed"));
@@ -664,12 +665,12 @@ void OutputBlackArray(RecordingContext& context)
     int		k;
 #endif
 //	long	j;
-    char	array[MAX_PATH];
+    std::string array;
     comskip::platform::FilePtr raw;
 
 return;
 
-    sprintf(array, "%.*s.black.csv", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
+    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".black.csv"));
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
 //		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
@@ -677,7 +678,7 @@ return;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    raw.reset(myfopen(array, "w"));
+    raw.reset(myfopen(array.c_str(), "w"));
     if (!raw.get())
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
@@ -708,9 +709,9 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
     int		k;
 #endif
 //	long	j;
-    char	array[MAX_PATH];
+    std::string array;
     comskip::platform::FilePtr raw;
-    sprintf(array, "%.*s.csv", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
+    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".csv"));
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
 //		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
@@ -718,7 +719,7 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    raw.reset(myfopen(array, "w"));
+    raw.reset(myfopen(array.c_str(), "w"));
     if (!raw.get())
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));

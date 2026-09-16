@@ -120,11 +120,15 @@ def main():
         require(aligned_serial == aligned_parallel, "Parallel AC3 alignment outputs differ")
         compare_alignment(ac3_volumes, aligned_volumes)
 
-        oversized = execute([executable, "--output=" + "x" * 4096, root / fixtures[0][0]])
-        diagnostic = (oversized.stdout + oversized.stderr).casefold()
-        require(oversized.returncode not in (0, 1), "An oversized output path was accepted")
-        require(any(word in diagnostic for word in ("long", "length", "exceed")),
-                f"Oversized output path lacked a clear diagnostic:\n{diagnostic}")
+        # A single nonexistent/invalid component differs from a valid long
+        # nested path (covered by CliPaths). Let the filesystem report failure
+        # without reintroducing an arbitrary application path-size ceiling.
+        invalid_directory = "x" * 4096
+        invalid = execute([executable, "--output=" + invalid_directory, root / fixtures[0][0]])
+        diagnostic = (invalid.stdout + invalid.stderr).casefold()
+        require(invalid.returncode not in (0, 1), "An invalid output directory was accepted")
+        require("could not create file" in diagnostic and invalid_directory in diagnostic,
+                f"Invalid output directory lacked a complete creation diagnostic:\n{diagnostic}")
     print("Media formats, Unicode paths, AC3 alignment, and argument checks passed")
 
 
