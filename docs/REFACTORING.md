@@ -27,8 +27,8 @@ FFmpeg demuxes and decodes both audio and video. libswresample converts decoded
 audio into the detector's measurement format; the detector then measures volume.
 SimpleIni owns configuration/catalog syntax, argtable2 owns command-line parsing,
 and pugixml owns XML syntax. Checked input modules use rapidcsv for CSV syntax
-and standard `from_chars` for numeric conversion; application integration is
-in progress. Standard C++ provides ownership, paths, synchronization,
+and standard `from_chars` for numeric conversion. Application parsing validates
+owned records before changing detector state. Standard C++ provides ownership, paths, synchronization,
 and timing. Windows scheduling and sleep prevention require scoped native calls;
 unsupported platforms retain their scheduling defaults.
 

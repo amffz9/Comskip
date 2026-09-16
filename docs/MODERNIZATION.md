@@ -113,4 +113,9 @@ than redefine completion around whichever subset currently passes tests.
   interactive SDL application verification still require evidence.
 - At 4839fee, the complete Windows headless build passes 199 tests, including
   actual output-template compatibility and cutlist error localization. Eight
-  checked input-parser tests pass; application parser integration is pending.
+  checked input-parser tests pass. At bbbf019, all 206 Windows tests pass:
+  integrated CSV/reference parsing validates complete owned records before
+  settings/observation changes, with six actual input regressions. The FILE
+  adapter reads buffered blocks while preserving recording file ownership.
+  Frame timestamp lookup is also bounded against actual storage (0f98693).
+  Linux verification of this full stage is pending.
