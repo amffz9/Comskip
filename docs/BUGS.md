@@ -37,7 +37,8 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B057, B058 | Fixed in the script/diagnostic stage; all 347 Windows headless and 351 SDL tests pass, including actual early-cut joins and later-frame bright-pixel classification. |
 | B051 | Open: review/caption/subtitle and argument/format/pixel/runtime reasons are cataloged; other application/helper reasons remain. |
 | B059–B063 | Fixed in the logo/player/application stage; all 368 Windows headless and 372 SDL tests pass. Linux proof of this stage remains separate. |
-| B064 | Open: two chapter options share one filename; output policy and regression pending. |
+| B064–B066 | Fixed in the diagnostic/progress stage; all 379 Windows headless and 383 SDL tests pass and the public-speed application builds. |
+| B067 | Corrected GUI build flag and first-frame preview; Windows 383 SDL tests pass. Linux corrected snapshot verification remains pending. |
 
 ## Issue evidence and verification
 
@@ -738,10 +739,55 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   The legacy chapter stream remains buffered while the finalized iPod adapter
   writes that same file independently.
 - **Impact:** Enabling both options can overwrite or interleave chapter output.
-- **Status:** Source-confirmed filename collision; fix and runtime regression
-  pending. Player extraction preserves the existing individual filenames.
+- **Status:** Fixed: dual-format exports use `.ipod.chap` for iPod while
+  single-format exports retain `.chap`. Actual normal/review dual-format
+  regressions pass within all 379 Windows headless and 383 SDL tests.
 - **Verification needed:** Separate output destinations or validated mutually
   exclusive options, with actual analysis and review export regressions.
+
+### B065: Public decode speed configuration does not compile
+
+- **Evidence:** The `!DONATOR && !DEBUG` branch in decode progress accessed
+  `is_h264` without `context.state`, two Debug calls without context, and
+  codec options without their owner. The OFF build confirmed four additional
+  compilation errors after the progress dependency was corrected. CMake exposes `COMSKIP_DONATOR=OFF`, but
+  current canonical builds use the default ON and excluded that branch.
+- **Status:** Fixed: all missing recording dependencies are explicit. The
+  complete `COMSKIP_DONATOR=OFF` Release application builds successfully; logs
+  are `bin/windows-progress-public-{configure,build}.txt`.
+- **Verification needed:** Build the public-speed configuration explicitly.
+
+### B066: Decode progress uses unsafe elapsed counters and conversions
+
+- **Evidence:** Wall-clock timing narrows elapsed centiseconds to int; clock
+  adjustments can produce negative intervals. Percentage calculation converts
+  division by an unknown/zero media duration to int without a finite check.
+  The public-speed retry label also increments the decoded-frame counter on
+  each wait for the same frame.
+- **Impact:** Incorrect timing/frame statistics, unsafe conversions, and
+  elapsed-counter overflow on sufficiently long analyses.
+- **Status:** Fixed with owned steady-clock timing, wide durations, one frame
+  observation per decode and checked display calculations. Three deterministic
+  tests pass within all 379 Windows headless and 383 SDL tests; the public-speed
+  application builds successfully.
+- **Verification needed:** Deterministic one-second reports, reset and independent
+  analyses, long elapsed times, unknown durations and public-speed compilation.
+
+### B067: Linux SDL analysis skips the review loop
+
+- **Evidence:** The unmodified `9bcdc2e` Linux SDL suite passes 346/347 tests;
+  actual CLI invalid-font regression returns normal status rather than error 2.
+  SDL resources are compiled with `COMSKIP_BUILD_GUI=1`, but application review
+  orchestration checks the obsolete `_WIN32 || HAVE_SDL` condition. `HAVE_SDL`
+  is not defined. Short recordings also skip all subsampled preview frames.
+- **Impact:** Linux SDL analysis finishes without entering interactive review;
+  configured font failures can remain unobserved on short recordings.
+- **Status:** Application loop uses the actual GUI build flag; the first frame
+  opens the requested review window independent of later preview subsampling.
+  Actual Linux verification pending.
+- **Verification needed:** Unmodified corrected Linux SDL analysis must fail
+  on missing configured font with the selected locale and retain working review
+  rendering, event handling and headless behavior.
 
 ## Fixed during modernization
 

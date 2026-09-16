@@ -154,7 +154,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
         context.state.frames_with_logo = comskip::detection::add_logo_frames(context.state.frames_with_logo, 1);
     if (context.state.framearray) context.state.frame[context.state.frame_count].currentGoodEdge = context.state.currentGoodEdge;
 
-    if (((context.state.frame_count) & context.state.subsample_video) == 0)
+    if (context.state.frame_count == 1 || ((context.state.frame_count & context.state.subsample_video) == 0))
         OutputDebugWindow(context, true,context.state.frame_count,true, false);
 //	key = 0;
 //	while (key==0)

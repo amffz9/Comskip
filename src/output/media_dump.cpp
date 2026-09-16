@@ -1,3 +1,4 @@
+#include "diagnostic.h"
 #include "legacy_detection.h"
 #include "output/media_dump.h"
 #include <format>
@@ -55,11 +56,11 @@ void dump_data(RecordingContext& context, char *start, int length)
 {
     if (!context.settings.output_data) return;
     if (length < 0 || (length > 0 && !start))
-        throw std::invalid_argument("Invalid data dump buffer");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_data_dump_buffer);
     if (!length) return;
     if (length > 1900) return;
     if (context.state.framenum_real < 0 || context.state.framenum_real > 9999999)
-        throw std::out_of_range("Data dump frame number exceeds its seven-digit field");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::data_dump_frame_number_exceeds_field);
     if (!context.state.dump_data_file.get())
     {
         const auto filename = std::string(context.state.workbasename) + ".data";

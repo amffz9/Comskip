@@ -1,4 +1,5 @@
 #include "output/player_export_adapter.h"
+#include "output/cutlist_exports.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
 #include "exit_requested.h"
@@ -7,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <random>
 
@@ -81,5 +83,26 @@ TEST_F(PlayerAdapter, ActualCreateFailureReportsSpanishAndPreservesBlockingDirec
     const auto message=::testing::internal::GetCapturedStderr();
     EXPECT_NE(message.find("no se pudo crear el archivo"),std::string::npos);
     EXPECT_TRUE(std::filesystem::is_directory(directory/"result.chp"));
+}
+TEST_F(PlayerAdapter, NormalAndReviewExportsKeepPlainChaptersAndIpodChaptersInDistinctFiles) {
+    context->settings.output_default=false;
+    context->settings.output_chapters=true;
+    context->settings.verbose=0;
+    context->settings.global_threshold=1;
+    context->settings.disable_heuristics=std::numeric_limits<int>::max();
+    context->state.inbasename=comskip::platform::path_to_utf8(directory/"source");
+    context->state.logfilename=comskip::platform::path_to_utf8(directory/"analysis.log");
+    context->state.block_count=2;
+    context->state.cblock.resize(3,comskip::detection::empty_block());
+    context->state.cblock[0].f_start=1; context->state.cblock[0].f_end=75;
+    context->state.cblock[1].f_start=76; context->state.cblock[1].f_end=149;
+    EXPECT_FALSE(OutputBlocks(*context));
+    const auto plain=read(".chap");
+    EXPECT_EQ(plain,"FILE PROCESSING COMPLETE    149 FRAMES AT  2500\n-------------------\n75\n149\n");
+    EXPECT_EQ(read(".ipod.chap"),"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n");
+    context->state.reffer={{37,80}}; context->state.reffer_count=0;
+    WritePlayerExportFiles(*context,true);
+    EXPECT_EQ(read(".chap"),plain);
+    EXPECT_NE(read(".ipod.chap").find("CHAPTER02NAME=2\n"),std::string::npos);
 }
 }

@@ -1,3 +1,4 @@
+#include "diagnostic.h"
 #include "detection/reference_comparison.h"
 #include "platform/utf8_paths.h"
 #include "input/file_stream.h"
@@ -45,17 +46,17 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
     std::vector<WeightedScore> samples;
     if (context.state.block_count < 0 ||
         static_cast<std::size_t>(context.state.block_count) > std::size(context.state.cblock))
-        throw std::invalid_argument("Score threshold has an invalid block count");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::score_threshold_invalid_block_count);
     samples.reserve(context.state.block_count);
     for (int i = 0; i < context.state.block_count; ++i) {
         const auto& block = context.state.cblock[i];
         if (block.f_start < 0 || block.f_end < block.f_start)
-            throw std::invalid_argument("Score threshold has an invalid frame interval");
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::score_threshold_invalid_frame_interval);
         samples.push_back({block.score, static_cast<std::uint64_t>(block.f_end) -
             static_cast<std::uint64_t>(block.f_start) + 1});
     }
     const auto threshold = comskip::detection::weighted_score_threshold(samples, percentile);
-    if (!threshold) throw std::invalid_argument("Cannot select a score threshold from invalid samples or percentile");
+    if (!threshold) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::cannot_select_score_threshold);
     std::uint64_t frames = 0;
     for (const auto& sample : samples) frames += sample.frames;
     Debug(context, 6, "The %.2f percentile of %llu frames is %.2f\n",
@@ -363,7 +364,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     char co,re;
     comskip::platform::FilePtr raw2;
     if (!extension || std::string_view(extension).size() < 2)
-        throw std::invalid_argument("Missing reference filename extension");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_reference_filename_extension);
     comskip::detection::validate_intervals(context.state.commercial, context.state.commercial_count);
     comskip::detection::validate_intervals(context.state.reffer, context.state.reffer_count);
     auto basename = std::string(context.state.logfilename);
@@ -426,7 +427,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     using comskip::output::CommercialInterval;
     const auto intervals = [](const auto& storage, int last) {
         if (last < -1 || last >= static_cast<int>(std::size(storage)))
-            throw std::out_of_range("Reference comparison count exceeds stored intervals");
+            throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::reference_comparison_count_exceeds_storage);
         std::vector<CommercialInterval> values;
         values.reserve(static_cast<std::size_t>(last + 1));
         for (int index = 0; index <= last; ++index)
@@ -644,7 +645,7 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
     // Both decoded input and CSV replay count real observations inclusively.
     const int last_observation = context.state.frame_count;
     if (last_observation < 0 || static_cast<std::size_t>(last_observation) >= context.state.frame.size())
-        throw std::out_of_range("CSV observations exceed the frame buffer");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::csv_observations_exceed_frame_buffer);
     for (i = 1; i <= last_observation; i++)
     {
         if (screenOnly)

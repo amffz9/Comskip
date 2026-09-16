@@ -26,6 +26,13 @@ For the optional SDL interface, add `-DVCPKG_MANIFEST_FEATURES=gui` and
 `-DCOMSKIP_BUILD_GUI=ON`.
 
 Source lives in `src/` by responsibility and tests in `tests/`.
+
+### Chapter export filenames
+
+`output_chapters=1` writes frame-boundary chapters to `<output basename>.chap`.
+`output_ipodchap=1` also uses `.chap` when enabled alone. When both formats are
+enabled, iPod chapters use `<output basename>.ipod.chap` so each file contains
+one complete format. Normal analysis and review exports use the same rule.
 See `docs/REFACTORING.md` for migration notes.
 
 ### Configuration

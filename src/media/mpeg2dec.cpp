@@ -42,9 +42,6 @@ using namespace comskip::media;
 #include "frame_conversion.h"
 #include "video_timestamp.h"
 
-#ifdef HAVE_SDL
-#include <SDL.h>
-#endif
 #include <argtable2.h>
 #define SELFTEST
 
@@ -249,107 +246,6 @@ void list_codecs(const comskip::localization::Translator& translator)
         }
         printf("\n");
 }
-
-
-double print_decode_progress (RecordingContext& context, int final)
-{
-
-
-
-
-    struct timeval tv_end;
-    double fps, tfps;
-    int frames, elapsed;
-    char cur_pos[100] = "0:00:00";
-
-    if (context.state.decoder_verbose)
-        return 0.0;
-
-    if(context.state.csStepping)
-        return 0.0;
-
-    if(final < 0)
-    {
-        context.state.print_fps_frame_counter = 0;
-        context.state.print_fps_last_count = 0;
-        return 0.0;
-    }
-#ifdef DONATOR
-#else
-#ifndef DEBUG
-again:
-#endif
-#endif
-    gettimeofday (&tv_end, NULL);
-
-    if (!context.state.print_fps_frame_counter)
-    {
-        context.state.print_fps_tv_start = context.state.print_fps_tv_beg = tv_end;
-    }
-
-    elapsed = (tv_end.tv_sec - context.state.print_fps_tv_beg.tv_sec) * 100 + (tv_end.tv_usec - context.state.print_fps_tv_beg.tv_usec) / 10000;
-    context.state.print_fps_total_elapsed = (tv_end.tv_sec - context.state.print_fps_tv_start.tv_sec) * 100 + (tv_end.tv_usec - context.state.print_fps_tv_start.tv_usec) / 10000;
-
-    if (final)
-    {
-        if (context.state.print_fps_total_elapsed)
-            tfps = context.state.print_fps_frame_counter * 100.0 / context.state.print_fps_total_elapsed;
-        else
-            tfps = 0;
-
-        fputs(context.translator.format("media_decoded_summary", context.state.print_fps_frame_counter,
-              std::format("{:.2f}", context.state.print_fps_total_elapsed / 100.0),
-              std::format("{:.2f}", tfps)).c_str(), stderr);
-        fflush(stderr);
-        return tfps;
-    }
-
-    context.state.print_fps_frame_counter++;
-
-    frames = context.state.print_fps_frame_counter - context.state.print_fps_last_count;
-
-#ifdef DONATOR
-#else
-#ifndef DEBUG
-    if (is_h264 && frames > 15 &&  elapsed < 100)
-    {
-        sleep_for_ms(100L);
-        goto again;
-    }
-#endif
-#endif
-
-    if (elapsed < 100)	/* only display every 1.00 seconds */
-        return 0.0;
-
-    context.state.print_fps_tv_beg = tv_end;
-
-//    cur_second = (int)(get_frame_pts(framenum));
-    context.state.cur_second = (int)((context.state.framenum)/get_fps(context));
-    context.state.cur_hour = context.state.cur_second / (60 * 60);
-    context.state.cur_second -= context.state.cur_hour * 60 * 60;
-    context.state.cur_minute = context.state.cur_second / 60;
-    context.state.cur_second -= context.state.cur_minute * 60;
-
-
-    sprintf(cur_pos, "%2i:%.2i:%.2i", context.state.cur_hour, context.state.cur_minute, context.state.cur_second);
-
-    fps = frames * 100.0 / elapsed;
-    tfps = context.state.print_fps_frame_counter * 100.0 / context.state.print_fps_total_elapsed;
-
-    fputs(context.translator.format("media_decode_progress", cur_pos, context.state.print_fps_frame_counter,
-          std::format("{:.2f}", context.state.print_fps_total_elapsed / 100.0), std::format("{:.2f}", tfps),
-          std::format("{:.2f}", elapsed / 100.0), std::format("{:.2f}", fps),
-          static_cast<int>(100.0 * context.state.framenum / get_fps(context) /
-                           context.state.video_owner->duration)).c_str(), stderr);
-    fputc('\r', stderr);
-    fflush(stderr);
-    context.state.print_fps_last_count = context.state.print_fps_frame_counter;
-    return tfps;
-}
-
-#ifdef PROCESS_CC
-#endif
 
 
 int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame         *pFrame , double pts)
@@ -1139,7 +1035,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
             context.state.is_h264 = 1;
 #ifdef DONATOR
 #else
-            Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
+            Debug(context, 0, "%s", context.translator.text("media_public_h264_speed"));
 #endif
         }
         else
@@ -1226,7 +1122,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
             context.state.is_h264 = 1;
 #ifdef DONATOR
 #else
-            Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
+            Debug(context, 0, "%s", context.translator.text("media_public_h264_speed"));
 #endif
         }
 
@@ -1319,7 +1215,7 @@ void file_open(RecordingContext& context)
 //            av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
 //           codecCtx->thread_count= thread_count;
 #else
-            av_dict_set_int(std::inout_ptr(myoptions), "threads", 1, 0);
+            av_dict_set_int(std::inout_ptr(context.state.myoptions), "threads", 1, 0);
 //            codecCtx->thread_count= 1;
 #endif
         av_dict_set_int(std::inout_ptr(context.state.myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers

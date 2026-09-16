@@ -1,3 +1,4 @@
+#include "../localization/diagnostic.h"
 #include "profile.h"
 #include <sstream>
 #include <utility>
@@ -10,10 +11,10 @@ CommercialProfile read_profile(const Ini& ini, CommercialProfile base) {
             target.clear();
             while (std::getline(input, item, ',')) {
                 int value = Ini("value=" + item).number<int>("value");
-                if (value <= 0) throw std::invalid_argument(std::string(key) + " must contain positive durations");
+                if (value <= 0) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::profile_lengths_must_be_positive, {key});
                 target.push_back(value);
             }
-            if (target.empty()) throw std::invalid_argument(std::string(key) + " cannot be empty");
+            if (target.empty()) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::profile_lengths_cannot_be_empty, {key});
         }
     };
     lengths("commercial_lengths", base.strict_lengths);
@@ -26,7 +27,7 @@ CommercialProfile read_profile(const Ini& ini, CommercialProfile base) {
     number("commercial_maximum_tolerance", base.maximum_tolerance);
     number("commercial_show_margin", base.show_margin);
     if (base.minimum_tolerance < 0 || base.maximum_tolerance < base.minimum_tolerance || base.show_margin < 0)
-        throw std::invalid_argument("Invalid commercial-length tolerance or show margin");
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_commercial_length_tolerance_or_show_margin);
     return base;
 }
 }

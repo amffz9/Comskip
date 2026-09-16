@@ -290,3 +290,30 @@ than redefine completion around whichever subset currently passes tests.
   Other human-facing diagnostics, remaining output/decoder decomposition, the
   chapter filename collision B064, Linux verification of this stage and
   macOS/interactive SDL proof remain required work.
+
+- The unmodified `9bcdc2e` Linux snapshot passes headless **343/343** (34.24s)
+  and address/undefined/leak sanitizer **343/343** (89.79s), without findings
+  or suppressions. Its SDL suite passes **346/347** (35.17s); actual CLI
+  missing-font failure exposes B067's obsolete application GUI conditional.
+  SDL backend resources and relocated-font unit tests really ran; application
+  review orchestration was not proven. All jobs are terminal, snapshot sources
+  were never patched. Evidence: `bin/linux-verification-9bcdc2e.md`.
+
+- The supporting-diagnostic/progress stage passes Windows headless **379/379**
+  (3.52s), SDL **383/383** (4.76s), and a complete public-speed Release build
+  (`COMSKIP_DONATOR=OFF`). Caption decoder, A53 bridge, audio conversion, regional
+  profile, diagnostic-output and media-dump errors preserve standard exception
+  categories and render owned arguments through EN/ES catalogs. Five supporting
+  regressions include a real FFmpeg channel-layout rejection; two actual output
+  error regressions prove handle cleanup. Decode progress uses an owned
+  steady-clock value, wide chrono durations and safe formatting; three
+  deterministic tests cover counting, independent reset, long analyses and
+  unknown durations. The progress adapter is a focused media source module.
+  Dual-format chapters use a distinct `.ipod.chap` file and actual normal/review
+  tests preserve both formats; existing individual filenames stay compatible.
+  Linux's obsolete GUI flag is corrected and first-frame preview opens before
+  subsequent subsampling. Corrected Linux proof is still pending. Logs:
+  `bin/windows-diagnostics-progress-build23{,-gui}-{build,test}.txt` and
+  `bin/windows-progress-public-{configure,build}.txt`. Other human-facing
+  messages, remaining decoder/export decomposition and macOS/interactive SDL
+  verification remain required work.

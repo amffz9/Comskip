@@ -9,6 +9,40 @@
 
 namespace comskip::diagnostics {
 enum class Code {
+    score_threshold_invalid_block_count,
+    score_threshold_invalid_frame_interval,
+    cannot_select_score_threshold,
+    missing_reference_filename_extension,
+    reference_comparison_count_exceeds_storage,
+    csv_observations_exceed_frame_buffer,
+    invalid_data_dump_buffer,
+    data_dump_frame_number_exceeds_field,
+
+    ffmpeg_eia_608_decoder_is_unavailable,
+    caption_timestamps_must_be_nonnegative_and_monotonic,
+    caption_decoder_must_be_reset_after_eof,
+    malformed_or_oversized_a53_caption_packet,
+    cannot_initialize_ffmpeg_eia_608_decoder_detail,
+    ffmpeg_eia_608_caption_decoding_failed_detail,
+    malformed_a53_caption_triplets,
+    malformed_ga94_caption_header,
+    truncated_ga94_captions,
+    truncated_dvd_caption_header,
+    truncated_dvd_caption_pairs,
+    truncated_extra_dvd_captions,
+    truncated_replaytv_captions,
+    invalid_decoded_audio_frame,
+    missing_decoded_audio_samples,
+    missing_decoded_audio_plane,
+    audio_conversion_changed_sample_count,
+    configure_audio_conversion_detail,
+    initialize_audio_conversion_detail,
+    size_audio_conversion_detail,
+    convert_audio_samples_detail,
+    invalid_commercial_length_tolerance_or_show_margin,
+    profile_lengths_must_be_positive,
+    profile_lengths_cannot_be_empty,
+
     invalid_video_caption_timestamp,
     cannot_read_saved_logo,
     truncated_saved_logo_mask,
@@ -250,6 +284,40 @@ enum class Code {
 };
 constexpr std::string_view message_id(Code code) {
     switch (code) {
+    case Code::score_threshold_invalid_block_count: return "diag_score_threshold_invalid_block_count";
+    case Code::score_threshold_invalid_frame_interval: return "diag_score_threshold_invalid_frame_interval";
+    case Code::cannot_select_score_threshold: return "diag_cannot_select_score_threshold";
+    case Code::missing_reference_filename_extension: return "diag_missing_reference_filename_extension";
+    case Code::reference_comparison_count_exceeds_storage: return "diag_reference_comparison_count_exceeds_storage";
+    case Code::csv_observations_exceed_frame_buffer: return "diag_csv_observations_exceed_frame_buffer";
+    case Code::invalid_data_dump_buffer: return "diag_invalid_data_dump_buffer";
+    case Code::data_dump_frame_number_exceeds_field: return "diag_data_dump_frame_number_exceeds_field";
+
+    case Code::ffmpeg_eia_608_decoder_is_unavailable: return "diag_ffmpeg_eia_608_decoder_is_unavailable";
+    case Code::caption_timestamps_must_be_nonnegative_and_monotonic: return "diag_caption_timestamps_must_be_nonnegative_and_monotonic";
+    case Code::caption_decoder_must_be_reset_after_eof: return "diag_caption_decoder_must_be_reset_after_eof";
+    case Code::malformed_or_oversized_a53_caption_packet: return "diag_malformed_or_oversized_a53_caption_packet";
+    case Code::cannot_initialize_ffmpeg_eia_608_decoder_detail: return "diag_cannot_initialize_ffmpeg_eia_608_decoder_detail";
+    case Code::ffmpeg_eia_608_caption_decoding_failed_detail: return "diag_ffmpeg_eia_608_caption_decoding_failed_detail";
+    case Code::malformed_a53_caption_triplets: return "diag_malformed_a53_caption_triplets";
+    case Code::malformed_ga94_caption_header: return "diag_malformed_ga94_caption_header";
+    case Code::truncated_ga94_captions: return "diag_truncated_ga94_captions";
+    case Code::truncated_dvd_caption_header: return "diag_truncated_dvd_caption_header";
+    case Code::truncated_dvd_caption_pairs: return "diag_truncated_dvd_caption_pairs";
+    case Code::truncated_extra_dvd_captions: return "diag_truncated_extra_dvd_captions";
+    case Code::truncated_replaytv_captions: return "diag_truncated_replaytv_captions";
+    case Code::invalid_decoded_audio_frame: return "diag_invalid_decoded_audio_frame";
+    case Code::missing_decoded_audio_samples: return "diag_missing_decoded_audio_samples";
+    case Code::missing_decoded_audio_plane: return "diag_missing_decoded_audio_plane";
+    case Code::audio_conversion_changed_sample_count: return "diag_audio_conversion_changed_sample_count";
+    case Code::configure_audio_conversion_detail: return "diag_configure_audio_conversion_detail";
+    case Code::initialize_audio_conversion_detail: return "diag_initialize_audio_conversion_detail";
+    case Code::size_audio_conversion_detail: return "diag_size_audio_conversion_detail";
+    case Code::convert_audio_samples_detail: return "diag_convert_audio_samples_detail";
+    case Code::invalid_commercial_length_tolerance_or_show_margin: return "diag_invalid_commercial_length_tolerance_or_show_margin";
+    case Code::profile_lengths_must_be_positive: return "diag_profile_lengths_must_be_positive";
+    case Code::profile_lengths_cannot_be_empty: return "diag_profile_lengths_cannot_be_empty";
+
     case Code::invalid_video_caption_timestamp: return "diag_invalid_video_caption_timestamp";
     case Code::cannot_read_saved_logo: return "diag_cannot_read_saved_logo";
     case Code::truncated_saved_logo_mask: return "diag_truncated_saved_logo_mask";

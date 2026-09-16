@@ -4,8 +4,19 @@
 #include "media/subtitle_stream_decoder.h"
 #include "review_window.h"
 #include "diagnostic_render.h"
+#include "media/a53_caption_bridge.h"
+#include "media/audio_samples.h"
+#include "profile.h"
+#include "ini.h"
+#include "media/ffmpeg_resources.h"
+extern "C" {
+#include <libavutil/frame.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
+}
 #include <gtest/gtest.h>
 #include <chrono>
+#include <array>
 
 namespace {
 using namespace comskip::media;
@@ -59,6 +70,65 @@ TEST(CaptionDiagnostics, ReviewInvariantUsesLocalizedTypedErrorWithoutMutatingIn
             "Review font size must be positive", "tamaño de la fuente de revisión debe ser positivo");
     }
     EXPECT_EQ(window.input().key, 'W'); EXPECT_EQ(window.options().font_size, 16);
+}
+TEST(SupportDiagnostics, MalformedBridgePacketRetainsCategoryAndLocalizedReason) {
+    const std::array<std::uint8_t, 1> payload{1};
+    try { bridge_a53_captions(payload); FAIL() << "Accepted incomplete A53 triplet"; }
+    catch (const std::invalid_argument& error) {
+        translated(error, Code::malformed_a53_caption_triplets,
+            "Malformed A53 caption triplets", "Tripletes de subtítulos A53 mal formados");
+    }
+}
+TEST(SupportDiagnostics, DecoderEofRetainsLogicCategoryAndResetContract) {
+    CaptionDecoder decoder; decoder.drain(1s);
+    try { decoder.decode({}, 2s); FAIL() << "Accepted caption after drain"; }
+    catch (const std::logic_error& error) {
+        translated(error, Code::caption_decoder_must_be_reset_after_eof,
+            "Caption decoder must be reset", "decodificador de subtítulos debe restablecerse");
+    }
+    decoder.reset(); EXPECT_NO_THROW(decoder.decode({}, 1s));
+}
+TEST(SupportDiagnostics, ProfileInvalidDurationsRetainOwnedSettingKey) {
+    try { comskip::config::read_profile(comskip::config::Ini("commercial_lengths=0"),{}); FAIL() << "Accepted zero duration"; }
+    catch (const std::invalid_argument& error) {
+        translated(error, Code::profile_lengths_must_be_positive,
+            "commercial_lengths must contain positive durations", "commercial_lengths debe contener duraciones positivas",
+            {"commercial_lengths"});
+    }
+}
+TEST(SupportDiagnostics, InvalidAudioFrameRetainsMalformedCategory) {
+    AVFrame frame{};
+    try { normalize_audio(frame); FAIL() << "Accepted empty audio frame"; }
+    catch (const std::invalid_argument& error) {
+        translated(error, Code::invalid_decoded_audio_frame,
+            "Invalid decoded audio frame", "Trama de audio decodificada no válida");
+    }
+}
+TEST(SupportDiagnostics, UnsupportedAudioChannelLayoutOwnsFfmpegFailureDetail) {
+    auto frame=make_frame();
+    frame->format=AV_SAMPLE_FMT_FLT; frame->sample_rate=48000; frame->nb_samples=1;
+    // A valid decoded high-channel-count frame exceeds libswresample's
+    // 64-channel conversion limit. Unknown mono is accepted when no remixing
+    // is needed, so it does not exercise a library failure.
+    frame->ch_layout.order=AV_CHANNEL_ORDER_UNSPEC;
+    frame->ch_layout.nb_channels=65;
+    ASSERT_EQ(av_channel_layout_check(&frame->ch_layout),1);
+    std::array<float,65> samples{};
+    std::uint8_t* plane=reinterpret_cast<std::uint8_t*>(samples.data());
+    frame->extended_data=&plane;
+    struct RestorePlanes { AVFrame* frame; ~RestorePlanes() { frame->extended_data=frame->data; } } restore{frame.get()};
+    try { normalize_audio(*frame); FAIL() << "Accepted unsupported 65-channel conversion"; }
+    catch (const std::runtime_error& error) {
+        const auto* provider=dynamic_cast<const DiagnosticProvider*>(&error);
+        ASSERT_NE(provider,nullptr);
+        EXPECT_EQ(provider->diagnostic().code,Code::configure_audio_conversion_detail);
+        ASSERT_EQ(provider->diagnostic().arguments.size(),1u);
+        const auto detail=provider->diagnostic().arguments[0];
+        EXPECT_FALSE(detail.empty());
+        frame->format=-1;
+        translated(error,Code::configure_audio_conversion_detail,
+            "Configure audio conversion", "configurar la conversión de audio",{detail});
+    }
 }
 
 TEST(CaptionDiagnostics, VideoTimeConversionRejectsUnrepresentableValuesAndClampsPreroll) {

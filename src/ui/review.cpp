@@ -1,3 +1,4 @@
+#include "platform/utf8_paths.h"
 #include "exit_requested.h"
 #include "media/decoder.h"
 #include "output/ffmpeg_sidecar_adapter.h"
@@ -111,7 +112,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             context.window.close();
             context.state.ensure_review_graph(context.state.owidth, context.state.oheight + barh);
             context.window.close();
-            context.window.configure_font(std::filesystem::u8path(context.settings.review_font_file),
+            context.window.configure_font(comskip::platform::path_from_utf8(context.settings.review_font_file),
                 context.settings.review_font_size);
             context.window.open(context.state.owidth, context.state.oheight + barh, title);
             context.state.review_source_width = context.state.videowidth;

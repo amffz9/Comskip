@@ -1,3 +1,4 @@
+#include "media/decode_progress.h"
 #pragma once
 #include "legacy_detection.h"
 #include "settings_value.h"
@@ -13,6 +14,7 @@
 #include <vector>
 
 struct RecordingState {
+    comskip::media::DecodeProgress decode_progress;
     unsigned char XDSbuffer[40][100]{};
     int lastXDS= 0;
     int firstXDS= 1;
@@ -340,9 +342,6 @@ struct RecordingState {
     int reviewing= 0;
     int count=0;
     int currentSecond=0;
-    int cur_hour= 0;
-    int cur_minute= 0;
-    int cur_second= 0;
     int reorderCC= 0;
     int csRestart{};
     int csStartJump{};
@@ -391,11 +390,6 @@ struct RecordingState {
     int sound_to_frames_old_c= 0;
     double sound_to_frames_old_audio_clock=0.0;
     int sound_to_frames_old_sample_rate= 0;
-    uint32_t print_fps_frame_counter= 0;
-    struct timeval print_fps_tv_beg{};
-    struct timeval print_fps_tv_start{};
-    int print_fps_total_elapsed{};
-    int print_fps_last_count= 0;
     int video_packet_process_find_29fps= 0;
     int video_packet_process_force_29fps= 0;
     int video_packet_process_find_25fps= 0;

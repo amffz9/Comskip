@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "diagnostic_render.h"
 #include "detection/legacy_detection.h"
 #include "checked_format.h"
 #include <gtest/gtest.h>
@@ -64,6 +65,31 @@ TEST_F(DiagnosticOutput, InvalidBuffersAndFrameFieldsRejectBeforeOpeningOutput) 
     EXPECT_THROW(dump_data(*context, &payload, 1), std::out_of_range);
     EXPECT_FALSE(std::filesystem::exists(directory / "dump.data"));
     EXPECT_FALSE(context->state.dump_data_file);
+}
+TEST_F(DiagnosticOutput, ActualInvalidDumpBufferPreservesCategoryAndRendersEnglishSpanish) {
+    try {dump_data(*context,nullptr,1); FAIL()<<"Expected invalid buffer rejection";}
+    catch(const std::invalid_argument& error) {
+        EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("en")),
+            "Invalid data dump buffer");
+        EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("es")),
+            "El búfer de volcado de datos no es válido");
+    }
+    EXPECT_FALSE(context->state.dump_data_file);
+    EXPECT_FALSE(std::filesystem::exists(directory/"dump.data"));
+}
+TEST_F(DiagnosticOutput, ActualCsvBufferBoundsPreserveRangeCategoryAndRenderEnglishSpanish) {
+    context->state.frame_count=2;
+    context->state.frame.resize(2);
+    try {OutputFrameArray(*context,false); FAIL()<<"Expected frame storage rejection";}
+    catch(const std::out_of_range& error) {
+        EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("en")),
+            "CSV observations exceed the frame buffer");
+        EXPECT_EQ(comskip::localization::render_exception(error,comskip::localization::Translator("es")),
+            "Las observaciones CSV exceden el búfer de fotogramas");
+    }
+    // The existing writer emits its header before validating observations;
+    // the owned stream must still close when the range diagnostic unwinds.
+    EXPECT_TRUE(std::filesystem::remove(directory/"log.csv"));
 }
 TEST_F(DiagnosticOutput, AspectOutputOpenFailureIsLocalized) {
     context->translator = comskip::localization::Translator("es");

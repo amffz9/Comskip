@@ -403,7 +403,7 @@ nextpacket:
                     context.settings.output_timing = 0;
                 }
 
-#if defined(_WIN32) || defined(HAVE_SDL)
+#if COMSKIP_BUILD_GUI
                 while(1)
                 {
                     ReviewResult(context);

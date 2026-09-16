@@ -68,6 +68,7 @@ void WritePlayerExportFiles(RecordingContext& context,bool use_reference) {
     if (settings.output_zoomplayer_chapter) write(".chp",[&](auto& out){write_zoomplayer_chapters(out,chapters,initial_show);});
     if (settings.output_zoomplayer_cutlist) write(".cut",[&](auto& out){write_zoomplayer_cuts(out,intervals);});
     if (settings.output_scf) write(".scf",[&](auto& out){write_scf(out,scf,{rounded_fps});});
-    if (settings.output_ipodchap) write(".chap",[&](auto& out){write_ipod_chapters(out,ipod);});
+    if (settings.output_ipodchap) write(settings.output_chapters ? ".ipod.chap" : ".chap",
+        [&](auto& out){write_ipod_chapters(out,ipod);});
     if (settings.output_bsplayer) write(".bcf",[&](auto& out){write_bsplayer(out,intervals);});
 }
