@@ -93,7 +93,9 @@ than redefine completion around whichever subset currently passes tests.
   and four diagnostic-output regressions. At c4ab1e0, all 181 Windows tests pass,
   including exact CSV subtitle/cutlist roundtrips, stable repeated exports,
   missing-timestamp media, and three staged/bounded cutscene-loading tests.
-  Linux headless, SDL, and sanitizer verification of that commit is pending.
+  Linux headless and SDL builds of an isolated, unmodified c4ab1e0 snapshot each
+  pass all 177 tests (14.09 and 12.88 seconds respectively); SDL uses the dummy
+  driver. Sanitizer verification of that commit is still pending.
   Four detector-warning
   regressions pass at 7e011c3, covering both logo-save failure branches. macOS and
   interactive SDL application verification still require evidence.
