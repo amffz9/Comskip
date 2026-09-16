@@ -31,15 +31,15 @@ and relevant verification; retain the evidence for future regressions.
 - **Verification needed:** Leak sanitizer coverage of repeated subtitle-enabled
   success/failure runs and automatic resource cleanup.
 
-## Investigation needed
-
-### B003: Selected standalone subtitle streams may not be consumed
+### B003: Selected standalone subtitle streams are not consumed
 
 - **Evidence:** The media coordinator selects a subtitle stream and records its
   PID, but the active caption path consumes video-frame A53 side data. The audit
-  found no active standalone subtitle packet decoding/dispatch.
-- **Status:** Potential unsupported-path gap; reproduce before classifying it
-  as a confirmed defect or changing behavior.
+  found no standalone subtitle decoder initialization. Both active packet
+  dispatch loops handle video/audio and discard the selected subtitle packets.
+- **Status:** Confirmed missing routing/decoding path. Text/ASS subtitles can
+  use the owned FFmpeg subtitle output. Bitmap subtitles need a separate
+  supported-output policy; FFmpeg does not convert their images to text.
 - **Verification needed:** A recording with a standalone subtitle stream and
   no embedded A53 captions; compare requested subtitle output with its cues.
 
