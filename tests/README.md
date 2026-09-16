@@ -22,6 +22,9 @@ caption EOF/reopen/failure cleanup, standalone overlapping Unicode subtitles,
 CSV subtitle/cutlist roundtrips, damaged streams, and long input filenames.
 The short smoke fixture checks one whole-recording commercial interval; it does
 not establish detection accuracy for mixed programs and commercial breaks.
+`commercial_intervals` separately verifies a known 30-second middle ad between
+two 200-second program segments, separator timestamps, all observations, and
+serial/parallel equality. Its boundaries follow the generated specification.
 
 Use -DCOMSKIP_BUILD_APP=OFF for configuration/worker/platform tests without
 FFmpeg linkage; audio/video conversion tests require the application dependencies.

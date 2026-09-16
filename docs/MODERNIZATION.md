@@ -46,7 +46,10 @@ than redefine completion around whichever subset currently passes tests.
   editable output templates reject unsafe printf conversions and excess string
   arguments. At 4839fee, input media filenames are owned strings; an actual
   nested Unicode media path longer than 1,024 bytes opens and demuxes on Windows.
-  Remaining basename/config/output fields still limit full CLI path support.
+  At 34869fa, the connected basename/config/output filename fields are owned
+  strings and path derivation uses UTF-8 filesystem paths. Full CLI analysis with
+  Unicode input, INI, and output paths each longer than 1,024 bytes passes on
+  Windows, including complete exports and optional caption-marker failure.
   application callsites now receive an explicit recording context. Detection,
   media, output, and review state have moved into that context. Dynamic detection
   buffers, recording files, argument snapshots, and XDS metadata are owned values.
@@ -122,4 +125,12 @@ than redefine completion around whichever subset currently passes tests.
   (14.89 seconds), SDL Release with dummy video (13.51 seconds), and headless
   address/undefined/leak sanitizer Debug (36.41 seconds). No sanitizer findings
   or suppressions occurred. This covers the committed filename and parser stage,
-  while full CLI path migration, B028/B029, and interactive SDL remain separate.
+  while later path and caption changes, B029, and interactive SDL remain separate.
+- At 34869fa, all 210 Windows tests pass. The mixed-recording fixture specifies
+  200 seconds of program, a single black frame, a 30-second ad, a single black
+  frame, and 200 seconds of program. Both thread counts select only the middle
+  ad within one frame of separator-derived boundaries and retain all 10,752
+  observations with the expected timestamps. This verifies a controlled known
+  interval; it does not prove general broadcast detection accuracy.
+  Linux verification of the full path stage is pending. Reference comparison
+  and growable detection blocks remain active work (B029/B030).

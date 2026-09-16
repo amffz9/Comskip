@@ -20,7 +20,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B021 | Overflow fixed at `8a4bda6`; three focused Windows tests pass. Full path support is tracked separately as B023. |
 | B022 | Fixed at `54470db`; all six diagnostic-output tests pass, including flush and file removal after disabling demux. |
 | B018 | Fixed at `bbbf019`; all 206 Windows tests pass, including six actual input and eight pure parser tests. Its unmodified snapshot passes all 202 Linux tests in headless, SDL, and address/undefined/leak sanitizer builds. B029 remains separate. |
-| B023 | Open; the connected filename graph is being migrated for full CLI long-path support. |
+| B023, B027, B028 | Fixed at `34869fa`; all 210 Windows tests pass, including actual long Unicode CLI paths, optional marker failure, and caption controls/row splitting. Linux path-stage verification is pending. |
 | B024 | Fixed at `4839fee`; unsafe conversions and argument counts are rejected, with actual escaped-template output compatibility. All 199 Windows tests pass at that stage. |
 | B025 | Fixed at `ed8649b`; five actual lifecycle tests pass on Windows. The isolated Linux `c4ab1e0` snapshot plus only that packet patch passes all 177 address/undefined/leak sanitizer tests without findings or suppressions. |
 | B026 | Fixed at `0f98693`; all 200 Windows tests pass, including zero, negative, and excessive observation counts. |
