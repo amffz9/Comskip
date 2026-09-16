@@ -13,6 +13,13 @@ TEST(LegacyCutlistExports, WomblePreservesClipTypesNumbersAndSource) {
   EXPECT_EQ(out.str(), "CLIPLIST: #1 commercial\nCLIP: Café.ts\n6 11 "
                        "10\nCLIPLIST: #3 show\nCLIP: Café.ts\n6 42 9\n");
 }
+TEST(LegacyCutlistExports, WombleFinalCommercialRemainsCommercial) {
+  std::ostringstream out;
+  const std::array clips{WombleClip{1, true, 1, 49}};
+  write_womble(out, "input.ts", clips);
+  EXPECT_EQ(out.str(),
+            "CLIPLIST: #1 commercial\nCLIP: input.ts\n6 1 49\n");
+}
 TEST(LegacyCutlistExports, MlsPreservesHeaderCountAndPaddedFrames) {
   std::ostringstream out;
   const std::array marks{MlsBookmark{11, false}, MlsBookmark{21, true}};

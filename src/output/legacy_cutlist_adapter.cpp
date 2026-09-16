@@ -56,8 +56,9 @@ void WriteLegacyCutlistFiles(RecordingContext &context, bool use_reference) {
   std::vector<Mpeg2SchnittRange> schnitt;
   std::vector<std::int64_t> chapters;
   int bookmark_count = 0;
-  const auto append = [&](int i, long prev, long start, long end, bool last) {
-    if (!last) {
+  const auto append = [&](int i, long prev, long start, long end, bool last,
+                          bool commercial_interval) {
+    if (commercial_interval) {
       if (start - prev > o.fps)
         clips.push_back({i + 1, false, position(prev + 1),
                          position(start) - position(prev)});
@@ -103,11 +104,12 @@ void WriteLegacyCutlistFiles(RecordingContext &context, bool use_reference) {
         start >= s.frame_count || end > s.frame_count)
       throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
           comskip::diagnostics::Code::invalid_legacy_cutlist_interval);
-    append(i, previous, start, end, end >= s.frame_count - 2);
+    append(i, previous, start, end, end >= s.frame_count - 2, true);
     previous = end;
   }
   if (count < 0 || previous < s.frame_count - 2)
-    append(count + 1, previous, s.frame_count - 2, s.frame_count - 1, true);
+    append(count + 1, previous, s.frame_count - 2, s.frame_count - 1, true,
+           false);
   for (int i = 0; i < s.block_count; ++i)
     chapters.push_back(s.cblock[i].f_end);
   const auto write = [&](const std::string &name, auto serializer) {

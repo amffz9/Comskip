@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         assert files["ipod.chap"].startswith(b"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n")
         assert files["ipod.chap"].endswith(b"CHAPTER02NAME=2\n")
         assert files["chap"].startswith(b"FILE PROCESSING COMPLETE    249 FRAMES AT  2500\n-------------------\n")
-        assert files["wme"].startswith(b"CLIPLIST: #1 show\n")
+        assert files["wme"].startswith(b"CLIPLIST: #1 commercial\n")
         assert b"[BookmarkList]\n" in files["mls"]
         assert files["mpgtx"].endswith(b"[0:00:00-]\n")
         assert files["dvrcut"] == b'dvrcut "%1" "%2" \n'

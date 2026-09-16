@@ -368,5 +368,18 @@ than redefine completion around whichever subset currently passes tests.
   non-donator application also builds. Logs are
   `bin/windows-final-exports-build23{,-gui}-{build,test}.txt` and
   `bin/windows-final-exports-public-build.txt`. Linux verification of this
-  combined stage, remaining human-facing messages, safe seek arithmetic,
-  B074's Womble tail correction and physical interactive UI proof remain.
+  combined stage, remaining human-facing messages, safe seek arithmetic and
+  physical interactive UI proof remain.
+
+- Scoring diagnostics now use the committed English and Spanish catalogs for
+  the active scoring, combination, caption, aspect-ratio, and heuristic paths.
+  Numeric values are formatted at their call sites before insertion into plain
+  catalog fields, preserving the legacy decimal widths without a printf-format
+  translation layer. The reproducible inventory in
+  `bin/human-message-inventory.md` now reports **237** remaining literal call
+  sites, down from 337; the six entries still attributed to `scoring.cpp` are
+  disabled `#if 0` branches retained by the inventory's documented policy.
+  Safe C++23 seek arithmetic and the corrected Womble EOF classification add
+  focused and actual-media regressions. Windows passes **420/420** headless and
+  **428/428** SDL tests; the public-speed non-donator application also builds.
+  Other human-facing messages and Linux verification of this stage remain.

@@ -87,3 +87,16 @@ TEST(Translator, FormatsCliWarningsAndErrorsWithStableIdentifiers) {
               "\nComskip reduce la velocidad de 0600 a 1200.\nLa hora actual es 0900 ");
     EXPECT_TRUE(std::string(spanish.text("cli_read_ini_failed")).contains("INI"));
 }
+
+TEST(Translator, FormatsScoringDiagnosticsInEnglishAndSpanish) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("scoring_score_before", "7", "1.25"),
+              "Block 7 score:\tBefore - 1.25\t");
+    EXPECT_EQ(spanish.format("scoring_score_before", "7", "1.25"),
+              "Puntuación del bloque 7:\tAntes - 1.25\t");
+    EXPECT_EQ(english.format("scoring_combined_strict_length", "2", "4", "30.00", "0.125000"),
+              "Combining blocks 2 through 4 results in strict standard commercial length of 30.00 with a tolerance of 0.125000.\n");
+    EXPECT_EQ(spanish.format("scoring_ar_differs", "3", "1.33", "1.78"),
+              "La relación de aspecto del bloque 3 (1.33) difiere de la relación de aspecto dominante (1.78).\n");
+}

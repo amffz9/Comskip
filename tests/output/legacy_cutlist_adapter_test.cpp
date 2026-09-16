@@ -73,6 +73,27 @@ TEST_F(LegacyCutlistAdapter,
   EXPECT_EQ(read("_dvrcut.bat"), "dvrcut \"%1\" \"%2\" 0:00:00 0:00:01 \n");
 }
 TEST_F(LegacyCutlistAdapter,
+       AllCommercialAndTrailingCommercialKeepTheirCutLabels) {
+  context->settings.output_mls = false;
+  context->settings.output_mpgtx = false;
+  context->settings.output_dvrcut = false;
+  context->settings.output_mpeg2schnitt = false;
+  context->settings.output_chapters = false;
+  context->state.commercial = {{0, 49}};
+  context->state.commercial_count = 0;
+  WriteLegacyCutlistFiles(*context);
+  EXPECT_EQ(read(".wme"),
+            "CLIPLIST: #1 commercial\nCLIP: " + context->state.mpegfilename +
+                "\n6 1 49\n");
+
+  context->state.commercial = {{30, 49}};
+  WriteLegacyCutlistFiles(*context);
+  EXPECT_EQ(read(".wme"),
+            "CLIPLIST: #1 show\nCLIP: " + context->state.mpegfilename +
+                "\n6 1 31\nCLIPLIST: #1 commercial\nCLIP: " +
+                context->state.mpegfilename + "\n6 31 19\n");
+}
+TEST_F(LegacyCutlistAdapter,
        ExpandedDvrHeaderOptionsAndPlainRawBoundariesAreExact) {
   context->state.commercial_count = -1;
   context->settings.dvrcut_options = "%s|%s|%s|%% ";

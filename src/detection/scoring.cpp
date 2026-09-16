@@ -1,4 +1,16 @@
 #include "legacy_detection.h"
+#include <format>
+#include <string_view>
+#include <utility>
+
+namespace {
+template<class... Args>
+void scoring_debug(RecordingContext& context, int level, std::string_view message_id, Args&&... args)
+{
+    const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
+    Debug(context, level, "%s", message.c_str());
+}
+}
 
 bool WithinDivisibleTolerance(double test_number, double divisor, double tolerance)
 {
@@ -184,7 +196,8 @@ void WeighBlocks(RecordingContext& context)
                 fabs(context.state.cblock[i].ar_ratio - context.state.cblock[i+2].ar_ratio) < context.settings.ar_delta
            )
         {
-            Debug(context, 2, "Deleting cblock %d starting at frame %d because too short and same AR before and after\n", i+1, context.state.cblock[i+1].f_start);
+            scoring_debug(context, 2, "scoring_delete_short_same_ar", std::format("{}", i + 1),
+                std::format("{}", context.state.cblock[i + 1].f_start));
             context.state.cblock[i].b_tail = context.state.cblock[i+2].b_tail;
             context.state.cblock[i].f_end = context.state.cblock[i+2].f_end;
             context.state.cblock[i].length += context.state.cblock[i+1].length + context.state.cblock[i+2].length;
@@ -208,7 +221,7 @@ void WeighBlocks(RecordingContext& context)
     {
         if (context.state.logoPercentage < context.settings.logo_fraction - 0.05 || context.state.logoPercentage > context.settings.logo_percentile)
         {
-            Debug(context, 1, "Not enough or too much logo's found, disabling the use of Logo detection\n", i);
+            scoring_debug(context, 1, "scoring_disable_logo_detection");
             context.settings.commDetectMethod -= LOGO;
             max_score = 10000;
         }
@@ -232,7 +245,8 @@ void WeighBlocks(RecordingContext& context)
     {
         for (i = 0; i < context.state.block_count; i++)
         {
-            Debug(context, 5, "Block %.3i\tschange_rate - %.2f\t average - %.2f\n", i, context.state.cblock[i].schange_rate, context.state.avg_schange);
+            scoring_debug(context, 5, "scoring_scene_change_rate", std::format("{:03}", i),
+                std::format("{:.2f}", context.state.cblock[i].schange_rate), std::format("{:.2f}", context.state.avg_schange));
         }
     }
 
@@ -258,7 +272,7 @@ void WeighBlocks(RecordingContext& context)
 //	if ((commDetectMethod & LOGO) && logoPercentage > logo_fraction && logoPercentage < logo_percentile && logo_present_modifier != 1.0)
 //		excessive_length_modifier = 1;		// TESTING!!!!!!!!!!!!!!!!!!
 
-    Debug(context, 5, "\nFuzzy scoring of the blocks\n---------------------------\n");
+    scoring_debug(context, 5, "scoring_heading");
 
 
 
@@ -287,11 +301,11 @@ void WeighBlocks(RecordingContext& context)
                 while (j>=i)
                 {
                     context.state.cblock[j].strict = 2;
-                    Debug(context, 2, "Block %i has strict standard length for a commercial.\n", j);
-                    Debug(context, 3, "Block %i score:\tBefore - %.2f\t", j, context.state.cblock[j].score);
+                    scoring_debug(context, 2, "scoring_strict_standard_length", std::format("{}", j));
+                    scoring_debug(context, 3, "scoring_score_before", std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score));
                     context.state.cblock[j].score *= context.settings.length_strict_modifier;
 //					cblock[j].score *= length_strict_modifier;
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[j].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[j].score));
                     context.state.cblock[j].cause |= C_STRICT;
                     context.state.cblock[j].more |= C_STRICT;
                     j--;
@@ -302,11 +316,11 @@ void WeighBlocks(RecordingContext& context)
                 while (j>=i)
                 {
                     context.state.cblock[j].strict = 1;
-                    Debug(context, 2, "Block %i has non-strict standard length for a commercial.\n", j);
-                    Debug(context, 3, "Block %i score:\tBefore - %.2f\t", j, context.state.cblock[j].score);
+                    scoring_debug(context, 2, "scoring_nonstrict_standard_length", std::format("{}", j));
+                    scoring_debug(context, 3, "scoring_score_before", std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score));
                     context.state.cblock[j].score *= context.settings.length_nonstrict_modifier;
                     context.state.cblock[j].score = (context.state.cblock[j].score > max_score) ? max_score : context.state.cblock[j].score;
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[j].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[j].score));
                     context.state.cblock[j].cause |= C_NONSTRICT;
                     context.state.cblock[j].more |= C_NONSTRICT;
                     j--;
@@ -371,14 +385,9 @@ void WeighBlocks(RecordingContext& context)
                 }
                 if ((context.state.cblock[i + j].combined_count > max_combined_count) || (context.state.cblock[i].combined_count > max_combined_count))
                 {
-                    Debug(context,
-                        3,
-                        "Not attempting to forward combine blocks %i to %i because cblock %i has already been combined %i times.\n",
-                        i,
-                        i + j,
-                        i + j,
-                        context.state.cblock[i + j].combined_count
-                    );
+                    scoring_debug(context, 3, "scoring_forward_combine_limit",
+                        std::format("{}", i), std::format("{}", i + j), std::format("{}", i + j),
+                        std::format("{}", context.state.cblock[i + j].combined_count));
                     breakforcombine = true;
                     break;
                 }
@@ -395,21 +404,16 @@ void WeighBlocks(RecordingContext& context)
 
                     if (IsStandardCommercialLength(context, combined_length - (context.state.cblock[i].b_head + context.state.cblock[i + j + 1].b_head) / context.settings.fps, tolerance, true) && context.settings.combined_length_strict_modifier != 1.0)
                     {
-                        Debug(context,
-                            2,
-                            "Combining Blocks %i thru %i result in strict standard commercial length of %.2f with a tolerance of %f.\n",
-                            i,
-                            i + j,
-                            combined_length,
-                            tolerance
-                        );
+                        scoring_debug(context, 2, "scoring_combined_strict_length",
+                            std::format("{}", i), std::format("{}", i + j), std::format("{:.2f}", combined_length),
+                            std::format("{:f}", tolerance));
                         for (k = 0; k <= j; k++)
                         {
-                            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i + k, context.state.cblock[i + k].score);
+                            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i + k), std::format("{:.2f}", context.state.cblock[i + k].score));
                             context.state.cblock[i + k].score *= 1 + (context.settings.combined_length_strict_modifier / (j + 1) / 2);
                             context.state.cblock[i + k].score = (context.state.cblock[i + k].score > max_score) ? max_score : context.state.cblock[i + k].score;
                             context.state.cblock[i + k].combined_count += 1;
-                            Debug(context, 3, "After - %.2f\tCombined count - %i\n", context.state.cblock[i + k].score, context.state.cblock[i + k].combined_count);
+                            scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i + k].score), std::format("{}", context.state.cblock[i + k].combined_count));
                             context.state.cblock[i + k].cause |= C_COMBINED;
                             context.state.cblock[i + k].more |= C_COMBINED;
 
@@ -417,21 +421,16 @@ void WeighBlocks(RecordingContext& context)
                     }
                     else if (IsStandardCommercialLength(context, combined_length - (context.state.cblock[i].b_head + context.state.cblock[i + j + 1].b_head) / context.settings.fps, tolerance, false) && context.settings.combined_length_nonstrict_modifier != 1.0)
                     {
-                        Debug(context,
-                            2,
-                            "Combining Blocks %i thru %i result in non-strict standard commercial length of %.2f with a tolerance of %f.\n",
-                            i,
-                            i + j,
-                            combined_length,
-                            tolerance
-                        );
+                        scoring_debug(context, 2, "scoring_combined_nonstrict_length",
+                            std::format("{}", i), std::format("{}", i + j), std::format("{:.2f}", combined_length),
+                            std::format("{:f}", tolerance));
                         for (k = 0; k <= j; k++)
                         {
-                            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i + k, context.state.cblock[i + k].score);
+                            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i + k), std::format("{:.2f}", context.state.cblock[i + k].score));
                             context.state.cblock[i + k].score *= 1 + (context.settings.combined_length_nonstrict_modifier / (j + 1) / 2);
                             context.state.cblock[i + k].score = (context.state.cblock[i + k].score > max_score) ? max_score : context.state.cblock[i + k].score;
                             context.state.cblock[i + k].combined_count += 1;
-                            Debug(context, 3, "After - %.2f\tCombined count - %i\n", context.state.cblock[i + k].score, context.state.cblock[i + k].combined_count);
+                            scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i + k].score), std::format("{}", context.state.cblock[i + k].combined_count));
                             context.state.cblock[i + k].cause |= C_COMBINED;
                             context.state.cblock[i + k].more |= C_COMBINED;
                         }
@@ -462,14 +461,9 @@ void WeighBlocks(RecordingContext& context)
                 }
                 if ((context.state.cblock[i - j].combined_count > max_combined_count) || (context.state.cblock[i].combined_count > max_combined_count))
                 {
-                    Debug(context,
-                        3,
-                        "Not attempting to backward combine blocks %i to %i because cblock %i has already been combined %i times.\n",
-                        i - j,
-                        i,
-                        i - j,
-                        context.state.cblock[i - j].combined_count
-                    );
+                    scoring_debug(context, 3, "scoring_backward_combine_limit",
+                        std::format("{}", i - j), std::format("{}", i), std::format("{}", i - j),
+                        std::format("{}", context.state.cblock[i - j].combined_count));
                     breakforcombine = true;
                     break;
                 }
@@ -485,42 +479,32 @@ void WeighBlocks(RecordingContext& context)
                 {
                     if (IsStandardCommercialLength(context, combined_length - (context.state.cblock[i + 1].b_head + context.state.cblock[i - j].b_head) / context.settings.fps, tolerance, true) && context.settings.combined_length_strict_modifier != 1.0)
                     {
-                        Debug(context,
-                            2,
-                            "Combining Blocks %i thru %i result in strict standard commercial length of %.2f with a tolerance of %f.\n",
-                            i - j,
-                            i,
-                            combined_length,
-                            tolerance
-                        );
+                        scoring_debug(context, 2, "scoring_combined_strict_length",
+                            std::format("{}", i - j), std::format("{}", i), std::format("{:.2f}", combined_length),
+                            std::format("{:f}", tolerance));
                         for (k = 0; k <= j; k++)
                         {
-                            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i - k, context.state.cblock[i - k].score);
+                            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i - k), std::format("{:.2f}", context.state.cblock[i - k].score));
                             context.state.cblock[i - k].score *= 1 + (context.settings.combined_length_strict_modifier / (j + 1) / 2);
                             context.state.cblock[i - k].score = (context.state.cblock[i - k].score > max_score) ? max_score : context.state.cblock[i - k].score;
                             context.state.cblock[i - k].combined_count += 1;
-                            Debug(context, 3, "After - %.2f\tCombined count - %i\n", context.state.cblock[i - k].score, context.state.cblock[i - k].combined_count);
+                            scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i - k].score), std::format("{}", context.state.cblock[i - k].combined_count));
                             context.state.cblock[i - k].cause |= C_COMBINED;
                             context.state.cblock[i - k].more |= C_COMBINED;
                         }
                     }
                     else if (IsStandardCommercialLength(context, combined_length - (context.state.cblock[i + 1].b_head + context.state.cblock[i - j].b_head) / context.settings.fps, tolerance, false) && context.settings.combined_length_nonstrict_modifier != 1.0)
                     {
-                        Debug(context,
-                            2,
-                            "Combining Blocks %i thru %i result in non-strict standard commercial length of %.2f with a tolerance of %f.\n",
-                            i - j,
-                            i,
-                            combined_length,
-                            tolerance
-                        );
+                        scoring_debug(context, 2, "scoring_combined_nonstrict_length",
+                            std::format("{}", i - j), std::format("{}", i), std::format("{:.2f}", combined_length),
+                            std::format("{:f}", tolerance));
                         for (k = 0; k <= j; k++)
                         {
-                            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i - k, context.state.cblock[i - k].score);
+                            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i - k), std::format("{:.2f}", context.state.cblock[i - k].score));
                             context.state.cblock[i - k].score *= 1 + (context.settings.combined_length_nonstrict_modifier / (j + 1) / 2);
                             context.state.cblock[i - k].score = (context.state.cblock[i - k].score > max_score) ? max_score : context.state.cblock[i - k].score;
                             context.state.cblock[i - k].combined_count += 1;
-                            Debug(context, 3, "After - %.2f\tCombined count - %i\n", context.state.cblock[i - k].score, context.state.cblock[i - k].combined_count);
+                            scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i - k].score), std::format("{}", context.state.cblock[i - k].combined_count));
                             context.state.cblock[i - k].cause |= C_COMBINED;
                             context.state.cblock[i - k].more |= C_COMBINED;
 
@@ -541,12 +525,12 @@ void WeighBlocks(RecordingContext& context)
         {
             if (context.state.cblock[i].logo > context.settings.logo_percentage_threshold)
             {
-                Debug(context, 2, "Block %i has logo.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_block_has_logo", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.logo_present_modifier;
 //				cblock[i].score *= (logo_present_modifier*cblock[i].logo) + (1-cblock[i].logo);
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_LOGO;
                 context.state.cblock[i].less |= C_LOGO;
             }
@@ -562,11 +546,11 @@ void WeighBlocks(RecordingContext& context)
                         }
             */			else if (context.settings.punish_no_logo && context.state.cblock[i].logo < context.settings.logo_percentage_threshold && context.state.logoPercentage > context.settings.logo_fraction)
             {
-                Debug(context, 2, "Block %i has no logo.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_block_has_no_logo", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= 2;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_LOGO;
                 context.state.cblock[i].more |= C_LOGO;
             }
@@ -576,52 +560,52 @@ void WeighBlocks(RecordingContext& context)
         {
             if ((context.settings.punish & 1) && context.state.cblock[i].brightness > context.state.avg_brightness * context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i is much brighter than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_much_brighter", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_AB;
                 context.state.cblock[i].more |= C_AB;
             }
             if ((context.settings.punish & 2) && context.state.cblock[i].uniform > context.state.avg_uniform * context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i is less uniform than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_less_uniform", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_AU;
                 context.state.cblock[i].more |= C_AU;
             }
             if ((context.settings.punish & 4) && context.state.cblock[i].volume > context.state.avg_volume * context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i is much louder than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_much_louder", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_AL;
                 context.state.cblock[i].more |= C_AL;
             }
 
             if ((context.settings.punish & 8) && context.state.cblock[i].silence > context.state.avg_silence * context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i has less silence than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_less_silence", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_AS;
                 context.state.cblock[i].more |= C_AS;
             }
             if ((context.settings.punish & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate > context.state.avg_schange * context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i has more scene change than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_more_scene_change", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_AC;
                 context.state.cblock[i].more |= C_AC;
             }
@@ -630,51 +614,51 @@ void WeighBlocks(RecordingContext& context)
         {
             if ((context.settings.reward & 1) && context.state.cblock[i].brightness < context.state.avg_brightness / context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i is much darker than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_much_darker", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_BRIGHT;
                 context.state.cblock[i].less |= C_BRIGHT;
             }
             if ((context.settings.reward & 2) && context.state.cblock[i].uniform < context.state.avg_uniform / context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i is more uniform than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_more_uniform", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_BRIGHT;
                 context.state.cblock[i].less |= C_BRIGHT;
             }
             if ((context.settings.reward & 4) && context.state.cblock[i].volume < context.state.avg_volume / context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i is much quieter than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_much_quieter", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_BRIGHT;
                 context.state.cblock[i].less |= C_BRIGHT;
             }
             if ((context.settings.reward & 8) && context.state.cblock[i].silence < context.state.avg_silence / context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i has more silence than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_more_silence", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_BRIGHT;
                 context.state.cblock[i].less |= C_BRIGHT;
             }
             if ((context.settings.reward & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate < context.state.avg_schange / context.settings.punish_threshold)
             {
-                Debug(context, 2, "Block %i has less scene change than average.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_less_scene_change", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_BRIGHT;
                 context.state.cblock[i].less |= C_BRIGHT;
             }
@@ -707,11 +691,11 @@ void WeighBlocks(RecordingContext& context)
         // if length > max_commercial_size * fps, score = 10%
         if (context.state.cblock[i].length > 2 * context.settings.min_show_segment_length)
         {
-            Debug(context, 2, "Block %i has twice excess length.\n", i);
-            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+            scoring_debug(context, 2, "scoring_twice_excess_length", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= context.settings.excessive_length_modifier * context.settings.excessive_length_modifier;
             context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-            Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].cause |= C_EXCEEDS;
             context.state.cblock[i].less |= C_EXCEEDS;
         }
@@ -719,11 +703,11 @@ void WeighBlocks(RecordingContext& context)
 
             if (context.state.cblock[i].length > context.settings.min_show_segment_length)
             {
-                Debug(context, 2, "Block %i has excess length.\n", i);
-                Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                scoring_debug(context, 2, "scoring_excess_length", std::format("{}", i));
+                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.excessive_length_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= C_EXCEEDS;
                 context.state.cblock[i].less |= C_EXCEEDS;
             }
@@ -761,9 +745,9 @@ void WeighBlocks(RecordingContext& context)
             {
                 if (context.state.cblock[i].cc_type != NONE)
                 {
-                    Debug(context, 3, "CC's exist in a non-CC'd show - Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_cc_in_non_cc_show_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= context.settings.cc_commercial_type_modifier * 2;
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
             }
@@ -771,30 +755,30 @@ void WeighBlocks(RecordingContext& context)
             {
                 if (context.state.cblock[i].cc_type == context.state.most_cc_type)
                 {
-                    Debug(context, 3, "CC's correct type - Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_cc_correct_type_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= context.settings.cc_correct_type_modifier;
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
                 else if (context.state.cblock[i].cc_type == COMMERCIAL)
                 {
-                    Debug(context, 3, "CC's commercial type - Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_cc_commercial_type_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= context.settings.cc_commercial_type_modifier;
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
                 else if (context.state.cblock[i].cc_type == NONE)
                 {
-                    Debug(context, 3, "No CC's - Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_no_cc_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= (((context.settings.cc_wrong_type_modifier-1.0)/2)+1.0);
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
                 else
                 {
-                    Debug(context, 3, "CC's wrong type - Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_cc_wrong_type_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= context.settings.cc_wrong_type_modifier;
-                    Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+                    scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
             }
@@ -809,10 +793,11 @@ void WeighBlocks(RecordingContext& context)
 //				&& (cblock[i].length > 5.0 || cblock[i].ar_ratio - ar_delta < dominant_ar)
                )
         {
-            Debug(context, 2, "Block %i AR (%.2f) is different from dominant AR(%.2f).\n",i,context.state.cblock[i].ar_ratio, context.state.dominant_ar);
-            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+            scoring_debug(context, 2, "scoring_ar_differs", std::format("{}", i),
+                std::format("{:.2f}", context.state.cblock[i].ar_ratio), std::format("{:.2f}", context.state.dominant_ar));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= context.settings.ar_wrong_modifier;
-            Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].cause |= C_AR;
             context.state.cblock[i].more |= C_AR;
         }
@@ -821,10 +806,11 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].audio_channels = AverageACForBlock(context, context.state.cblock[i].f_start, context.state.cblock[i].f_end);
         if (context.state.dominant_ac != context.state.cblock[i].audio_channels)
         {
-            Debug(context, 2, "Block %i audio_channels (%i) is different from dominant audio_channels (%i).\n",i,context.state.cblock[i].audio_channels, context.state.dominant_ac);
-            Debug(context, 3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+            scoring_debug(context, 2, "scoring_audio_channels_differ", std::format("{}", i),
+                std::format("{}", context.state.cblock[i].audio_channels), std::format("{}", context.state.dominant_ac));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= context.settings.ac_wrong_modifier;
-            Debug(context, 3, "After - %.2f\n", context.state.cblock[i].score);
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].cause |= C_AR;
             context.state.cblock[i].more |= C_AR;
         }
@@ -836,11 +822,11 @@ void WeighBlocks(RecordingContext& context)
     {
         if (ProcessCCDict(context))
         {
-            Debug(context, 4, "Dictionary processed successfully\n");
+            scoring_debug(context, 4, "scoring_dictionary_succeeded");
         }
         else
         {
-            Debug(context, 4, "Dictionary not processed successfully\n");
+            scoring_debug(context, 4, "scoring_dictionary_failed");
         }
     }
     for (i = 0; i < context.state.block_count; i++)
@@ -859,7 +845,7 @@ void WeighBlocks(RecordingContext& context)
                )
             {
                 context.state.cblock[i+1].score = 0.5;
-                Debug(context, 3, "H2 Added cblock %i because short and after strict commercial.\n", i+1);
+                scoring_debug(context, 3, "scoring_h2_add_after_strict", std::format("{}", i + 1));
                 context.state.cblock[i+1].cause |= C_H2;
                 context.state.cblock[i+1].less |= C_H2;
             }
@@ -872,7 +858,7 @@ void WeighBlocks(RecordingContext& context)
                )
             {
                 context.state.cblock[i+1].score = 0.5;
-                Debug(context, 3, "H2 Added cblock %i because after show, short and before strict commercial.\n", i+1);
+                scoring_debug(context, 3, "scoring_h2_add_between_show_strict", std::format("{}", i + 1));
                 context.state.cblock[i+1].cause |= C_H2;
                 context.state.cblock[i+1].less |= C_H2;
             }
@@ -886,7 +872,7 @@ void WeighBlocks(RecordingContext& context)
                )
             {
                 context.state.cblock[i+1].score = 0.5;
-                Debug(context, 3, "H2 Added cblock %i because short and based on aspect ratio change after commercial.\n", i+1);
+                scoring_debug(context, 3, "scoring_h2_add_ar_after_commercial", std::format("{}", i + 1));
                 context.state.cblock[i+1].cause |= C_H2;
                 context.state.cblock[i+1].less |= C_H2;
             }
@@ -899,7 +885,7 @@ void WeighBlocks(RecordingContext& context)
                )
             {
                 context.state.cblock[i+1].score = 0.5;
-                Debug(context, 3, "H2 Added cblock %i because short and based on aspect ratio change before commercial.\n", i+1);
+                scoring_debug(context, 3, "scoring_h2_add_ar_before_commercial", std::format("{}", i + 1));
                 context.state.cblock[i+1].cause |= C_H2;
                 context.state.cblock[i+1].less |= C_H2;
             }
@@ -937,8 +923,7 @@ void WeighBlocks(RecordingContext& context)
                     for (k = i+1; k < j; k++)
                     {
                         context.state.cblock[k].score = 99.99;
-                        Debug(context, 3, "H1 Discarding cblock %i because too short and between two strong commercial blocks.\n",
-                              k);
+                        scoring_debug(context, 3, "scoring_h1_discard_between_strong", std::format("{}", k));
                         context.state.cblock[k].cause |= C_H1;
                         context.state.cblock[k].more |= C_H1;
                     }
@@ -975,8 +960,7 @@ void WeighBlocks(RecordingContext& context)
                     for (k = i+1; k < j; k++)
                     {
                         context.state.cblock[k].score = 99.99;
-                        Debug(context, 3, "H1 Discarding cblock %i because too short and between two weak commercial blocks.\n",
-                              k);
+                        scoring_debug(context, 3, "scoring_h1_discard_between_weak", std::format("{}", k));
                         context.state.cblock[k].cause |= C_H1;
                         context.state.cblock[k].more |= C_H1;
                     }
@@ -1090,7 +1074,7 @@ void WeighBlocks(RecordingContext& context)
                 {
 
                     context.state.cblock[i].score = 0.5;
-                    Debug(context, 3, "H8 Added cblock %i because long dark sequence at end.\n", i);
+                    scoring_debug(context, 3, "scoring_h8_add_dark_tail", std::format("{}", i));
                     context.state.cblock[i].cause |= C_H8;
                     context.state.cblock[i].less |= C_H8;
                 }
@@ -1104,7 +1088,7 @@ void WeighBlocks(RecordingContext& context)
 
 
     if (context.settings.delete_show_before_or_after_current && context.state.logo_block_count >= 80)
-        Debug(context, 10, "Too many logo blocks, disabling the delete_show_before_or_after_current processing\n");
+        scoring_debug(context, 10, "scoring_disable_logo_edge_processing");
     if (context.settings.delete_show_before_or_after_current &&
             (context.settings.commDetectMethod & LOGO) && context.settings.connect_blocks_with_logo &&
             !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction - 0.05 && context.state.logo_block_count < 40)
@@ -1143,8 +1127,8 @@ void WeighBlocks(RecordingContext& context)
                 if (context.state.cblock[j].score < 1.0 && context.state.cblock[j].length > context.settings.min_show_segment_length/2 )
                 {
                     context.state.cblock[i].score = 99.99;
-                    Debug(context, 3, "H7 Discarding cblock %i of %i seconds because cblock %i has also logo and small non show gap.\n",
-                          i, (int)context.state.cblock[i].length, j);
+                    scoring_debug(context, 3, "scoring_h7_discard_logo_gap", std::format("{}", i),
+                        std::format("{}", static_cast<int>(context.state.cblock[i].length)), std::format("{}", j));
                     context.state.cblock[i].cause |= C_H7;
                     context.state.cblock[i].more |= C_H7;
                     //start_deleted = true;
@@ -1170,8 +1154,8 @@ void WeighBlocks(RecordingContext& context)
                 if (context.state.cblock[j].score < 1.0)
                 {
                     context.state.cblock[i].score = 99.99;
-                    Debug(context, 3, "H7 Discarding cblock %i of %i seconds because cblock %i has also logo and small non show gap.\n",
-                          i, (int)context.state.cblock[i].length, j);
+                    scoring_debug(context, 3, "scoring_h7_discard_logo_gap", std::format("{}", i),
+                        std::format("{}", static_cast<int>(context.state.cblock[i].length)), std::format("{}", j));
                     context.state.cblock[i].cause |= C_H7;
                     context.state.cblock[i].more |= C_H7;
                     //end_deleted = true;
@@ -1215,8 +1199,7 @@ void WeighBlocks(RecordingContext& context)
                     if (context.state.cblock[i].f_end < context.state.after_start)
                     {
                         context.state.cblock[i].score *= 1.3;
-                        Debug(context, 3, "H3 Demoting cblock %i because cblock %i has no logo and others do.\n",
-                              i, i);
+                        scoring_debug(context, 3, "scoring_h3_demote_no_logo", std::format("{}", i), std::format("{}", i));
                         context.state.cblock[i].cause |= C_H3;
                         context.state.cblock[i].more |= C_H3;
 
@@ -1224,8 +1207,7 @@ void WeighBlocks(RecordingContext& context)
                     else if (context.state.cblock[i].f_start > context.state.before_end)
                     {
                         context.state.cblock[i].score *= 1.3;
-                        Debug(context, 3, "Demoting cblock %i because cblock %i has no logo and others do.\n",
-                              i, i);
+                        scoring_debug(context, 3, "scoring_demote_no_logo", std::format("{}", i), std::format("{}", i));
                         context.state.cblock[i].cause |= C_H3;
                         context.state.cblock[i].more |= C_H3;
 
@@ -1246,8 +1228,7 @@ void WeighBlocks(RecordingContext& context)
                         (context.state.cblock[i-1].score < 1.0 || context.state.cblock[i+1].score < 1.0 ))
                 {
                     context.state.cblock[i].score *= 0.5;
-                    Debug(context, 3, "Promoting cblock %i because cblock %i has no logo but long and in the middle of a show.\n",
-                          i, i);
+                    scoring_debug(context, 3, "scoring_promote_long_no_logo", std::format("{}", i), std::format("{}", i));
                     context.state.cblock[i].cause |= C_H3;
                     context.state.cblock[i].more |= C_H3;
 
@@ -1272,7 +1253,7 @@ void WeighBlocks(RecordingContext& context)
                     while (j >= 0 && k < 5 && context.state.cblock[j].b_head > 7 && context.state.cblock[j].length < 7 && CUTCAUSE(context.state.cblock[j].cause) == C_b)
                     {
                         context.state.cblock[j].score *= 0.1;   //  Add blocks with long black periods before show
-                        Debug(context, 3, "H4 Added cblock %i because of large black gap with cblock %i\n", j, i);
+                        scoring_debug(context, 3, "scoring_h4_add_black_gap", std::format("{}", j), std::format("{}", i));
                         k++;
                         context.state.cblock[j].cause |= C_H4;
                         context.state.cblock[j].less |= C_H4;
@@ -1294,7 +1275,7 @@ void WeighBlocks(RecordingContext& context)
                     while (j < context.state.block_count && k < 5 && context.state.cblock[j].b_tail > 7 && context.state.cblock[j].length < 7 && CUTCAUSE(context.state.cblock[j-1].cause) == C_b)
                     {
                         context.state.cblock[j].score *= 0.1;   //  Add blocks with long black periods before show
-                        Debug(context, 3, "H4 Added cblock %i because of large black gap with cblock %i\n", j, i);
+                        scoring_debug(context, 3, "scoring_h4_add_black_gap", std::format("{}", j), std::format("{}", i));
                         k++;
                         context.state.cblock[j].cause |= C_H4;
                         context.state.cblock[j].less |= C_H4;
@@ -1312,8 +1293,7 @@ void WeighBlocks(RecordingContext& context)
             if (context.state.cblock[i].volume<20 && context.state.cblock[i].length > context.settings.remove_silent_segments )
             {
                    context.state.cblock[i].score = 5;
-                    Debug(context, 3, "H9  Demoting cblock %i because is long and has total silence\n",
-                    i, i);
+                    scoring_debug(context, 3, "scoring_h9_demote_silent", std::format("{}", i));
                     context.state.cblock[i].cause |= C_H3;
                     context.state.cblock[i].more |= C_H3;
 

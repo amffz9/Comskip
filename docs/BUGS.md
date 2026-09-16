@@ -870,14 +870,17 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 
 ### B074: Womble final commercial interval is serialized as retained show
 
-- **Evidence:** Legacy Womble handling marks an interval ending at the recording
-  tail as `last`, then writes the span from the previous boundary to its end as
-  a show clip. The finalized adapter preserves this existing tail policy.
+- **Evidence:** Legacy Womble handling marked an interval ending at the recording
+  tail as `last`, then wrote the span from the previous boundary to its end as
+  a show clip. The finalized adapter now distinguishes a detected commercial
+  from the synthetic retained tail.
 - **Impact:** An all-commercial recording, or a commercial interval reaching
   EOF, can be labeled as retained show instead of commercial content.
-- **Status:** Source-confirmed semantic defect; correction and regression pending.
+- **Status:** Fixed in the finalized adapter with pure serializer and actual
+  adapter regressions for all-commercial and trailing-commercial recordings.
 - **Verification needed:** All-commercial and trailing-commercial recordings
-  must retain only show spans, with correct Womble clip labels and boundaries.
+  must label the interval through EOF as commercial, while any retained prefix
+  remains a show with the existing clip numbering and frame boundaries.
 
 ## Fixed during modernization
 
@@ -896,3 +899,22 @@ the current resolution; Windows-only results do not establish sanitizer safety.
   cover the case.
 - **CSV/live histogram indexing:** `2131eee` bounds histogram buckets while
   retaining measured brightness; CSV replay and Linux sanitizer tests cover it.
+### B075: Byte seeking converted I/O errors into enormous unsigned offsets
+
+`avio_size` returns negative errors, but the seek path stored that result in an
+unsigned integer before calculating an offset. Checked byte-position arithmetic
+now rejects negative sizes and clamps valid targets to the owned input extent.
+
+### B076: Unknown-duration byte seeking used frames-times-rate as duration
+
+The fallback divided by `frame_count * fps`; recorded duration is
+`frame_count / fps`. Zero and nonfinite durations were also allowed into the
+division. The fallback now validates positive finite inputs and uses the correct
+units before calculating the byte position.
+
+### B077: Timestamp seeking used unchecked floating-point to integer arithmetic
+
+Nonfinite/extreme targets, invalid stream time bases, tick conversion, and
+`start_time` addition could produce undefined or overflowing seek positions.
+Checked standard-library helpers now reject invalid or unrepresentable targets
+before calling FFmpeg seek APIs.

@@ -31,6 +31,8 @@
 #include "comskip.h"
 #include "ffmpeg_resources.h"
 #include "checked_format.h"
+#include "seek_math.h"
+#include "localization/diagnostic.h"
 #include <algorithm>
 #include <cmath>
 #include <format>
@@ -55,26 +57,30 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
 
 #define MAX_GOP_SIZE 2.0
     pts = fmax(0.0,pts-MAX_GOP_SIZE);
+    const auto failed=[]() -> void {
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(
+            comskip::diagnostics::Code::integer_range,{"seek target"});
+    };
 
     if (is->seek_by_bytes)
     {
 //                            pos = avio_tell(is->pFormatCtx->pb);
-      uint64_t size =  avio_size(ic->pb);
-        if (length < 0) {
-            is->seek_pos = size*fmax(0,pts-4.0)/(context.state.frame_count * get_fps(context));
-//            Debug(0,"Impossible to reposition this file, aborting\n");
-  //          comskip::request_exit(-1);
-        } else {
-            is->seek_pos = size*fmax(0,pts-4.0)/length;
+        const auto size=avio_size(ic->pb);
+        if (length <= 0 || !std::isfinite(length)) {
+            const auto fallback=comskip::media::recording_duration(context.state.frame_count,get_fps(context));
+            if (!fallback) failed();
+            length=*fallback;
         }
+        const auto position=comskip::media::byte_seek_position(size,length,fmax(0.0,pts-4.0));
+        if (!position) failed();
+        is->seek_pos=*position;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
     } else {
-        pts = fmax(0,pts+context.state.initial_pts);
-        is->seek_pos = pts / av_q2d(is->video_st->time_base);
-        if (is->video_st->start_time != AV_NOPTS_VALUE)
-        {
-            is->seek_pos += is->video_st->start_time;
-        }
+        const auto position=comskip::media::timestamp_seek_position(pts,context.state.initial_pts,
+            is->video_st->time_base.num,is->video_st->time_base.den,
+            is->video_st->start_time==AV_NOPTS_VALUE ? std::nullopt : std::optional{is->video_st->start_time});
+        if (!position) failed();
+        is->seek_pos=*position;
     }
 }
 
