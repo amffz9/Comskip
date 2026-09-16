@@ -78,6 +78,7 @@ enum class Code {
     csv_observations_exceed_frame_buffer,
     data_dump_frame_number_exceeds_field,
     invalid_frame_csv_output,
+    invalid_histogram_report,
 
     ffmpeg_eia_608_decoder_is_unavailable,
     caption_timestamps_must_be_nonnegative_and_monotonic,
@@ -416,6 +417,7 @@ constexpr std::string_view message_id(Code code) {
     case Code::csv_observations_exceed_frame_buffer: return "diag_csv_observations_exceed_frame_buffer";
     case Code::data_dump_frame_number_exceeds_field: return "diag_data_dump_frame_number_exceeds_field";
     case Code::invalid_frame_csv_output: return "diag_invalid_frame_csv_output";
+    case Code::invalid_histogram_report: return "diag_invalid_histogram_report";
 
     case Code::ffmpeg_eia_608_decoder_is_unavailable: return "diag_ffmpeg_eia_608_decoder_is_unavailable";
     case Code::caption_timestamps_must_be_nonnegative_and_monotonic: return "diag_caption_timestamps_must_be_nonnegative_and_monotonic";

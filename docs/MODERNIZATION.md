@@ -501,3 +501,20 @@ than redefine completion around whichever subset currently passes tests.
   **452/452** headless and **460/460** SDL tests, and the public non-donator
   application builds. Logs are `bin/windows-frame-csv-build23{,-gui}-test.txt`.
   Linux verification is deferred to the final implementation stage.
+
+- All inventoried human-facing diagnostics in `detection.cpp` now use the
+  English and Spanish catalogs; numeric histogram/transcript payloads retain
+  their machine-oriented format. The reproducible literal-message inventory is
+  down to **123** active sites. Diagnostic histogram construction is a focused
+  span/`std::expected` component with owned star strings and defined empty-data
+  behavior. Final-run footer output is a checked standard-stream module.
+  Windows passes **459/459** headless and **467/467** SDL tests, and the public
+  non-donator application builds. Logs are
+  `bin/windows-histogram-runlog-build23{,-gui}-test.txt`. Linux verification is
+  deferred to the final implementation stage.
+
+- Detection block reports, aspect-ratio cleanup reasons, the caption transcript
+  heading and final frame count now use the English and Spanish catalogs. The
+  detailed transcript payload remains stable. No active human-message literals
+  remain in `detection.cpp`; the reproducible inventory is down to **123**
+  active sites. Focused verification of this stage remains pending.

@@ -6,6 +6,7 @@
 #include "logo_sampling.h"
 #include "logo_shrink.h"
 #include "volume_histogram.h"
+#include "output/run_log.h"
 #include <array>
 #include <stdexcept>
 #include <utility>
@@ -486,7 +487,7 @@ bool BuildMasterCommList(RecordingContext& context)
         Debug(context, 1, "%s", context.translator.text("detection_no_video"));
         return(false);
     }
-    Debug(context, 7, "Finished scanning file.  Starting to build Commercial List.\n");
+    DetectionDebug(context, 7, "detection_scan_finished");
 
 
 //    if (fabs(avg_fps - fps)> 0.01)
@@ -1146,7 +1147,7 @@ scanagain:
     {
         if (context.state.ac_block[context.state.ac_block_count].start > 0)
         {
-            Debug(context, 5, "The last ar cblock wasn't closed.  Now closing.\n");
+            DetectionDebug(context, 5, "detection_last_ar_block_open");
             context.state.ac_block[context.state.ac_block_count].end = context.state.frame_count;
             context.state.ac_block_count++;
         }
@@ -1155,47 +1156,44 @@ scanagain:
         context.state.dominant_ac = context.state.ac_histogram[0].audio_channels;
 
         // Print out ar cblock list
-        Debug(context, 4, "\nPrinting AC cblock list\n-----------------------------------------\n");
+        DetectionDebug(context, 4, "detection_ac_blocks_heading");
         for (i = 0; i < context.state.ac_block_count; i++)
         {
-            Debug(context,
-                4,
-                "Block: %i\tStart: %6i\tEnd: %6i\taudio channels: %2i\tLength: %s\n",
-                i,
-                context.state.ac_block[i].start,
-                context.state.ac_block[i].end,
-                context.state.ac_block[i].audio_channels,
-                dblSecondsToStrMinutes(context, F2L(context.state.ac_block[i].end, context.state.ac_block[i].start) )
-            );
+            DetectionDebug(context, 4, "detection_ac_block_row", std::format("{}", i),
+                std::format("{:6}", context.state.ac_block[i].start),
+                std::format("{:6}", context.state.ac_block[i].end),
+                std::format("{:2}", context.state.ac_block[i].audio_channels),
+                dblSecondsToStrMinutes(context, F2L(context.state.ac_block[i].end,
+                    context.state.ac_block[i].start)));
         }
     }
 
     // close out the last ar cblock
     if (context.settings.commDetectMethod & AR)
     {
+        const auto debug_ar_block = [&](int level, int index) {
+            const auto& block = context.state.ar_block[index];
+            DetectionDebug(context, level, "detection_ar_block_row", std::format("{}", index),
+                std::format("{:6}", block.start), std::format("{:6}", block.end),
+                std::format("{:.2f}", block.ar_ratio),
+                dblSecondsToStrMinutes(context, F2L(block.end, block.start)),
+                std::format("{:4}", block.width), std::format("{:4}", block.height),
+                std::format("{:3}", block.minX), std::format("{:3}", block.minY),
+                std::format("{:3}", block.maxX), std::format("{:3}", block.maxY));
+        };
         if (context.state.ar_block[context.state.ar_block_count].start > 0)
         {
-            Debug(context, 5, "The last ar cblock wasn't closed.  Now closing.\n");
+            DetectionDebug(context, 5, "detection_last_ar_block_open");
             context.state.ar_block[context.state.ar_block_count].end = context.state.frame_count;
             context.state.ar_block_count++;
         }
 
 
         // Print out ar cblock list
-        Debug(context, 9, "\nPrinting AR cblock list before cleaning\n-----------------------------------------\n");
+        DetectionDebug(context, 9, "detection_ar_blocks_before_heading");
         for (i = 0; i < context.state.ar_block_count; i++)
         {
-            Debug(context,
-                9,
-                "Block: %i\tStart: %6i\tEnd: %6i\tAR_R: %.2f\tLength: %s, [%4dx%4d] minX=%3d, minY=%3d, maxX=%3d, maxY=%3d\n",
-                i,
-                context.state.ar_block[i].start,
-                context.state.ar_block[i].end,
-                context.state.ar_block[i].ar_ratio,
-                dblSecondsToStrMinutes(context, F2L(context.state.ar_block[i].end, context.state.ar_block[i].start) ),
-                context.state.ar_block[i].width, context.state.ar_block[i].height,
-                context.state.ar_block[i].minX, context.state.ar_block[i].minY, context.state.ar_block[i].maxX, context.state.ar_block[i].maxY
-            );
+            debug_ar_block(9, i);
         }
 
         // Calculate histogram with noisy aspect ratios
@@ -1233,12 +1231,7 @@ again:
 
             if (context.settings.cut_on_ar_change > 2 && length < context.settings.cut_on_ar_change*(int)context.settings.fps && context.state.ar_block[i].ar_ratio != AR_UNDEF )
             {
-                Debug(context,
-                    6,
-                    "Undefining AR cblock %i because it is too short\n",
-                    i,
-                    dblSecondsToStrMinutes(context, length / context.settings.fps)
-                );
+                DetectionDebug(context, 6, "detection_ar_block_undefine", std::format("{}", i));
                 context.state.ar_block[i].ar_ratio = AR_UNDEF;
                 goto again;
             }
@@ -1276,14 +1269,8 @@ again:
                 else
                     context.state.ar_block[i - 1].end = context.state.ar_block[i].end;
                 context.state.ar_block_count--;
-                Debug(context,
-                    6,
-                    "Joining AR blocks %i and %i because both have logo\n",
-                    i - 1,
-                    i,
-                    i,
-                    dblSecondsToStrMinutes(context, length / context.settings.fps)
-                );
+                DetectionDebug(context, 6, "detection_ar_join_logo",
+                    std::format("{}", i - 1), std::format("{}", i));
                 for (j = i; j < context.state.ar_block_count; j++)
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 1];
@@ -1298,7 +1285,8 @@ again:
                 context.state.ar_block[i - 1] = context.state.ar_block[i];
                 context.state.ar_block[i - 1].start = j;
                 context.state.ar_block_count--;
-                Debug(context, 6, "Joining AR blocks %i and %i because cblock 0 has an AR ratio of 0.0\n", i - 1, i, context.state.ar_block[i-1].ar_ratio);
+                DetectionDebug(context, 6, "detection_ar_join_first_undefined",
+                    std::format("{}", i - 1), std::format("{}", i));
                 for (j = i; j < context.state.ar_block_count; j++)
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 1];
@@ -1311,7 +1299,9 @@ again:
             {
                 context.state.ar_block[i - 1].end = context.state.ar_block[i].end;
                 context.state.ar_block_count--;
-                Debug(context, 6, "Joining AR blocks %i and %i because both have an AR ratio of %.2f\n", i - 1, i, context.state.ar_block[i].ar_ratio);
+                DetectionDebug(context, 6, "detection_ar_join_same_ratio",
+                    std::format("{}", i - 1), std::format("{}", i),
+                    std::format("{:.2f}", context.state.ar_block[i].ar_ratio));
                 for (j = i; j < context.state.ar_block_count; j++)
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 1];
@@ -1325,7 +1315,8 @@ again:
             {
                 context.state.ar_block[i - 2].end = context.state.ar_block[i].end;
                 context.state.ar_block_count -= 2;
-                Debug(context, 6, "Joining AR blocks %i and %i because they have a dummy cblock inbetween\n", i - 2, i);
+                DetectionDebug(context, 6, "detection_ar_join_dummy",
+                    std::format("{}", i - 2), std::format("{}", i));
                 for (j = i-1; j < context.state.ar_block_count; j++)
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 2];
@@ -1336,20 +1327,10 @@ again:
         }
 
         // Print out ar cblock list
-        Debug(context, 4, "\nPrinting AR cblock list\n-----------------------------------------\n");
+        DetectionDebug(context, 4, "detection_ar_blocks_heading");
         for (i = 0; i < context.state.ar_block_count; i++)
         {
-            Debug(context,
-                4,
-                "Block: %i\tStart: %6i\tEnd: %6i\tAR_R: %.2f\tLength: %s, [%4dx%4d] minX=%3d, minY=%3d, maxX=%3d, maxY=%3d\n",
-                i,
-                context.state.ar_block[i].start,
-                context.state.ar_block[i].end,
-                context.state.ar_block[i].ar_ratio,
-                dblSecondsToStrMinutes(context, F2L(context.state.ar_block[i].end, context.state.ar_block[i].start) ),
-                context.state.ar_block[i].width, context.state.ar_block[i].height,
-                context.state.ar_block[i].minX, context.state.ar_block[i].minY, context.state.ar_block[i].maxX, context.state.ar_block[i].maxY
-            );
+            debug_ar_block(4, i);
         }
     }
 
@@ -1376,7 +1357,7 @@ again:
             }
         }
 
-        Debug(context, 2, "Closed caption transcript\n--------------------\n");
+        DetectionDebug(context, 2, "detection_caption_transcript_heading");
 
         for (i = 0; i < context.state.cc_text_count; i++)
         {
@@ -1406,14 +1387,11 @@ again:
 
     if (context.settings.verbose)
     {
-        Debug(context, 1, "\n%i Frames Processed\n", context.state.framesprocessed);
-        context.state.log_file.reset(myfopen(context.state.logfilename.c_str(), "a+"));
-        fprintf(context.state.log_file.get(), "################################################################\n");
+        DetectionDebug(context, 1, "detection_frames_processed",
+            std::format("{}", context.state.framesprocessed));
         time(&ltime);
-        fprintf(context.state.log_file.get(), "Time at end of run:\n%s", ctime(&ltime));
-        fprintf(context.state.log_file.get(), "################################################################\n");
-        context.state.log_file.reset();
-        context.state.log_file.reset();
+        const auto* timestamp=ctime(&ltime);
+        comskip::output::write_run_footer(context.state.logfilename,timestamp ? timestamp : "");
     }
 
 

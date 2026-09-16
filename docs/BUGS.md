@@ -1176,3 +1176,27 @@ before calling FFmpeg seek APIs.
 - **Verification:** Golden roundtrip, empty/final rows, invalid numeric state,
   failing stream, no-artifact bounds and screen-only regressions pass in all
   452 Windows headless and 460 SDL tests. Linux verification remains deferred.
+
+### B098: Diagnostic histograms divided by zero and used manual star buffers
+
+- **Evidence:** Empty brightness/uniformity/general histograms divided by a zero
+  maximum and zero `framesprocessed`; manual index loops populated fixed star
+  arrays from those nonfinite divisors without validating negative counts.
+- **Status:** Fixed. A focused span-based report builder uses owned strings,
+  64-bit counters, bounded star counts, explicit zero-denominator results and
+  `std::expected` validation before output.
+- **Verification:** Empty, ordinary, maximum-star, negative-count and
+  invalid-geometry regressions pass in all 459 Windows headless and 467 SDL
+  tests. Linux verification remains deferred.
+
+### B099: Verbose final-run logging writes through an unchecked file handle
+
+- **Evidence:** After the final frame-count diagnostic, detection opens the log
+  in append mode and immediately calls `fprintf` without checking `myfopen`.
+- **Impact:** A missing or unwritable log destination can cause a null-stream
+  crash after analysis has otherwise completed.
+- **Status:** Fixed. A focused standard-stream writer appends the footer, checks
+  open/write/close state and propagates owned destination diagnostics.
+- **Verification:** Exact append, Unicode path and blocked-destination tests pass
+  in all 459 Windows headless and 467 SDL tests. Linux verification remains
+  deferred.

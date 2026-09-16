@@ -115,6 +115,18 @@ TEST_F(DiagnosticOutput, ScreenFrameOutputUsesInitializedLogoValueAndFinalObserv
     EXPECT_EQ(output, "1\t23\t45\t1\tHistogram\n");
     EXPECT_FALSE(std::filesystem::exists(directory/"log.csv"));
 }
+TEST_F(DiagnosticOutput, EmptyHistogramsAvoidNonfiniteOutputAndRejectNegativeCounts) {
+    context->state.framesprocessed=0;
+    EXPECT_NO_THROW(OutputbrightHistogram(*context));
+    const auto message=read("log.txt");
+    EXPECT_EQ(message.find("nan"),std::string::npos);
+    EXPECT_EQ(message.find("inf"),std::string::npos);
+    context->state.brightHistogram[4]=-1;
+    try { OutputbrightHistogram(*context); FAIL() << "Expected invalid histogram"; }
+    catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::invalid_histogram_report);
+    }
+}
 TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles) {
     context->settings.output_demux = true;
     dump_audio_start(*context);

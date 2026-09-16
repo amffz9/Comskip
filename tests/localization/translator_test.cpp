@@ -172,3 +172,16 @@ TEST(Translator, FormatsDetectionHistogramAndSilenceDiagnostics) {
     EXPECT_EQ(spanish.format("detection_long_silent_segment", "100", "149"),
               "\nSegmento silencioso largo detectado desde los fotogramas 100 hasta 149\n");
 }
+TEST(Translator, FormatsDetectionBlockReportsAndCompletion) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("detection_ac_block_row", "2", "    10", "    20", " 2", "0:00:00"),
+              "Block: 2\tStart:     10\tEnd:     20\taudio channels:  2\tLength: 0:00:00\n");
+    EXPECT_EQ(english.format("detection_ar_block_row", "3", "    10", "    20", "1.78", "0:00:00",
+                             "1920", "1080", "  0", "  1", "1919", "1079"),
+              "Block: 3\tStart:     10\tEnd:     20\tAR_R: 1.78\tLength: 0:00:00, [1920x1080] minX=  0, minY=  1, maxX=1919, maxY=1079\n");
+    EXPECT_EQ(spanish.format("detection_ar_join_same_ratio", "2", "3", "1.78"),
+              "Se unen los bloques AR 2 y 3 porque ambos tienen una relación de aspecto de 1.78\n");
+    EXPECT_EQ(spanish.format("detection_frames_processed", "250"),
+              "\n250 fotogramas procesados\n");
+}

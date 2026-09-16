@@ -8,6 +8,7 @@
 #include "output/diagnostics.h"
 #include "output/csv_field.h"
 #include "output/frame_csv.h"
+#include "output/histogram_report.h"
 #include "weighted_scores.h"
 #include "search_path.h"
 #include "checked_format.h"
@@ -100,116 +101,40 @@ void OutputLogoHistogram(RecordingContext& context,
 
 void OutputbrightHistogram(RecordingContext& context)
 {
-    int		i;
-    int		j;
-    long	max = 0;
-    int		columns = 200;
-    double	divisor;
-    long	counter = 0;
-    char stars[256];
-
-    for (i = 0; i < 256; i++)
-    {
-        if (max < context.state.brightHistogram[i])
-        {
-            max = context.state.brightHistogram[i];
-        }
-    }
-
-    divisor = (double)columns / (double)max;
-
-    Debug(context, 1, "Show Histogram - %.5f\n", divisor);
-
-    for (i = 0; i < 30; i++)
-    {
-        counter += context.state.brightHistogram[i];
-        stars[0] = 0;
-        if (context.state.brightHistogram[i] > 0)
-        {
-            for (j = 0; j <= (int)(context.state.brightHistogram[i] * divisor); j++)
-            {
-                stars[j] = '*';
-            }
-            stars[j] = 0;
-        }
-        Debug(context, 1, "%3i - %6i - %.5f %s\n", i, context.state.brightHistogram[i], (double)counter / (double)context.state.framesprocessed, stars);
-    }
+    const auto report=comskip::output::make_histogram_report<int>(context.state.brightHistogram,
+        256,30,1,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
+    if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+        comskip::diagnostics::Code::invalid_histogram_report);
+    Debug(context,1,"Show Histogram - %.5f\n",report->divisor);
+    for (const auto& row : report->rows)
+        Debug(context,1,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
+            static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
 }
 
 void OutputuniformHistogram(RecordingContext& context)
 {
-    int		i;
-    int		j;
-    long	max = 0;
-    int		columns = 200;
-    double	divisor;
-    long	counter = 0;
-    char stars[256];
-
-    for (i = 0; i < 30; i++)
-    {
-        if (max < context.state.uniformHistogram[i])
-        {
-            max = context.state.uniformHistogram[i];
-        }
-    }
-
-    divisor = (double)columns / (double)max;
-
-    Debug(context, 1, "Show Uniform - %.5f\n", divisor);
-
-    for (i = 0; i < 30; i++)
-    {
-        counter += context.state.uniformHistogram[i];
-        stars[0] = 0;
-        if (context.state.uniformHistogram[i] > 0)
-        {
-            for (j = 0; j <= (int)(context.state.uniformHistogram[i] * divisor); j++)
-            {
-                stars[j] = '*';
-            }
-            stars[j] = 0;
-        }
-        Debug(context, 1, "%3i - %6i - %.5f %s\n", i*UNIFORMSCALE, context.state.uniformHistogram[i], (double)counter / (double)context.state.framesprocessed,stars);
-    }
+    const auto report=comskip::output::make_histogram_report<int>(context.state.uniformHistogram,
+        30,30,UNIFORMSCALE,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
+    if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+        comskip::diagnostics::Code::invalid_histogram_report);
+    Debug(context,1,"Show Uniform - %.5f\n",report->divisor);
+    for (const auto& row : report->rows)
+        Debug(context,1,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
+            static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
 }
 
 void OutputHistogram(RecordingContext& context, int *histogram, int scale, char *title, bool truncate)
 {
-    int		i;
-    int		j;
-    long	max = 0;
-    int		columns = 70;
-    double	divisor;
-    long	counter = 0;
-    char stars[256];
-
-    for (i = 0; i < (truncate?255:256); i++)
-    {
-        if (max < histogram[i])
-        {
-            max = histogram[i];
-        }
-    }
-
-    divisor = (double)columns / (double)max;
-
+    if (!histogram) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+        comskip::diagnostics::Code::invalid_histogram_report);
     Debug(context, 8, "Show %s Histogram\n", title);
-
-    for (i = 0; i < 256; i++)
-    {
-        counter += histogram[i];
-        stars[0] = 0;
-        if (histogram[i] > 0)
-        {
-            for (j = 0; j <= (int)(histogram[i] * divisor) && j <= columns; j++)
-            {
-                stars[j] = '*';
-            }
-            stars[j] = 0;
-        }
-        Debug(context, 8, "%3i - %6i - %.5f %s\n", i*scale, histogram[i], (double)counter / (double)context.state.framesprocessed, stars);
-    }
+    const auto report=comskip::output::make_histogram_report<int>({histogram,256},truncate?255:256,
+        256,scale,70,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
+    if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+        comskip::diagnostics::Code::invalid_histogram_report);
+    for (const auto& row : report->rows)
+        Debug(context,8,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
+            static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
 }
 
 
