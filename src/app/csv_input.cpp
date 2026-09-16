@@ -531,18 +531,20 @@ ccagain:
 //        DetectCredits(i);
 
     }
-    context.state.framenum_real = context.state.frame_count;
-    context.state.framesprocessed = context.state.frame_count;
-
-    if (context.settings.output_live) {
-        OutputBlackArray(context);
-        BuildCommListAsYouGo(context);
-    }
-
     if (context.captions) {
         context.captions->finish(std::chrono::duration_cast<comskip::media::CaptionTimestamp>(
             std::chrono::duration<double>(context.state.frame[context.state.frame_count - 1].pts + 1 / context.settings.fps)));
         context.captions.reset();
+    }
+    // Parsing leaves count at the extra terminal slot. Detection and exports
+    // use the decoder convention: count is the final real observation index.
+    // Keep the allocated terminal slot, but exclude it from media statistics.
+    --context.state.frame_count;
+    context.state.framenum_real = context.state.frame_count;
+    context.state.framesprocessed = context.state.frame_count;
+    if (context.settings.output_live) {
+        OutputBlackArray(context);
+        BuildCommListAsYouGo(context);
     }
     BuildMasterCommList(context);
 

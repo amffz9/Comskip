@@ -1226,7 +1226,11 @@ int video_packet_process(RecordingContext& context, VideoState *is,AVPacket *pac
         if (context.state.use_cuvid)
             is->pFrame->best_effort_timestamp = is->pFrame->pts;
         context.state.best_effort_timestamp = is->pFrame->best_effort_timestamp;
-        calculated_delay = (context.state.best_effort_timestamp - context.state.pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
+        calculated_delay = frame_delay;
+        if (context.state.best_effort_timestamp != AV_NOPTS_VALUE &&
+            context.state.pev_best_effort_timestamp != AV_NOPTS_VALUE)
+            calculated_delay = static_cast<double>(static_cast<long double>(context.state.best_effort_timestamp) -
+                static_cast<long double>(context.state.pev_best_effort_timestamp)) * av_q2d(is->video_st->time_base);
 
         if (context.state.best_effort_timestamp == AV_NOPTS_VALUE)
             real_pts = 0;

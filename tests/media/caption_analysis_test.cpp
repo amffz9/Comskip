@@ -148,14 +148,25 @@ TEST_F(CaptionAnalysis, CsvCompanionCaptionReplayMatchesActualDecoderOutput) {
     auto replay = std::make_unique<RecordingContext>();
     EXPECT_LE(analyze(*replay, directory / "original/source.csv", "replayed"), 1);
     EXPECT_FALSE(replay->captions);
-    // Legacy CSV contains frames 1..count-1, so its represented duration ends
-    // one frame before the decoded recording. All cue content and preceding
-    // timestamps must still match exactly.
-    auto expected_replay = expected;
-    const auto eof = expected_replay.find("00:00:06,000");
-    ASSERT_NE(eof, std::string::npos);
-    expected_replay.replace(eof, 12, "00:00:05,960");
-    EXPECT_EQ(read(directory / "replayed/source.srt"), expected_replay);
+    EXPECT_TRUE(expected.contains("00:00:06,000"));
+    EXPECT_EQ(read(directory / "replayed/source.srt"), expected);
+    ASSERT_EQ(original->state.frame_count, 150);
+    ASSERT_EQ(replay->state.frame_count, 150);
+    EXPECT_EQ(replay->state.framenum_real, 150);
+    EXPECT_EQ(replay->state.framesprocessed, 150);
+    EXPECT_DOUBLE_EQ(original->state.frame[150].pts, 5.96);
+    EXPECT_DOUBLE_EQ(replay->state.frame[150].pts, original->state.frame[150].pts);
+    const auto exported = read(directory / "original/source.csv");
+    EXPECT_EQ(std::count(exported.begin(), exported.end(), '\n'), 152); // header + 150 rows
+    // CLI replay intentionally disables automatic CSV output. Export explicitly
+    // to verify that replaying observations does not append a terminal frame.
+    OutputFrameArray(*replay, false);
+    const auto reexported = read(directory / "replayed/source.csv");
+    EXPECT_EQ(std::count(reexported.begin(), reexported.end(), '\n'), 152);
+    auto again = std::make_unique<RecordingContext>();
+    EXPECT_LE(analyze(*again, directory / "replayed/source.csv", "again"), 1);
+    EXPECT_EQ(again->state.frame_count, 150);
+    EXPECT_DOUBLE_EQ(again->state.frame[150].pts, replay->state.frame[150].pts);
 }
 TEST_F(CaptionAnalysis, MalformedPersistedCaptionLengthsRejectBeforeObservations) {
     fixture(directory / "source.m2v", "SAFE");

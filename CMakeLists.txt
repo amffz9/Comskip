@@ -237,6 +237,9 @@ if(COMSKIP_BUILD_APP)
         add_executable(warnings_test tests/detection/warnings_test.cpp)
         target_link_libraries(warnings_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(warnings_test)
+        add_executable(cutscene_loading_test tests/detection/cutscene_loading_test.cpp)
+        target_link_libraries(cutscene_loading_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(cutscene_loading_test)
         add_executable(caption_packets_test tests/detection/caption_packets_test.cpp)
         target_link_libraries(caption_packets_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(caption_packets_test)
@@ -262,6 +265,10 @@ if(COMSKIP_BUILD_APP)
             HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/ffmpeg"
             PATH_SUFFIXES tools/ffmpeg)
         if(FFMPEG_EXECUTABLE)
+            add_test(NAME missing_timestamps COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/missing_timestamps.py" $<TARGET_FILE:comskip>
+                "${FFMPEG_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/timestamps")
+            set_tests_properties(missing_timestamps PROPERTIES TIMEOUT 120)
             add_test(NAME standalone_subtitles COMMAND ${Python3_EXECUTABLE}
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/media/standalone_subtitles.py" $<TARGET_FILE:comskip>
                 "${FFMPEG_EXECUTABLE}" "${CMAKE_CURRENT_BINARY_DIR}/standalone")

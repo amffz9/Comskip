@@ -761,7 +761,6 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
 //	long	j;
     char	array[MAX_PATH];
     comskip::platform::FilePtr raw;
-    char	lp[10];
     sprintf(array, "%.*s.csv", (int)(strlen(context.state.logfilename) - 4), context.state.logfilename);
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
@@ -786,11 +785,16 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
 
     if (screenOnly)
         Debug(context, 1, "Frame\tBlack\tBrightness\tS_Change\tS_Change Perc\tLogo Present\t%i\n", context.state.frame_count);
-    for (i = 1; i < context.state.frame_count; i++)
+    // Both decoded input and CSV replay count real observations inclusively.
+    const int last_observation = context.state.frame_count;
+    if (last_observation < 0 || static_cast<std::size_t>(last_observation) >= context.state.frame.size())
+        throw std::out_of_range("CSV observations exceed the frame buffer");
+    for (i = 1; i <= last_observation; i++)
     {
         if (screenOnly)
         {
-            printf("%i\t%i\t%i\t%s\tHistogram\n", i, context.state.frame[i].brightness, context.state.frame[i].schange_percent, lp);
+            printf("%i\t%i\t%i\t%i\tHistogram\n", i, context.state.frame[i].brightness,
+                   context.state.frame[i].schange_percent, context.state.frame[i].logo_present);
         }
         else
         {

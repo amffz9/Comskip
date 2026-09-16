@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="media test ", dir=work_root) as directo
         files = {extension: (destination / f"sample.{extension}").read_bytes()
                  for extension in ("txt", "edl", "csv")}
         rows = list(csv.reader(files["csv"].decode().splitlines()[2:]))
-        assert len(rows) == 249, f"Expected 249 analyzed frames, got {len(rows)}"
+        assert len(rows) == 250, f"Expected 250 analyzed frames, got {len(rows)}"
         timestamps = [float(row[16]) for row in rows if len(row) > 16]
         assert timestamps and timestamps == sorted(timestamps)
         # With the correct 25fps timeline and EOF drain, this short synthetic

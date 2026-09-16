@@ -4,6 +4,7 @@
 #include <utility>
 #include <format>
 #include <algorithm>
+#include <set>
 
 namespace comskip::media {
 CaptionSession::CaptionSession(CaptionOutputOptions options)
@@ -55,8 +56,40 @@ void CaptionSession::consume_stream(std::span<const std::uint8_t> packet, std::i
         cue.end -= recording_origin;
         if (cue.end <= CaptionTimestamp{}) continue;
         cue.start = std::max(cue.start, CaptionTimestamp{});
-        write({&cue, 1});
+        stream_cues_.push_back(std::move(cue));
     }
+}
+void CaptionSession::finish_stream_cues() {
+    // Text streams may overlap or arrive out of display order. Sweep their
+    // start/end events into complete, ordered screens for both output formats.
+    struct Event { CaptionTimestamp time; std::size_t cue; bool start; };
+    std::vector<Event> events;
+    if (stream_cues_.size() > events.max_size() / 2)
+        throw std::length_error("Too many standalone subtitle cues");
+    events.reserve(stream_cues_.size() * 2);
+    for (std::size_t i = 0; i < stream_cues_.size(); ++i) {
+        events.push_back({stream_cues_[i].start, i, true});
+        events.push_back({stream_cues_[i].end, i, false});
+    }
+    std::ranges::sort(events, {}, &Event::time);
+    std::set<std::size_t> active;
+    CaptionTimestamp previous{};
+    for (std::size_t i = 0; i < events.size();) {
+        const auto time = events[i].time;
+        if (time > previous && !active.empty()) {
+            CaptionCue screen{previous, time, {}};
+            for (const auto cue : active)
+                screen.regions.insert(screen.regions.end(), stream_cues_[cue].regions.begin(), stream_cues_[cue].regions.end());
+            write({&screen, 1});
+        }
+        while (i < events.size() && events[i].time == time) {
+            if (events[i].start) active.insert(events[i].cue);
+            else active.erase(events[i].cue);
+            ++i;
+        }
+        previous = time;
+    }
+    stream_cues_.clear();
 }
 void CaptionSession::consume_stored_packet(std::span<const std::uint8_t> packet, CaptionTimestamp timestamp) {
     const auto a53 = extract_a53_captions(packet);
@@ -70,8 +103,9 @@ void CaptionSession::finish(CaptionTimestamp end) {
             cue.start -= stream_origin_; cue.end -= stream_origin_;
             if (cue.end <= CaptionTimestamp{}) continue;
             cue.start = std::max(cue.start, CaptionTimestamp{});
-            write({&cue, 1});
+            stream_cues_.push_back(std::move(cue));
         }
+        finish_stream_cues();
         for (auto& output : outputs_) output.finish();
         finished_ = true;
         return;
@@ -86,6 +120,7 @@ void CaptionSession::reset() {
     // Replaced files are completed/closed before rebuilding fresh decoder state.
     outputs_.clear(); decoder_.reset(); last_time_.reset(); finished_ = false;
     if (stream_decoder_) stream_decoder_->reset();
+    stream_cues_.clear();
     open_outputs();
 }
 }

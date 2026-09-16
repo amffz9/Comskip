@@ -1,5 +1,8 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include <algorithm>
+#include <array>
+#include <iterator>
 
 void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, int maxX)
 {
@@ -277,30 +280,36 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
 
 void LoadCutScene(RecordingContext& context, const char *filename)
 {
-    int i,j,b,c;
-    context.state.cutscene_file.reset(myfopen(filename,"rb"));
-    if (context.state.cutscene_file.get() != NULL)
-    {
-        i = context.state.cutscenes;
-        fread(&context.state.csbrightness[i], sizeof(int), 1, context.state.cutscene_file.get());
-        c =	fread(context.state.cutscene[i], sizeof(char), MAXCSLENGTH, context.state.cutscene_file.get());
-        if (c > 0)
-        {
-            Debug(context, 7, "Loaded %i bytes from cutfile \"%s\"\n", c, filename);
-            context.state.cslength[i] = c;
-            b = 0;
-            for (j = 0; j < c; j++)
-                b += context.state.cutscene[i][j];
-            // csbrightness[i] = b/c;
-            context.state.cutscenes++;
-        }
-        else
-        {
-            Debug(context, 1, "%s", context.translator.format("detection_cutfile_read_failed", filename).c_str());
-        }
-        context.state.cutscene_file.reset();
-    } else
-         Debug(context, 1, "%s", context.translator.format("detection_cutfile_open_failed", filename).c_str());
+    const auto failed = [&] {
+        Debug(context, 1, "%s", context.translator.format("detection_cutfile_read_failed", filename).c_str());
+    };
+    const int slot = context.state.cutscenes;
+    if (slot < 0 || slot >= static_cast<int>(std::size(context.state.cutscene))) {
+        failed();
+        return;
+    }
+    comskip::platform::FilePtr input{myfopen(filename, "rb")};
+    if (!input) {
+        Debug(context, 1, "%s", context.translator.format("detection_cutfile_open_failed", filename).c_str());
+        return;
+    }
+    int brightness{};
+    std::array<unsigned char, MAXCSLENGTH> pixels{};
+    if (fread(&brightness, sizeof(brightness), 1, input.get()) != 1) {
+        failed();
+        return;
+    }
+    const auto count = fread(pixels.data(), 1, pixels.size(), input.get());
+    if (count == 0 || ferror(input.get()) || fgetc(input.get()) != EOF || ferror(input.get())) {
+        failed();
+        return;
+    }
+    // Publish a complete record only after every file/size check succeeds.
+    std::copy_n(pixels.begin(), count, context.state.cutscene[slot]);
+    context.state.csbrightness[slot] = brightness;
+    context.state.cslength[slot] = static_cast<int>(count);
+    ++context.state.cutscenes;
+    Debug(context, 7, "Loaded %i bytes from cutfile \"%s\"\n", static_cast<int>(count), filename);
 }
 
 #define OWN_HISTOGRAM_WIDTH 4

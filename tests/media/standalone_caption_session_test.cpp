@@ -70,3 +70,21 @@ TEST_F(StandaloneCaptionSession, BitmapSelectionAndMalformedPacketDoNotPoisonVal
     session.finish(3s);
     EXPECT_NE(read("recording.srt").find("RECOVERED"), std::string::npos);
 }
+TEST_F(StandaloneCaptionSession, OutOfOrderOverlapsPreserveEveryActiveScreenAndStyle) {
+    CaptionSession session({directory / "recording", true, true});
+    session.select_stream(parameters, {1, 1000});
+    session.consume_stream(bytes("<b>LATER</b>"), 2000, 2000, 0s);
+    session.consume_stream(bytes("<i>EARLIER</i>"), 1000, 2000, 0s);
+    session.finish(4s);
+    const auto srt = read("recording.srt");
+    const auto first = srt.find("00:00:01,000 --> 00:00:02,000");
+    const auto both = srt.find("00:00:02,000 --> 00:00:03,000");
+    const auto last = srt.find("00:00:03,000 --> 00:00:04,000");
+    ASSERT_NE(first, std::string::npos); ASSERT_NE(both, std::string::npos); ASSERT_NE(last, std::string::npos);
+    EXPECT_LT(first, both); EXPECT_LT(both, last);
+    EXPECT_NE(srt.substr(both, last - both).find("<i>EARLIER</i>"), std::string::npos);
+    EXPECT_NE(srt.substr(both, last - both).find("<b>LATER</b>"), std::string::npos);
+    EXPECT_EQ(srt.substr(last).find("EARLIER"), std::string::npos);
+    EXPECT_NE(read("recording.smi").find("EARLIER"), std::string::npos);
+    EXPECT_NE(read("recording.smi").find("LATER"), std::string::npos);
+}

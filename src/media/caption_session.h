@@ -17,6 +17,8 @@ class CaptionSession {
     std::vector<SubtitleOutput> outputs_;
     std::optional<CaptionTimestamp> last_time_;
     CaptionTimestamp stream_origin_{};
+    std::vector<CaptionCue> stream_cues_;
+    void finish_stream_cues();
     bool finished_{};
     void open_outputs();
     void write(std::span<const CaptionCue> cues);

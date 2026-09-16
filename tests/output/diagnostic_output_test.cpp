@@ -2,6 +2,7 @@
 #include "detection/legacy_detection.h"
 #include "checked_format.h"
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <filesystem>
@@ -71,5 +72,17 @@ TEST_F(DiagnosticOutput, AspectOutputOpenFailureIsLocalized) {
     ASSERT_TRUE(std::filesystem::create_directory(directory / "log.aspects"));
     OutputAspect(*context);
     EXPECT_EQ(read("log.txt"), "No se pudo abrir el archivo de salida de relaciones de aspecto.\n");
+}
+TEST_F(DiagnosticOutput, ScreenFrameOutputUsesInitializedLogoValueAndFinalObservation) {
+    context->state.frame_count = 1;
+    context->state.frame.resize(2);
+    context->state.frame[1].brightness = 23;
+    context->state.frame[1].schange_percent = 45;
+    context->state.frame[1].logo_present = 1;
+    ::testing::internal::CaptureStdout();
+    OutputFrameArray(*context, true);
+    auto output = ::testing::internal::GetCapturedStdout();
+    std::erase(output, '\r');
+    EXPECT_EQ(output, "1\t23\t45\t1\tHistogram\n");
 }
 }
