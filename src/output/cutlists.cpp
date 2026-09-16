@@ -1,10 +1,7 @@
 #include "exit_requested.h"
 #include "checked_format.h"
-#include "xml_cutlists.h"
 #include "xml_output_adapter.h"
 #include "edl.h"
-#include <filesystem>
-#include <fstream>
 #include <sstream>
 #include <vector>
 #include "legacy_detection.h"
@@ -43,110 +40,6 @@ void append_edl_record(RecordingContext& context, FILE* destination, long start,
 }
 }
 
-void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
-{
-    using namespace comskip::output;
-    if (!context.settings.output_videoredo3 && !context.settings.output_edlx &&
-        !context.settings.output_btv && !context.settings.output_cuttermaran &&
-        !context.settings.output_dvrmstb && !context.settings.output_mkvtoolnix) return;
-
-    const auto path = [](const std::string& bytes) {
-        return std::filesystem::path(std::u8string(bytes.begin(), bytes.end()));
-    };
-    const XmlMediaDescription media{std::filesystem::absolute(path(context.state.mpegfilename)),
-        path(context.state.inbasename), context.state.demux_pid
-            ? std::optional<StreamIds>{{context.state.selected_video_pid,
-                context.state.selected_audio_pid, context.state.selected_subtitle_pid}}
-            : std::nullopt};
-    const int count = use_reference ? context.state.reffer_count : context.state.commercial_count;
-    if (count < -1 || count >= 100000) throw std::out_of_range("Invalid XML commercial count");
-    std::vector<CommercialInterval> list;
-    list.reserve(static_cast<std::size_t>(count + 1));
-    for (int i = 0; i <= count; ++i) {
-        if (use_reference) list.push_back({context.state.reffer[i].start_frame, context.state.reffer[i].end_frame});
-        else list.push_back({context.state.commercial[i].start_frame, context.state.commercial[i].end_frame});
-    }
-    std::vector<TimeInterval> cuts, btv, dvr;
-    std::vector<ByteInterval> bytes;
-    std::vector<FrameInterval> retained;
-    std::vector<SceneMarker> scenes;
-    std::vector<ChapterSegment> chapters;
-    long previous = -1;
-    const auto time = [&](long frame) { return Seconds{get_frame_pts(context, static_cast<int>(frame))}; };
-    const auto append_retained = [&](long before) {
-        if (previous + 1 < before)
-            retained.push_back({F2F(previous + 1), F2F(before - 1)});
-    };
-    for (int i = 0; i <= count; ++i) {
-        const long start = list[i].start_frame, end = list[i].end_frame;
-        if (start < 0 || end < start) throw std::invalid_argument("Invalid commercial XML range");
-        append_retained(start);
-        if (previous < start) {
-            btv.push_back({time(start), time(end)});
-            if (end - start > 2) {
-                cuts.push_back({time(std::max(start - context.settings.videoredo_offset - 1, 0L)),
-                                time(std::max(end - context.settings.videoredo_offset - 1, 0L))});
-                if (!context.state.frame.empty() && context.settings.output_edlx) {
-                    if (static_cast<std::size_t>(end) >= context.state.frame.size())
-                        throw std::out_of_range("XML byte range exceeds frame buffer");
-                    bytes.push_back({context.state.frame[start].goppos, context.state.frame[end].goppos});
-                }
-            }
-        }
-        if (end - start > 1) dvr.push_back({time(start == 1 ? 0 : start), time(end)});
-        previous = end;
-    }
-    // The legacy final sentinel describes the retained tail, not a commercial.
-    // Preserve its frame endpoint without serializing it as a false BTV cut.
-    if (previous < context.state.frame_count - 2) append_retained(context.state.frame_count - 2);
-    for (int i = 0; i < context.state.block_count; ++i) {
-        const auto index = std::max(context.state.cblock[i].f_end - context.settings.videoredo_offset - 1, 0L);
-        scenes.push_back({Seconds{F2T(index)}, static_cast<std::size_t>(i)});
-    }
-    if (!use_reference && context.state.block_count > 0) {
-        int first = 0;
-        for (int i = 0; i < context.state.block_count; ++i) {
-            if (i + 1 == context.state.block_count ||
-                context.state.cblock[i + 1].iscommercial != context.state.cblock[first].iscommercial) {
-                chapters.push_back({{time(context.state.cblock[first].f_start), time(context.state.cblock[i].f_end)},
-                                    context.state.cblock[first].iscommercial != 0});
-                first = i + 1;
-            }
-        }
-    } else {
-        long first = 0;
-        for (int i = 0; i <= count; ++i) {
-            const long start = list[i].start_frame, end = list[i].end_frame;
-            if (first < start) chapters.push_back({{time(first), time(start)}, false});
-            chapters.push_back({{time(start), time(end)}, true});
-            first = end;
-        }
-        if (first < context.state.frame_count - 1)
-            chapters.push_back({{time(first), time(context.state.frame_count - 1)}, false});
-    }
-    MkvOptions mkv; mkv.ordered_without_commercials = context.settings.output_mkvtoolnix == 2;
-    const auto write = [&](const char* extension, auto serializer) {
-        std::ostringstream output; serializer(output);
-        auto filename = path(context.state.outbasename); filename += extension;
-        std::ofstream file(filename, std::ios::binary | std::ios::trunc);
-        if (!file) {
-            Debug(context, 0, "ERROR writing to %s%s\n", context.state.outbasename, extension);
-            comskip::request_exit(6);
-        }
-        file.exceptions(std::ios::failbit | std::ios::badbit);
-        const auto text = output.str();
-        file.write(text.data(), static_cast<std::streamsize>(text.size()));
-        file.close();
-    };
-    if (context.settings.output_videoredo3) write(".VPrj", [&](auto& o) { write_videoredo3(o, media, cuts, scenes); });
-    if (context.settings.output_edlx) write(".edlx", [&](auto& o) { write_edlx(o, bytes); });
-    if (context.settings.output_btv) write(".chapters.xml", [&](auto& o) { write_btv(o, btv); });
-    if (context.settings.output_cuttermaran) write(".cpf", [&](auto& o) {
-        write_cuttermaran(o, media, retained, {context.settings.cuttermaran_options}); });
-    if (context.settings.output_dvrmstb) write(".xml", [&](auto& o) { write_dvrmstb(o, dvr); });
-    if (context.settings.output_mkvtoolnix > 0) write(".mkvtoolnix.chapters", [&](auto& o) { write_mkv_chapters(o, chapters, mkv); });
-    if (context.settings.output_mkvtoolnix == 2) write(".mkvtoolnix.tags", [&](auto& o) { write_mkv_tags(o, mkv); });
-}
 
 void OpenOutputFiles(RecordingContext& context)
 {

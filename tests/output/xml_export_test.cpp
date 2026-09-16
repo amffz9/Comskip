@@ -6,6 +6,8 @@
 #include <pugixml.hpp>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <random>
 
@@ -89,5 +91,69 @@ TEST_F(XmlExport, FullRecordingCommercialHasNoOrderedShowChapters) {
     WriteXmlOutputFiles(*context, true);
     EXPECT_EQ(load(".VPrj").select_nodes("/VideoReDoProject/CutList/Cut").size(), 1u);
     EXPECT_EQ(load(".mkvtoolnix.chapters").select_nodes("/Chapters/EditionEntry[2]/ChapterAtom").size(), 0u);
+}
+TEST_F(XmlExport, SpanishExportLocalizesChapterLabelsAndEditionTitles) {
+    context->translator = comskip::localization::Translator("es");
+    WriteXmlOutputFiles(*context);
+    auto chapters = load(".mkvtoolnix.chapters");
+    EXPECT_STREQ(chapters.select_node("/Chapters/EditionEntry[1]/ChapterAtom[1]/ChapterDisplay/ChapterString").node().text().get(), "Programa");
+    EXPECT_STREQ(chapters.select_node("/Chapters/EditionEntry[1]/ChapterAtom[2]/ChapterDisplay/ChapterString").node().text().get(), "Anuncio");
+    auto tags = load(".mkvtoolnix.tags");
+    EXPECT_STREQ(tags.select_node("/Tags/Tag[1]/Simple/String").node().text().get(), "Con anuncios");
+    EXPECT_STREQ(tags.select_node("/Tags/Tag[2]/Simple/String").node().text().get(), "Sin anuncios");
+}
+TEST_F(XmlExport, MissingSelectedLabelsFallBackToEnglishDuringExport) {
+    using comskip::config::Ini;
+    context->translator = comskip::localization::Translator("es",
+        Ini("output_commercial=Commercial\noutput_show=Show\noutput_with_commercials=With Commercials\noutput_without_commercials=Without Commercials\n"),
+        Ini{});
+    WriteXmlOutputFiles(*context);
+    auto chapters = load(".mkvtoolnix.chapters");
+    auto tags = load(".mkvtoolnix.tags");
+    EXPECT_STREQ(chapters.select_node("/Chapters/EditionEntry[1]/ChapterAtom[1]/ChapterDisplay/ChapterString").node().text().get(), "Show");
+    EXPECT_STREQ(tags.select_node("/Tags/Tag[2]/Simple/String").node().text().get(), "Without Commercials");
+}
+TEST_F(XmlExport, InvalidCountsGeometryAndRangesFailBeforeWriting) {
+    const auto expect_unchanged = [&] {
+        auto filename = directory / "result.VPrj";
+        { std::ofstream file(filename); file << "previous output"; }
+        EXPECT_ANY_THROW(WriteXmlOutputFiles(*context));
+        std::ifstream file(filename);
+        EXPECT_EQ(std::string(std::istreambuf_iterator<char>(file), {}), "previous output");
+        EXPECT_FALSE(std::filesystem::exists(directory / "result.edlx"));
+    };
+    context->state.block_count = 1001; expect_unchanged(); context->state.block_count = 3;
+    context->state.block_count = -1; expect_unchanged(); context->state.block_count = 3;
+    context->state.commercial_count = 100000; expect_unchanged(); context->state.commercial_count = 0;
+    context->state.frame_count = 13; expect_unchanged(); context->state.frame_count = 12;
+    context->state.framenum_real = 13; expect_unchanged(); context->state.framenum_real = 12;
+    context->settings.fps = 0; expect_unchanged(); context->settings.fps = 25;
+    context->state.commercial[0].end_frame = 13; expect_unchanged(); context->state.commercial[0].end_frame = 9;
+    context->state.commercial_count = 1;
+    context->state.commercial[1].start_frame = 8; context->state.commercial[1].end_frame = 10;
+    expect_unchanged(); context->state.commercial_count = 0;
+    context->state.cblock[2].f_start = 8; expect_unchanged(); context->state.cblock[2].f_start = 10;
+    context->settings.cuttermaran_options = "invalid attributes"; expect_unchanged();
+}
+TEST_F(XmlExport, TerminalDetectorBoundaryClampsToLastStoredFrame) {
+    // The real decoder produces a terminal inclusive block end equal to count.
+    // There is deliberately no extra frame slot to disguise an out-of-bounds read.
+    context->state.commercial[0].end_frame = context->state.frame_count;
+    context->state.cblock[1].f_end = context->state.frame_count;
+    context->state.block_count = 2;
+    context->settings.videoredo_offset = 0;
+    ASSERT_EQ(context->state.frame.size(), static_cast<std::size_t>(context->state.frame_count));
+    WriteXmlOutputFiles(*context);
+    auto project = load(".VPrj");
+    EXPECT_STREQ(project.select_node("/VideoReDoProject/CutList/Cut/CutTimeEnd").node().text().get(), "4400000");
+    auto bytes = load(".edlx");
+    EXPECT_EQ(bytes.child("regionlist").child("region").attribute("end").as_int(), 1100);
+    auto dvr = load(".xml");
+    EXPECT_STREQ(dvr.child("root").child("commercial").attribute("end").value(), "0.440000");
+    auto chapters = load(".mkvtoolnix.chapters");
+    EXPECT_EQ(chapters.select_nodes("/Chapters/EditionEntry[1]/ChapterAtom").size(), 2u);
+    // A boundary cannot start a new interval; no corresponding media frame exists.
+    context->state.commercial[0].start_frame = context->state.frame_count;
+    EXPECT_THROW(WriteXmlOutputFiles(*context), std::out_of_range);
 }
 }

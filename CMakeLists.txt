@@ -170,7 +170,7 @@ if(COMSKIP_BUILD_APP)
         src/output/diagnostics.cpp
         src/output/media_dump.cpp
         src/media/frame_timing.cpp
-        src/media/mpeg2dec.cpp src/platform/platform.cpp)
+        src/media/mpeg2dec.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
     target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip_core PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
     target_link_libraries(comskip_core PUBLIC commercial_length comskip_config comskip_localization output_text media_conversion captions ${FFMPEG_LIBRARIES}
@@ -191,6 +191,9 @@ if(COMSKIP_BUILD_APP)
     if(BUILD_TESTING)
         add_executable(inprocess_analysis_test tests/media/inprocess_analysis_test.cpp)
         add_executable(xml_export_test tests/output/xml_export_test.cpp)
+        add_executable(live_xml_export_test tests/output/live_xml_export_test.cpp)
+        target_link_libraries(live_xml_export_test PRIVATE comskip_core GTest::gtest_main)
+        gtest_discover_tests(live_xml_export_test)
         target_link_libraries(xml_export_test PRIVATE comskip_core GTest::gtest_main)
         gtest_discover_tests(xml_export_test)
         target_link_libraries(inprocess_analysis_test PRIVATE comskip_core GTest::gtest_main)

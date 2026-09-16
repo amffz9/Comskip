@@ -1,6 +1,11 @@
 #include "exit_requested.h"
 #include "checked_format.h"
 #include "legacy_detection.h"
+#include "output/live_xml.h"
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <vector>
 
 int FindBlock(RecordingContext& context, long frame)
 {
@@ -18,11 +23,11 @@ int FindBlock(RecordingContext& context, long frame)
 
 void BuildCommListAsYouGo(RecordingContext& context)
 {
-    long		c_start[MAX_COMMERCIALS];
-    long		c_end[MAX_COMMERCIALS];
+    std::vector<long> c_start;
+    std::vector<long> c_end;
 #ifdef ADAPT_LIVE_COMMERCIAL
-    long		ic_start[MAX_COMMERCIALS];
-    long		ic_end[MAX_COMMERCIALS];
+    std::vector<long> ic_start;
+    std::vector<long> ic_end;
 #endif
     char		filename[255];
     int			commercials = 0;
@@ -38,7 +43,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
 #ifdef OLD_LIVE_TV
     int local_blacklevel;
 #endif
-    int*		onTheFlyBlackFrame;
+    std::vector<int> onTheFlyBlackFrame;
     int			onTheFlyBlackCount = 0;
 
     if (context.state.framenum_real - context.state.lastFrameCommCalculated <= 15 * context.settings.fps) return;
@@ -61,12 +66,14 @@ void BuildCommListAsYouGo(RecordingContext& context)
 
         context.state.lastFrameCommCalculated = context.state.framenum_real;
 
-        onTheFlyBlackFrame = static_cast<int *>( calloc(context.state.black_count, sizeof(int)) );
-        if (onTheFlyBlackFrame == NULL)
-        {
-            Debug(context, 0, "Could not allocate memory for onTheFlyBlackFrame\n");
-            comskip::request_exit(8);
-        }
+        c_start.resize(MAX_COMMERCIALS);
+        c_end.resize(MAX_COMMERCIALS);
+#ifdef ADAPT_LIVE_COMMERCIAL
+        ic_start.resize(MAX_COMMERCIALS);
+        ic_end.resize(MAX_COMMERCIALS);
+#endif
+
+        onTheFlyBlackFrame.resize(static_cast<std::size_t>(context.state.black_count));
 
 #ifdef OLD_LIVE_TV
         Debug(7, "Building list of all frames with a brightness less than %i.\n", local_blacklevel);
@@ -266,22 +273,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     }
                 }
             }
-            context.state.dvrmstb_file.reset();
-            if (context.settings.output_dvrmstb)
-            {
-                comskip::checked_format(filename, "%s.xml", context.state.outbasename);
-                context.state.dvrmstb_file.reset(myfopen(filename, "w"));
-                if (context.state.dvrmstb_file.get())
-                {
-                    //			fclose(dvrmstb_file);
-                    fprintf(context.state.dvrmstb_file.get(), "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
-                }
-                else
-                {
-                    fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
-                    comskip::request_exit(6);
-                }
-            }
+            std::vector<comskip::output::FrameInterval> dvrmstb_intervals;
             context.state.reffer_count = -1;
             context.state.commercial_count = -1;
             for (i = 0; i < commercials; i++)
@@ -356,8 +348,8 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         fprintf(context.state.edl_file.get(), "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.state.live_file.get())
                         fprintf(context.state.live_file.get(), "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(c_end[i] - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
-                    if (context.state.dvrmstb_file.get())
-                        fprintf(context.state.dvrmstb_file.get(), "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + context.settings.padding) / context.settings.fps , (double) (c_end[i] - context.settings.padding) / context.settings.fps);
+                    if (context.settings.output_dvrmstb)
+                        dvrmstb_intervals.push_back({c_start[i], c_end[i]});
                 }
             }
             if (context.state.out_file.get()) fflush(context.state.out_file.get());
@@ -369,11 +361,26 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if (context.state.live_file.get()) fflush(context.state.live_file.get());
             if (context.state.live_file.get()) context.state.live_file.reset();
             context.state.live_file.reset();
-            if (context.state.dvrmstb_file.get())
-            {
-                fprintf(context.state.dvrmstb_file.get(), " </root>\n");
-                context.state.dvrmstb_file.reset();
-                context.state.dvrmstb_file.reset();
+            if (context.settings.output_dvrmstb) {
+                std::ostringstream serialized;
+                comskip::output::write_live_dvrmstb(serialized, dvrmstb_intervals,
+                                                   context.settings.fps, context.settings.padding);
+                auto path = std::filesystem::path(std::u8string_view(
+                    reinterpret_cast<const char8_t*>(context.state.outbasename)));
+                path += ".xml";
+                std::ofstream output(path, std::ios::binary | std::ios::trunc);
+                if (!output)
+                    throw std::ios_base::failure(std::string("Could not open live DVRMSTB output: ") +
+                                                 context.state.outbasename + ".xml");
+                try {
+                    output.exceptions(std::ios::failbit | std::ios::badbit);
+                    const auto text = serialized.str();
+                    output.write(text.data(), static_cast<std::streamsize>(text.size()));
+                    output.close();
+                } catch (const std::ios_base::failure& error) {
+                    throw std::ios_base::failure(std::string("Could not write live DVRMSTB output: ") +
+                                                 context.state.outbasename + ".xml: " + error.what());
+                }
             }
 
             if (context.settings.output_incommercial)
@@ -396,7 +403,6 @@ skipit:
 
         }
 
-        free(onTheFlyBlackFrame);
     }
 
 }
