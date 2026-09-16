@@ -61,13 +61,6 @@ typedef struct VideoState
 
     unsigned int    audio_buf_index;
 
-    AVPacket        audio_pkt;
-
-    AVPacket        audio_pkt_temp;
-
-//  uint8_t         *audio_pkt_data;
-
-//  int             audio_pkt_size;
 
     int             audio_hw_buf_size;
 

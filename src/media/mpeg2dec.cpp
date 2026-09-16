@@ -505,7 +505,9 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
     double prev_audio_clock;
 //    AC3DecodeContext *s = is->audio_st->codecpar->priv_data;
     int      rps,ps;
-    AVPacket *pkt_temp = &is->audio_pkt_temp;
+    // A local view borrows this input payload; it never owns a buffer reference.
+    AVPacket borrowed_audio{};
+    AVPacket *pkt_temp = &borrowed_audio;
 
     int got_frame;
     if (!context.state.reviewing)
@@ -1017,7 +1019,8 @@ again:
 void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
 {
     VideoState *is = context.state.video_owner.get();
-    AVPacket *packet;
+    auto packet_owner = make_packet();
+    AVPacket *packet = packet_owner.get();
 //    int ret;
 
 //    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
@@ -1034,7 +1037,6 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
 
 //     Debug ( 5,  "Seek to %f\n", pts);
     context.state.frame_ptr = NULL;
-    packet = &(is->audio_pkt);
 
     for(;;)
     {
@@ -1682,7 +1684,6 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
             context.state.selected_audio_pid = is->audio_st->id;
 
 
- //       memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
         break;
     case AVMEDIA_TYPE_VIDEO:
         is->videoStream = stream_index;
@@ -1772,7 +1773,6 @@ void file_open(RecordingContext& context)
     {
         context.state.video_owner = std::make_unique<VideoState>();
         is = context.state.video_owner.get();
-        memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
         // Register all formats and codecs
         context.state.av_log_level=AV_LOG_INFO;
 
@@ -2076,8 +2076,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         av_log_set_level(AV_LOG_INFO);
 //        av_log_set_flags(AV_LOG_SKIP_REPEATED);
 //
-
-        packet = &(context.state.video_owner->audio_pkt);
 
         // main decode loop
 again:
