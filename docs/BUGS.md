@@ -335,6 +335,16 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Explicit empty-list and sentinel capacity handling,
   with real reference comparison for empty and capacity-sized commercial lists.
 
+### B030: Detection block storage has a hidden stale terminal protocol
+
+- **Evidence:** The 1,000th completed block fails while creating its next slot
+  (effective capacity 999). Three merge paths leave former real-block metadata
+  in the terminal read by scoring. Initialization also leaves classification
+  fields unchanged; empty `CleanLogoBlocks` indexes block `-1`.
+- **Fix/verification needed:** Owned growable blocks with an explicit fully
+  initialized terminal, consistent reset/removal, and empty handling. Verify
+  more than 1,000 blocks, merges, recalculation, and empty/final scoring.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
