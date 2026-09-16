@@ -250,6 +250,15 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix/verification needed:** Owned filesystem path extension replacement and
   near-capacity/Unicode fallback regressions.
 
+### B022: Dump cleanup depends on the current enable setting
+
+- **Evidence:** `close_dump` returned early when `output_demux` was false,
+  even if the recording already owned open audio/video dump files.
+- **Impact:** Disabling dumping after files were opened could leave buffered
+  output and handles live until context destruction.
+- **Fix in progress:** Close owned handles unconditionally. Regression coverage
+  toggles the setting after opening files and checks released file ownership.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
