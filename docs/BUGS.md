@@ -259,6 +259,18 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 - **Fix in progress:** Close owned handles unconditionally. Regression coverage
   toggles the setting after opening files and checks released file ownership.
 
+### B023: Legacy filename fields prevent full long-path input support
+
+- **Evidence:** `RecordingState` stores `mpegfilename`, `inbasename`, and
+  `inifilename` in 260-byte arrays. The review fallback now protects copying,
+  but an otherwise valid longer UTF-8 path cannot fit; CLI basename/settings
+  derivation also retains those limits.
+- **Status:** Confirmed portability gap. Input media filename ownership is
+  being migrated first; basename and configuration-path migration must follow.
+- **Verification needed:** Actual long nested Unicode media opened through both
+  decoder and CLI, with normal output/settings lookup and failure cleanup on
+  Windows and Linux.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
