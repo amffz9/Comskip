@@ -72,6 +72,17 @@ and relevant verification; retain the evidence for future regressions.
 - **Fix/verification needed:** Return after the optional-save warning; preserve
   the required-restart error status. Test both branches with a missing directory.
 
+### B007: Redirected CSV replay searches the output directory for input captions
+
+- **Evidence:** Companion caption lookup used `workbasename`, which follows
+  `--output`, rather than the original CSV input basename.
+- **Impact:** Redirecting analysis output can silently omit the existing input
+  `.data` captions and metadata.
+- **Fix:** Prefer the input-relative companion and retain legacy output-relative
+  lookup as a fallback.
+- **Verification needed:** Actual CSV replay into a different output directory,
+  without copying the companion there, matches decoded caption output.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
