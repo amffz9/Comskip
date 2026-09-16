@@ -96,6 +96,15 @@ and relevant verification; retain the evidence for future regressions.
 - **Verification needed:** Actual MPEG2/A53 EOF cue and monotonic CSV timing,
   plus the existing media-format and EOF-drain regressions.
 
+### B009: Diagnostic logging silently truncates long messages
+
+- **Evidence:** `Debug` in `src/app/runtime.cpp` uses `vsnprintf` into the fixed
+  recording `debugText` buffer and ignores the required-size return value.
+- **Impact:** Long diagnostics, including editable catalog messages, lose their
+  ending in both console and log output without reporting truncation.
+- **Fix/verification needed:** Owned per-call formatted storage; exact logging of
+  a Unicode message longer than the old buffer, formatting and verbosity gating.
+
 ## Fixed during modernization
 
 - **Caption packet/XDS bounds:** Advertised packet counts could consume stale
