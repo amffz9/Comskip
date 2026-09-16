@@ -41,7 +41,6 @@ TEST_F(DetectionWarnings, EmptyCutfileReportsItsFilenameInSpanishWithoutInvalidV
     EXPECT_NO_THROW(LoadCutScene(*context, filename.c_str()));
     EXPECT_EQ(context->state.cutscenes, 0);
     EXPECT_EQ(log(), "ERROR: No se pudo cargar el archivo de corte \"" + filename + "\"\n");
-    EXPECT_FALSE(context->state.cutscene_file);
 }
 TEST_F(DetectionWarnings, MissingCutfileUsesEnglishFallback) {
     using comskip::config::Ini;
@@ -50,6 +49,20 @@ TEST_F(DetectionWarnings, MissingCutfileUsesEnglishFallback) {
     const auto filename = (directory / "missing.cut").string();
     LoadCutScene(*context, filename.c_str());
     EXPECT_EQ(log(), "Can't open cutfile \"" + filename + "\"\n");
+}
+TEST_F(DetectionWarnings, CutsceneSaveOpenFailureReturnsOwnedDiagnostic) {
+    context->settings.cutscenefile = (directory / "missing" / "scene.cut").string();
+    context->state.width = context->state.videowidth = context->state.height = 2;
+    unsigned char pixels[4]{};
+    context->state.frame_ptr = pixels;
+    try {
+        RecordCutScene(*context, 1, 20);
+        FAIL() << "Expected an output-open diagnostic";
+    } catch (const comskip::diagnostics::DiagnosticProvider& error) {
+        EXPECT_EQ(error.diagnostic().code, comskip::diagnostics::Code::output_open);
+        ASSERT_EQ(error.diagnostic().arguments.size(), 1u);
+        EXPECT_EQ(error.diagnostic().arguments[0], context->settings.cutscenefile);
+    }
 }
 TEST_F(DetectionWarnings, OptionalLogoSaveFailureReturnsAnOwnedDiagnostic) {
     context->translator = comskip::localization::Translator("es");

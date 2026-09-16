@@ -60,7 +60,6 @@ TEST_F(CutsceneLoading, EightRealFilesFillCapacityAndNinthCannotOverwriteAnyReco
         EXPECT_EQ(context->state.cslength[i], 3);
         EXPECT_TRUE(std::equal(before[i].begin(), before[i].end(), std::begin(context->state.cutscene[i])));
     }
-    EXPECT_FALSE(context->state.cutscene_file);
     EXPECT_TRUE(std::filesystem::remove(ninth));
 }
 TEST_F(CutsceneLoading, EveryPartialBrightnessHeaderAndMissingPayloadLeaveStateUnchanged) {
@@ -91,6 +90,28 @@ TEST_F(CutsceneLoading, OversizedPixelPayloadIsRejectedAndMaximumPayloadIsPreser
     EXPECT_EQ(context->state.cutscenes, 1);
     EXPECT_EQ(context->state.cslength[0], capacity);
     EXPECT_EQ(context->state.cutscene[0][capacity - 1], 99);
+}
+
+TEST_F(CutsceneLoading, RecordWritesPortableBytesAndReloadsTheSameSampledPixels) {
+    context->state.width = context->state.videowidth = 4;
+    context->state.height = 4;
+    context->settings.border = 0;
+    std::array<unsigned char, 16> frame{};
+    for (std::size_t index = 0; index < frame.size(); ++index) frame[index] = static_cast<unsigned char>(index);
+    context->state.frame_ptr = frame.data();
+    const auto path = directory / "recorded.cut";
+    context->settings.cutscenefile = comskip::platform::path_to_utf8(path);
+    RecordCutScene(*context, 7, 0x12345678);
+    std::ifstream bytes(path, std::ios::binary);
+    const std::vector<unsigned char> encoded{std::istreambuf_iterator<char>(bytes), {}};
+    ASSERT_EQ(encoded.size(), 20u);
+    EXPECT_EQ((std::vector<unsigned char>(encoded.begin(), encoded.begin() + 4)),
+              (std::vector<unsigned char>{0x78, 0x56, 0x34, 0x12}));
+    load(path);
+    ASSERT_EQ(context->state.cutscenes, 1);
+    EXPECT_EQ(context->state.csbrightness[0], 0x12345678);
+    EXPECT_EQ(context->state.cslength[0], 16);
+    EXPECT_TRUE(std::equal(frame.begin(), frame.end(), std::begin(context->state.cutscene[0])));
 }
 
 TEST_F(CutsceneLoading, ActualIniLoadingAcceptsLongUnicodeCutscenePath) {

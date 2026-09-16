@@ -185,3 +185,14 @@ TEST(Translator, FormatsDetectionBlockReportsAndCompletion) {
     EXPECT_EQ(spanish.format("detection_frames_processed", "250"),
               "\n250 fotogramas procesados\n");
 }
+TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_STREQ(english.text("runtime_allocate_frame_array_failed"),
+                 "Could not allocate memory for frame array\n");
+    EXPECT_STREQ(spanish.text("runtime_allocate_audio_blocks_failed"),
+                 "No se pudo asignar memoria para el array de bloques de canales de audio\n");
+    EXPECT_STREQ(english.text("csv_loaded"), "CSV file loaded into memory.\n");
+    EXPECT_STREQ(spanish.text("csv_close_window"),
+                 "Cierre la ventana cuando termine\n");
+}

@@ -43,7 +43,6 @@ struct RecordingState {
     comskip::platform::FilePtr tuning_file;
     comskip::platform::FilePtr training_file;
     comskip::platform::FilePtr aspect_file;
-    comskip::platform::FilePtr cutscene_file;
     int audio_channels{};
     comskip::platform::FilePtr in_file;
     int debug_cur_segment{};

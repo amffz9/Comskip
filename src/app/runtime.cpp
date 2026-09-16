@@ -1,4 +1,5 @@
 #include "diagnostic.h"
+#include "allocation_result.h"
 #include "exit_requested.h"
 #include "legacy_detection.h"
 #include <algorithm>
@@ -6,6 +7,16 @@
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+
+namespace {
+template <class Operation>
+void allocate_or_exit(RecordingContext& context, const char* message_key, int status, Operation&& operation)
+{
+    if (comskip::attempt_allocation(std::forward<Operation>(operation))) return;
+    Debug(context, 0, "%s", context.translator.text(message_key));
+    comskip::request_exit(status);
+}
+}
 
 int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
 {
@@ -100,11 +111,12 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_frame_count = (int)(60 * 60 * context.settings.fps) + 1;
-            context.state.frame.resize(context.state.max_frame_count + 2);
+            allocate_or_exit(context, "runtime_allocate_frame_array_failed", 10,
+                [&] { context.state.frame.resize(context.state.max_frame_count + 2); });
         }
         if (context.state.frame.empty())
         {
-            Debug(context, 0, "Could not allocate memory for frame array\n");
+            Debug(context, 0, "%s", context.translator.text("runtime_allocate_frame_array_failed"));
             comskip::request_exit(10);
         }
     }
@@ -113,11 +125,12 @@ void InitComSkip(RecordingContext& context)
     if(!context.state.initialized)
     {
         context.state.max_black_count = 500;
-        context.state.black.resize(context.state.max_black_count + 2);
+        allocate_or_exit(context, "runtime_allocate_black_array_failed", 11,
+            [&] { context.state.black.resize(context.state.max_black_count + 2); });
     }
     if (context.state.black.empty())
     {
-        Debug(context, 0, "Could not allocate memory for black frame array\n");
+        Debug(context, 0, "%s", context.translator.text("runtime_allocate_black_array_failed"));
         comskip::request_exit(11);
     }
 //	} else {
@@ -130,11 +143,12 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_logo_block_count = 1000;
-            context.state.logo_block.resize(context.state.max_logo_block_count + 2);
+            allocate_or_exit(context, "runtime_allocate_logo_blocks_failed", 13,
+                [&] { context.state.logo_block.resize(context.state.max_logo_block_count + 2); });
         }
         if (context.state.logo_block.empty())
         {
-            Debug(context, 0, "Could not allocate memory for logo cblock array\n");
+            Debug(context, 0, "%s", context.translator.text("runtime_allocate_logo_blocks_failed"));
             comskip::request_exit(13);
         }
 
@@ -150,11 +164,12 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_schange_count = 2000;
-            context.state.schange.resize(context.state.max_schange_count + 2);
+            allocate_or_exit(context, "runtime_allocate_scene_changes_failed", 12,
+                [&] { context.state.schange.resize(context.state.max_schange_count + 2); });
         }
         if (context.state.schange.empty())
         {
-            Debug(context, 0, "Could not allocate memory for scene change array\n");
+            Debug(context, 0, "%s", context.translator.text("runtime_allocate_scene_changes_failed"));
             comskip::request_exit(12);
         }
     }
@@ -164,11 +179,12 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_cc_block_count = 500;
-            context.state.cc_block.resize(context.state.max_cc_block_count + 2);
+            allocate_or_exit(context, "runtime_allocate_caption_blocks_failed", 22,
+                [&] { context.state.cc_block.resize(context.state.max_cc_block_count + 2); });
         }
         if (context.state.cc_block.empty())
         {
-            Debug(context, 0, "Could not allocate memory for cc blocks\n");
+            Debug(context, 0, "%s", context.translator.text("runtime_allocate_caption_blocks_failed"));
             comskip::request_exit(22);
         }
 
@@ -188,11 +204,12 @@ void InitComSkip(RecordingContext& context)
         if(!context.state.initialized)
         {
             context.state.max_cc_text_count = 1;
-            context.state.cc_text.resize(context.state.max_cc_text_count + 2);
+            allocate_or_exit(context, "runtime_allocate_caption_text_failed", 22,
+                [&] { context.state.cc_text.resize(context.state.max_cc_text_count + 2); });
         }
         if (context.state.cc_text.empty())
         {
-            Debug(context, 0, "Could not allocate memory for cc text groups\n");
+            Debug(context, 0, "%s", context.translator.text("runtime_allocate_caption_text_failed"));
             comskip::request_exit(22);
         }
 
@@ -213,18 +230,20 @@ void InitComSkip(RecordingContext& context)
     if(!context.state.initialized)
     {
         context.state.max_ar_block_count = 100;
-        context.state.ar_block.resize(context.state.max_ar_block_count + 2);
+        allocate_or_exit(context, "runtime_allocate_aspect_blocks_failed", 31,
+            [&] { context.state.ar_block.resize(context.state.max_ar_block_count + 2); });
         context.state.max_ac_block_count = 100;
-        context.state.ac_block.resize(context.state.max_ac_block_count + 2);
+        allocate_or_exit(context, "runtime_allocate_audio_blocks_failed", 31,
+            [&] { context.state.ac_block.resize(context.state.max_ac_block_count + 2); });
     }
     if (context.state.ar_block.empty())
     {
-        Debug(context, 0, "Could not allocate memory for aspect ratio block array\n");
+        Debug(context, 0, "%s", context.translator.text("runtime_allocate_aspect_blocks_failed"));
         comskip::request_exit(31);
     }
     if (context.state.ac_block.empty())
     {
-        Debug(context, 0, "Could not allocate memory for audio channel block array\n");
+        Debug(context, 0, "%s", context.translator.text("runtime_allocate_audio_blocks_failed"));
         comskip::request_exit(31);
     }
 //	}

@@ -114,7 +114,7 @@ again:
     context.state.videowidth = context.state.width = maxmaxX + minminX;
 
     context.state.last_brightness = context.state.frame[1].brightness;
-    Debug(context, 8, "CSV file loaded into memory.\n");
+    Debug(context, 8, "%s", context.translator.text("csv_loaded"));
     input.reset();
 
     context.state.black_count = 0;
@@ -413,7 +413,7 @@ ccagain:
 #endif
         context.state.processCC = 0;
         i = 0;
-        printf("Close window when done\n");
+        printf("%s", context.translator.text("csv_close_window"));
         if (ReviewResult(context))
         {
             LoadIniFile(context);

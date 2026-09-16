@@ -1200,3 +1200,17 @@ before calling FFmpeg seek APIs.
 - **Verification:** Exact append, Unicode path and blocked-destination tests pass
   in all 459 Windows headless and 467 SDL tests. Linux verification remains
   deferred.
+
+### B100: Vector allocation diagnostics are unreachable after allocation failure
+
+- **Evidence:** Runtime initialization calls `std::vector::resize` and only then
+  checks `empty()`. Allocation failure throws `std::bad_alloc`, so the localized
+  message and legacy exit status after each resize are never reached.
+- **Impact:** Low-memory failures bypass the application's diagnostic and exit
+  policy, and the eight resource-specific messages cannot describe the failure.
+- **Status:** Fixed. Allocation operations now cross a focused C++23
+  `std::expected` boundary that catches `std::bad_alloc`; runtime initialization
+  reports the localized resource identity and preserves each intended status.
+- **Verification:** Success, allocation-failure and unrelated-exception tests
+  cover the boundary. All **468/468** Windows headless and **476/476** SDL tests
+  pass, and the public non-donator application builds.

@@ -517,4 +517,16 @@ than redefine completion around whichever subset currently passes tests.
   heading and final frame count now use the English and Spanish catalogs. The
   detailed transcript payload remains stable. No active human-message literals
   remain in `detection.cpp`; the reproducible inventory is down to **123**
-  active sites. Focused verification of this stage remains pending.
+  active sites. This stage is included in the complete Windows verification
+  below.
+
+- Runtime allocation diagnostics and CSV load/review lifecycle messages now use
+  the English and Spanish catalogs. Their English text and exit behavior remain
+  unchanged. The reproducible literal-message inventory is down to **113**
+  active sites. Allocation operations use a C++23 `std::expected` boundary so
+  `std::bad_alloc` reaches the existing resource-specific message and exit
+  status. Cutscene samples now use a focused standard-stream codec with an
+  explicit signed 32-bit little-endian header, bounded payloads, transactional
+  loading and checked save failures. All **468/468** Windows headless and
+  **476/476** SDL tests pass, and the public non-donator application builds.
+  Linux verification is deferred to the final implementation stage.

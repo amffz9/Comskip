@@ -6,7 +6,12 @@
 #include <iterator>
 #include "frame_mask.h"
 #include "scene_sampling.h"
+#include "cutscene_file.h"
+#include "platform/utf8_paths.h"
+#include <fstream>
 #include <stdexcept>
+
+static_assert(MAXCSLENGTH == comskip::detection::maximum_cutscene_pixels);
 
 void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, int maxX)
 {
@@ -241,7 +246,8 @@ int MatchCutScene(RecordingContext& context, unsigned char *cutscene)
 
 void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
 {
-    char cs[MAXCSLENGTH];
+    std::vector<std::uint8_t> cs;
+    cs.reserve(comskip::detection::maximum_cutscene_pixels);
     int c;
     int x,y;
     int step = 4;
@@ -254,30 +260,32 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
     {
         for (x = context.settings.border; x < (context.state.videowidth - context.settings.border); x += step)
         {
-            if (c < MAXCSLENGTH)
+            if (c < static_cast<int>(comskip::detection::maximum_cutscene_pixels))
             {
-                cs[c++] = context.state.frame_ptr[y * context.state.width + x];
+                cs.push_back(context.state.frame_ptr[y * context.state.width + x]);
+                ++c;
             }
         }
     }
-    context.state.cutscene_file.reset();
 //GetDumpFileName();
     if (context.settings.cutscenefile.c_str()[0] == 0)
     {
         context.settings.cutscenefile = std::string(context.state.workbasename) + ".dmp";
     }
-    if (context.settings.cutscenefile.c_str()[0])
-    {
-        context.state.cutscene_file.reset(myfopen(context.settings.cutscenefile.c_str(),"wb"));
-    }
-    if (context.state.cutscene_file.get() != NULL)
-    {
-        fwrite(&brightness, sizeof(int), 1, context.state.cutscene_file.get());
-        fwrite(cs, sizeof(char), c, context.state.cutscene_file.get());
-        Debug(context, 7, "Saved frame %6i into cutfile \"%s\"\n", frame_count, context.settings.cutscenefile.c_str());
-        context.state.cutscene_file.reset();
-        context.state.cutscene_file.reset();
-    }
+    const auto path = comskip::platform::path_from_utf8(context.settings.cutscenefile);
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output)
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_open, {context.settings.cutscenefile});
+    if (!comskip::detection::write_cutscene(output,
+            {static_cast<std::int32_t>(brightness), std::move(cs)}))
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_write, {context.settings.cutscenefile});
+    output.close();
+    if (!output)
+        throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
+            comskip::diagnostics::Code::output_write, {context.settings.cutscenefile});
+    Debug(context, 7, "Saved frame %6i into cutfile \"%s\"\n", frame_count, context.settings.cutscenefile.c_str());
 }
 
 void LoadCutScene(RecordingContext& context, const char *filename)
@@ -290,28 +298,22 @@ void LoadCutScene(RecordingContext& context, const char *filename)
         failed();
         return;
     }
-    comskip::platform::FilePtr input{myfopen(filename, "rb")};
+    std::ifstream input(comskip::platform::path_from_utf8(filename), std::ios::binary);
     if (!input) {
         Debug(context, 1, "%s", context.translator.format("detection_cutfile_open_failed", filename).c_str());
         return;
     }
-    int brightness{};
-    std::array<unsigned char, MAXCSLENGTH> pixels{};
-    if (fread(&brightness, sizeof(brightness), 1, input.get()) != 1) {
-        failed();
-        return;
-    }
-    const auto count = fread(pixels.data(), 1, pixels.size(), input.get());
-    if (count == 0 || ferror(input.get()) || fgetc(input.get()) != EOF || ferror(input.get())) {
+    auto record = comskip::detection::read_cutscene(input);
+    if (!record) {
         failed();
         return;
     }
     // Publish a complete record only after every file/size check succeeds.
-    std::copy_n(pixels.begin(), count, context.state.cutscene[slot]);
-    context.state.csbrightness[slot] = brightness;
-    context.state.cslength[slot] = static_cast<int>(count);
+    std::copy(record->pixels.begin(), record->pixels.end(), context.state.cutscene[slot]);
+    context.state.csbrightness[slot] = record->brightness;
+    context.state.cslength[slot] = static_cast<int>(record->pixels.size());
     ++context.state.cutscenes;
-    Debug(context, 7, "Loaded %i bytes from cutfile \"%s\"\n", static_cast<int>(count), filename);
+    Debug(context, 7, "Loaded %i bytes from cutfile \"%s\"\n", static_cast<int>(record->pixels.size()), filename);
 }
 
 #define OWN_HISTOGRAM_WIDTH 4
