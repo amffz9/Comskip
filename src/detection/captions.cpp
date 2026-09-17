@@ -135,15 +135,13 @@ void Add_XDS_block(RecordingContext& context)
 
 
 
-#define MAXXDSBUFFER	1024
 void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
 {
-
-
     int i,j;
     int newXDS = 0;
+    const auto buffer_size = static_cast<int>(std::size(context.state.AddXDS_XDSbuf));
     const bool end_packet = (hi & 0x7f) == 0x0f;
-    if (context.state.AddXDS_c < 0 || context.state.AddXDS_c > MAXXDSBUFFER - 2 ||
+    if (context.state.AddXDS_c < 0 || context.state.AddXDS_c > buffer_size - 2 ||
         (context.state.AddXDS_c % 2) != 0) {
         context.state.AddXDS_c = 0;
         context.state.startXDS = 1;
@@ -172,10 +170,10 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
         return;
     if (hi == 0x86 && (lo == 0x02 || lo == 1))
         return;
-    if (context.state.AddXDS_c >= MAXXDSBUFFER - 4)
+    if (context.state.AddXDS_c >= buffer_size - 4)
     {
-        for (i = 0; i < 256; i++)
-            context.state.AddXDS_XDSbuf[i]=0;
+        std::fill(std::begin(context.state.AddXDS_XDSbuf),
+            std::end(context.state.AddXDS_XDSbuf), 0);
         context.state.AddXDS_c = 0;
         context.state.startXDS = 1;
         return;
@@ -419,8 +417,8 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                     reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf));
             }
         }
-        for (i = 0; i < 256; i++)
-            context.state.AddXDS_XDSbuf[i]=0;
+        std::fill(std::begin(context.state.AddXDS_XDSbuf),
+            std::end(context.state.AddXDS_XDSbuf), 0);
         context.state.AddXDS_c = 0;
     }
 }
