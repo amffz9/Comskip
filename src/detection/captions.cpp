@@ -1319,11 +1319,11 @@ bool ProcessCCDict(RecordingContext& context)
     }
 
     Debug(context, 2, "%s", context.translator.text("caption_dictionary_start"));
-    while (fgets(phrase, sizeof(phrase), dict.get()) != NULL)
+    while (fgets(phrase, sizeof(phrase), dict.get()) != nullptr)
     {
         ptr = strpbrk(phrase, "\r\n");
-        if (ptr != NULL) *ptr = '\0';
-        if (strstr(phrase, "-----") != NULL)
+        if (ptr != nullptr) *ptr = '\0';
+        if (strstr(phrase, "-----") != nullptr)
         {
             goodPhrase = false;
             Debug(context, 3, "%s", context.translator.text("caption_dictionary_bad_phrases"));

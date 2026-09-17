@@ -297,7 +297,7 @@ nextpacket:
                     // Frame-threaded decoders retain output until an explicit
                     // end-of-input packet. Drain it before finalizing detection.
                     if (context.state.video_owner->dec_ctx.get()) {
-                        const auto outcome=video_packet_process(context,context.state.video_owner.get(),NULL);
+                        const auto outcome=video_packet_process(context,context.state.video_owner.get(),nullptr);
                         if (outcome==comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
                         if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
                     }
@@ -319,7 +319,7 @@ nextpacket:
 
             if(packet->stream_index == context.state.video_owner->videoStream)
             {
-                if (packet->size > 0 && packet->data != NULL) {
+                if (packet->size > 0 && packet->data != nullptr) {
                     const auto outcome=video_packet_process(context,context.state.video_owner.get(),packet);
                     if (outcome==comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
                     if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
@@ -327,7 +327,7 @@ nextpacket:
             }
             else if(packet->stream_index == context.state.video_owner->audioStream)
             {
-                if (packet->size > 0 && packet->data != NULL)
+                if (packet->size > 0 && packet->data != nullptr)
                     audio_packet_process(context, context.state.video_owner.get(), packet);
             }
             else if(packet->stream_index == context.state.video_owner->subtitleStream &&

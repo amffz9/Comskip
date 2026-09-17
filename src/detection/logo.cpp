@@ -1759,18 +1759,18 @@ void LoadLogoMaskData(RecordingContext& context)
         }
 
 
-        while (fgets(data, 1999, txt_file.get()) != NULL)
+        while (fgets(data, 1999, txt_file.get()) != nullptr)
         {
-            if (strstr(data, "FILE PROCESSING COMPLETE") != NULL)
+            if (strstr(data, "FILE PROCESSING COMPLETE") != nullptr)
             {
                 context.state.lastFrame = 0;
                 break;
             }
             ptr = strchr(data, '\t');
-            if (ptr != NULL)
+            if (ptr != nullptr)
             {
                 ptr++;
-                tmpLong = strtol(ptr, NULL, 10);
+                tmpLong = strtol(ptr, nullptr, 10);
                 if (tmpLong > context.state.lastFrame)
                 {
                     context.state.lastFrame = tmpLong;

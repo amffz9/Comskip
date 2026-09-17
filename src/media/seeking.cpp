@@ -171,7 +171,7 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
     context.state.pts_offset = 0.0;
 
 //     Debug ( 5,  "Seek to %f\n", pts);
-    context.state.frame_ptr = NULL;
+    context.state.frame_ptr = nullptr;
 
     for(;;)
     {

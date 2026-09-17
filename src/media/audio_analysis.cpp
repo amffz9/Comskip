@@ -430,7 +430,7 @@ retry_audio_send:
 
 #if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
     LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
-        data_size = av_samples_get_buffer_size(NULL, is->frame->ch_layout.nb_channels,
+        data_size = av_samples_get_buffer_size(nullptr, is->frame->ch_layout.nb_channels,
                                                is->frame->nb_samples,
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
@@ -441,7 +441,7 @@ retry_audio_send:
                            (is->frame->ch_layout.nb_channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
         av_frame_unref(is->frame.get());
 #else
-        data_size = av_samples_get_buffer_size(NULL, is->frame->channels,
+        data_size = av_samples_get_buffer_size(nullptr, is->frame->channels,
                                                is->frame->nb_samples,
                                                static_cast<AVSampleFormat>(is->frame->format), 1);
         if (data_size > 0)
