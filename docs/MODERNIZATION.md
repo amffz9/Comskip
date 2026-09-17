@@ -818,3 +818,6 @@ than redefine completion around whichever subset currently passes tests.
 - Caption and standalone subtitle decoding now share one non-copyable
   `SubtitleOwner` for `AVSubtitle` cleanup. The focused decoder suite passes
   **12/12**.
+
+- Standalone subtitle decoding now uses the shared `CodecParametersPtr` owner
+  for copied FFmpeg parameters. Its focused suite passes **6/6**.

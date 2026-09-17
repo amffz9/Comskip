@@ -13,10 +13,7 @@ extern "C" {
 
 namespace comskip::media {
 namespace {
-struct ParametersDeleter {
-    void operator()(AVCodecParameters* value) const noexcept { avcodec_parameters_free(&value); }
-};
-using ParametersPtr = std::unique_ptr<AVCodecParameters, ParametersDeleter>;
+using ParametersPtr = CodecParametersPtr;
 void checked(int status, comskip::diagnostics::Code operation) {
     if (status >= 0) return;
     char error[AV_ERROR_MAX_STRING_SIZE]{};

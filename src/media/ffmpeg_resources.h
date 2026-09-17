@@ -30,6 +30,7 @@ public:
 struct FrameDeleter { void operator()(AVFrame* value) const noexcept { av_frame_free(&value); } };
 struct PacketDeleter { void operator()(AVPacket* value) const noexcept { av_packet_free(&value); } };
 struct CodecDeleter { void operator()(AVCodecContext* value) const noexcept { avcodec_free_context(&value); } };
+struct CodecParametersDeleter { void operator()(AVCodecParameters* value) const noexcept { avcodec_parameters_free(&value); } };
 struct InputDeleter { void operator()(AVFormatContext* value) const noexcept { avformat_close_input(&value); } };
 struct DictionaryDeleter { void operator()(AVDictionary* value) const noexcept { av_dict_free(&value); } };
 struct ScalerDeleter { void operator()(SwsContext* value) const noexcept { sws_freeContext(value); } };
@@ -43,6 +44,7 @@ struct SubtitleOwner {
 using FramePtr = std::unique_ptr<AVFrame, FrameDeleter>;
 using PacketPtr = std::unique_ptr<AVPacket, PacketDeleter>;
 using CodecPtr = std::unique_ptr<AVCodecContext, CodecDeleter>;
+using CodecParametersPtr = std::unique_ptr<AVCodecParameters, CodecParametersDeleter>;
 using InputPtr = std::unique_ptr<AVFormatContext, InputDeleter>;
 using DictionaryPtr = std::unique_ptr<AVDictionary, DictionaryDeleter>;
 using ScalerPtr = std::unique_ptr<SwsContext, ScalerDeleter>;
