@@ -193,7 +193,7 @@ void WeighBlocks(RecordingContext& context)
 
     for (i = 0; i < context.state.block_count-2; i++)
     {
-        if (CUTCAUSE(context.state.cblock[i].cause) == C_a  && CUTCAUSE(context.state.cblock[i+1].cause) == C_a  &&
+        if (comskip::detection::cut_cause(context.state.cblock[i].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio})  && comskip::detection::cut_cause(context.state.cblock[i+1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio})  &&
                 context.state.cblock[i+1].length < 3.0 &&
                 fabs(context.state.cblock[i].ar_ratio - context.state.cblock[i+2].ar_ratio) < context.settings.ar_delta
            )
@@ -280,20 +280,20 @@ void WeighBlocks(RecordingContext& context)
 
     for (i = 0; i < context.state.block_count; i++)
     {
-        if (i == 0 || true /*(cblock[i-1].cause & (C_b | C_u | C_v)) || cut_on_ar_change == 2 || 	(!(commDetectMethod & BLACK_FRAME) && (cblock[j].cause & C_v))  */)
+        if (i == 0 || true /*(cblock[i-1].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}))) || cut_on_ar_change == 2 || 	(!(commDetectMethod & BLACK_FRAME) && (cblock[j].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence})))  */)
         {
             j = i;
             combined_length = context.state.cblock[i].length;
-//			while (j < block_count && ((cblock[j].cause & C_a) && (cut_on_ar_change == 1)  && !	(!(commDetectMethod & BLACK_FRAME) && (cblock[j].cause & C_v))  ) ) {
+//			while (j < block_count && ((cblock[j].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio})) && (cut_on_ar_change == 1)  && !	(!(commDetectMethod & BLACK_FRAME) && (cblock[j].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence})))  ) ) {
 //				j++;
 //				combined_length += cblock[j].length;
 //			}
 //expand:
             k = j;
-            if (i > 0 && ((CUTCAUSE(context.state.cblock[i-1].cause) == C_b) || (CUTCAUSE(context.state.cblock[i-1].cause) == C_u)))
+            if (i > 0 && ((comskip::detection::cut_cause(context.state.cblock[i-1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black})) || (comskip::detection::cut_cause(context.state.cblock[i-1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}))))
                 combined_length -= context.state.cblock[i].b_head / context.settings.fps / 4 ;
 
-            if ((CUTCAUSE(context.state.cblock[i].cause) == C_b) || (CUTCAUSE(context.state.cblock[i].cause) == C_u))
+            if ((comskip::detection::cut_cause(context.state.cblock[i].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black})) || (comskip::detection::cut_cause(context.state.cblock[i].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform})))
                 combined_length -= context.state.cblock[j+1].b_head / context.settings.fps / 4 ;
 
             combined_length -= (context.state.cblock[i].b_head + context.state.cblock[j + 1].b_head) / context.settings.fps / 4;
@@ -841,7 +841,7 @@ void WeighBlocks(RecordingContext& context)
     {
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( ((context.state.cblock[i].cause & comskip::detection::cause_value(comskip::detection::BlockCause::strict)) && (context.state.cblock[i].cause & (C_b | C_u | C_v | C_r)) )  &&
+            if ( ((context.state.cblock[i].cause & comskip::detection::cause_value(comskip::detection::BlockCause::strict)) && (context.state.cblock[i].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::resolution_change}))) )  &&
                     context.state.cblock[i+1].score > 1.05 &&  context.state.cblock[i+1].length < 4.8 &&
                     context.state.cblock[i+2].score < 1.0  &&  context.state.cblock[i+2].length > context.settings.min_show_segment_length
                )
@@ -854,7 +854,7 @@ void WeighBlocks(RecordingContext& context)
         }
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( ((context.state.cblock[i+2].cause & comskip::detection::cause_value(comskip::detection::BlockCause::strict)) && (context.state.cblock[i+1].cause & (C_b | C_u | C_v | C_r)) )  &&
+            if ( ((context.state.cblock[i+2].cause & comskip::detection::cause_value(comskip::detection::BlockCause::strict)) && (context.state.cblock[i+1].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::resolution_change}))) )  &&
                     context.state.cblock[i+1].score > 1.05 &&  context.state.cblock[i+1].length < 4.8 &&
                     context.state.cblock[i].score < 1.0  &&  context.state.cblock[i].length > context.settings.min_show_segment_length
                )
@@ -868,7 +868,7 @@ void WeighBlocks(RecordingContext& context)
 
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( (context.state.cblock[i].cause & (C_b | C_u | C_r))  && (context.state.cblock[i+1].cause & C_a)  &&
+            if ( (context.state.cblock[i].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::resolution_change})))  && (context.state.cblock[i+1].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio}))  &&
                     context.state.cblock[i+1].score > 1.0 &&  context.state.cblock[i+1].length < 4.8 &&
                     context.state.cblock[i+2].score < 1.0  &&  context.state.cblock[i+2].length > context.settings.min_show_segment_length
                )
@@ -881,7 +881,7 @@ void WeighBlocks(RecordingContext& context)
         }
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( (context.state.cblock[i+1].cause & (C_b | C_u | C_r))  && (context.state.cblock[i].cause & C_a)  &&
+            if ( (context.state.cblock[i+1].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::resolution_change})))  && (context.state.cblock[i].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio}))  &&
                     context.state.cblock[i+1].score > 1.0 &&  context.state.cblock[i+1].length < 4.8 &&
                     context.state.cblock[i].score < 1.0  &&  context.state.cblock[i].length > context.settings.min_show_segment_length
                )
@@ -1062,7 +1062,7 @@ void WeighBlocks(RecordingContext& context)
     {
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( (context.state.cblock[i].cause & (C_b | C_u ) )  &&
+            if ( (context.state.cblock[i].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) ) )  &&
                     context.state.cblock[i].score > 1.05 &&
                     context.state.cblock[i].length < context.settings.min_show_segment_length &&
                     (i == 0 || context.state.cblock[i-1].score <1)
@@ -1248,11 +1248,11 @@ void WeighBlocks(RecordingContext& context)
             i = 1;
             while (i < context.state.block_count)
             {
-                if (context.state.cblock[i].score < 1 && context.state.cblock[i].b_head > 7 && CUTCAUSE(context.state.cblock[i-1].cause) == C_b)
+                if (context.state.cblock[i].score < 1 && context.state.cblock[i].b_head > 7 && comskip::detection::cut_cause(context.state.cblock[i-1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}))
                 {
                     j = i-1;
                     k = 0;
-                    while (j >= 0 && k < 5 && context.state.cblock[j].b_head > 7 && context.state.cblock[j].length < 7 && CUTCAUSE(context.state.cblock[j].cause) == C_b)
+                    while (j >= 0 && k < 5 && context.state.cblock[j].b_head > 7 && context.state.cblock[j].length < 7 && comskip::detection::cut_cause(context.state.cblock[j].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}))
                     {
                         context.state.cblock[j].score *= 0.1;   //  Add blocks with long black periods before show
                         scoring_debug(context, 3, "scoring_h4_add_black_gap", std::format("{}", j), std::format("{}", i));
@@ -1270,11 +1270,11 @@ void WeighBlocks(RecordingContext& context)
             i = 0;
             while (i < context.state.block_count)
             {
-                if (context.state.cblock[i].score < 1 && context.state.cblock[i].b_tail > 7 && CUTCAUSE(context.state.cblock[i].cause) == C_b)
+                if (context.state.cblock[i].score < 1 && context.state.cblock[i].b_tail > 7 && comskip::detection::cut_cause(context.state.cblock[i].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}))
                 {
                     j = i+1;
                     k = 0;
-                    while (j < context.state.block_count && k < 5 && context.state.cblock[j].b_tail > 7 && context.state.cblock[j].length < 7 && CUTCAUSE(context.state.cblock[j-1].cause) == C_b)
+                    while (j < context.state.block_count && k < 5 && context.state.cblock[j].b_tail > 7 && context.state.cblock[j].length < 7 && comskip::detection::cut_cause(context.state.cblock[j-1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}))
                     {
                         context.state.cblock[j].score *= 0.1;   //  Add blocks with long black periods before show
                         scoring_debug(context, 3, "scoring_h4_add_black_gap", std::format("{}", j), std::format("{}", i));
@@ -1349,13 +1349,13 @@ void WeighBlocks(RecordingContext& context)
 /*
     for (i = 0; i < block_count-2; i++) {
         if (cblock[i].score < 0.9 && cblock[i+1].score > 1.0 && cblock[i+2].score > 1.5 &&
-            !(cblock[i].cause & (C_b | C_u | C_v | C_a)) ) {
+            !(cblock[i].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio}))) ) {
             cblock[i+1].score = 0.5;
             Debug(3, "Eroded cblock %i because vague cut reason and on edge between commercial and show.\n",
                     i+1);
         }
         if (cblock[i].score > 1.5 && cblock[i+1].score > 1.0 && cblock[i+2].score < 0.9 &&
-            !(cblock[i+1].cause & (C_b | C_u | C_v | C_a)) ) {
+            !(cblock[i+1].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio}))) ) {
             cblock[i+1].score = 0.5;
             Debug(3, "Eroded cblock %i because vague cut reason and on edge between commercial and show.\n",
                     i+1);

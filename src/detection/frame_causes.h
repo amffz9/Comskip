@@ -1,5 +1,7 @@
 #pragma once
 
+#include <initializer_list>
+
 namespace comskip::detection {
 
 enum class FrameCause : int {
@@ -36,6 +38,22 @@ enum class BlockCause : long {
 
 [[nodiscard]] constexpr int cause_value(FrameCause cause) noexcept {
     return static_cast<int>(cause);
+}
+
+[[nodiscard]] constexpr long frame_cause_mask(std::initializer_list<FrameCause> causes) noexcept {
+    long mask = 0;
+    for (const auto cause : causes) {
+        mask |= cause_value(cause);
+    }
+    return mask;
+}
+
+[[nodiscard]] constexpr long cut_cause(const long cause) noexcept {
+    return cause & frame_cause_mask({
+        FrameCause::caption, FrameCause::logo, FrameCause::scene_change,
+        FrameCause::aspect_ratio, FrameCause::non_uniform, FrameCause::black,
+        FrameCause::cutscene, FrameCause::resolution_change,
+    });
 }
 
 } // namespace comskip::detection
