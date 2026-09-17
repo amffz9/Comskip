@@ -1,9 +1,28 @@
 #include "../localization/diagnostic.h"
 #include "exit_requested.h"
 #include "checked_format.h"
-#include "legacy_detection.h"
+#include "comskip.h"
+#include "debug.h"
+#include "recording_context.h"
+#include "runtime.h"
+#include "config/legacy_settings.h"
+#include "detection/detection_methods.h"
+#include "detection/detector_constants.h"
+#include "detection/detector_runtime.h"
+#include "detection/frame_causes.h"
+#include "detection/storage.h"
+#include "output/diagnostics.h"
+#include "platform/platform.h"
+#include "ui/review.h"
 #include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <filesystem>
+#include <optional>
+#include <ranges>
+#include <vector>
 #include <stdexcept>
 #include <limits>
 #include <utility>
@@ -15,6 +34,17 @@
 #include "detection/logo_sampling.h"
 
 namespace {
+using comskip::detection::FrameCause;
+using comskip::detection::cause_value;
+
+constexpr int aspect_ratio_cause = cause_value(FrameCause::aspect_ratio);
+constexpr int non_uniform_cause = cause_value(FrameCause::non_uniform);
+constexpr int black_cause = cause_value(FrameCause::black);
+constexpr int scene_change_cause = cause_value(FrameCause::scene_change);
+constexpr int silence_cause = cause_value(FrameCause::silence);
+constexpr int cutscene_cause = cause_value(FrameCause::cutscene);
+constexpr int resolution_change_cause = cause_value(FrameCause::resolution_change);
+
 [[noreturn]] void throw_caption_packet_error(comskip::input::CaptionPacketError error) {
     using enum comskip::input::CaptionPacketError;
     using comskip::diagnostics::Code;
@@ -187,26 +217,26 @@ again:
                 if (context.state.frame[i].brightness <= 5)
                 {
                     if (context.state.frame[i].brightness == 5)
-                        context.state.frame[i].isblack = C_a;
+                        context.state.frame[i].isblack = aspect_ratio_cause;
                     if (context.state.frame[i].brightness == 4)
-                        context.state.frame[i].isblack = C_u;         // Checked
+                        context.state.frame[i].isblack = non_uniform_cause;         // Checked
                     if (context.state.frame[i].brightness == 3)
-                        context.state.frame[i].isblack = C_s;
+                        context.state.frame[i].isblack = scene_change_cause;
                     if (context.state.frame[i].brightness == 2)
-                        context.state.frame[i].isblack = C_s;			// Checked
+                        context.state.frame[i].isblack = scene_change_cause;			// Checked
                     if (context.state.frame[i].brightness == 1)
-                        context.state.frame[i].isblack = C_u;
+                        context.state.frame[i].isblack = non_uniform_cause;
                     context.state.frame[i].brightness = context.settings.max_avg_brightness + 1;
                 }
                 else
-                    context.state.frame[i].isblack = C_b;
+                    context.state.frame[i].isblack = black_cause;
             }
             else
                 context.state.frame[i].isblack = 0;
         }
         else
         {
-//			frame[i].isblack &= C_b;
+//			frame[i].isblack &= black_cause;
         }
 
         if (context.state.frame[i].brightness > 0)
@@ -215,7 +245,7 @@ again:
 
             if (context.state.frame[i].brightness < context.state.min_brightness_found) context.state.min_brightness_found = context.state.frame[i].brightness;
 
-            context.state.uniformHistogram[std::clamp(context.state.frame[i].uniform / UNIFORMSCALE, 0, 255)]++;
+            context.state.uniformHistogram[std::clamp(context.state.frame[i].uniform / comskip::detection::uniform_scale, 0, 255)]++;
         }
 
         if (context.state.frame[i].volume >= 0)
@@ -259,29 +289,29 @@ again:
         context.state.frame[i].ar_ratio = context.state.last_ar_ratio;
 
 
-        if ((context.settings.commDetectMethod & RESOLUTION_CHANGE))
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::resolution_change))
         {
             /* not reliable!!!!!!!!!!!!!!!!!!!!!
-                        frame[i].isblack &= ~C_r;
+                        frame[i].isblack &= ~resolution_change_cause;
                         videowidth = width = frame[i].minX + frame[i].maxX;
                         height = frame[i].minY + frame[i].maxY;
 
                         if ((old_width != 0 && abs(width-old_width) > 50) || (old_height != 0 && abs(height - old_height) > 50)) {
-                            frame[i].isblack |= C_r;
+                            frame[i].isblack |= resolution_change_cause;
                         }
                         old_width = width;
                         old_height = height;
             */
         }
         else
-            context.state.frame[i].isblack &= ~C_r;
+            context.state.frame[i].isblack &= ~resolution_change_cause;
 
-        if (context.settings.commDetectMethod & BLACK_FRAME)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::black_frame))
         {
-            // if (frame[i].brightness <= max_avg_brightness && (non_uniformity == 0 || frame[i].uniform < non_uniformity)/* && frame[i].volume < max_volume */ && !(frame[i].isblack & C_b))
-            //    frame[i].isblack |= C_b;
-            if ((context.state.frame[i].isblack & C_b) && context.state.frame[i].brightness > context.settings.max_avg_brightness)
-                context.state.frame[i].isblack &= ~C_b;
+            // if (frame[i].brightness <= max_avg_brightness && (non_uniformity == 0 || frame[i].uniform < non_uniformity)/* && frame[i].volume < max_volume */ && !(frame[i].isblack & black_cause))
+            //    frame[i].isblack |= black_cause;
+            if ((context.state.frame[i].isblack & black_cause) && context.state.frame[i].brightness > context.settings.max_avg_brightness)
+                context.state.frame[i].isblack &= ~black_cause;
 
             if (use_bright)
             {
@@ -290,60 +320,60 @@ again:
                 if (context.state.frame[i].dimCount > 0 && context.state.min_dimCount > context.state.frame[i].dimCount * 720 * 480 / context.state.videowidth / context.state.height) context.state.min_dimCount = context.state.frame[i].dimCount * 720 * 480 / context.state.videowidth / context.state.height;
 
                 if (context.state.frame[i].brightness <= context.settings.max_avg_brightness && context.state.frame[i].hasBright < context.settings.maxbright && context.state.frame[i].dimCount < (int)(.05 * context.state.videowidth * context.state.height))
-                    context.state.frame[i].isblack |= C_b;
+                    context.state.frame[i].isblack |= black_cause;
             }
             if (i>1) { // Uniform not calculated for frame 1
-                context.state.frame[i].isblack &= ~C_u;
-                if (!(context.state.frame[i].isblack & C_b) && context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
-                    context.state.frame[i].isblack |= C_u;
+                context.state.frame[i].isblack &= ~non_uniform_cause;
+                if (!(context.state.frame[i].isblack & black_cause) && context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
+                    context.state.frame[i].isblack |= non_uniform_cause;
             }
         }
         else
         {
-            context.state.frame[i].isblack &= ~(C_u | C_b);
+            context.state.frame[i].isblack &= ~(non_uniform_cause | black_cause);
         }
 
-        if (context.state.frame[i].isblack & C_s)
-            context.state.frame[i].isblack &= ~C_s;
+        if (context.state.frame[i].isblack & scene_change_cause)
+            context.state.frame[i].isblack &= ~scene_change_cause;
 
 
-        if (context.settings.commDetectMethod & SCENE_CHANGE && !(context.state.frame[i-1].isblack & C_b) && !(context.state.frame[i].isblack & C_b))
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::scene_change) && !(context.state.frame[i-1].isblack & black_cause) && !(context.state.frame[i].isblack & black_cause))
         {
             if (context.state.frame[i].brightness > 5 && abs(context.state.frame[i].brightness - context.state.last_brightness) > context.settings.brightness_jump)
             {
-                context.state.frame[i].isblack |= C_s;
+                context.state.frame[i].isblack |= scene_change_cause;
             }
             if (context.state.frame[i].brightness > 5)
                 context.state.last_brightness = context.state.frame[i].brightness;
 
             if (context.state.frame[i].brightness > 5 && context.state.frame[i].schange_percent < 15)
             {
-                context.state.frame[i].isblack |= C_s;
+                context.state.frame[i].isblack |= scene_change_cause;
             }
         }
 
 
-        if (context.state.frame[i].isblack & C_t)
-            context.state.frame[i].isblack &= ~C_t;
+        if (context.state.frame[i].isblack & cutscene_cause)
+            context.state.frame[i].isblack &= ~cutscene_cause;
 
-        if (context.settings.commDetectMethod & CUTSCENE && cutscene_nonzero_count > 0)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::cutscene) && cutscene_nonzero_count > 0)
         {
             if (context.state.frame[i].cutscenematch < context.settings.cutscenedelta)
-                context.state.frame[i].isblack |= C_t;
+                context.state.frame[i].isblack |= cutscene_cause;
         }
 
-        if (context.state.frame[i].isblack & C_v)
-            context.state.frame[i].isblack &= ~C_v;
+        if (context.state.frame[i].isblack & silence_cause)
+            context.state.frame[i].isblack &= ~silence_cause;
 
-        if (context.settings.commDetectMethod & SILENCE)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::silence))
         {
             if (0 <= context.state.frame[i].volume && context.state.frame[i].volume < context.settings.max_silence && context.settings.min_silence == 1)
             {
-                context.state.frame[i].isblack |= C_v;
+                context.state.frame[i].isblack |= silence_cause;
             }
             if (context.state.frame[i].volume < 6)
             {
-                context.state.frame[i].isblack |= C_v;
+                context.state.frame[i].isblack |= silence_cause;
             }
         }
 
@@ -385,7 +415,7 @@ again:
             context.state.schange_count++;
         }
 
-        if ((context.settings.commDetectMethod & LOGO) && i % logo_sample == 0)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && i % logo_sample == 0)
         {
             curLogoTest = (context.state.frame[i].currentGoodEdge > context.settings.logo_threshold);
             lastLogoTest = ProcessLogoTest(context, i, curLogoTest, false);
