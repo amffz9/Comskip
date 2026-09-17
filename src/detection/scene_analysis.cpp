@@ -361,7 +361,7 @@ void LoadCutScene(RecordingContext& context, std::string_view filename)
         return;
     }
     // Publish a complete record only after every file/size check succeeds.
-    std::copy(record->pixels.begin(), record->pixels.end(), context.state.cutscene[slot]);
+    std::copy(record->pixels.begin(), record->pixels.end(), context.state.cutscene[slot].begin());
     context.state.csbrightness[slot] = record->brightness;
     context.state.cslength[slot] = static_cast<int>(record->pixels.size());
     ++context.state.cutscenes;

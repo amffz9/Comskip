@@ -199,7 +199,7 @@ struct RecordingState {
     std::array<long, 256> lastHistogram{};
     int cutscenematch{};
     int cutscenes=0;
-    unsigned char cutscene[8][120000]{};
+    std::array<std::array<unsigned char, 120000>, 8> cutscene{};
     std::array<int, 8> csbrightness{};
     std::array<int, 8> cslength{};
     bool logoInfoAvailable{};

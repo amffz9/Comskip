@@ -1025,3 +1025,7 @@ than redefine completion around whichever subset currently passes tests.
 - Scoring range metadata now uses fixed-size `std::array<int, 10>` containers,
   preserving indexed calculations without implicit C-array decay. The complete
   Windows suite passes **523/523**.
+
+- Cut-scene sample storage now uses nested fixed-size `std::array` containers;
+  loading writes through an explicit iterator while matching consumes a bounded
+  span. The complete Windows suite passes **523/523**.
