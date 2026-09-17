@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -53,10 +54,10 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
         if (use_reference) list.push_back({context.state.reffer[i].start_frame, context.state.reffer[i].end_frame});
         else list.push_back({context.state.commercial[i].start_frame, context.state.commercial[i].end_frame});
     }
-    FrameIndex previous_end = -1;
+    std::optional<FrameIndex> previous_end;
     for (const auto& interval : list) {
         if (interval.start_frame < 0 || interval.end_frame < interval.start_frame ||
-            interval.start_frame <= previous_end)
+            (previous_end && interval.start_frame <= *previous_end))
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_or_overlapping_commercial_xml_range);
         // Detector blocks and padded commercial lists can end at the terminal
         // frame_count boundary. It has no frame storage/timestamp of its own.
@@ -64,10 +65,11 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
             throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::commercial_xml_range_exceeds_media);
         previous_end = interval.end_frame;
     }
-    previous_end = -1;
+    previous_end.reset();
     for (long i = 0; i < state.block_count; ++i) {
         const auto& block = state.cblock[i];
-        if (block.f_start < 0 || block.f_end < block.f_start || block.f_start <= previous_end)
+        if (block.f_start < 0 || block.f_end < block.f_start ||
+            (previous_end && block.f_start <= *previous_end))
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_or_overlapping_detector_xml_range);
         if (block.f_start >= state.frame_count || block.f_end > state.frame_count)
             throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::detector_xml_range_exceeds_media);
