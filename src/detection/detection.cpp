@@ -1417,8 +1417,8 @@ again:
         DetectionDebug(context, 1, "detection_frames_processed",
             std::format("{}", context.state.framesprocessed));
         time(&ltime);
-        const auto* timestamp=ctime(&ltime);
-        comskip::output::write_run_footer(context.state.logfilename,timestamp ? timestamp : "");
+        const auto timestamp = comskip::platform::time_string(ltime);
+        comskip::output::write_run_footer(context.state.logfilename, timestamp);
     }
 
 

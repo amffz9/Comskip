@@ -1,5 +1,6 @@
 #include "platform.h"
 
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <new>
@@ -86,6 +87,17 @@ bool local_time(std::time_t value, std::tm& result) noexcept
 #else
     return ::localtime_r(&value, &result) != nullptr;
 #endif
+}
+
+std::string time_string(std::time_t value)
+{
+    std::array<char, 26> buffer{};
+#if defined(_WIN32)
+    if (::ctime_s(buffer.data(), buffer.size(), &value) != 0) return {};
+#else
+    if (!::ctime_r(&value, buffer.data())) return {};
+#endif
+    return buffer.data();
 }
 }
 

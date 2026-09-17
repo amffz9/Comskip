@@ -45,3 +45,9 @@ TEST(PlatformTime, ConvertsCurrentTimeWithoutUsingSharedStorage) {
     EXPECT_GE(local.tm_mday, 1);
     EXPECT_LE(local.tm_mday, 31);
 }
+
+TEST(PlatformTime, ReturnsAnOwnedCtimeCompatibleString) {
+    const auto text = comskip::platform::time_string(std::time(nullptr));
+    ASSERT_FALSE(text.empty());
+    EXPECT_EQ(text.back(), '\n');
+}

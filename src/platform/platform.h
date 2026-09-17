@@ -46,6 +46,7 @@
 
 #include <stdint.h>
 #include <ctime>
+#include <string>
 #ifdef __cplusplus
 #include "portable_threads.h"
 #endif
@@ -66,4 +67,5 @@ void gettimeofday (struct timeval * tp, void * dummy);
 
 namespace comskip::platform {
 bool local_time(std::time_t value, std::tm& result) noexcept;
+std::string time_string(std::time_t value);
 }
