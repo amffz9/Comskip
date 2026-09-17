@@ -315,7 +315,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                 last_packet_pos = packet->pos;
             }
 
-            if(packet->stream_index == context.state.video_owner->videoStream)
+            if(context.state.video_owner->videoStream &&
+               packet->stream_index == *context.state.video_owner->videoStream)
             {
                 if (packet->size > 0 && packet->data != nullptr) {
                     const auto outcome=video_packet_process(context,*context.state.video_owner,packet);
@@ -323,12 +324,14 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                     if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
                 }
             }
-            else if(packet->stream_index == context.state.video_owner->audioStream)
+            else if(context.state.video_owner->audioStream &&
+                    packet->stream_index == *context.state.video_owner->audioStream)
             {
                 if (packet->size > 0 && packet->data != nullptr)
                     audio_packet_process(context, *context.state.video_owner, *packet);
             }
-            else if(packet->stream_index == context.state.video_owner->subtitleStream &&
+            else if(context.state.video_owner->subtitleStream &&
+                    packet->stream_index == *context.state.video_owner->subtitleStream &&
                     context.captions && !context.state.reviewing && packet->size > 0 && packet->data)
             {
                 const auto* video = context.state.video_owner->video_st;

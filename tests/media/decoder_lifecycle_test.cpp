@@ -19,7 +19,7 @@ void expect_status_diagnostic(const std::runtime_error& error, comskip::diagnost
 }
 void closed(const VideoState& video) {
     EXPECT_EQ(video.video_st,nullptr); EXPECT_EQ(video.audio_st,nullptr); EXPECT_EQ(video.subtitle_st,nullptr);
-    EXPECT_EQ(video.videoStream,-1); EXPECT_EQ(video.audioStream,-1); EXPECT_EQ(video.subtitleStream,-1);
+    EXPECT_FALSE(video.videoStream); EXPECT_FALSE(video.audioStream); EXPECT_FALSE(video.subtitleStream);
     EXPECT_FALSE(video.pFormatCtx); EXPECT_FALSE(video.dec_ctx); EXPECT_FALSE(video.audio_ctx);
     EXPECT_FALSE(video.subtitle_ctx); EXPECT_FALSE(video.frame); EXPECT_FALSE(video.pFrame);
     EXPECT_FALSE(video.img_convert_ctx);
@@ -86,7 +86,7 @@ TEST(DecoderLifecycle, MissingUnicodeInputOwnsCauseAndSameContextCanRetryValidMe
     context->state.mpegfilename={valid_utf8.begin(),valid_utf8.end()};
     ASSERT_NO_THROW(file_open(*context));
     ASSERT_TRUE(context->state.video_owner->pFormatCtx);
-    EXPECT_GE(context->state.video_owner->videoStream,0);
+    ASSERT_TRUE(context->state.video_owner->videoStream);
     file_close(*context); closed(*context->state.video_owner);
 }
 TEST(DecoderLifecycle, ActualUnicodeMediaCloseClearsBorrowedReferencesAndReopens) {
@@ -108,9 +108,9 @@ TEST(DecoderLifecycle, ActualUnicodeMediaCloseClearsBorrowedReferencesAndReopens
         ASSERT_NO_THROW(file_open(*context));
         ASSERT_TRUE(context->state.video_owner);
         const auto& video=*context->state.video_owner;
-        ASSERT_TRUE(video.pFormatCtx); ASSERT_GE(video.videoStream,0);
+    ASSERT_TRUE(video.pFormatCtx); ASSERT_TRUE(video.videoStream);
         ASSERT_NE(video.video_st,nullptr);
-        EXPECT_EQ(video.video_st,video.pFormatCtx->streams[video.videoStream]);
+    EXPECT_EQ(video.video_st,video.pFormatCtx->streams[*video.videoStream]);
         EXPECT_TRUE(video.dec_ctx); EXPECT_TRUE(video.frame); EXPECT_TRUE(video.pFrame);
         EXPECT_EQ(video.video_st->codecpar->width,160);
         EXPECT_EQ(video.video_st->codecpar->height,120);

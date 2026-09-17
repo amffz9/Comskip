@@ -956,3 +956,8 @@ than redefine completion around whichever subset currently passes tests.
   codec history no longer use sentinels, and output adapters represent missing
   prior intervals with `std::optional`. The complete Windows suite remains
   green at **523/523**.
+
+- `VideoState` now represents optional audio, video, and subtitle stream
+  selections with `std::optional<int>`. FFmpeg calls unwrap an explicitly
+  selected stream only at the API boundary, removing the shared `-1` stream
+  sentinel. The complete Windows suite passes **523/523**.

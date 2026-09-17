@@ -94,8 +94,8 @@ void DoSeekRequest(RecordingContext& context, VideoState& is)
 {
     int ret{};
     for (;;) {
-//           ret = avformat_seek_file(is.pFormatCtx.get(), is.videoStream, INT64_MIN, is.seek_pos, INT64_MAX, is.seek_flags);
-    ret = av_seek_frame(is.pFormatCtx.get(), is.videoStream,  is.seek_pos,  is.seek_flags);
+//           ret = avformat_seek_file(is.pFormatCtx.get(), *is.videoStream, INT64_MIN, is.seek_pos, INT64_MAX, is.seek_flags);
+    ret = av_seek_frame(is.pFormatCtx.get(), *is.videoStream,  is.seek_pos,  is.seek_flags);
 //            ret = av_seek_frame(is.pFormatCtx.get(), -1,  is.seek_pos,  is.seek_flags);
     context.state.pev_best_effort_timestamp = 0;
     context.state.best_effort_timestamp = 0;
@@ -140,11 +140,11 @@ void DoSeekRequest(RecordingContext& context, VideoState& is)
     }
     if (!is.seek_no_flush)
     {
-        if(is.audioStream >= 0)
+        if(is.audioStream)
         {
             avcodec_flush_buffers(is.audio_ctx.get());
         }
-        if(is.videoStream >= 0)
+        if(is.videoStream)
         {
             avcodec_flush_buffers(is.dec_ctx.get());
         }
@@ -205,7 +205,7 @@ void DecodeOnePicture(RecordingContext& context, double pts)
         }
         is.seek_req = 0;
 
-        if(packet->stream_index == is.videoStream)
+        if(is.videoStream && packet->stream_index == *is.videoStream)
         {
 /*
             if (packet->pts != AV_NOPTS_VALUE)
@@ -246,7 +246,7 @@ void DecodeOnePicture(RecordingContext& context, double pts)
  */
             }
         }
-        else if(packet->stream_index == is.audioStream)
+        else if(is.audioStream && packet->stream_index == *is.audioStream)
         {
             // audio_packet_process(is, packet);
         }

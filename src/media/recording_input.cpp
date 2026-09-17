@@ -62,9 +62,9 @@ void file_open_impl(RecordingContext& context)
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
 
-        context.state.video_owner->videoStream=-1;
-        context.state.video_owner->audioStream=-1;
-        context.state.video_owner->subtitleStream = -1;
+        context.state.video_owner->videoStream.reset();
+        context.state.video_owner->audioStream.reset();
+        context.state.video_owner->subtitleStream.reset();
         context.state.video_owner->pFormatCtx.reset();
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
@@ -133,11 +133,11 @@ void file_open_impl(RecordingContext& context)
         is.frame = make_frame();
     }
 
-    if ( is.videoStream == -1)
+    if (!is.videoStream)
     {
         video_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
         const auto video_open_status = video_index >= 0 ? stream_component_open(context, is, video_index) : comskip::media::StreamOpenResult::unavailable;
-        if(video_open_status != comskip::media::StreamOpenResult::opened || is.videoStream < 0)
+        if(video_open_status != comskip::media::StreamOpenResult::opened || !is.videoStream)
         {
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                 comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is.filename});
@@ -169,7 +169,7 @@ void file_open_impl(RecordingContext& context)
 
     }
 
-    if (is.audioStream== -1 && video_index>=0)
+    if (!is.audioStream && video_index>=0)
     {
 
         audio_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, nullptr, 0);
@@ -179,7 +179,7 @@ void file_open_impl(RecordingContext& context)
             if (audio_open_status == comskip::media::StreamOpenResult::opened && is.audio_st)
                 context.state.audio_channels = is.audio_st->codecpar->ch_layout.nb_channels;
 
-            if (audio_open_status != comskip::media::StreamOpenResult::opened || is.audioStream < 0)
+        if (audio_open_status != comskip::media::StreamOpenResult::opened || !is.audioStream)
             {
                 Debug(context, 1, context.translator.text("media_audio_decoder_warning"));
             }
@@ -187,7 +187,7 @@ void file_open_impl(RecordingContext& context)
 
     }
 
-    if (is.subtitleStream == -1 && video_index>=0)
+    if (!is.subtitleStream && video_index>=0)
     {
         subtitle_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, nullptr, 0);
         if(subtitle_index >= 0)
@@ -238,7 +238,9 @@ void file_close(RecordingContext& context) {
     video.dec_ctx.reset();
     video.audio_ctx.reset();
     video.subtitle_ctx.reset();
-    video.videoStream = video.audioStream = video.subtitleStream = -1;
+    video.videoStream.reset();
+    video.audioStream.reset();
+    video.subtitleStream.reset();
     // Borrowed stream references cannot outlive the input that owns them.
     video.video_st = video.audio_st = video.subtitle_st = nullptr;
     video.pFormatCtx.reset();

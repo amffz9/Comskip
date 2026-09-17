@@ -60,7 +60,7 @@ TEST(InputFilename, LongNestedUnicodeMediaOpensAndDemuxesAllPacketsWithoutFixedB
     auto packet = comskip::media::make_packet();
     int frames = 0;
     while (av_read_frame(video.pFormatCtx.get(), packet.get()) >= 0) {
-        if (packet->stream_index == video.videoStream) ++frames;
+        if (video.videoStream && packet->stream_index == *video.videoStream) ++frames;
         av_packet_unref(packet.get());
     }
     EXPECT_EQ(frames, 10);

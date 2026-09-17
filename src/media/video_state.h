@@ -1,5 +1,6 @@
 #pragma once
 #include "ffmpeg_resources.h"
+#include <optional>
 #include <string>
 struct VideoState {
     comskip::media::NetworkSession network;
@@ -7,7 +8,9 @@ struct VideoState {
     comskip::media::CodecPtr dec_ctx, audio_ctx, subtitle_ctx;
     // MPEG2 uses field-time ticks; MPEG1 overrides this to one on opening.
     int ticks_per_frame{2};
-    int videoStream{-1}, audioStream{-1}, subtitleStream{-1};
+    std::optional<int> videoStream;
+    std::optional<int> audioStream;
+    std::optional<int> subtitleStream;
     int seek_req{};
     int seek_by_bytes{};
     int seek_no_flush{};
