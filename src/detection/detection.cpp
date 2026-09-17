@@ -809,7 +809,7 @@ bool BuildMasterCommList(RecordingContext& context)
         /*
                 for (i = logo_block_count-2; i >= 0; i--) {
                     if (frame_duration(context, logo_block[i+1].start, logo_block[i].end) < min_commercial_size + (2*shrink_logo)) {
-                        Debug(1, "Logo cblock %d and %d combined because gap (%i s) too short with previous\n", i, i+1, (int)frame_duration(context, logo_block[i+1].start, logo_block[i].end ));
+                        Debug(1, "Logo cblock %d and %d combined because gap (%i s) too short with previous\n", i, i+1, static_cast<int>(frame_duration(context, logo_block[i+1].start, logo_block[i].end) ));
                         logo_block[i+1].start = logo_block[i].start;
                         for (t = i; t+1 < logo_block_count; t++) {
                             logo_block[t] = logo_block[t+1];
@@ -849,10 +849,10 @@ bool BuildMasterCommList(RecordingContext& context)
                     continue;
                 }
 
-                j = context.state.logo_block[i].end + (int)(context.settings.after_logo * context.settings.fps);
+                j = context.state.logo_block[i].end + static_cast<int>(context.settings.after_logo * context.settings.fps);
                 if ( j >= context.state.frame_count)
                     j = context.state.frame_count-1;
-                t = j + (int)(30 * context.settings.fps);
+                t = j + static_cast<int>(30 * context.settings.fps);
                 if ( t >= context.state.frame_count)
                     t = context.state.frame_count-1;
                 maxsc = 255;
@@ -949,10 +949,10 @@ bool BuildMasterCommList(RecordingContext& context)
                     continue;
                 }
 
-                j = context.state.logo_block[i].start - (int)(context.settings.before_logo * context.settings.fps);
+                j = context.state.logo_block[i].start - static_cast<int>(context.settings.before_logo * context.settings.fps);
                 if ( j < 1)
                     j = 1;
-                t = j - (int)(30 * context.settings.fps);
+                t = j - static_cast<int>(30 * context.settings.fps);
                 if ( t < 1)
                     t = 1;
                 maxsc = 255;
@@ -1111,7 +1111,7 @@ bool BuildMasterCommList(RecordingContext& context)
                     if (silence_count > context.settings.min_silence /* * (int)fps */ && silence_count < 5 * context.settings.fps)
                     {
 
-                        if ( very_low_volume_count > (int)(silence_count * 0.7) ||  schange_found || context.state.frame[i].schange_percent < context.state.schange_threshold)
+                        if ( very_low_volume_count > static_cast<int>(silence_count * 0.7) ||  schange_found || context.state.frame[i].schange_percent < context.state.schange_threshold)
                         {
                             const auto silence_check = static_cast<int>(2.5 * context.settings.fps);
                             summed_volume1 = 0;
@@ -1261,7 +1261,7 @@ bool BuildMasterCommList(RecordingContext& context)
         {
             length = context.state.ar_block[i].end - context.state.ar_block[i].start;
 
-            if (context.settings.cut_on_ar_change > 2 && length < context.settings.cut_on_ar_change*(int)context.settings.fps && context.state.ar_block[i].ar_ratio != undefined_aspect_ratio )
+            if (context.settings.cut_on_ar_change > 2 && length < context.settings.cut_on_ar_change*static_cast<int>(context.settings.fps) && context.state.ar_block[i].ar_ratio != undefined_aspect_ratio )
             {
                 DetectionDebug(context, 6, "detection_ar_block_undefine", std::format("{}", i));
                 context.state.ar_block[i].ar_ratio = undefined_aspect_ratio;

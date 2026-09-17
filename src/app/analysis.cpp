@@ -376,7 +376,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                 Debug(context, 1, "%s", context.translator.text("analysis_selftest_seek_ok"));
 
             /*
-                            if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
+                            if (tries ==  0 && fabs(av_q2d(is->video_st->time_base) * static_cast<double>(packet->pts - is->video_st->start_time - is->seek_pos)) > 2.0) {
                                is->seek_req=1;
                                is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
                                is->seek_flags = AVSEEK_FLAG_BYTE;

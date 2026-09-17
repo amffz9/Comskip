@@ -68,7 +68,7 @@ void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, 
     /*
     ar_width = width;
     if (ar_width < maxY + minY)
-        ar_width = (int)((maxY + minY) * 1.3);
+        ar_width = static_cast<int>((maxY + minY) * 1.3);
     */
 
     context.state.last_ar_ratio = pictureWidth / pictureHeight;
@@ -221,10 +221,10 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
         if (comskip::detection::method_enabled(context.settings.commDetectMethod,
                                                 comskip::detection::DetectionMethod::aspect_ratio))
         {
-            context.state.ar_block[context.state.ar_block_count].end = context.state.framenum_real - 3*(int)context.settings.fps -1;
+            context.state.ar_block[context.state.ar_block_count].end = context.state.framenum_real - 3*static_cast<int>(context.settings.fps) -1;
             context.state.ar_block_count++;
             InitializeARBlockArray(context, context.state.ar_block_count);
-            context.state.ar_block[context.state.ar_block_count].start = context.state.framenum_real - 3*(int)context.settings.fps;
+            context.state.ar_block[context.state.ar_block_count].start = context.state.framenum_real - 3*static_cast<int>(context.settings.fps);
             context.state.ar_block[context.state.ar_block_count].ar_ratio = context.state.ar_ratio_trend;
             context.state.ar_block[context.state.ar_block_count].volume = 0;
             context.state.ar_block[context.state.ar_block_count].width = context.state.videowidth;
@@ -538,7 +538,7 @@ void DetectCredits(RecordingContext& context, int frame_count)
         {
             context.state.frame[frame_count].cutscenematch = 100;
             if (abs(context.state.DetectCredits_credit_length - context.state.DetectCredits_prev_credit_length)< 10 &&
-                  frame_count - context.state.DetectCredits_credit_length - context.state.DetectCredits_prev_credit_end < (int)context.settings.fps/2) {
+                  frame_count - context.state.DetectCredits_credit_length - context.state.DetectCredits_prev_credit_end < static_cast<int>(context.settings.fps)/2) {
                 context.state.DetectCredits_credit_count++;
                 if (context.state.DetectCredits_credit_count > 5)
                     SceneDebug(context, 1, "scene_credits_detected",
@@ -547,7 +547,7 @@ void DetectCredits(RecordingContext& context, int frame_count)
             context.state.DetectCredits_prev_credit_end = frame_count;
             context.state.DetectCredits_prev_credit_length = context.state.DetectCredits_credit_length;
             context.state.DetectCredits_credit_length = 0;
-        } else if (frame_count - context.state.DetectCredits_prev_credit_end  < (int)context.settings.fps/2) {
+        } else if (frame_count - context.state.DetectCredits_prev_credit_end  < static_cast<int>(context.settings.fps)/2) {
             context.state.frame[frame_count].cutscenematch = 100;
             context.state.DetectCredits_credit_length = 0;
         } else {
@@ -620,10 +620,10 @@ bool CheckSceneHasChanged(RecordingContext& context)
         }
         context.state.scan_workers->run();
     } else {
-        ScanBottom(context, (intptr_t)0);
-        ScanTop(context, (intptr_t)0);
-        ScanLeft(context, (intptr_t)0);
-        ScanRight(context, (intptr_t)0);
+        ScanBottom(context, static_cast<intptr_t>(0));
+        ScanTop(context, static_cast<intptr_t>(0));
+        ScanLeft(context, static_cast<intptr_t>(0));
+        ScanRight(context, static_cast<intptr_t>(0));
     }
     for (i = 0; i < 256; i++) {
         context.state.histogram[i] = context.state.own_histogram[0][i] + context.state.own_histogram[1][i] + context.state.own_histogram[2][i] + context.state.own_histogram[3][i];

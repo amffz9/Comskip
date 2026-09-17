@@ -884,7 +884,7 @@ void CleanLogoBlocks(RecordingContext& context)
                 {
                     a = cblock[k].f_end - cblock[k].f_start;
                     j = cblock[i].f_start - cblock[k].f_end;
-                    Debug(1, "Long/Short cblock ratio for cblock %i till %i is %i percent\n",k, i-1 , (int)(100 * a)/(a+j));
+                    Debug(1, "Long/Short cblock ratio for cblock %i till %i is %i percent\n",k, i-1 , static_cast<int>(100 * a)/(a+j));
                 }
                 k = i;
             }

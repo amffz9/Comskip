@@ -953,7 +953,7 @@ void ProcessCCData(RecordingContext& context)
 
     }
 
-    if ((char)context.state.ccData[0] == 'C' && (char)context.state.ccData[1] == 'C' && context.state.ccData[2] == 0x01 && context.state.ccData[3] == 0xf8)
+    if (static_cast<char>(context.state.ccData[0]) == 'C' && static_cast<char>(context.state.ccData[1]) == 'C' && context.state.ccData[2] == 0x01 && context.state.ccData[3] == 0xf8)
     {
         context.state.reorderCC = 0;
         packetCount = context.state.ccData[4];
@@ -975,7 +975,7 @@ void ProcessCCData(RecordingContext& context)
         proceed = 1;
         is_CC = 1;
     }
-    else 	if ((char)context.state.ccData[0] == 'G' && (char)context.state.ccData[1] == 'A' && context.state.ccData[2] == '9' && context.state.ccData[3] == '4'&& context.state.ccData[4] == 0x03)
+    else 	if (static_cast<char>(context.state.ccData[0]) == 'G' && static_cast<char>(context.state.ccData[1]) == 'A' && context.state.ccData[2] == '9' && context.state.ccData[3] == '4'&& context.state.ccData[4] == 0x03)
     {
         context.state.reorderCC = 1;
         packetCount = context.state.ccData[5] & 0x1F;

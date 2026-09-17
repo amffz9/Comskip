@@ -167,7 +167,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     break;
                 }
                 added = gap_length / context.settings.fps + context.settings.div5_tolerance;
-                remainder = added - 5 * ((int)(added / 5.0));
+                remainder = added - 5 * static_cast<int>(added / 5.0);
                 if ((context.settings.require_div5 != 1) || (remainder >= 0 && remainder <= 2 * context.settings.div5_tolerance))
                 {
                     // look for segments in multiples of 5 seconds
