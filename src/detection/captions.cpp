@@ -43,7 +43,7 @@ bool contains_case_insensitive(std::string_view text, std::string_view phrase)
 }
 
 template <typename... Args>
-void CaptionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+void CaptionDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
     Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }
@@ -233,7 +233,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
         if (newXDS)
         {
             const auto frame = std::format("{}", context.state.framenum);
-            const auto xds_debug = [&](const char* key, auto&&... values) {
+            const auto xds_debug = [&](std::string_view key, auto&&... values) {
                 Debug(context, 10, "%s", context.translator.format(key,
                     std::forward<decltype(values)>(values)...).c_str());
             };

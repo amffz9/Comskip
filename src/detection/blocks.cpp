@@ -31,7 +31,7 @@ double frame_time(RecordingContext& context, int frame) {
 }
 
 template <typename... Args>
-void BlocksDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+void BlocksDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
     Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }

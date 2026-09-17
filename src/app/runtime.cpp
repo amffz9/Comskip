@@ -15,12 +15,13 @@
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 namespace {
 template <class Operation>
-void allocate_or_exit(RecordingContext& context, const char* message_key, int status, Operation&& operation)
+void allocate_or_exit(RecordingContext& context, std::string_view message_key, int status, Operation&& operation)
 {
     if (comskip::attempt_allocation(std::forward<Operation>(operation))) return;
     Debug(context, 0, "%s", context.translator.text(message_key));

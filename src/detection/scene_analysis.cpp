@@ -20,6 +20,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <format>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -36,7 +37,7 @@ inline constexpr double aspect_ratio_trend = 0.8;
 }
 
 template <typename... Args>
-void SceneDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+void SceneDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
     Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }

@@ -861,3 +861,6 @@ than redefine completion around whichever subset currently passes tests.
 
 - Logo mask cleanup, bounds, and diagnostic dumping now use bounded spans for
   their pixel buffers as well.
+
+- Localized debug helper message IDs now use `std::string_view` consistently,
+  keeping catalog identifiers independent of null-terminated storage.

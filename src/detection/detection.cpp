@@ -19,6 +19,7 @@
 #include "ui/review.h"
 #include "media/audio_analysis.h"
 #include <format>
+#include <string_view>
 #include "frame_mask.h"
 #include "logo_sampling.h"
 #include "logo_shrink.h"
@@ -48,7 +49,7 @@ double frame_duration(RecordingContext& context, int end_frame, int start_frame)
 }
 
 template <typename... Args>
-void DetectionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+void DetectionDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
     Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }

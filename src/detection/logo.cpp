@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <format>
+#include <string_view>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -51,7 +52,7 @@ void require_logo_buffer(std::size_t available, const comskip::detection::LogoSc
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_scan_requires_complete_geometry_sized_pixel_buffers);
 }
 template <typename... Args>
-void LogoDebug(RecordingContext& context, int level, const char* key, Args&&... args) {
+void LogoDebug(RecordingContext& context, int level, std::string_view key, Args&&... args) {
     Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }
 std::string logo_caption_type(RecordingContext& context, int type) {
