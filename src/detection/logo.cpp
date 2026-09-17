@@ -17,6 +17,7 @@
 #include "platform/file_resources.h"
 #include "platform/platform.h"
 #include <algorithm>
+#include <cstdlib>
 #include <cstdio>
 #include <format>
 #include <stdexcept>
@@ -289,33 +290,58 @@ void EdgeCount(unsigned char* frame_ptr) {
 
 */
 
-#define TEST_HEDGE1(FRAME,X,Y)	(abs(FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius]   - FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius]  ) >= context.settings.edge_level_threshold)
-#define TEST_VEDGE1(FRAME,X,Y)	(abs(FRAME[((Y) - context.settings.edge_radius) * context.state.width + (X)] - FRAME[((Y) + context.settings.edge_radius) * context.state.width + (X)]) >= context.settings.edge_level_threshold)
+struct EdgeTests {
+    int width;
+    int radius;
+    int threshold;
 
-#define TEST_HEDGE0(FRAME,X,Y)  (abs(FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius]   - FRAME[(Y) * context.state.width + (X)]  ) >= context.settings.edge_level_threshold) || \
-                                (abs(FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius]   - FRAME[(Y) * context.state.width + (X)]  ) >= context.settings.edge_level_threshold)
-
-#define TEST_VEDGE0(FRAME,X,Y)	(abs(FRAME[((Y) - context.settings.edge_radius) * context.state.width + (X)] - FRAME[((Y)) * context.state.width + (X)]) >= context.settings.edge_level_threshold) || \
-                                (abs(FRAME[((Y) + context.settings.edge_radius) * context.state.width + (X)] - FRAME[((Y)) * context.state.width + (X)]) >= context.settings.edge_level_threshold)
-
-#define TEST_HEDGE2(FRAME,X,Y)  (abs((FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius - 1] + FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius] + FRAME[(Y) * context.state.width + (X) - context.settings.edge_radius + 1]) - \
-                                     (FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius - 1] + FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius] + FRAME[(Y) * context.state.width + (X) + context.settings.edge_radius + 1])   )/3 >= context.settings.edge_level_threshold)
-
-#define TEST_VEDGE2(FRAME,X,Y)	(abs((FRAME[((Y) - context.settings.edge_radius - 1) * context.state.width + (X)] + FRAME[((Y) - context.settings.edge_radius) * context.state.width + (X)] + FRAME[((Y) - context.settings.edge_radius + 1) * context.state.width + (X)]) - \
-                                     (FRAME[((Y) + context.settings.edge_radius - 1) * context.state.width + (X)] + FRAME[((Y) + context.settings.edge_radius) * context.state.width + (X)] + FRAME[((Y) + context.settings.edge_radius + 1) * context.state.width + (X)])   )/3 >= context.settings.edge_level_threshold)
-
-
-#define TEST_HEDGE3(FRAME,X,Y)	(abs((\
-FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius] +\
-FRAME[((Y)            )*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)            )*context.state.width+(X)+context.settings.edge_radius] +\
-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius])\
-) >= context.settings.edge_level_threshold)
-
-#define TEST_VEDGE3(FRAME,X,Y)	(abs((\
-FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)-context.settings.edge_radius] +\
-FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)            ]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)            ] +\
-FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius]-FRAME[((Y)+context.settings.edge_radius)*context.state.width+(X)+context.settings.edge_radius])\
-) >= context.settings.edge_level_threshold)
+    [[nodiscard]] bool horizontal1(const unsigned char* frame, int x, int y) const noexcept {
+        return std::abs(static_cast<int>(frame[y * width + x - radius]) -
+            static_cast<int>(frame[y * width + x + radius])) >= threshold;
+    }
+    [[nodiscard]] bool vertical1(const unsigned char* frame, int x, int y) const noexcept {
+        return std::abs(static_cast<int>(frame[(y - radius) * width + x]) -
+            static_cast<int>(frame[(y + radius) * width + x])) >= threshold;
+    }
+    [[nodiscard]] bool horizontal0(const unsigned char* frame, int x, int y) const noexcept {
+        const auto center = static_cast<int>(frame[y * width + x]);
+        return std::abs(static_cast<int>(frame[y * width + x - radius]) - center) >= threshold ||
+            std::abs(static_cast<int>(frame[y * width + x + radius]) - center) >= threshold;
+    }
+    [[nodiscard]] bool vertical0(const unsigned char* frame, int x, int y) const noexcept {
+        const auto center = static_cast<int>(frame[y * width + x]);
+        return std::abs(static_cast<int>(frame[(y - radius) * width + x]) - center) >= threshold ||
+            std::abs(static_cast<int>(frame[(y + radius) * width + x]) - center) >= threshold;
+    }
+    [[nodiscard]] bool horizontal2(const unsigned char* frame, int x, int y) const noexcept {
+        const auto left = static_cast<int>(frame[y * width + x - radius - 1]) +
+            frame[y * width + x - radius] + frame[y * width + x - radius + 1];
+        const auto right = static_cast<int>(frame[y * width + x + radius - 1]) +
+            frame[y * width + x + radius] + frame[y * width + x + radius + 1];
+        return std::abs(left - right) / 3 >= threshold;
+    }
+    [[nodiscard]] bool vertical2(const unsigned char* frame, int x, int y) const noexcept {
+        const auto top = static_cast<int>(frame[(y - radius - 1) * width + x]) +
+            frame[(y - radius) * width + x] + frame[(y - radius + 1) * width + x];
+        const auto bottom = static_cast<int>(frame[(y + radius - 1) * width + x]) +
+            frame[(y + radius) * width + x] + frame[(y + radius + 1) * width + x];
+        return std::abs(top - bottom) / 3 >= threshold;
+    }
+    [[nodiscard]] bool horizontal3(const unsigned char* frame, int x, int y) const noexcept {
+        const auto difference =
+            static_cast<int>(frame[(y - radius) * width + x - radius]) - frame[(y - radius) * width + x + radius] +
+            static_cast<int>(frame[y * width + x - radius]) - frame[y * width + x + radius] +
+            static_cast<int>(frame[(y + radius) * width + x - radius]) - frame[(y + radius) * width + x + radius];
+        return std::abs(difference) >= threshold;
+    }
+    [[nodiscard]] bool vertical3(const unsigned char* frame, int x, int y) const noexcept {
+        const auto difference =
+            static_cast<int>(frame[(y - radius) * width + x - radius]) - frame[(y + radius) * width + x - radius] +
+            static_cast<int>(frame[(y - radius) * width + x]) - frame[(y + radius) * width + x] +
+            static_cast<int>(frame[(y - radius) * width + x + radius]) - frame[(y + radius) * width + x + radius];
+        return std::abs(difference) >= threshold;
+    }
+};
 
 
 void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNumber)
@@ -324,6 +350,8 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
     if (!frame_ptr) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_edge_detection_requires_image_pixels);
     require_logo_buffer(context.state.hor_edgecount.size(), scan);
     require_logo_buffer(context.state.ver_edgecount.size(), scan);
+    const EdgeTests edge_tests{context.state.width, context.settings.edge_radius,
+        context.settings.edge_level_threshold};
 
     int				x;
     int				y;
@@ -376,7 +404,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
         for (const auto x : scan.columns)
         {
             for (const auto y : scan.rows) {
-                if (TEST_HEDGE1(frame_ptr,x,y))
+                if (edge_tests.horizontal1(frame_ptr,x,y))
                 {
                     if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                         context.state.hor_edgecount[y * context.state.width + x]++;
@@ -385,7 +413,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
                 }
                 else
                     context.state.hor_edgecount[y * context.state.width + x] = 0;
-                if (TEST_VEDGE1(frame_ptr,x,y))
+                if (edge_tests.vertical1(frame_ptr,x,y))
                 {
                     if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                         context.state.ver_edgecount[y * context.state.width + x]++;
@@ -402,7 +430,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
         for (const auto x : scan.columns)
         {
             for (const auto y : scan.rows) {
-                if (TEST_HEDGE2(frame_ptr,x,y))
+                if (edge_tests.horizontal2(frame_ptr,x,y))
                 {
                     if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                         context.state.hor_edgecount[y * context.state.width + x]++;
@@ -411,7 +439,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
                 }
                 else
                     context.state.hor_edgecount[y * context.state.width + x] = 0;
-                if (TEST_VEDGE2(frame_ptr,x,y))
+                if (edge_tests.vertical2(frame_ptr,x,y))
                 {
                     if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                         context.state.ver_edgecount[y * context.state.width + x]++;
@@ -429,7 +457,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
         for (const auto x : scan.columns)
         {
             for (const auto y : scan.rows) {
-                if (TEST_HEDGE3(frame_ptr,x,y))
+                if (edge_tests.horizontal3(frame_ptr,x,y))
                 {
                     if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                         context.state.hor_edgecount[y * context.state.width + x]++;
@@ -438,7 +466,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
                 }
                 else
                     context.state.hor_edgecount[y * context.state.width + x] = 0;
-                if (TEST_VEDGE3(frame_ptr,x,y))
+                if (edge_tests.vertical3(frame_ptr,x,y))
                 {
                     if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                         context.state.ver_edgecount[y * context.state.width + x]++;
@@ -457,7 +485,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
             for (const auto y : scan.rows) {
                 if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
-                    if (TEST_HEDGE0(frame_ptr,x,y))
+                    if (edge_tests.horizontal0(frame_ptr,x,y))
                     {
                         if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                             context.state.hor_edgecount[y * context.state.width + x]++;
@@ -469,7 +497,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
                 }
                 if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
                 {
-                    if (TEST_VEDGE0(frame_ptr,x,y))
+                    if (edge_tests.vertical0(frame_ptr,x,y))
                     {
                         if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                             context.state.ver_edgecount[y * context.state.width + x]++;
@@ -489,7 +517,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
             for (const auto y : scan.rows) {
                 if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
-                    if (TEST_HEDGE0(frame_ptr,x,y))
+                    if (edge_tests.horizontal0(frame_ptr,x,y))
                     {
                         if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                             context.state.hor_edgecount[y * context.state.width + x]++;
@@ -501,7 +529,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
                 }
                 if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
                 {
-                    if (TEST_VEDGE0(frame_ptr,x,y))
+                    if (edge_tests.vertical0(frame_ptr,x,y))
                     {
                         if (context.state.ver_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
                             context.state.ver_edgecount[y * context.state.width + x]++;
@@ -525,6 +553,8 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     if (!testFrame) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_comparison_requires_image_pixels);
     require_logo_buffer(context.state.choriz_edgemask.size(), scan);
     require_logo_buffer(context.state.cvert_edgemask.size(), scan);
+    const EdgeTests edge_tests{context.state.width, context.settings.edge_radius,
+        context.settings.edge_level_threshold};
 
     int		index;
     int		x;
@@ -547,7 +577,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
                 {
-                    if (TEST_HEDGE1(testFrame,x,y))
+                    if (edge_tests.horizontal1(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -555,7 +585,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 }
                 if (context.state.cvert_edgemask[index])
                 {
-                    if (TEST_VEDGE1(testFrame,x,y))
+                    if (edge_tests.vertical1(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -574,7 +604,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
                 {
-                    if (TEST_HEDGE2(testFrame,x,y))
+                    if (edge_tests.horizontal2(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -582,7 +612,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 }
                 if (context.state.cvert_edgemask[index])
                 {
-                    if (TEST_VEDGE2(testFrame,x,y))
+                    if (edge_tests.vertical2(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -601,7 +631,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
                 {
-                    if (TEST_HEDGE3(testFrame,x,y))
+                    if (edge_tests.horizontal3(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -609,7 +639,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 }
                 if (context.state.cvert_edgemask[index])
                 {
-                    if (TEST_VEDGE3(testFrame,x,y))
+                    if (edge_tests.vertical3(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -628,7 +658,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index] && testFrame[index] < 200)
                 {
-                    if (TEST_HEDGE0(testFrame,x,y))
+                    if (edge_tests.horizontal0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -636,7 +666,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 }
                 if (context.state.cvert_edgemask[index] && testFrame[index] < 200)
                 {
-                    if (TEST_VEDGE0(testFrame,x,y))
+                    if (edge_tests.vertical0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -654,7 +684,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
                 {
-                    if (TEST_HEDGE0(testFrame,x,y))
+                    if (edge_tests.horizontal0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -662,7 +692,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
                 }
                 if (context.state.cvert_edgemask[index])
                 {
-                    if (TEST_VEDGE0(testFrame,x,y))
+                    if (edge_tests.vertical0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -683,6 +713,8 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     if (!testFrame) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_comparison_requires_image_pixels);
     require_logo_buffer(context.state.thoriz_edgemask.size(), scan);
     require_logo_buffer(context.state.tvert_edgemask.size(), scan);
+    const EdgeTests edge_tests{context.state.width, context.settings.edge_radius,
+        context.settings.edge_level_threshold};
 
     int		index;
     int		x;
@@ -701,7 +733,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
                 {
-                    if (TEST_HEDGE1(testFrame,x,y))
+                    if (edge_tests.horizontal1(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -709,7 +741,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 }
                 if (context.state.tvert_edgemask[index])
                 {
-                    if (TEST_VEDGE1(testFrame,x,y))
+                    if (edge_tests.vertical1(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -728,7 +760,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
                 {
-                    if (TEST_HEDGE2(testFrame,x,y))
+                    if (edge_tests.horizontal2(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -736,7 +768,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 }
                 if (context.state.tvert_edgemask[index])
                 {
-                    if (TEST_VEDGE2(testFrame,x,y))
+                    if (edge_tests.vertical2(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -755,7 +787,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
                 {
-                    if (TEST_HEDGE3(testFrame,x,y))
+                    if (edge_tests.horizontal3(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -763,7 +795,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 }
                 if (context.state.tvert_edgemask[index])
                 {
-                    if (TEST_VEDGE3(testFrame,x,y))
+                    if (edge_tests.vertical3(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -782,7 +814,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index] && testFrame[index] < 200)
                 {
-                    if (TEST_HEDGE0(testFrame,x,y))
+                    if (edge_tests.horizontal0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -790,7 +822,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 }
                 if (context.state.tvert_edgemask[index] && testFrame[index] < 200)
                 {
-                    if (TEST_VEDGE0(testFrame,x,y))
+                    if (edge_tests.vertical0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -808,7 +840,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
                 {
-                    if (TEST_HEDGE0(testFrame,x,y))
+                    if (edge_tests.horizontal0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
@@ -816,7 +848,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
                 }
                 if (context.state.tvert_edgemask[index])
                 {
-                    if (TEST_VEDGE0(testFrame,x,y))
+                    if (edge_tests.vertical0(testFrame,x,y))
                     {
                         goodEdges++;
                     }
