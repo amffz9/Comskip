@@ -574,8 +574,7 @@ bool BuildMasterCommList(RecordingContext& context)
     {
 
         volume_delta = volume_delta_initial;
-
-try_again:
+        do {
         if (context.state.framearray)  			// Find silence volume level
         {
 
@@ -682,9 +681,8 @@ try_again:
         if (mv == 0 || plataus < 5)
         {
             volume_delta *= 2;
-            if (volume_delta < volume_maximum)
-                goto try_again;
         }
+        } while ((mv == 0 || plataus < 5) && volume_delta < volume_maximum);
     }
     if (context.settings.max_volume == 0)
     {
@@ -710,7 +708,7 @@ try_again:
         {
 
             count = 21;
-scanagain:
+            do {
             a = fallback_start_volume;
             k = 0;
             if (context.state.frame[i].volume > 0)
@@ -744,8 +742,8 @@ scanagain:
         if (a > fallback_start_volume-100 && count > 7)
         {
             count = count - 7;
-            goto scanagain;
         }
+            } while (a > fallback_start_volume-100 && count > 7);
         context.settings.max_silence = a+10;
         context.settings.max_volume = a+150;
     }
