@@ -98,19 +98,16 @@ void file_open_impl(RecordingContext& context)
         if (!is->pFormatCtx) throw std::bad_alloc();
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
-again:
-        const int open_status=avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), nullptr,std::inout_ptr(context.state.myoptions));
-        if(open_status<0)
-        {
-            if (openretries++ < context.settings.live_tv_retries)
-            {
-                sleep_for_ms(1000L);
-                goto again;
+        int open_status{};
+        while ((open_status = avformat_open_input(std::inout_ptr(is->pFormatCtx),
+                                                   is->filename.c_str(), nullptr,
+                                                   std::inout_ptr(context.state.myoptions))) < 0) {
+            if (openretries++ >= context.settings.live_tv_retries) {
+                throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                    comskip::diagnostics::Code::cannot_open_recording_detail,
+                    {is->filename, ffmpeg_detail(open_status)});
             }
-            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
-                comskip::diagnostics::Code::cannot_open_recording_detail,
-                {is->filename,ffmpeg_detail(open_status)});
-
+            sleep_for_ms(1000L);
         }
         is->seek_by_bytes = !!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is->pFormatCtx->iformat->name);
 // #if def _DEBUG
