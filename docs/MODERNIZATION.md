@@ -849,3 +849,6 @@ than redefine completion around whichever subset currently passes tests.
 
 - Timing diagnostics now accept `std::string_view` for row labels while
   retaining the exact CSV layout.
+
+- Reference input loading now accepts `std::string_view` for the sidecar
+  extension, removing another null-terminated string contract.

@@ -20,7 +20,7 @@ int FindBlackThreshold(RecordingContext& context, double percentile);
 int FindUniformThreshold(RecordingContext& context, double percentile);
 void OutputFrame(RecordingContext& context, int frame_number);
 int FindFrameWithPts(RecordingContext& context, double t);
-int InputReffer(RecordingContext& context, const char* extension, int setfps);
+int InputReffer(RecordingContext& context, std::string_view extension, int setfps);
 void OutputAspect(RecordingContext& context);
 void OutputBlackArray(RecordingContext& context);
 void OutputFrameArray(RecordingContext& context, bool screenOnly);

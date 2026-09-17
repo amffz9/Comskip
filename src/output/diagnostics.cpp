@@ -308,7 +308,7 @@ int FindFrameWithPts(RecordingContext& context, double t)
         return(t * context.settings.fps);
 }
 
-int InputReffer(RecordingContext& context, const char *extension, int setfps)
+int InputReffer(RecordingContext& context, std::string_view extension, int setfps)
 {
     int		i;
     long	j;
@@ -318,13 +318,13 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     comskip::platform::FilePtr raw;
     int frames = 0;
     char co,re;
-    if (!extension || std::string_view(extension).size() < 2)
+    if (extension.size() < 2)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_reference_filename_extension);
     comskip::detection::validate_intervals(context.state.commercial, context.state.commercial_count);
     comskip::detection::validate_intervals(context.state.reffer, context.state.reffer_count);
     auto basename = std::string(context.state.logfilename);
     if (basename.ends_with(".log") || basename.ends_with(".txt")) basename.resize(basename.size() - 4);
-    const auto reference_name = basename + extension;
+    const auto reference_name = basename + std::string(extension);
     raw.reset(myfopen(reference_name.c_str(), "r"));
     if (!raw) {
         if (!context.settings.output_live) return 0;
