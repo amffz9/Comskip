@@ -1,5 +1,4 @@
-#ifndef _PLATFORM_H
-#define _PLATFORM_H
+#pragma once
 
 #ifndef _WIN32
 #ifndef _DEFAULT_SOURCE
@@ -45,12 +44,6 @@
 
 #endif
 
-#ifndef __cplusplus
-#define bool  int
-#define false 0
-#define true  1
-#endif
-
 #include <stdint.h>
 #ifdef __cplusplus
 #include "portable_threads.h"
@@ -68,11 +61,4 @@ void sleep_for_ms(long milliseconds);
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 void gettimeofday (struct timeval * tp, void * dummy);
-#endif
-
-#endif
-
-#if defined(__cplusplus) || !defined(_WIN32)
-int min(int i, int j);
-int max(int i, int j);
 #endif

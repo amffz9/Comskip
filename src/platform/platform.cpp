@@ -78,16 +78,6 @@ void sleep_for_ms(long milliseconds)
         std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 
-int min(int i, int j)
-{
-    return i < j ? i : j;
-}
-
-int max(int i, int j)
-{
-    return i > j ? i : j;
-}
-
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 void gettimeofday(struct timeval* time, void*)
 {
