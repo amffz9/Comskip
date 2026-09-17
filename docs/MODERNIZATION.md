@@ -784,3 +784,7 @@ than redefine completion around whichever subset currently passes tests.
 - Media timing, seeking, audio alignment, scoring, and detection comparisons
   now call the standard C++ math overloads explicitly. The complete Windows
   headless suite remains green at **515/515**.
+
+- Caption dictionary, platform file-mode, and codec listing paths now use
+  standard C++ string-length operations. The complete Windows headless suite
+  remains green at **515/515**.
