@@ -116,9 +116,9 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
         context.state.ini_text = comskip::config::defaults().serialize();
         if (context.state.ini_file.get()) {
             std::string data;
-            char buffer[4096];
+            std::array<char, 4096> buffer{};
             std::size_t count;
-            while ((count = fread(buffer, 1, sizeof buffer, context.state.ini_file.get())) != 0) data.append(buffer, count);
+            while ((count = fread(buffer.data(), 1, buffer.size(), context.state.ini_file.get())) != 0) data.append(buffer.data(), count);
             bool failed = ferror(context.state.ini_file.get()) != 0;
             context.state.ini_file.reset();
             if (failed) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_read_recording_ini_file, {context.state.inifilename});

@@ -1032,3 +1032,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Removed unreferenced block-history, PID scratch, and MPEG system-header
   members from `RecordingState`; the complete Windows suite passes **523/523**.
+
+- Removed an unused review scratch buffer and changed INI file reading to a
+  fixed-size `std::array` with explicit C-library boundaries. The complete
+  Windows suite passes **523/523**.

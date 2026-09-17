@@ -74,7 +74,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
         set_pixel(position, y, value < threshold ? 255 : red, value < threshold ? 255 : green,
                   value < threshold ? 255 : blue);
     };
-    char t[1024];
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
 //	frm++;
