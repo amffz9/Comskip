@@ -34,6 +34,10 @@ constexpr int maximum_aspect_ratios = 1000;
 constexpr int maximum_audio_channels = 12;
 constexpr int uniform_scale = 100;
 constexpr double undefined_aspect_ratio = 0.0;
+constexpr int volume_delta_initial = 10;
+constexpr int volume_maximum = 300;
+constexpr int volume_plateau_size = 6;
+constexpr int fallback_start_volume = 500;
 
 double frame_time(RecordingContext& context, int frame) {
     return get_frame_pts(context, frame);
@@ -569,11 +573,7 @@ bool BuildMasterCommList(RecordingContext& context)
 //	if (max_volume == 0)
     {
 
-#define VOLUME_DELTA	10
-#define VOLUME_MAXIMUM	300
-#define VOLUME_PLATAU_SIZE		6
-
-        volume_delta = VOLUME_DELTA;
+        volume_delta = volume_delta_initial;
 
 try_again:
         if (context.state.framearray)  			// Find silence volume level
@@ -582,17 +582,17 @@ try_again:
             platauHistogram.fill(0);
             plataus = 0;
             j = 1;
-            for (i = VOLUME_PLATAU_SIZE; i < context.state.frame_count-VOLUME_PLATAU_SIZE;)
+            for (i = volume_plateau_size; i < context.state.frame_count-volume_plateau_size;)
             {
-                if (context.state.frame[i].volume > VOLUME_MAXIMUM || context.state.frame[i].volume < 0)
+                if (context.state.frame[i].volume > volume_maximum || context.state.frame[i].volume < 0)
                 {
                     i++;
                     continue;
                 }
-                while (i+1 < context.state.frame_count-VOLUME_PLATAU_SIZE && context.state.frame[i+1].volume < context.state.frame[i].volume)
+                while (i+1 < context.state.frame_count-volume_plateau_size && context.state.frame[i+1].volume < context.state.frame[i].volume)
                     i++;
                 k = 1;
-                while (i-k - VOLUME_PLATAU_SIZE > 1 &&
+                while (i-k - volume_plateau_size > 1 &&
                         (abs(context.state.frame[i-k].volume - context.state.frame[i].volume) < volume_delta
                          //|| frame[i-k].volume < 50
                         ))
@@ -605,7 +605,7 @@ try_again:
                     continue;
                 }
                 a = 1;
-                while (i+a +VOLUME_PLATAU_SIZE < context.state.frame_count &&
+                while (i+a +volume_plateau_size < context.state.frame_count &&
                         (abs(context.state.frame[i+a].volume - context.state.frame[i].volume) < volume_delta
                          //|| frame[i+a].volume < 50
                         ))
@@ -618,18 +618,18 @@ try_again:
                     continue;
                 }
 // i=8 k=1 a=11
-                if (a+k > VOLUME_PLATAU_SIZE && i-k-VOLUME_PLATAU_SIZE > 0 && i+a+VOLUME_PLATAU_SIZE < context.state.frame_count)
+                if (a+k > volume_plateau_size && i-k-volume_plateau_size > 0 && i+a+volume_plateau_size < context.state.frame_count)
                 {
                     p_vol = (context.state.frame[i-k-4].volume +
-                             context.state.frame[i-k-VOLUME_PLATAU_SIZE+3].volume +
-                             context.state.frame[i-k-VOLUME_PLATAU_SIZE+2].volume +
-                             context.state.frame[i-k-VOLUME_PLATAU_SIZE+1].volume +
-                             context.state.frame[i-k-VOLUME_PLATAU_SIZE].volume) / 5;
+                             context.state.frame[i-k-volume_plateau_size+3].volume +
+                             context.state.frame[i-k-volume_plateau_size+2].volume +
+                             context.state.frame[i-k-volume_plateau_size+1].volume +
+                             context.state.frame[i-k-volume_plateau_size].volume) / 5;
                     n_vol = (context.state.frame[i+a+4].volume +
-                             context.state.frame[i+a+VOLUME_PLATAU_SIZE-3].volume +
-                             context.state.frame[i+a+VOLUME_PLATAU_SIZE-2].volume +
-                             context.state.frame[i+a+VOLUME_PLATAU_SIZE-1].volume +
-                             context.state.frame[i+a+VOLUME_PLATAU_SIZE].volume) / 5;
+                             context.state.frame[i+a+volume_plateau_size-3].volume +
+                             context.state.frame[i+a+volume_plateau_size-2].volume +
+                             context.state.frame[i+a+volume_plateau_size-1].volume +
+                             context.state.frame[i+a+volume_plateau_size].volume) / 5;
                     if ( p_vol > context.state.frame[i].volume + 220 || n_vol > context.state.frame[i].volume + 220 )
                         //if ( abs(frame[i-k-2].volume - frame[i].volume) > VOLUME_DELTA*2 ||
                         //	abs(frame[i+a+2].volume - frame[i].volume) > VOLUME_DELTA*2)
@@ -682,7 +682,7 @@ try_again:
         if (mv == 0 || plataus < 5)
         {
             volume_delta *= 2;
-            if (volume_delta < VOLUME_MAXIMUM)
+            if (volume_delta < volume_maximum)
                 goto try_again;
         }
     }
@@ -709,10 +709,9 @@ try_again:
         if (context.state.framearray)  			// Find silence volume level
         {
 
-#define START_VOLUME	500
             count = 21;
 scanagain:
-            a = START_VOLUME;
+            a = fallback_start_volume;
             k = 0;
             if (context.state.frame[i].volume > 0)
                 j = context.state.frame[i].volume;
@@ -742,7 +741,7 @@ scanagain:
                 }
             }
         }
-        if (a > START_VOLUME-100 && count > 7)
+        if (a > fallback_start_volume-100 && count > 7)
         {
             count = count - 7;
             goto scanagain;
