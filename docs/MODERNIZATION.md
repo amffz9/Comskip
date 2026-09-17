@@ -792,3 +792,6 @@ than redefine completion around whichever subset currently passes tests.
 - Codec enumeration output now uses standard C++ streams while preserving the
   existing localized text and line wrapping. The complete Windows headless
   suite remains green at **515/515**.
+
+- CSV argument and close-window console output now uses standard C++ streams.
+  The complete Windows headless suite remains green at **515/515**.
