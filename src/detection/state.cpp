@@ -1,4 +1,5 @@
-#include "recording_context.h"
+#include "app/recording_context.h"
+#include "detection/frame_timestamps.h"
 #include <algorithm>
 
 double get_frame_pts(RecordingContext& context, int f) {

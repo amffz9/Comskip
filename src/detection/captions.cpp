@@ -1,14 +1,33 @@
 #include "../localization/diagnostic.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
 #include "exit_requested.h"
-#include "legacy_detection.h"
 #include "buffer_growth.h"
+#include "detection/detection_methods.h"
+#include "detection/detector_runtime.h"
+#include "detection/frame_timestamps.h"
+#include "platform/platform.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <format>
 #include <iterator>
+#include <limits>
+#include <string>
 #include <utility>
 
 namespace {
+using comskip::detection::CaptionType;
+using comskip::detection::DetectionMethod;
+using comskip::detection::caption_type_value;
+
+constexpr int caption_none = caption_type_value(CaptionType::none);
+constexpr int caption_rollup = caption_type_value(CaptionType::rollup);
+constexpr int caption_popon = caption_type_value(CaptionType::popon);
+constexpr int caption_painton = caption_type_value(CaptionType::painton);
+constexpr int caption_commercial = caption_type_value(CaptionType::commercial);
+
 template <typename... Args>
 void CaptionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
 {
@@ -21,11 +40,11 @@ std::string CCTypeText(RecordingContext& context, int type)
     if (!context.state.processCC)
         return {};
     switch (type) {
-    case NONE: return context.translator.text("caption_type_none");
-    case ROLLUP: return context.translator.text("caption_type_rollup");
-    case PAINTON: return context.translator.text("caption_type_painton");
-    case POPON: return context.translator.text("caption_type_popon");
-    case COMMERCIAL: return context.translator.text("caption_type_commercial");
+    case caption_none: return context.translator.text("caption_type_none");
+    case caption_rollup: return context.translator.text("caption_type_rollup");
+    case caption_painton: return context.translator.text("caption_type_painton");
+    case caption_popon: return context.translator.text("caption_type_popon");
+    case caption_commercial: return context.translator.text("caption_type_commercial");
     default: return std::format("{}", type);
     }
 }
@@ -588,11 +607,11 @@ void AddCC(RecordingContext& context, int i)
 
     if ((context.state.cc.cc1[0] >= 0x20) && (context.state.cc.cc1[0] < 0x80))
     {
-        if ((context.state.current_cc_type == ROLLUP) || (context.state.current_cc_type == PAINTON))
+        if ((context.state.current_cc_type == caption_rollup) || (context.state.current_cc_type == caption_painton))
         {
             context.state.cc_on_screen = true;
         }
-        else if (context.state.current_cc_type == POPON)
+        else if (context.state.current_cc_type == caption_popon)
         {
             context.state.cc_in_memory = true;
         }
@@ -607,11 +626,11 @@ void AddCC(RecordingContext& context, int i)
             context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = charmap[context.state.cc.cc1[1] - 0x20];
             context.state.cc_text[context.state.cc_text_count].text_len++;
             context.state.cc_text[context.state.cc_text_count].text[context.state.cc_text[context.state.cc_text_count].text_len] = '\0';
-            if ((context.state.last_cc_type == ROLLUP) || (context.state.last_cc_type == PAINTON))
+            if ((context.state.last_cc_type == caption_rollup) || (context.state.last_cc_type == caption_painton))
             {
                 context.state.cc_on_screen = true;
             }
-            else if (context.state.last_cc_type == POPON)
+            else if (context.state.last_cc_type == caption_popon)
             {
                 context.state.cc_in_memory = true;
             }
@@ -647,8 +666,8 @@ void AddCC(RecordingContext& context, int i)
             InitializeCCTextArray(context, context.state.cc_text_count);
             context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
             context.state.cc_text[context.state.cc_text_count].text_len = 0;
-            context.state.last_cc_type = POPON;
-            context.state.current_cc_type = POPON;
+            context.state.last_cc_type = caption_popon;
+            context.state.current_cc_type = caption_popon;
             AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
@@ -680,8 +699,8 @@ void AddCC(RecordingContext& context, int i)
             InitializeCCTextArray(context, context.state.cc_text_count);
             context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
             context.state.cc_text[context.state.cc_text_count].text_len = 0;
-            context.state.last_cc_type = ROLLUP;
-            context.state.current_cc_type = ROLLUP;
+            context.state.last_cc_type = caption_rollup;
+            context.state.current_cc_type = caption_rollup;
             AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
@@ -693,8 +712,8 @@ void AddCC(RecordingContext& context, int i)
             InitializeCCTextArray(context, context.state.cc_text_count);
             context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
             context.state.cc_text[context.state.cc_text_count].text_len = 0;
-            context.state.last_cc_type = ROLLUP;
-            context.state.current_cc_type = ROLLUP;
+            context.state.last_cc_type = caption_rollup;
+            context.state.current_cc_type = caption_rollup;
             AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
@@ -706,8 +725,8 @@ void AddCC(RecordingContext& context, int i)
             InitializeCCTextArray(context, context.state.cc_text_count);
             context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
             context.state.cc_text[context.state.cc_text_count].text_len = 0;
-            context.state.last_cc_type = ROLLUP;
-            context.state.current_cc_type = ROLLUP;
+            context.state.last_cc_type = caption_rollup;
+            context.state.current_cc_type = caption_rollup;
             AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
@@ -724,8 +743,8 @@ void AddCC(RecordingContext& context, int i)
             InitializeCCTextArray(context, context.state.cc_text_count);
             context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
             context.state.cc_text[context.state.cc_text_count].text_len = 0;
-            context.state.last_cc_type = PAINTON;
-            context.state.current_cc_type = PAINTON;
+            context.state.last_cc_type = caption_painton;
+            context.state.current_cc_type = caption_painton;
             AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
@@ -748,7 +767,7 @@ void AddCC(RecordingContext& context, int i)
             context.state.cc_text[context.state.cc_text_count].start_frame = current_frame;
             context.state.cc_text[context.state.cc_text_count].text_len = 0;
             context.state.cc_on_screen = false;
-            context.state.current_cc_type = NONE;
+            context.state.current_cc_type = caption_none;
             AddNewCCBlock(context, current_frame, context.state.current_cc_type, context.state.cc_on_screen, context.state.cc_in_memory);
             break;
 
@@ -794,11 +813,11 @@ void AddCC(RecordingContext& context, int i)
             context.state.cc_on_screen = tempBool;
             if (!context.state.cc_on_screen)
             {
-                context.state.current_cc_type = NONE;
+                context.state.current_cc_type = caption_none;
             }
             else
             {
-                if ((context.state.cc_block_count > 0) && (context.state.cc_block[context.state.cc_block_count].type == NONE))
+                if ((context.state.cc_block_count > 0) && (context.state.cc_block[context.state.cc_block_count].type == caption_none))
                 {
                     context.state.current_cc_type = context.state.last_cc_type;
                 }
@@ -877,8 +896,8 @@ void ProcessCCData(RecordingContext& context)
 
     // Reset state on the first frame
     if (context.state.framenum == 0) {
-        context.state.last_cc_type = NONE;
-        context.state.current_cc_type = NONE;
+        context.state.last_cc_type = caption_none;
+        context.state.current_cc_type = caption_none;
         context.state.cc_on_screen = false;
         context.state.cc_in_memory = false;
     }
@@ -1147,9 +1166,9 @@ void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool
             context.state.cc_block[context.state.cc_block_count].type = type;
             if (context.state.cc_block_count > 1)
             {
-                if ((F2L(context.state.cc_block[context.state.cc_block_count - 1].end_frame, context.state.cc_block[context.state.cc_block_count - 1].start_frame) < 1.0) &&
+                if ((comskip::detection::frame_duration(context, context.state.cc_block[context.state.cc_block_count - 1].end_frame, context.state.cc_block[context.state.cc_block_count - 1].start_frame) < 1.0) &&
                         (context.state.cc_block[context.state.cc_block_count].type == context.state.cc_block[context.state.cc_block_count - 2].type) &&
-                        (context.state.cc_block[context.state.cc_block_count].type != NONE))
+                        (context.state.cc_block[context.state.cc_block_count].type != caption_none))
                 {
                     context.state.cc_block_count -= 2;
                     context.state.cc_block[context.state.cc_block_count].end_frame = -1;
@@ -1170,7 +1189,7 @@ void AddNewCCBlock(RecordingContext& context, long current_frame, int type, bool
 
 int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
 {
-    int type = NONE;
+    int type = caption_none;
     int i = 0;
     int j = 0;
     int cc_block_first = context.state.cc_block_count;
@@ -1179,28 +1198,28 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
     while (context.state.cc_block[cc_block_first].start_frame > start) cc_block_first--;
     while (context.state.cc_block[cc_block_last].end_frame < end) cc_block_last++;
 
-    // Look for the PAINTON then POPON pattern that is common in commercials
+    // Look for the caption_painton then caption_popon pattern that is common in commercials
     for (i = cc_block_first; i <= cc_block_last; i++)
     {
-        if (context.state.cc_block[i].type != NONE)
+        if (context.state.cc_block[i].type != caption_none)
         {
             if (i > 0)
             {
-                if ((context.state.cc_block[i - 1].type == PAINTON) && (context.state.cc_block[i].type == POPON))
+                if ((context.state.cc_block[i - 1].type == caption_painton) && (context.state.cc_block[i].type == caption_popon))
                 {
- //                   type = COMMERCIAL;
+ //                   type = caption_commercial;
                     break;
                 }
             }
 
             if (i > 1)
             {
-                if ((context.state.cc_block[i - 2].type == PAINTON) &&
-                        (context.state.cc_block[i - 1].type == NONE) &&
-                        (F2L(context.state.cc_block[i - 1].end_frame, context.state.cc_block[i - 1].start_frame) <= 1.5) &&
-                        (context.state.cc_block[i].type == POPON))
+                if ((context.state.cc_block[i - 2].type == caption_painton) &&
+                        (context.state.cc_block[i - 1].type == caption_none) &&
+                        (comskip::detection::frame_duration(context, context.state.cc_block[i - 1].end_frame, context.state.cc_block[i - 1].start_frame) <= 1.5) &&
+                        (context.state.cc_block[i].type == caption_popon))
                 {
- //                   type = COMMERCIAL;
+ //                   type = caption_commercial;
                     break;
                 }
             }
@@ -1208,7 +1227,7 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
     }
 
     // If no commercial pattern found, find the most common type of CC
-    if (type != COMMERCIAL)
+    if (type != caption_commercial)
     {
         for (i = start; i <= end; i++)
         {
@@ -1246,7 +1265,7 @@ void SetARofBlocks(RecordingContext& context)
     int		i, j,k;
     double	sumAR = 0.0;
     int		frameCount = 0;
-    if (!(context.settings.commDetectMethod & AR))
+    if (!(comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::aspect_ratio)))
         return;
     k = 0;
     for (i = 0; i < context.state.block_count; i++)

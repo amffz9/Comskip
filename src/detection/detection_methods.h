@@ -20,6 +20,14 @@ enum class DetectionMethod : int {
 
 enum class CaptionType : int {
     none = 0,
+    rollup = 1,
+    popon = 2,
+    painton = 3,
+    commercial = 4,
 };
+
+[[nodiscard]] constexpr int caption_type_value(CaptionType type) noexcept {
+    return static_cast<int>(type);
+}
 
 } // namespace comskip::detection
