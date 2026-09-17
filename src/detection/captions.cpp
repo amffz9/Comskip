@@ -234,8 +234,8 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
         {
             const auto frame = std::format("{}", context.state.framenum);
             const auto xds_debug = [&](std::string_view key, auto&&... values) {
-                Debug(context, 10, "%s", context.translator.format(key,
-                    std::forward<decltype(values)>(values)...).c_str());
+                Debug(context, 10, context.translator.format(key,
+                    std::forward<decltype(values)>(values)...));
             };
             xds_debug("caption_xds_bytes", frame,
                 std::format("{:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x} {:2x}",
@@ -1318,7 +1318,7 @@ bool ProcessCCDict(RecordingContext& context)
         return (false);
     }
 
-    Debug(context, 2, "%s", context.translator.text("caption_dictionary_start"));
+    Debug(context, 2, context.translator.text("caption_dictionary_start"));
     while (fgets(phrase, sizeof(phrase), dict.get()) != nullptr)
     {
         ptr = strpbrk(phrase, "\r\n");
@@ -1326,13 +1326,13 @@ bool ProcessCCDict(RecordingContext& context)
         if (strstr(phrase, "-----") != nullptr)
         {
             goodPhrase = false;
-            Debug(context, 3, "%s", context.translator.text("caption_dictionary_bad_phrases"));
+            Debug(context, 3, context.translator.text("caption_dictionary_bad_phrases"));
             continue;
         }
         // just in case the line is empty
         if (std::string_view(phrase).empty()) continue;
 
-        Debug(context, 3, "%s", context.translator.format("caption_dictionary_search", phrase).c_str());
+        Debug(context, 3, context.translator.format("caption_dictionary_search", phrase));
         for (i = 0; i < context.state.cc_text_count; i++)
         {
             const auto text = std::string_view(
@@ -1340,23 +1340,23 @@ bool ProcessCCDict(RecordingContext& context)
                 static_cast<std::size_t>(context.state.cc_text[i].text_len));
             if (contains_case_insensitive(text, phrase))
             {
-                Debug(context, 2, "%s", context.translator.format("caption_dictionary_found", phrase,
-                    std::format("{}", i)).c_str());
+                Debug(context, 2, context.translator.format("caption_dictionary_found", phrase,
+                    std::format("{}", i)));
                 if (goodPhrase)
                 {
                     j = FindBlock(context, (context.state.cc_text[i].start_frame + context.state.cc_text[i].end_frame) / 2);
                     if (j == -1)
                     {
-                        Debug(context, 1, "%s", context.translator.format("caption_dictionary_block_error",
-                            std::format("{}", i)).c_str());
+                        Debug(context, 1, context.translator.format("caption_dictionary_block_error",
+                            std::format("{}", i)));
                     }
                     else
                     {
-                        Debug(context, 3, "%s", context.translator.format("scoring_score_before",
-                            std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score)).c_str());
+                        Debug(context, 3, context.translator.format("scoring_score_before",
+                            std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score)));
                         context.state.cblock[j].score /= context.state.dictionary_modifier;
-                        Debug(context, 3, "%s", context.translator.format("scoring_score_after",
-                            std::format("{:.2f}", context.state.cblock[j].score)).c_str());
+                        Debug(context, 3, context.translator.format("scoring_score_after",
+                            std::format("{:.2f}", context.state.cblock[j].score)));
                     }
                 }
                 else
@@ -1364,16 +1364,16 @@ bool ProcessCCDict(RecordingContext& context)
                     j = FindBlock(context, (context.state.cc_text[i].start_frame + context.state.cc_text[i].end_frame) / 2);
                     if (j == -1)
                     {
-                        Debug(context, 1, "%s", context.translator.format("caption_dictionary_block_error",
-                            std::format("{}", i)).c_str());
+                        Debug(context, 1, context.translator.format("caption_dictionary_block_error",
+                            std::format("{}", i)));
                     }
                     else
                     {
-                        Debug(context, 3, "%s", context.translator.format("scoring_score_before",
-                            std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score)).c_str());
+                        Debug(context, 3, context.translator.format("scoring_score_before",
+                            std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score)));
                         context.state.cblock[j].score *= context.state.dictionary_modifier;
-                        Debug(context, 3, "%s", context.translator.format("scoring_score_after",
-                            std::format("{:.2f}", context.state.cblock[j].score)).c_str());
+                        Debug(context, 3, context.translator.format("scoring_score_after",
+                            std::format("{:.2f}", context.state.cblock[j].score)));
                     }
                 }
             }

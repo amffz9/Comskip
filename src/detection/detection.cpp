@@ -522,7 +522,7 @@ bool BuildMasterCommList(RecordingContext& context)
 
     if (context.state.frame_count == 0)
     {
-        Debug(context, 1, "%s", context.translator.text("detection_no_video"));
+        Debug(context, 1, context.translator.text("detection_no_video"));
         return(false);
     }
     DetectionDebug(context, 7, "detection_scan_finished");
@@ -535,9 +535,9 @@ bool BuildMasterCommList(RecordingContext& context)
     length = frame_duration(context, context.state.frame_count-1, 1);
     if (std::fabs( length - (context.state.frame_count -1)/context.settings.fps) > 0.5) {
         if (std::fabs(context.state.avg_fps - context.settings.fps)> 1)
-            Debug(context, 1, "%s", context.translator.format("detection_framerate_warning",
-                std::format("{:6.3f}", context.state.avg_fps), std::format("{:6.3f}", context.settings.fps)).c_str());
-        Debug(context, 1, "%s", context.translator.text("detection_timeline_warning"));
+            Debug(context, 1, context.translator.format("detection_framerate_warning",
+                std::format("{:6.3f}", context.state.avg_fps), std::format("{:6.3f}", context.settings.fps)));
+        Debug(context, 1, context.translator.text("detection_timeline_warning"));
     }
 
     context.state.frame[context.state.frame_count].pts = context.state.frame[context.state.frame_count-1].pts + 1.0 / context.settings.fps;
@@ -1039,8 +1039,8 @@ bool BuildMasterCommList(RecordingContext& context)
 //		}
         if (context.state.logoPercentage < context.settings.logo_fraction - 0.05 || context.state.logoPercentage > context.settings.logo_percentile)
         {
-            Debug(context, 1, "%s", context.translator.format("detection_logo_disabled",
-                std::format("{:.2f}", context.state.logoPercentage)).c_str());
+            Debug(context, 1, context.translator.format("detection_logo_disabled",
+                std::format("{:.2f}", context.state.logoPercentage)));
             comskip::detection::disable_method(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo);
         }
     }
@@ -1435,7 +1435,7 @@ bool BuildMasterCommList(RecordingContext& context)
         const auto marker_name = context.state.workbasename + (has_captions ? ".ccyes" : ".ccno");
         const auto marker = comskip::platform::own_file(comskip::platform::open_file(marker_name, "w"));
         if (!marker)
-            Debug(context, 0, "%s", context.translator.format("create_failed", strerror(errno), marker_name).c_str());
+            Debug(context, 0, context.translator.format("create_failed", strerror(errno), marker_name));
         else {
             const auto old_marker = context.state.workbasename + (has_captions ? ".ccno" : ".ccyes");
             myremove(old_marker.c_str());

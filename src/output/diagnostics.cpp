@@ -48,12 +48,12 @@ void FindIniFile(RecordingContext& context)
         if (found) {
             const auto bytes = found->u8string();
             comskip::checked_format(destination, "%s", reinterpret_cast<const char*>(bytes.c_str()));
-            Debug(context, 1, "%s", context.translator.format("diagnostics_path_for",
-                std::string(name), destination).c_str());
+            Debug(context, 1, context.translator.format("diagnostics_path_for",
+                std::string(name), destination));
         } else {
             destination.clear();
-            Debug(context, 1, "%s", context.translator.format("diagnostics_path_missing",
-                std::string(name)).c_str());
+            Debug(context, 1, context.translator.format("diagnostics_path_missing",
+                std::string(name)));
         }
     };
     search("comskip.ini", context.state.inifilename);
@@ -80,9 +80,9 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
     if (!threshold) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::cannot_select_score_threshold);
     std::uint64_t frames = 0;
     for (const auto& sample : samples) frames += sample.frames;
-    Debug(context, 6, "%s", context.translator.format("diagnostics_score_percentile",
+    Debug(context, 6, context.translator.format("diagnostics_score_percentile",
         std::format("{:.2f}", percentile * 100), frames,
-        std::format("{:.2f}", *threshold)).c_str());
+        std::format("{:.2f}", *threshold)));
     return *threshold;
 }
 
@@ -97,8 +97,8 @@ void OutputLogoHistogram(RecordingContext& context,
     const auto divisor = maximum == 0 ? 0.0 : static_cast<double>(columns) / maximum;
     std::uint64_t counter = 0;
 
-    Debug(context, 8, "%s", context.translator.format("diagnostics_logo_histogram",
-        std::format("{:.5f}", divisor)).c_str());
+    Debug(context, 8, context.translator.format("diagnostics_logo_histogram",
+        std::format("{:.5f}", divisor)));
 
     for (std::size_t i = 0; i < histogram.size(); ++i) {
         counter += histogram[i];
@@ -123,8 +123,8 @@ void OutputbrightHistogram(RecordingContext& context)
         256,30,1,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
-    Debug(context, 1, "%s", context.translator.format("diagnostics_show_histogram",
-        std::format("{:.5f}", report->divisor)).c_str());
+    Debug(context, 1, context.translator.format("diagnostics_show_histogram",
+        std::format("{:.5f}", report->divisor)));
     for (const auto& row : report->rows)
         Debug(context,1,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
             static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
@@ -136,8 +136,8 @@ void OutputuniformHistogram(RecordingContext& context)
         30,30,uniform_scale,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
-    Debug(context, 1, "%s", context.translator.format("diagnostics_show_uniform",
-        std::format("{:.5f}", report->divisor)).c_str());
+    Debug(context, 1, context.translator.format("diagnostics_show_uniform",
+        std::format("{:.5f}", report->divisor)));
     for (const auto& row : report->rows)
         Debug(context,1,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
             static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());

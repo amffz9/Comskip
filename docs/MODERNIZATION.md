@@ -915,3 +915,8 @@ than redefine completion around whichever subset currently passes tests.
 
 - Legacy configuration and diagnostic output callsites now use the same direct
   string-view sink. Focused configuration/output coverage passes **55/55**.
+
+- Detection, caption-dictionary, cutlist, and histogram diagnostics now pass
+  translated strings directly as well. Focused coverage passes **60/60**;
+  fixed-format diagnostic rows remain on the legacy formatter for layout
+  compatibility.
