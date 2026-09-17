@@ -1478,7 +1478,8 @@ before calling FFmpeg seek APIs.
   replay the same input reliably.
 - **Impact:** Changing settings from the CSV review window can fail to reload
   the recording or lose companion captions.
-- **Status:** Open. The replay path needs an owned input path/reopen operation
-  and a fresh caption packet load before the label can be replaced safely.
-- **Verification needed:** Add a review-reload regression with a CSV and
-  caption companion, then replace the label with an explicit replay loop.
+- **Status:** Fixed. Review reload now reopens the owned CSV and companion
+  caption files from the recording basename before restarting parsing.
+- **Verification:** The focused application text-input suite passes **10/10**,
+  including fresh CSV and companion-file ownership; the complete Windows
+  headless suite passes **515/515**.

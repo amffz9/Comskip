@@ -736,3 +736,7 @@ than redefine completion around whichever subset currently passes tests.
 - Volume-threshold estimation and fallback scanning now use bounded structured
   retry passes instead of labels, preserving the existing threshold escalation
   rules. The complete Windows headless suite remains green at **514/514**.
+
+- CSV review reload now reopens the owned CSV and companion caption files from
+  the recording basename before restarting parsing. The focused input suite
+  passes **10/10**, and the complete Windows headless suite passes **515/515**.
