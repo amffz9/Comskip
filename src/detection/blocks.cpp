@@ -43,13 +43,13 @@ char *CauseString(RecordingContext& context, int i)
     *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::combined) ? 'C' : ' ');
     *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::non_strict)? 'N' : ' ');
     *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::strict)	? 'S' : ' ');
-    *c++ = (i & C_c			? 'c' : (i & C_t			? 't': ' '));
-    *c++ = (i & C_l			? 'l' : (i & C_v			? 'v': ' '));
-    *c++ = (i & C_s			? 's' : ' ');
-    *c++ = (i & C_a			? 'a' : ' ');
-    *c++ = (i & C_u			? 'u' : ' ');
-    *c++ = (i & C_b			? 'b' : ' ');
-    *c++ = (i & C_r			? 'r' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::caption)			? 'c' : (i & comskip::detection::cause_value(comskip::detection::FrameCause::cutscene)			? 't': ' '));
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::logo)			? 'l' : (i & comskip::detection::cause_value(comskip::detection::FrameCause::silence)			? 'v': ' '));
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::scene_change)			? 's' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio)			? 'a' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform)			? 'u' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::black)			? 'b' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::FrameCause::resolution_change)			? 'r' : ' ');
     *c++ = 0;
 
     context.state.CauseString_ii = (context.state.CauseString_ii + 1) % 4;
@@ -69,21 +69,21 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
     double length,summed_length;
     int incommercial;
     const char *r = context.translator.text("blocks_reason_undefined");
-    if (reason == C_b)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::black))
         r = context.translator.text("blocks_reason_black_frame");
-    if (reason == C_v)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::silence))
         r = context.translator.text("blocks_reason_volume");
-    if (reason == C_s)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::scene_change))
         r = context.translator.text("blocks_reason_scene_change");
-    if (reason == C_c)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::caption))
         r = context.translator.text("blocks_reason_change");
-    if (reason == C_u)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform))
         r = context.translator.text("blocks_reason_uniform_frame");
-    if (reason == C_a)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio))
         r = context.translator.text("blocks_reason_aspect_ratio");
-    if (reason == C_t)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::cutscene))
         r = context.translator.text("blocks_reason_cut_scene");
-    if (reason == C_l)
+    if (reason == comskip::detection::cause_value(comskip::detection::FrameCause::logo))
         r = context.translator.text("blocks_reason_logo");
 
     if (ratio == 0.0)
@@ -184,12 +184,12 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
 
         /*
 
-            if (negative_count > 1 && reason == C_v)
+            if (negative_count > 1 && reason == comskip::detection::cause_value(comskip::detection::FrameCause::silence))
             {
                 Debug(1, "Too mutch Silence Frames, disabling silence detection\n");
                 commDetectMethod &= ~SILENCE;
             }
-            if (negative_count > 1 && reason == C_s)
+            if (negative_count > 1 && reason == comskip::detection::cause_value(comskip::detection::FrameCause::scene_change))
             {
                 Debug(1, "Too mutch Scene Change, disabling Scene Change detection\n");
                 commDetectMethod &= ~SCENE_CHANGE;
@@ -321,9 +321,9 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             {
                 for (i = 1; i < context.state.frame_count; i++)
                 {
-                    context.state.frame[i].isblack &= ~C_u;
-                    if (/*!(frame[i].isblack & C_b) && */ context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
-                        InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, (int)C_u);
+                    context.state.frame[i].isblack &= ~comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform);
+                    if (/*!(frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::black)) && */ context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
+                        InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, (int)comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform));
                 }
             }
         }
@@ -343,7 +343,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     {
         for (k = context.state.black_count - 1; k >= 0; k--)
         {
-            if (context.state.black[k].cause == C_s || context.state.black[k].cause == C_c || context.state.black[k].cause == (C_c|C_s) )
+            if (context.state.black[k].cause == comskip::detection::cause_value(comskip::detection::FrameCause::scene_change) || context.state.black[k].cause == comskip::detection::cause_value(comskip::detection::FrameCause::caption) || context.state.black[k].cause == (comskip::detection::cause_value(comskip::detection::FrameCause::caption)|comskip::detection::cause_value(comskip::detection::FrameCause::scene_change)) )
             {
                 i = context.state.black[k].frame-context.settings.volume_slip;		// Find quality of silence around black frame
                 if (i < 0) i = 0;
@@ -428,7 +428,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     {
         for (k = context.state.black_count - 1; k >= 0; k--)
         {
-            if ((context.state.black[k].cause & C_t) != 0)
+            if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::cutscene)) != 0)
                 continue;
             if (context.state.black[k].volume >  context.settings.max_volume
 //				&&
@@ -459,13 +459,13 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
     for (k = context.state.black_count - 1; k >= 0; k--)
     {
-        if ((context.state.black[k].cause & C_t) != 0)
+        if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::cutscene)) != 0)
             continue;
 
-        if ((context.state.black[k].cause & C_r) != 0)
+        if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::resolution_change)) != 0)
             continue;
 
-        if ((context.state.black[k].cause & C_b) && context.state.black[k].brightness > context.settings.max_avg_brightness)
+        if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::black)) && context.state.black[k].brightness > context.settings.max_avg_brightness)
         {
 
             BlocksDebug(context, 12, "blocks_remove_bright_black_frame",
@@ -488,9 +488,9 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     {
         for (k = context.state.black_count - 1; k >= 0; k--)
         {
-            if ((context.state.black[k].cause & C_t) != 0)
+            if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::cutscene)) != 0)
                 continue;
-            if ((context.state.black[k].cause & C_u) && context.state.black[k].uniform > context.settings.non_uniformity)
+            if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform)) && context.state.black[k].uniform > context.settings.non_uniformity)
             {
                 BlocksDebug(context, 12, "blocks_remove_nonuniform_frame",
                 k,
@@ -534,7 +534,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             {
                 a = context.state.ar_block[i].end;
 //					if (a > 20 * fps)
-                InsertBlackFrame(context, a,context.state.frame[a].brightness,context.state.frame[a].uniform,context.state.frame[a].volume, C_a);
+                InsertBlackFrame(context, a,context.state.frame[a].brightness,context.state.frame[a].uniform,context.state.frame[a].volume, comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio));
             }
         }
     }
@@ -544,21 +544,21 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         for (i = 0; i < context.state.ac_block_count; i++)
         {
             a = context.state.ac_block[i].end;
-            InsertBlackFrame(context, a,context.state.frame[a].brightness,context.state.frame[a].uniform,context.state.frame[a].volume, C_r);
+            InsertBlackFrame(context, a,context.state.frame[a].brightness,context.state.frame[a].uniform,context.state.frame[a].volume, comskip::detection::cause_value(comskip::detection::FrameCause::resolution_change));
         }
     }
 
 
-    if (ValidateBlackFrames(context, C_b, 3.0, false) < 1 / 3.0)
+    if (ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::black), 3.0, false) < 1 / 3.0)
         BlocksDebug(context, 8, "blocks_black_frame_cutting_too_low");
 
     if (context.settings.validate_scenechange /* || (logoPercentage < logo_fraction || logoPercentage > logo_percentile) */)
-        ValidateBlackFrames(context, C_s, ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.5), true);
+        ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::scene_change), ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.5), true);
 
-    //	ValidateBlackFrames(C_c, 3.0, true);
+    //	ValidateBlackFrames(comskip::detection::cause_value(comskip::detection::FrameCause::caption), 3.0, true);
 
     if (context.settings.validate_uniform)
-        ValidateBlackFrames(context, C_u, ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.0), true);
+        ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform), ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.0), true);
 
 
     if (context.settings.commDetectMethod & SILENCE)
@@ -572,17 +572,17 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                 if (k * 100 / frame_count > 25) {
                     Debug(8, "Too mutch Silence Frames (%d%%), disabling silence detection\n", k * 100 / frame_count);
 
-                    ValidateBlackFrames(C_v, 1.0, true);
+                    ValidateBlackFrames(comskip::detection::cause_value(comskip::detection::FrameCause::silence), 1.0, true);
                     commDetectMethod &= ~SILENCE;
                     validate_silence = 0;
                 } else
         */		if (context.settings.validate_silence)
-            ValidateBlackFrames(context, C_v, 3.0, true);
+            ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::silence), 3.0, true);
     }
 
 //		if (logoPercentage < logo_fraction)
 //	if (cut_on_ar_change == 2)
-//		ValidateBlackFrames(C_a, 3.0, true);
+//		ValidateBlackFrames(comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio), 3.0, true);
 
 
     BlocksDebug(context, 8, "blocks_black_frame_list_heading", context.state.black_count);
@@ -596,7 +596,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
 
     // add black frame at end to enable usage of last cblock
-    InsertBlackFrame(context, context.state.framesprocessed,0,0,0,C_b);
+    InsertBlackFrame(context, context.state.framesprocessed,0,0,0,comskip::detection::cause_value(comskip::detection::FrameCause::black));
     /*
         InitializeBlackArray(black_count);
         black[black_count].frame = framesprocessed;
@@ -623,7 +623,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
     while(i < context.state.black_count || a < context.state.ar_block_count)
     {
-        if (!(context.settings.commDetectMethod & LOGO) && i < context.state.black_count && (context.state.black[i].cause & (C_s | C_l)))
+        if (!(context.settings.commDetectMethod & LOGO) && i < context.state.black_count && (context.state.black[i].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::scene_change) | comskip::detection::cause_value(comskip::detection::FrameCause::logo))))
         {
 //			i++; // Skip logo cuts and brighness cuts when not enough logo detected
 //			goto again;
@@ -642,8 +642,8 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         while(j < context.state.black_count && (F2T(context.state.black[j].frame) - F2T(b_end) < 1.0 ))   //Allow for 2 missing black frames
         {
             if (context.state.black[j].frame - b_end > 2 &&
-                    (((context.state.black[j].cause & (C_v)) != 0 &&  (cause & (C_v)) == 0) ||
-                     ((context.state.black[j].cause & (C_v)) == 0 &&  (cause & (C_v)) != 0)))
+                    (((context.state.black[j].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) != 0 &&  (cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) == 0) ||
+                     ((context.state.black[j].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) == 0 &&  (cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) != 0)))
             {
 
                 BlocksDebug(context, 6, "blocks_black_frame_gap",
@@ -652,7 +652,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                 );
             }
 
-            if ((context.state.black[j].cause & (C_b | C_s | C_u | C_r)) != 0)
+            if ((context.state.black[j].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::black) | comskip::detection::cause_value(comskip::detection::FrameCause::scene_change) | comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform) | comskip::detection::cause_value(comskip::detection::FrameCause::resolution_change))) != 0)
             {
                 b_count++;
                 if (black_start == 0)
@@ -660,14 +660,14 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                 black_end = context.state.black[j].frame;
 
             }
-            if ((context.state.black[j].cause & (C_v)) != 0)
+            if ((context.state.black[j].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) != 0)
                 v_count++;
-            if (context.state.black[j].cause == C_a)
+            if (context.state.black[j].cause == comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio))
             {
                 cause |= context.state.black[j].cause;
                 j++;
             }
-            else if (cause == C_a)
+            else if (cause == comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio))
             {
                 cause |= context.state.black[j].cause;
                 b_start = b_end = context.state.black[j++].frame;
@@ -734,7 +734,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
         unsigned int bfcount = context.state.cblock[i].b_head + context.state.cblock[i-1].b_tail;
 
-        if (bfcount < context.settings.min_black_frames_for_break && context.state.cblock[i-1].cause == C_b)
+        if (bfcount < context.settings.min_black_frames_for_break && context.state.cblock[i-1].cause == comskip::detection::cause_value(comskip::detection::FrameCause::black))
         {
 
             BlocksDebug(context, 10, "blocks_combine_blocks",
