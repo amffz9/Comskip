@@ -14,7 +14,8 @@ The application core uses C++23. Sources are organized by responsibility:
 
 Stateful application interfaces receive `RecordingContext&` explicitly. Settings,
 recording buffers, files, decoder resources, and UI resources have owned lifetimes.
-The large `legacy_detection.h` still needs replacement with focused interfaces.
+The former detector umbrella header has been replaced by focused interfaces owned by
+the runtime, scene, logo, block, scoring, timing, caption, and output modules.
 
 ## Supporting libraries
 

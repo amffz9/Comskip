@@ -1,5 +1,6 @@
 #include "recording_context.h"
-#include "legacy_detection.h" // Legacy detector fixture constants.
+#include "detection_methods.h"
+#include "logo_detection.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -7,11 +8,6 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
-void EdgeDetect(RecordingContext&,unsigned char*,int);
-bool ProcessLogoTest(RecordingContext&,int,int,int);
-double CheckStationLogoEdge(RecordingContext&,unsigned char*);
-void PrintCCBlocks(RecordingContext&);
-void PrintLogoFrameGroups(RecordingContext&);
 namespace {
 std::unique_ptr<RecordingContext> logo_context() {
     auto context=std::make_unique<RecordingContext>();
@@ -80,11 +76,11 @@ TEST(LogoGeometryApplication, EmptyCaptionAndLogoReportsAreSafe) {
     context->state.framesprocessed=0;
     context->settings.fps=0;
     EXPECT_NO_THROW(PrintCCBlocks(*context));
-    EXPECT_EQ(context->state.most_cc_type,NONE);
+    EXPECT_EQ(context->state.most_cc_type,comskip::detection::caption_type_value(comskip::detection::CaptionType::none));
     context->state.cc_block.resize(1);
     context->state.cc_block[0].start_frame=0;
     context->state.cc_block[0].end_frame=10;
-    context->state.cc_block[0].type=NONE;
+    context->state.cc_block[0].type=comskip::detection::caption_type_value(comskip::detection::CaptionType::none);
     EXPECT_NO_THROW(PrintCCBlocks(*context));
     context->state.logo_block={{10,20}};
     context->state.logo_block_count=1;

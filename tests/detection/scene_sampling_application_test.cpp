@@ -1,5 +1,7 @@
 #include "recording_context.h"
-#include "legacy_detection.h" // Legacy detector fixture bit patterns.
+#include "detection_methods.h"
+#include "frame_causes.h"
+#include "scene_analysis.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -8,7 +10,6 @@
 #include <vector>
 #include <limits>
 
-bool CheckSceneHasChanged(RecordingContext& context);
 namespace {
 std::unique_ptr<RecordingContext> scene_context(int width, int height, int stride, int border) {
     auto context = std::make_unique<RecordingContext>();
@@ -90,7 +91,7 @@ TEST(SceneSamplingApplication, LaterFrameClassifiesUsingWideBrightPixelLimit) {
         auto context=scene_context(320,240,320,0);
         std::vector<unsigned char> image(320u*240,7);
         context->state.frame_ptr=image.data();
-        context->settings.commDetectMethod=BLACK_FRAME;
+        context->settings.commDetectMethod=static_cast<int>(comskip::detection::DetectionMethod::black_frame);
         context->settings.maxbright=maximum;
         context->settings.max_brightness=0;
         context->settings.test_brightness=0;
@@ -101,7 +102,7 @@ TEST(SceneSamplingApplication, LaterFrameClassifiesUsingWideBrightPixelLimit) {
         context->state.frame_count=context->state.framenum_real=2;
         EXPECT_NO_THROW(CheckSceneHasChanged(*context));
         EXPECT_GT(context->state.frame[2].hasBright,0);
-        EXPECT_EQ((context->state.frame[2].isblack&C_b)!=0,maximum!=0);
+        EXPECT_EQ((context->state.frame[2].isblack&comskip::detection::cause_value(comskip::detection::FrameCause::black))!=0,maximum!=0);
     }
 }
 }

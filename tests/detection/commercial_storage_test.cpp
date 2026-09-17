@@ -1,5 +1,9 @@
 #include "recording_context.h"
-#include "legacy_detection.h" // Legacy detector fixture entry points and bit patterns.
+#include "block_building.h"
+#include "detection_methods.h"
+#include "detector_runtime.h"
+#include "frame_causes.h"
+#include "output/cutlist_exports.h"
 #include "input/reference_file.h"
 #include <gtest/gtest.h>
 #include <chrono>
@@ -93,7 +97,7 @@ protected:
         ASSERT_TRUE(std::filesystem::create_directory(directory));
         context = std::make_unique<RecordingContext>();
         context->settings.verbose = 0; context->settings.fps = 25;
-        context->settings.commDetectMethod = BLACK_FRAME;
+        context->settings.commDetectMethod = static_cast<int>(comskip::detection::DetectionMethod::black_frame);
         context->settings.output_default = false; context->settings.output_edl = false;
         context->settings.output_live = true; context->settings.output_dvrmstb = false;
         context->settings.output_incommercial = true;
@@ -149,8 +153,8 @@ TEST_F(LiveStorage, ActualCandidatesAndPublishedListsGrowBeyondFormerCapacity) {
     for (int index = 0; index < runs; ++index) {
         auto& start = context->state.black[index * 2 + 1];
         auto& end = context->state.black[index * 2 + 2];
-        start.frame = index * 5750 + 100; start.cause = C_b;
-        end.frame = start.frame + 750; end.cause = C_b;
+        start.frame = index * 5750 + 100; start.cause = comskip::detection::cause_value(comskip::detection::FrameCause::black);
+        end.frame = start.frame + 750; end.cause = comskip::detection::cause_value(comskip::detection::FrameCause::black);
     }
     context->state.framenum_real = context->state.black.back().frame + 5001;
     BuildCommListAsYouGo(*context);
@@ -165,14 +169,14 @@ TEST_F(LiveStorage, ActualCandidatesAndPublishedListsGrowBeyondFormerCapacity) {
     EXPECT_EQ(read(".incommercial"), "0\n");
 }
 TEST_F(LiveStorage, EnabledLogoExcludesPresentLogoAndDisabledLogoAcceptsSameBlackFrames) {
-    complete_frames(C_b);
-    context->settings.commDetectMethod |= LOGO;
+    complete_frames(comskip::detection::cause_value(comskip::detection::FrameCause::black));
+    context->settings.commDetectMethod |= static_cast<int>(comskip::detection::DetectionMethod::logo);
     context->state.logoInfoAvailable = true;
     context->state.logo_block_count = 1;
     context->state.logo_block = {{1, 10000}};
     BuildCommListAsYouGo(*context);
     EXPECT_TRUE(context->state.commercial.empty()); EXPECT_TRUE(read(".live").empty());
-    context->settings.commDetectMethod &= ~LOGO;
+    context->settings.commDetectMethod &= ~static_cast<int>(comskip::detection::DetectionMethod::logo);
     context->state.lastFrameCommCalculated = 0;
     BuildCommListAsYouGo(*context);
     ASSERT_EQ(context->state.commercial.size(), 1u);
@@ -181,11 +185,11 @@ TEST_F(LiveStorage, EnabledLogoExcludesPresentLogoAndDisabledLogoAcceptsSameBlac
     EXPECT_TRUE(context->state.frame[100].logo_present);
 }
 TEST_F(LiveStorage, DisabledLogoLeavesSilenceCutpointBlackValidationInPlace) {
-    complete_frames(C_v);
+    complete_frames(comskip::detection::cause_value(comskip::detection::FrameCause::silence));
     BuildCommListAsYouGo(*context);
     EXPECT_TRUE(context->state.commercial.empty());
-    context->state.frame[100].isblack = C_b;
-    context->state.frame[850].isblack = C_b;
+    context->state.frame[100].isblack = comskip::detection::cause_value(comskip::detection::FrameCause::black);
+    context->state.frame[850].isblack = comskip::detection::cause_value(comskip::detection::FrameCause::black);
     context->state.lastFrameCommCalculated = 0;
     BuildCommListAsYouGo(*context);
     ASSERT_EQ(context->state.commercial.size(), 1u);

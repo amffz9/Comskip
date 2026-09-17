@@ -1,6 +1,7 @@
 #include "recording_context.h"
+#include "media_dump.h"
+#include "output/diagnostics.h"
 #include "diagnostic_render.h"
-#include "detection/legacy_detection.h"
 #include "checked_format.h"
 #include "output/csv_field.h"
 #include <gtest/gtest.h>
@@ -175,7 +176,7 @@ TEST_F(DiagnosticOutput, ThresholdHistogramsAccumulateLargeBinCountsWithoutOverf
     context->state.uniformHistogram[1] = large_bin;
     EXPECT_EQ(FindBlackThreshold(*context,0.5),0);
     // A first-bin uniform threshold retains the legacy minimum-bin adjustment.
-    EXPECT_EQ(FindUniformThreshold(*context,0.5),2 * UNIFORMSCALE);
+    EXPECT_EQ(FindUniformThreshold(*context,0.5),2 * 100);
 }
 TEST_F(DiagnosticOutput, TrainingThresholdReportsQuoteNamesAndCloseBothOutputs) {
     struct CurrentPathGuard {
@@ -189,7 +190,7 @@ TEST_F(DiagnosticOutput, TrainingThresholdReportsQuoteNamesAndCloseBothOutputs) 
     context->state.uniformHistogram[0] = 10;
 
     EXPECT_EQ(FindBlackThreshold(*context, 0.5), 0);
-    EXPECT_EQ(FindUniformThreshold(*context, 0.5), 2 * UNIFORMSCALE);
+    EXPECT_EQ(FindUniformThreshold(*context, 0.5), 2 * 100);
 
     std::string expected = comskip::output::csv_field(context->state.inbasename) + ",1000.00";
     for (int index = 1; index < 35; ++index) expected += ",  0.00";
@@ -210,7 +211,7 @@ TEST_F(DiagnosticOutput, UnavailableOptionalTrainingReportsDoNotPreventThreshold
     ASSERT_TRUE(std::filesystem::create_directory("uniform.csv"));
 
     EXPECT_EQ(FindBlackThreshold(*context, 0.5), 0);
-    EXPECT_EQ(FindUniformThreshold(*context, 0.5), 2 * UNIFORMSCALE);
+    EXPECT_EQ(FindUniformThreshold(*context, 0.5), 2 * 100);
 }
 TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles) {
     context->settings.output_demux = true;

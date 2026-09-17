@@ -1,5 +1,5 @@
 #include "recording_context.h"
-#include "detection/legacy_detection.h"
+#include "app/debug.h"
 #include "checked_format.h"
 #include <gtest/gtest.h>
 #include <chrono>

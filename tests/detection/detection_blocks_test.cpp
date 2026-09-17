@@ -1,5 +1,10 @@
 #include "recording_context.h"
-#include "legacy_detection.h" // Legacy detector fixture entry points and bit patterns.
+#include "block_building.h"
+#include "block_scoring.h"
+#include "detection_methods.h"
+#include "detector_runtime.h"
+#include "frame_causes.h"
+#include "storage.h"
 #include "black_frame_run.h"
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -12,7 +17,7 @@ namespace {
 std::unique_ptr<RecordingContext> observations(int separators) {
     auto context = std::make_unique<RecordingContext>();
     context->settings.verbose = 0;
-    context->settings.commDetectMethod = BLACK_FRAME;
+    context->settings.commDetectMethod = static_cast<int>(comskip::detection::DetectionMethod::black_frame);
     context->settings.fps = 25;
     context->settings.intelligent_brightness = false;
     context->settings.min_black_frames_for_break = 1;
@@ -22,30 +27,30 @@ std::unique_ptr<RecordingContext> observations(int separators) {
     for (long frame = 1; frame <= context->state.frame_count; ++frame)
         context->state.frame[frame].pts = (frame - 1) / context->settings.fps;
     for (int separator = 1; separator <= separators; ++separator)
-        InsertBlackFrame(*context, separator * 50, 0, 0, 0, C_b);
+        InsertBlackFrame(*context, separator * 50, 0, 0, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black));
     return context;
 }
 
 TEST(BlackFrameRun, StopsAtLastActiveObservationWithoutInspectingStorageAfterSpan) {
     const std::array storage{
-        black_frame_info{41, 0, 0, 0, C_b},
-        black_frame_info{42, 0, 0, 0, C_b}, // Contiguous poison outside active range.
+        black_frame_info{41, 0, 0, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black)},
+        black_frame_info{42, 0, 0, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black)}, // Contiguous poison outside active range.
     };
 
     EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(
-                  std::span<const black_frame_info>{storage}.first(1), 0, C_b),
+                  std::span<const black_frame_info>{storage}.first(1), 0, comskip::detection::cause_value(comskip::detection::FrameCause::black)),
               0u);
 }
 
 TEST(BlackFrameRun, ExtendsOnlyAcrossMatchingContiguousActiveObservations) {
     const std::array frames{
-        black_frame_info{41, 0, 0, 0, C_b},
-        black_frame_info{42, 0, 0, 0, C_b | C_s},
-        black_frame_info{44, 0, 0, 0, C_b},
+        black_frame_info{41, 0, 0, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black)},
+        black_frame_info{42, 0, 0, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black) | comskip::detection::cause_value(comskip::detection::FrameCause::scene_change)},
+        black_frame_info{44, 0, 0, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black)},
     };
 
-    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(frames, 0, C_b), 1u);
-    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(frames, frames.size(), C_b),
+    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(frames, 0, comskip::detection::cause_value(comskip::detection::FrameCause::black)), 1u);
+    EXPECT_EQ(comskip::detection::contiguous_black_frame_run_end(frames, frames.size(), comskip::detection::cause_value(comskip::detection::FrameCause::black)),
               frames.size());
 }
 void terminal(const RecordingContext& context) {
@@ -136,7 +141,7 @@ TEST(DetectionBlocks, LogoJoiningPreservesTerminalAndCompleteRecordingBoundary) 
     auto context = observations(3);
     ASSERT_TRUE(BuildBlocks(*context, true));
     ASSERT_EQ(context->state.block_count, 4);
-    context->settings.commDetectMethod |= LOGO;
+    context->settings.commDetectMethod |= static_cast<int>(comskip::detection::DetectionMethod::logo);
     context->settings.connect_blocks_with_logo = true;
     context->state.logo_block_count = 1;
     context->state.logo_block.resize(1);
@@ -161,7 +166,7 @@ TEST(DetectionBlocks, AspectJoiningKeepsFinalStandardLengthScoreAndTerminal) {
         block.f_end = index == 2 ? 751 : (index + 1) * 250;
         block.length = index == 1 ? 2 : 14;
         block.ar_ratio = 1.5;
-        block.cause = C_a;
+        block.cause = comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio);
         comskip::detection::complete_block(context->state.cblock, context->state.block_count);
     }
     WeighBlocks(*context);
@@ -179,7 +184,7 @@ TEST(DetectionBlocks, EmptyScoringAndFinalCommercialLengthAreSafe) {
     context->state.cblock[0].f_start = 1;
     context->state.cblock[0].f_end = 751;
     context->state.cblock[0].length = 30;
-    context->state.cblock[0].cause = C_b;
+    context->state.cblock[0].cause = comskip::detection::cause_value(comskip::detection::FrameCause::black);
     context->state.frame_count = context->state.framesprocessed = 751;
     context->state.framenum_real = 752;
     context->state.frame.resize(752);

@@ -2,7 +2,6 @@
 #include "output/frame_script_adapter.h"
 #include "output/player_export_adapter.h"
 #include "output/legacy_cutlist_adapter.h"
-#include "detection/legacy_detection.h"
 #include "output/cutlist_exports.h"
 #include "checked_format.h"
 #include "exit_requested.h"

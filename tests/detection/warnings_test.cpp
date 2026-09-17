@@ -1,6 +1,7 @@
 #include "recording_context.h"
+#include "logo_detection.h"
+#include "scene_analysis.h"
 #include "checked_format.h"
-#include "detection/legacy_detection.h"
 #include "localization/diagnostic_render.h"
 #include <gtest/gtest.h>
 #include <chrono>

@@ -1,5 +1,6 @@
 #include "recording_context.h"
-#include "legacy_detection.h" // Legacy caption fixture entry points and constants.
+#include "caption_observations.h"
+#include "detection_methods.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -41,11 +42,11 @@ void xds(RecordingContext& context, unsigned char type, std::string payload, boo
 TEST(CaptionPackets, CaptionTypeTextReturnsOwnedLocalizedValues) {
     auto context = recording();
     context->state.processCC = true;
-    EXPECT_EQ(CCTypeText(*context, NONE), "NONE");
-    EXPECT_EQ(CCTypeText(*context, COMMERCIAL), "COMMERCIAL");
+    EXPECT_EQ(CCTypeText(*context, comskip::detection::caption_type_value(comskip::detection::CaptionType::none)), "NONE");
+    EXPECT_EQ(CCTypeText(*context, comskip::detection::caption_type_value(comskip::detection::CaptionType::commercial)), "COMMERCIAL");
     EXPECT_EQ(CCTypeText(*context, 73), "73");
     context->state.processCC = false;
-    EXPECT_TRUE(CCTypeText(*context, ROLLUP).empty());
+    EXPECT_TRUE(CCTypeText(*context, comskip::detection::caption_type_value(comskip::detection::CaptionType::rollup)).empty());
 }
 
 TEST(CaptionPackets, EveryTruncatedGa94AndLegacyPacketLeavesObservationsUnchanged) {
@@ -98,7 +99,7 @@ TEST(CaptionPackets, FirstBlockDiagnosticDoesNotReadBeforeOwnedStorage) {
     auto owner = recording();
     owner->state.cc_block[0].start_frame = 10;
     owner->state.cc_block[0].end_frame = 20;
-    owner->state.cc_block[0].type = POPON;
+    owner->state.cc_block[0].type = comskip::detection::caption_type_value(comskip::detection::CaptionType::popon);
     EXPECT_NO_THROW(OutputCCBlock(*owner, 0));
     EXPECT_NO_THROW(OutputCCBlock(*owner, -1));
 }
