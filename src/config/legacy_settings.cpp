@@ -280,7 +280,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
         // NULL entries were detected, some allocations must have failed
         Debug(context, 0, "%s", translator.format("cli_insufficient_memory", context.state.progname).c_str());
-        goto exit;
+        return context.state.in_file.get();
     }
 
     nerrors = arg_parse(argc, argv, argtable);
@@ -925,6 +925,5 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
 
 
-exit:
     return (context.state.in_file.get());
 }
