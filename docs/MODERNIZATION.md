@@ -950,3 +950,9 @@ than redefine completion around whichever subset currently passes tests.
   directly, keeping the raw `FILE*` bridge at the platform boundary. Platform,
   diagnostics, and cutlist ownership coverage passes **26/26**; the full
   Windows suite passes **523/523**.
+
+- Media and output boundaries now use scoped result types and optional state:
+  stream opening returns `comskip::media::StreamOpenResult`, audio-volume and
+  codec history no longer use sentinels, and output adapters represent missing
+  prior intervals with `std::optional`. The complete Windows suite remains
+  green at **523/523**.
