@@ -54,7 +54,7 @@ void file_open_impl(RecordingContext& context)
     int subtitle_index= -1, audio_index= -1, video_index = -1;
     int openretries = 0;
 
-    if (context.state.video_owner.get() == NULL)
+    if (!context.state.video_owner)
     {
         context.state.video_owner = std::make_unique<VideoState>();
         is = context.state.video_owner.get();
@@ -91,7 +91,7 @@ void file_open_impl(RecordingContext& context)
     else
         is = context.state.video_owner.get();
     // Open video file
-    if ( is->pFormatCtx.get() == NULL)
+    if (!is->pFormatCtx)
     {
         is->filename = context.state.mpegfilename;
         is->pFormatCtx.reset(avformat_alloc_context());
@@ -99,7 +99,7 @@ void file_open_impl(RecordingContext& context)
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        const int open_status=avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), NULL,std::inout_ptr(context.state.myoptions));
+        const int open_status=avformat_open_input(std::inout_ptr(is->pFormatCtx), is->filename.c_str(), nullptr,std::inout_ptr(context.state.myoptions));
         if(open_status<0)
         {
             if (openretries++ < context.settings.live_tv_retries)
@@ -141,7 +141,7 @@ again:
 
     if ( is->videoStream == -1)
     {
-        video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+        video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
         if(video_index >= 0)
         {
             stream_component_open(context, is, video_index);
@@ -181,7 +181,7 @@ again:
     if (is->audioStream== -1 && video_index>=0)
     {
 
-        audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, NULL, 0);
+        audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, nullptr, 0);
         if(audio_index >= 0)
         {
             stream_component_open(context, is, audio_index);
@@ -198,7 +198,7 @@ again:
 
     if (is->subtitleStream == -1 && video_index>=0)
     {
-        subtitle_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, NULL, 0);
+        subtitle_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, nullptr, 0);
         if(subtitle_index >= 0)
         {
             is->subtitleStream = subtitle_index;
