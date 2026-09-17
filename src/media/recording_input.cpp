@@ -50,24 +50,22 @@ std::string ffmpeg_detail(int status) {
 }
 void file_open_impl(RecordingContext& context)
 {
-    VideoState *is;
     int subtitle_index= -1, audio_index= -1, video_index = -1;
     int openretries = 0;
 
     if (!context.state.video_owner)
     {
         context.state.video_owner = std::make_unique<VideoState>();
-        is = context.state.video_owner.get();
         // Register all formats and codecs
         context.state.av_log_level=AV_LOG_INFO;
 
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
 
-        is->videoStream=-1;
-        is->audioStream=-1;
-        is->subtitleStream = -1;
-        is->pFormatCtx.reset();
+        context.state.video_owner->videoStream=-1;
+        context.state.video_owner->audioStream=-1;
+        context.state.video_owner->subtitleStream = -1;
+        context.state.video_owner->pFormatCtx.reset();
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
         if (!context.settings.hardware_decode) {
@@ -88,104 +86,103 @@ void file_open_impl(RecordingContext& context)
 
 
     }
-    else
-        is = context.state.video_owner.get();
+    auto& is = *context.state.video_owner;
     // Open video file
-    if (!is->pFormatCtx)
+    if (!is.pFormatCtx)
     {
-        is->filename = context.state.mpegfilename;
-        is->pFormatCtx.reset(avformat_alloc_context());
-        if (!is->pFormatCtx) throw std::bad_alloc();
-        is->pFormatCtx->max_analyze_duration *= 4;
+        is.filename = context.state.mpegfilename;
+        is.pFormatCtx.reset(avformat_alloc_context());
+        if (!is.pFormatCtx) throw std::bad_alloc();
+        is.pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
         int open_status{};
-        while ((open_status = avformat_open_input(std::inout_ptr(is->pFormatCtx),
-                                                   is->filename.c_str(), nullptr,
+        while ((open_status = avformat_open_input(std::inout_ptr(is.pFormatCtx),
+                                                   is.filename.c_str(), nullptr,
                                                    std::inout_ptr(context.state.myoptions))) < 0) {
             if (openretries++ >= context.settings.live_tv_retries) {
                 throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                     comskip::diagnostics::Code::cannot_open_recording_detail,
-                    {is->filename, ffmpeg_detail(open_status)});
+                    {is.filename, ffmpeg_detail(open_status)});
             }
             sleep_for_ms(1000L);
         }
-        is->seek_by_bytes = !!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is->pFormatCtx->iformat->name);
+        is.seek_by_bytes = !!(is.pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is.pFormatCtx->iformat->name);
 // #if def _DEBUG
-//        if (is->duration < 5*60 && retries++ < live_tv_retries)
+//        if (is.duration < 5*60 && retries++ < live_tv_retries)
 //        {
 //            sleep_for_ms(4000L);
 //            goto again;
 //        }
 // #en dif
-//     is->pFormatCtx->max_analyze_duration = 320000000;
-//    is->pFormatCtx->thread_count= 2;
+//     is.pFormatCtx->max_analyze_duration = 320000000;
+//    is.pFormatCtx->thread_count= 2;
 
         // Retrieve stream information
-        const int stream_info_status=avformat_find_stream_info(is->pFormatCtx.get(), 0L );
+        const int stream_info_status=avformat_find_stream_info(is.pFormatCtx.get(), 0L );
         if(stream_info_status<0)
         {
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                 comskip::diagnostics::Code::cannot_read_recording_stream_info_detail,
-                {is->filename,ffmpeg_detail(stream_info_status)});
+                {is.filename,ffmpeg_detail(stream_info_status)});
         }
         // Dump information about file onto standard error
-        if (context.state.retries == 0) av_dump_format(is->pFormatCtx.get(), 0, is->filename.c_str(), 0);
+        if (context.state.retries == 0) av_dump_format(is.pFormatCtx.get(), 0, is.filename.c_str(), 0);
     }
 
-    if (!is->frame.get()) {
-        is->frame = make_frame();
+    if (!is.frame.get()) {
+        is.frame = make_frame();
     }
 
-    if ( is->videoStream == -1)
+    if ( is.videoStream == -1)
     {
-        video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+        video_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
         if(video_index >= 0)
         {
-            stream_component_open(context, *is, video_index);
+            stream_component_open(context, is, video_index);
         }
-        if(is->videoStream < 0)
+        if(is.videoStream < 0)
         {
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
-                comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is->filename});
+                comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is.filename});
         }
 
-        if ( is->video_st->duration == AV_NOPTS_VALUE ||  is->video_st->duration < 0)
-            is->duration = static_cast<double>(is->pFormatCtx->duration) / AV_TIME_BASE;
+        if ( is.video_st->duration == AV_NOPTS_VALUE ||  is.video_st->duration < 0)
+            is.duration = static_cast<double>(is.pFormatCtx->duration) / AV_TIME_BASE;
         else
-            is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
+            is.duration =  av_q2d(is.video_st->time_base)* is.video_st->duration;
 
-        if (is->duration < 0 && (context.settings.live_tv_retries > 0)) {
+        if (is.duration < 0 && (context.settings.live_tv_retries > 0)) {
            Debug(context, 0, context.translator.text("media_duration_warning"));
         }
 
 
         /* Calc FPS */
-        if(is->video_st->r_frame_rate.den && is->video_st->r_frame_rate.num)
+        if(is.video_st->r_frame_rate.den && is.video_st->r_frame_rate.num)
         {
-            is->fps = av_q2d(is->video_st->r_frame_rate);
+            is.fps = av_q2d(is.video_st->r_frame_rate);
         }
         else
         {
             Debug(context, 10, context.translator.text("media_no_stream_frame_rate"));
-            is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame );
+            is.fps = 1/(av_q2d(is.dec_ctx->time_base) * is.ticks_per_frame );
         }
-        set_fps(context,  1.0 / is->fps);
-//        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
+        set_fps(context,  1.0 / is.fps);
+//        Debug(1, "Stream frame rate is %5.3f f/s\n", is.fps);
 
 
     }
 
-    if (is->audioStream== -1 && video_index>=0)
+    if (is.audioStream== -1 && video_index>=0)
     {
 
-        audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, nullptr, 0);
+        audio_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, nullptr, 0);
         if(audio_index >= 0)
         {
-            stream_component_open(context, *is, audio_index);
-            if (is->audio_st)
-                context.state.audio_channels = is->audio_st->codecpar->ch_layout.nb_channels;
+            stream_component_open(context, is, audio_index);
+            if (is.audio_st)
+                context.state.audio_channels = is.audio_st->codecpar->ch_layout.nb_channels;
 
-            if (is->audioStream < 0)
+            if (is.audioStream < 0)
             {
                 Debug(context, 1, context.translator.text("media_audio_decoder_warning"));
             }
@@ -193,28 +190,28 @@ void file_open_impl(RecordingContext& context)
 
     }
 
-    if (is->subtitleStream == -1 && video_index>=0)
+    if (is.subtitleStream == -1 && video_index>=0)
     {
-        subtitle_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, nullptr, 0);
+        subtitle_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_SUBTITLE, -1, video_index, nullptr, 0);
         if(subtitle_index >= 0)
         {
-            is->subtitleStream = subtitle_index;
-            is->subtitle_st = is->pFormatCtx->streams[subtitle_index];
+            is.subtitleStream = subtitle_index;
+            is.subtitle_st = is.pFormatCtx->streams[subtitle_index];
             if (context.captions && !context.state.reviewing)
-                context.captions->select_stream(*is->subtitle_st->codecpar, is->subtitle_st->time_base);
+                context.captions->select_stream(*is.subtitle_st->codecpar, is.subtitle_st->time_base);
             if (context.state.demux_pid)
-                context.state.selected_subtitle_pid = is->subtitle_st->id;
+                context.state.selected_subtitle_pid = is.subtitle_st->id;
         }
 
     }
     context.state.av_log_level=AV_LOG_ERROR;
 
 
-                    is->seek_req = 0;
+                    is.seek_req = 0;
 //                    framenum = 0;
                     context.state.pts_offset = 0.0;
-                    is->video_clock = 0.0;
-                    is->audio_clock = 0.0;
+                    is.video_clock = 0.0;
+                    is.audio_clock = 0.0;
 //                    sound_frame_counter = 0;
 //                    initial_pts = 0.0;
 //                    initial_pts_set = 0;
