@@ -5,6 +5,7 @@
 #include "exit_requested.h"
 #include <cstdio>
 #include <exception>
+#include <iostream>
 #include "diagnostic_render.h"
 #include "output/checked_file.h"
 
@@ -32,7 +33,7 @@ int report_error(const std::exception& error, const RecordingContext* context) n
         else print(comskip::localization::Translator("en"));
     } catch(const std::exception&) {
         // Reporting failures must not terminate the application while unwinding.
-        std::fprintf(stderr, "Comskip: %s\n", error.what());
+        std::cerr << "Comskip: " << error.what() << '\n';
     }
     if(const auto* provider=dynamic_cast<const comskip::diagnostics::DiagnosticProvider*>(&error)) {
         const auto code=provider->diagnostic().code;
