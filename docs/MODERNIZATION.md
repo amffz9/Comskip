@@ -650,7 +650,7 @@ than redefine completion around whichever subset currently passes tests.
   remains deferred to the final implementation stage.
 
 - The current Windows branch passes the complete headless CTest target
-  **511/511** and the SDL/GUI target **517/517** with dummy video and audio
+  **512/512** and the SDL/GUI target **517/517** with dummy video and audio
   drivers. These runs include generated-media, localization, subtitle,
   output, repeated-analysis, and resource-cleanup tests. Linux, sanitizer,
   and macOS execution remain separate verification work.
@@ -659,5 +659,5 @@ than redefine completion around whichever subset currently passes tests.
   unqualified `min`/`max` helpers. Timing and startup logs use checked writes,
   and startup time conversion uses thread-safe platform primitives. Focused
   platform tests pass **3/3**; the complete Windows headless and SDL suites
-  pass **511/511** and **517/517**. Linux, sanitizer, and macOS execution
+  pass **512/512** and **517/517**. Linux, sanitizer, and macOS execution
   remain separate verification work.

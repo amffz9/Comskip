@@ -1432,15 +1432,15 @@ before calling FFmpeg seek APIs.
 
 ### B114: Diagnostic logging ignored write failures and used shared time storage
 
-- **Evidence:** Timing and startup log records used unchecked `fprintf` calls,
-  while startup time selection dereferenced the result of `localtime`. A failed
-  write could silently truncate a diagnostic, and the shared C time buffers were
-  unsafe for concurrent callers.
+- **Evidence:** Debug, timing, and startup log records used unchecked `fwrite`
+  or `fprintf` calls, while startup time selection dereferenced the result of
+  `localtime`. A failed write could silently truncate a diagnostic, and the
+  shared C time buffers were unsafe for concurrent callers.
 - **Impact:** Log consumers could receive incomplete output, and a failed or
   concurrently accessed time conversion could produce invalid startup behavior.
-- **Status:** Fixed. Timing and startup records now use the checked output
-  boundary. Platform time conversion uses `localtime_s` on Windows and
+- **Status:** Fixed. Debug, timing, and startup records now use the checked
+  output boundary. Platform time conversion uses `localtime_s` on Windows and
   `localtime_r` elsewhere, with a focused test for the value-owned result.
 - **Verification:** The platform time/file tests pass 3/3; focused settings,
   diagnostic, and in-process tests pass 61/61; complete Windows headless and
-  SDL suites pass 511/511 and 517/517. Linux verification remains pending.
+  SDL suites pass 512/512 and 517/517. Linux verification remains pending.
