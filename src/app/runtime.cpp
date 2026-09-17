@@ -1,12 +1,21 @@
 #include "diagnostic.h"
 #include "allocation_result.h"
+#include "debug.h"
 #include "exit_requested.h"
-#include "legacy_detection.h"
+#include "recording_context.h"
+#include "detection/detection_methods.h"
+#include "detection/initialization.h"
+#include "detection/interval_storage.h"
+#include "output/media_dump.h"
+#include "platform/platform.h"
 #include <algorithm>
+#include <cstddef>
 #include <cstdarg>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 template <class Operation>
@@ -96,7 +105,8 @@ void Init_XDS_block(RecordingContext& context);
 void InitComSkip(RecordingContext& context)
 {
     int i, j;
-    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0);
+    context.state.ensure_pixel_buffers(comskip::detection::method_enabled(
+        context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo));
     context.state.min_brightness_found = 255;
     context.state.max_logo_gap = -1;
     context.state.max_nonlogo_block_length = -1;
@@ -138,7 +148,8 @@ void InitComSkip(RecordingContext& context)
 //		comskip::request_exit(100);
 //	}
 
-    if (context.settings.commDetectMethod & LOGO)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                            comskip::detection::DetectionMethod::logo))
     {
         if(!context.state.initialized)
         {
@@ -159,7 +170,8 @@ void InitComSkip(RecordingContext& context)
         std::ranges::fill(context.state.min_br, 255);
     }
 
-    if (context.settings.commDetectMethod & SCENE_CHANGE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                            comskip::detection::DetectionMethod::scene_change))
     {
         if(!context.state.initialized)
         {
@@ -190,12 +202,12 @@ void InitComSkip(RecordingContext& context)
 
         context.state.cc_block[0].start_frame = 0;
         context.state.cc_block[0].end_frame = -1;
-        context.state.cc_block[0].type = NONE;
+        context.state.cc_block[0].type = static_cast<int>(comskip::detection::CaptionType::none);
         for (i = 1; i < context.state.max_cc_block_count; i++)
         {
             context.state.cc_block[i].start_frame = -1;
             context.state.cc_block[i].end_frame = -1;
-            context.state.cc_block[i].type = NONE;
+            context.state.cc_block[i].type = static_cast<int>(comskip::detection::CaptionType::none);
         }
 
         context.state.cc_memory = {};
