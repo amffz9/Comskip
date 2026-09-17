@@ -745,3 +745,7 @@ than redefine completion around whichever subset currently passes tests.
   a consumed parser label, resetting per-pass locals while retaining the
   reopened owned inputs. The complete Windows headless suite remains green at
   **515/515**.
+
+- The final fallback application diagnostic now uses standard C++ stream output
+  instead of a C formatter; translated diagnostics and run-log mirroring are
+  unchanged. The complete Windows headless suite remains green at **515/515**.
