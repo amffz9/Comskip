@@ -20,7 +20,7 @@ int file_error(const std::error_code& error)
 }
 }
 
-fileh myfopen(const char* filename, const char* mode)
+FILE* myfopen(const char* filename, const char* mode)
 {
     if (!filename || !mode) {
         errno = EINVAL;
@@ -30,7 +30,10 @@ fileh myfopen(const char* filename, const char* mode)
     try {
         const auto path = utf8_path(filename);
         const std::wstring wide_mode(mode, mode + strlen(mode));
-        return _wfopen(path.c_str(), wide_mode.c_str());
+        FILE* stream = nullptr;
+        if (_wfopen_s(&stream, path.c_str(), wide_mode.c_str()) != 0)
+            return nullptr;
+        return stream;
     } catch (const std::filesystem::filesystem_error& error) {
         file_error(error.code());
     } catch (const std::bad_alloc&) {

@@ -45,30 +45,6 @@
 
 #endif
 
-#ifdef _WIN32
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-#ifndef MAX_PATH
-#define MAX_PATH _MAX_PATH
-#endif
-#elif !defined(MAX_PATH) // MSVC
-#define MAX_PATH FILENAME_MAX
-#endif // MinGW32,64
-#elif  __unix__ // Linux
-#define MAX_PATH _POSIX_PATH_MAX
-#elif __APPLE__ // MacOSX
-#define MAX_PATH PATH_MAX
-#else
-#error "MAX_PATH is undefined"
-#endif
-
-#ifdef _POSIX_ARG_MAX
-#define MAX_ARG _POSIX_ARG_MAX
-#elif defined(ARG_MAX)
-#define MAX_ARG ARG_MAX
-#else
-#define MAX_ARG MAX_PATH
-#endif
-
 #ifndef __cplusplus
 #define bool  int
 #define false 0
@@ -80,18 +56,10 @@
 #include "portable_threads.h"
 #endif
 
-typedef FILE* fileh;
-
-#ifdef _WIN32
-#define PATH_SEPARATOR '\\'
-#else
-#define PATH_SEPARATOR '/'
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-fileh myfopen(const char * f, const char * m);
+FILE* myfopen(const char* filename, const char* mode);
 int myremove(const char * f);
 void sleep_for_ms(long milliseconds);
 #ifdef __cplusplus
