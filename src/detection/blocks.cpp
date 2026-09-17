@@ -39,8 +39,8 @@ void BlocksDebug(RecordingContext& context, int level, std::string_view key, Arg
 
 char *CauseString(RecordingContext& context, int i)
 {
-    char *c = &(context.state.CauseString_cs[context.state.CauseString_ii][0]);
-    char *rc = &(context.state.CauseString_cs[context.state.CauseString_ii][0]);
+    char *c = context.state.CauseString_cs[context.state.CauseString_ii].data();
+    char *rc = context.state.CauseString_cs[context.state.CauseString_ii].data();
     constexpr std::array<std::pair<long, char>, 8> history_flags{
         std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_8), '8'}, std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_7), '7'},
         std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_6), '6'}, std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_5), '5'},
@@ -50,7 +50,7 @@ char *CauseString(RecordingContext& context, int i)
     for (const auto [flag, marker] : history_flags)
         *c++ = (i & flag) ? marker : ' ';
 
-    const std::string_view history{context.state.CauseString_cs[context.state.CauseString_ii], 7};
+    const std::string_view history{context.state.CauseString_cs[context.state.CauseString_ii].data(), 7};
     if (history != "       ")
         *c++ = '{';
     else

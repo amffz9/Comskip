@@ -369,7 +369,7 @@ struct RecordingState {
     int show_silence=0;
     int preMarkerFrame= 0;
     int postMarkerFrame= 0;
-    char CauseString_cs[4][80]{};
+    std::array<std::array<char, 80>, 4> CauseString_cs{};
     int CauseString_ii=0;
     std::array<unsigned char, 1024> AddXDS_XDSbuf{};
     int AddXDS_c= 0;

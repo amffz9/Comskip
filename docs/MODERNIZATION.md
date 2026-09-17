@@ -1017,3 +1017,7 @@ than redefine completion around whichever subset currently passes tests.
 - XDS caption staging and retained records now use nested fixed-size
   `std::array` containers; `.data()` is explicit at diagnostic C-string
   boundaries. The complete Windows suite passes **523/523**.
+
+- Block-cause history now uses a nested `std::array` text buffer, with explicit
+  `.data()` at the formatter's string-view boundary. The complete Windows
+  suite passes **523/523**.
