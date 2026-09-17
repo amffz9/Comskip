@@ -1,4 +1,5 @@
 #include "platform/utf8_paths.h"
+#include "config/legacy_settings.h"
 #include "media/decoder.h"
 #include "ui/executable_mode.h"
 #include "exit_requested.h"
@@ -8,7 +9,12 @@
 #include "app/recording_context.h"
 #include "checked_format.h"
 #include "detection/detection_methods.h"
+#include "detection/logo_detection.h"
 #include "detection/scene_analysis.h"
+#include "output/diagnostics.h"
+#include "platform/platform.h"
+#include "app/csv_input.h"
+#include "ui/review.h"
 #include "translator.h"
 #include "diagnostic_render.h"
 #include "logo_search_time.h"
@@ -20,6 +26,8 @@
 #include <ctime>
 #include <string>
 #include <string_view>
+
+#include <argtable2.h>
 
 namespace {
 using comskip::platform::path_from_utf8;

@@ -1,8 +1,16 @@
 #include "output/selftest_log.h"
+#include "app/debug.h"
 #include "recording_context.h"
+#include "detection/captions.h"
+#include "detection/detection_methods.h"
+#include "detection/detector_runtime.h"
+#include "detection/frame_timestamps.h"
+#include "detection/initialization.h"
+#include "detection/logo_detection.h"
 #include "media/decoder.h"
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"
+#include "output/media_dump.h"
 #include "exit_requested.h"
 #include "a53_caption_bridge.h"
 #include "video_decode_status.h"
@@ -167,10 +175,10 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         context.state.videowidth= pFrame->width;
         changed = 1;
     }
-    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0 || context.state.logoInfoAvailable);
+    context.state.ensure_pixel_buffers(comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) || context.state.logoInfoAvailable);
     if (changed) {
         if (context.state.initialized) {
-            if (context.settings.commDetectMethod & LOGO) InitLogoBuffers(context);
+            if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)) InitLogoBuffers(context);
             InitScanLines(context);
             InitHasLogo(context);
         }

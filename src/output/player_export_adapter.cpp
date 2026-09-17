@@ -2,6 +2,7 @@
 #include "output/player_export_adapter.h"
 #include "output/player_exports.h"
 #include "output/output_file.h"
+#include "detection/frame_timestamps.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
 #include <cmath>

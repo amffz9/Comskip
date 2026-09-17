@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "legacy_detection.h" // Legacy detector fixture entry points and bit patterns.
 #include "black_frame_run.h"
 #include <gtest/gtest.h>
 #include <array>

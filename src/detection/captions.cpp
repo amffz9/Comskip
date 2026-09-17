@@ -6,6 +6,8 @@
 #include "detection/detection_methods.h"
 #include "detection/detector_runtime.h"
 #include "detection/frame_timestamps.h"
+#include "detection/captions.h"
+#include "detection/storage.h"
 #include "platform/platform.h"
 
 #include <algorithm>

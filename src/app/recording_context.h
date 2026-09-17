@@ -1,14 +1,16 @@
 #include "media/decode_progress.h"
 #pragma once
-#include "legacy_detection.h"
 #include "settings_value.h"
-#include "video_state.h"
+#include "media/video_state.h"
 #include "review_window.h"
 #include "translator.h"
 #include "file_resources.h"
 #include "media/caption_session.h"
+#include "detection/detection_methods.h"
 #include "detection_blocks.h"
+#include "detector_records.h"
 #include "interval_storage.h"
+#include "portable_threads.h"
 #include <memory>
 #include <array>
 #include <vector>
@@ -66,8 +68,8 @@ struct RecordingState {
     std::vector<cc_block_info> cc_block;
     long cc_block_count= 0;
     long max_cc_block_count{};
-    int last_cc_type= NONE;
-    int current_cc_type= NONE;
+    int last_cc_type = comskip::detection::caption_type_value(comskip::detection::CaptionType::none);
+    int current_cc_type = comskip::detection::caption_type_value(comskip::detection::CaptionType::none);
     bool cc_on_screen= false;
     bool cc_in_memory= false;
     std::vector<XDS_block_info> XDS_block;
@@ -243,7 +245,7 @@ struct RecordingState {
     uint8_t prevccData[500]{};
     int prevccDataLen{};
     long cc_count[5]= { 0, 0, 0, 0, 0 };
-    int most_cc_type= NONE;
+    int most_cc_type = comskip::detection::caption_type_value(comskip::detection::CaptionType::none);
     std::array<std::array<unsigned char, 32>, 15> cc_screen{};
     std::array<std::array<unsigned char, 32>, 15> cc_memory{};
     int minY{};

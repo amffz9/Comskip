@@ -16,3 +16,4 @@ void ProcessACInfo(RecordingContext& context, int audio_channels);
 bool ProcessLogoTest(RecordingContext& context, int frame_number,
                      int current_logo_test, int close);
 int FindBlock(RecordingContext& context, long frame);
+int DetectCommercials(RecordingContext& context, int frame, double pts);

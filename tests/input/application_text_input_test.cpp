@@ -1,8 +1,11 @@
 #include "recording_context.h"
 #include "checked_format.h"
+#include "app/csv_input.h"
+#include "detection/detection_methods.h"
 #include "exit_requested.h"
 #include "output/diagnostics.h"
 #include "input/reference_file.h"
+#include "platform/platform.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <filesystem>
@@ -135,7 +138,7 @@ TEST_F(ApplicationTextInput, CsvFinalObservationWithoutNewlineKeepsAllTypedColum
 }
 TEST_F(ApplicationTextInput, LegacyCsvFractionalRateUsesPositiveLogoSamplingInterval) {
     context->settings.fps = 0.5;
-    context->settings.commDetectMethod = BLACK_FRAME | LOGO;
+    context->settings.commDetectMethod = static_cast<int>(comskip::detection::DetectionMethod::black_frame) | static_cast<int>(comskip::detection::DetectionMethod::logo);
     std::string text(csv_header.substr(0, csv_header.rfind(',')));
     text += '\n';
     for (int frame = 1; frame <= 150; ++frame)
@@ -149,7 +152,7 @@ TEST_F(ApplicationTextInput, LegacyCsvFractionalRateUsesPositiveLogoSamplingInte
 }
 TEST_F(ApplicationTextInput, LegacyCsvUnrepresentableRateRejectsBeforeStateMutation) {
     context->settings.fps = 1e20;
-    context->settings.commDetectMethod = BLACK_FRAME | LOGO;
+    context->settings.commDetectMethod = static_cast<int>(comskip::detection::DetectionMethod::black_frame) | static_cast<int>(comskip::detection::DetectionMethod::logo);
     context->state.frame_count = 77;
     const auto text = std::string(csv_header.substr(0, csv_header.rfind(','))) +
         "\n1,80,0,0,10,40,1,119,1.333333,0.5,0\n";

@@ -5,6 +5,7 @@
 #include "output/legacy_edit_lists.h"
 #include "output/plain_chapters.h"
 #include "output/output_file.h"
+#include "detection/frame_timestamps.h"
 #include "platform/utf8_paths.h"
 #include "recording_context.h"
 #include <algorithm>

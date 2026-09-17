@@ -31,6 +31,7 @@
 #include "comskip.h"
 #include "ffmpeg_resources.h"
 #include "checked_format.h"
+#include "detection/frame_timestamps.h"
 #include "input_position.h"
 #include "seek_math.h"
 #include "localization/diagnostic.h"

@@ -1,6 +1,7 @@
 #include "recording_context.h"
 #include "app/analysis.h"
 #include "media/ffmpeg_resources.h"
+#include "output/diagnostics.h"
 #include "exit_requested.h"
 #include "localization/diagnostic.h"
 

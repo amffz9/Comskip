@@ -22,6 +22,8 @@
  */
 
 #include "recording_context.h"
+#include "app/debug.h"
+#include "detection/frame_timestamps.h"
 #include "media/decoder.h"
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"

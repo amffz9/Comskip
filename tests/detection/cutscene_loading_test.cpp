@@ -1,5 +1,8 @@
 #include "recording_context.h"
 #include "checked_format.h"
+#include "config/legacy_settings.h"
+#include "detection/scene_analysis.h"
+#include "platform/platform.h"
 #include "platform/utf8_paths.h"
 #include "exit_requested.h"
 #include <iomanip>

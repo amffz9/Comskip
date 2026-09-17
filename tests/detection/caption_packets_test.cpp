@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "legacy_detection.h" // Legacy caption fixture entry points and constants.
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>

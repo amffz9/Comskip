@@ -1,4 +1,6 @@
 #include "recording_context.h"
+#include "detection/detector_runtime.h"
+#include "detection/frame_causes.h"
 #include "checked_format.h"
 #include <gtest/gtest.h>
 #include <pugixml.hpp>
@@ -37,9 +39,9 @@ protected:
         state.black_count = 3;
         state.black.resize(3);
         state.black[1].frame = 100;
-        state.black[1].cause = C_b;
+        state.black[1].cause = comskip::detection::cause_value(comskip::detection::FrameCause::black);
         state.black[2].frame = 850;
-        state.black[2].cause = C_b;
+        state.black[2].cause = comskip::detection::cause_value(comskip::detection::FrameCause::black);
     }
     void TearDown() override {
         context.reset();

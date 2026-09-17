@@ -23,7 +23,10 @@
  */
 
 #include "analysis.h"
+#include "debug.h"
 #include "recording_context.h"
+#include "config/legacy_settings.h"
+#include "detection/detector_runtime.h"
 #include "media/decoder.h"
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"

@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "detection/frame_timestamps.h"
 #include <gtest/gtest.h>
 #include <limits>
 #include <memory>

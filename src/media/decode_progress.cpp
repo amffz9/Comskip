@@ -1,5 +1,6 @@
 #include "decode_progress.h"
 #include "decoder.h"
+#include "detection/frame_timestamps.h"
 #include "recording_context.h"
 #include <cstdio>
 #include <thread>

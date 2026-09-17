@@ -1,4 +1,5 @@
 #include "diagnostic.h"
+#include "comskip.h"
 #include "recording_context.h"
 #include "image_geometry.h"
 

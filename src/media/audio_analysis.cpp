@@ -2,8 +2,10 @@
 // Copyright (C) 2000-2003 Michel Lespinasse and (C) 1999-2000 Aaron Holtzman.
 // Distributed under GPL-2.0-or-later; see LICENSE.
 #include "audio_analysis.h"
+#include "app/debug.h"
 #include "recording_context.h"
 #include "audio_samples.h"
+#include "detection/frame_timestamps.h"
 #include "output/media_dump.h"
 #include "timing_diagnostics.h"
 #include <algorithm>

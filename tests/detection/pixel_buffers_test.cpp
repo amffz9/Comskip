@@ -1,4 +1,6 @@
 #include "recording_context.h"
+#include "app/comskip.h"
+#include "detection/logo_detection.h"
 #include "image_geometry.h"
 
 #include <gtest/gtest.h>

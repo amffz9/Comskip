@@ -1,14 +1,14 @@
 #include "recording_context.h"
 #include "detection/saved_logo.h"
+#include "detection/logo_detection.h"
 #include "localization/diagnostic.h"
+#include "platform/platform.h"
 #include "platform/utf8_paths.h"
 #include <gtest/gtest.h>
 #include <fstream>
 #include <chrono>
 #include <iterator>
 #include <memory>
-void LoadLogoMaskData(RecordingContext&);
-void SaveLogoMaskData(RecordingContext&);
 namespace {
 void expect_diagnostic(const std::exception& error, comskip::diagnostics::Code code,
                        std::string_view argument = {}) {

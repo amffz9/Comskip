@@ -3,6 +3,9 @@
 struct RecordingContext;
 
 double get_frame_pts(RecordingContext& context, int frame);
+double get_fps(RecordingContext& context);
+void set_fps(RecordingContext& context, double frame_period);
+void set_frame_volume(RecordingContext& context, unsigned int frame, int volume);
 
 namespace comskip::detection {
 

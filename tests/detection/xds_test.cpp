@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "detection/captions.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <memory>

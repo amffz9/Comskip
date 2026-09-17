@@ -2,6 +2,7 @@
 #include "diagnostic.h"
 #include "output/ffmpeg_sidecars.h"
 #include "output/output_file.h"
+#include "detection/frame_timestamps.h"
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
 #include <sstream>

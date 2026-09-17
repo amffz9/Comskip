@@ -1,5 +1,6 @@
 #include "timing_diagnostics.h"
 #include "recording_context.h"
+#include "platform/platform.h"
 #include "platform/utf8_paths.h"
 #include <cstdio>
 

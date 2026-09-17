@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "detection/detector_runtime.h"
 #include "detection/logo_shrink.h"
 #include <gtest/gtest.h>
 #include <limits>

@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "legacy_detection.h" // Legacy detector fixture entry points and bit patterns.
 #include "input/reference_file.h"
 #include <gtest/gtest.h>
 #include <chrono>
