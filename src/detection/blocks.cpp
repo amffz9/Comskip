@@ -2,6 +2,7 @@
 #include "black_frame_run.h"
 #include "logo_histogram.h"
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -18,19 +19,16 @@ void BlocksDebug(RecordingContext& context, int level, const char* key, Args&&..
 
 char *CauseString(RecordingContext& context, int i)
 {
-
-
     char *c = &(context.state.CauseString_cs[context.state.CauseString_ii][0]);
     char *rc = &(context.state.CauseString_cs[context.state.CauseString_ii][0]);
-
-    *c++ = (i & C_H8		? '8' : ' ');
-    *c++ = (i & C_H7		? '7' : ' ');
-    *c++ = (i & C_H6		? '6' : ' ');
-    *c++ = (i & C_H5		? '5' : ' ');
-    *c++ = (i & C_H4		? '4' : ' ');
-    *c++ = (i & C_H3		? '3' : ' ');
-    *c++ = (i & C_H2		? '2' : ' ');
-    *c++ = (i & C_H1		? '1' : ' ');
+    constexpr std::array<std::pair<long, char>, 8> history_flags{
+        std::pair<long, char>{C_H8, '8'}, std::pair<long, char>{C_H7, '7'},
+        std::pair<long, char>{C_H6, '6'}, std::pair<long, char>{C_H5, '5'},
+        std::pair<long, char>{C_H4, '4'}, std::pair<long, char>{C_H3, '3'},
+        std::pair<long, char>{C_H2, '2'}, std::pair<long, char>{C_H1, '1'},
+    };
+    for (const auto [flag, marker] : history_flags)
+        *c++ = (i & flag) ? marker : ' ';
 
     const std::string_view history{context.state.CauseString_cs[context.state.CauseString_ii], 7};
     if (history != "       ")
