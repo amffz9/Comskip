@@ -661,3 +661,8 @@ than redefine completion around whichever subset currently passes tests.
   platform tests pass **3/3**; the complete Windows headless and SDL suites
   pass **512/512** and **517/517**. Linux, sanitizer, and macOS execution
   remain separate verification work.
+
+- Scene, logo, and AC3 buffers now use typed C++ algorithms for non-overlapping
+  copies and clearing, and optional logo deletion uses RAII. Caption dictionary
+  parsing normalizes CRLF entries with a regression test. The complete Windows
+  headless and SDL suites remain green at **512/512** and **517/517**.
