@@ -1,5 +1,22 @@
 #include "../localization/diagnostic.h"
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
+#include "app/runtime.h"
+#include "block_building.h"
+#include "block_features.h"
+#include "block_scoring.h"
+#include "config/legacy_settings.h"
+#include "detection_methods.h"
+#include "detector_runtime.h"
+#include "frame_causes.h"
+#include "frame_timestamps.h"
+#include "logo_detection.h"
+#include "output/cutlist_exports.h"
+#include "output/diagnostics.h"
+#include "platform/platform.h"
+#include "scene_analysis.h"
+#include "storage.h"
+#include "ui/review.h"
 #include "media/audio_analysis.h"
 #include <format>
 #include "frame_mask.h"
@@ -7,11 +24,25 @@
 #include "logo_shrink.h"
 #include "volume_histogram.h"
 #include "output/run_log.h"
+#include <algorithm>
 #include <array>
 #include <stdexcept>
 #include <utility>
 
 namespace {
+constexpr int maximum_aspect_ratios = 1000;
+constexpr int maximum_audio_channels = 12;
+constexpr int uniform_scale = 100;
+constexpr double undefined_aspect_ratio = 0.0;
+
+double frame_time(RecordingContext& context, int frame) {
+    return get_frame_pts(context, frame);
+}
+
+double frame_duration(RecordingContext& context, int end_frame, int start_frame) {
+    return frame_time(context, end_frame) - frame_time(context, start_frame);
+}
+
 template <typename... Args>
 void DetectionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
 {
@@ -87,14 +118,14 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
     isBlack = oldBlack_count != context.state.black_count;	/*Gil*/
 
 
-    if ((context.settings.commDetectMethod & LOGO) &&
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) &&
         context.state.frame_count % comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq) == 0)
     {
         if (!context.state.logoInfoAvailable || (!context.state.lastLogoTest && !context.settings.startOverAfterLogoInfoAvail) )
         {
             if (context.settings.delay_logo_search == 0 ||
-                    (context.settings.delay_logo_search == 1 && F2T(context.state.frame_count) > context.settings.added_recording * 60) ||
-                    (context.settings.delay_logo_search > 1 && F2T(context.state.frame_count) > context.settings.delay_logo_search))
+                    (context.settings.delay_logo_search == 1 && frame_time(context, context.state.frame_count) > context.settings.added_recording * 60) ||
+                    (context.settings.delay_logo_search > 1 && frame_time(context, context.state.frame_count) > context.settings.delay_logo_search))
             {
                 FillLogoBuffer(context);
                 if (context.state.logoBuffersFull)
@@ -142,7 +173,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
             }
             if (context.settings.startOverAfterLogoInfoAvail && !context.state.loadingCSV && !context.state.secondLogoSearch && context.state.logo_block_count > 0 &&
                     !context.state.lastLogoTest &&
-                    F2L(context.state.frame_count,context.state.logo_block[context.state.logo_block_count-1].end) > ( context.settings.max_commercialbreak * 1.2 ) &&
+                    frame_duration(context, context.state.frame_count,context.state.logo_block[context.state.logo_block_count-1].end) > ( context.settings.max_commercialbreak * 1.2 ) &&
                     (double)context.state.frames_with_logo / (double)context.state.frame_count < 0.5
                )
             {
@@ -211,8 +242,8 @@ double AverageARForBlock(RecordingContext& context, int start, int end)
     Ar = 0.0;
     for (i = 0; i < context.state.ar_block_count; i++)
     {
-        f = max(context.state.ar_block[i].start, start);
-        t = min(context.state.ar_block[i].end, end);
+        f = std::max(context.state.ar_block[i].start, start);
+        t = std::min(context.state.ar_block[i].end, end);
         if (maxSize < t-f+1)
         {
             Ar = context.state.ar_block[i].ar_ratio;
@@ -234,8 +265,8 @@ int AverageACForBlock(RecordingContext& context, int start, int end)
     Ac = 0;
     for (i = 0; i < context.state.ac_block_count; i++)
     {
-        f = max(context.state.ac_block[i].start, start);
-        t = min(context.state.ac_block[i].end, end);
+        f = std::max(context.state.ac_block[i].start, start);
+        t = std::min(context.state.ac_block[i].end, end);
         if (maxSize < t-f+1)
         {
             Ac = context.state.ac_block[i].audio_channels;
@@ -250,19 +281,19 @@ int AverageACForBlock(RecordingContext& context, int start, int end)
 double	FindARFromHistogram(RecordingContext& context, double ar_ratio)
 {
     int i;
-    for (i = 0; i < MAX_ASPECT_RATIOS; i++)
+    for (i = 0; i < maximum_aspect_ratios; i++)
     {
         if (ar_ratio > context.state.ar_histogram[i].ar_ratio - context.settings.ar_delta &&
                 ar_ratio < context.state.ar_histogram[i].ar_ratio + context.settings.ar_delta)
             return (context.state.ar_histogram[i].ar_ratio);
     }
-    for (i = 0; i < MAX_ASPECT_RATIOS; i++)
+    for (i = 0; i < maximum_aspect_ratios; i++)
     {
         if (ar_ratio > context.state.ar_histogram[i].ar_ratio - 2*context.settings.ar_delta &&
                 ar_ratio < context.state.ar_histogram[i].ar_ratio + 2*context.settings.ar_delta)
             return (context.state.ar_histogram[i].ar_ratio);
     }
-    for (i = 0; i < MAX_ASPECT_RATIOS; i++)
+    for (i = 0; i < maximum_aspect_ratios; i++)
     {
         if (ar_ratio > context.state.ar_histogram[i].ar_ratio - 4*context.settings.ar_delta &&
                 ar_ratio < context.state.ar_histogram[i].ar_ratio + 4*context.settings.ar_delta)
@@ -285,7 +316,7 @@ void FillARHistogram(RecordingContext& context, bool refill)
     if (refill)
     {
 
-        for (i = 0; i < MAX_ASPECT_RATIOS; i++)
+        for (i = 0; i < maximum_aspect_ratios; i++)
         {
             context.state.ar_histogram[i].frames = 0;
             context.state.ar_histogram[i].ar_ratio = 0.0;
@@ -294,7 +325,7 @@ void FillARHistogram(RecordingContext& context, bool refill)
         for (i = 0; i < context.state.ar_block_count; i++)
         {
             hi = (int)((context.state.ar_block[i].ar_ratio - 0.5)*100);
-            if (hi >= 0 && hi < MAX_ASPECT_RATIOS)
+            if (hi >= 0 && hi < maximum_aspect_ratios)
             {
                 context.state.ar_histogram[hi].frames += context.state.ar_block[i].end - context.state.ar_block[i].start + 1;
                 context.state.ar_histogram[hi].ar_ratio = context.state.ar_block[i].ar_ratio;
@@ -307,7 +338,7 @@ void FillARHistogram(RecordingContext& context, bool refill)
     {
         hadToSwap = false;
         counter++;
-        for (i = 0; i < MAX_ASPECT_RATIOS - 1; i++)
+        for (i = 0; i < maximum_aspect_ratios - 1; i++)
         {
             if (context.state.ar_histogram[i].frames < context.state.ar_histogram[i + 1].frames)
             {
@@ -322,7 +353,7 @@ void FillARHistogram(RecordingContext& context, bool refill)
     }
     while (hadToSwap);
 
-    for (i = 0; i < MAX_ASPECT_RATIOS; i++)
+    for (i = 0; i < maximum_aspect_ratios; i++)
     {
         totalFrames += context.state.ar_histogram[i].frames;
     }
@@ -330,7 +361,7 @@ void FillARHistogram(RecordingContext& context, bool refill)
     tempCount = 0;
     DetectionDebug(context, 10, "detection_histogram_sorted", std::format("{}", counter));
     i = 0;
-    while (i < MAX_ASPECT_RATIOS && context.state.ar_histogram[i].frames > 0)
+    while (i < maximum_aspect_ratios && context.state.ar_histogram[i].frames > 0)
     {
         tempCount += context.state.ar_histogram[i].frames;
         DetectionDebug(context, 10, "detection_aspect_histogram_row",
@@ -357,7 +388,7 @@ void FillACHistogram(RecordingContext& context, bool refill)
     if (refill)
     {
 
-        for (i = 0; i < MAX_AUDIO_CHANNELS; i++)
+        for (i = 0; i < maximum_audio_channels; i++)
         {
             context.state.ac_histogram[i].frames = 0;
             context.state.ac_histogram[i].audio_channels = 0.0;
@@ -366,7 +397,7 @@ void FillACHistogram(RecordingContext& context, bool refill)
         for (i = 0; i < context.state.ac_block_count; i++)
         {
             hi = context.state.ac_block[i].audio_channels;
-            if (hi >= 0 && hi < MAX_AUDIO_CHANNELS)
+            if (hi >= 0 && hi < maximum_audio_channels)
             {
                 context.state.ac_histogram[hi].frames += context.state.ac_block[i].end - context.state.ac_block[i].start + 1;
                 context.state.ac_histogram[hi].audio_channels = context.state.ac_block[i].audio_channels;
@@ -379,7 +410,7 @@ void FillACHistogram(RecordingContext& context, bool refill)
     {
         hadToSwap = false;
         counter++;
-        for (i = 0; i < MAX_AUDIO_CHANNELS - 1; i++)
+        for (i = 0; i < maximum_audio_channels - 1; i++)
         {
             if (context.state.ac_histogram[i].frames < context.state.ac_histogram[i + 1].frames)
             {
@@ -394,7 +425,7 @@ void FillACHistogram(RecordingContext& context, bool refill)
     }
     while (hadToSwap);
 
-    for (i = 0; i < MAX_AUDIO_CHANNELS; i++)
+    for (i = 0; i < maximum_audio_channels; i++)
     {
         totalFrames += context.state.ac_histogram[i].frames;
     }
@@ -402,7 +433,7 @@ void FillACHistogram(RecordingContext& context, bool refill)
     tempCount = 0;
     DetectionDebug(context, 10, "detection_histogram_sorted", std::format("{}", counter));
     i = 0;
-    while (i < MAX_AUDIO_CHANNELS && context.state.ac_histogram[i].frames > 0)
+    while (i < maximum_audio_channels && context.state.ac_histogram[i].frames > 0)
     {
         tempCount += context.state.ac_histogram[i].frames;
         DetectionDebug(context, 10, "detection_audio_histogram_row",
@@ -494,7 +525,7 @@ bool BuildMasterCommList(RecordingContext& context)
 //        Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\n", avg_fps, fps);
 
 
-    length = F2L(context.state.frame_count-1, 1);
+    length = frame_duration(context, context.state.frame_count-1, 1);
     if (fabs( length - (context.state.frame_count -1)/context.settings.fps) > 0.5) {
         if (fabs(context.state.avg_fps - context.settings.fps)> 1)
             Debug(context, 1, "%s", context.translator.format("detection_framerate_warning",
@@ -518,7 +549,7 @@ bool BuildMasterCommList(RecordingContext& context)
     {
         if (context.state.uniformHistogram[k] > 10)
         {
-            context.state.min_uniform = (k-1)*UNIFORMSCALE;
+            context.state.min_uniform = (k-1)*uniform_scale;
             break;
         }
     }
@@ -605,10 +636,10 @@ try_again:
                     {
                         DetectionDebug(context, 8, "detection_volume_plateau", std::format("{}", i),
                             std::format("{}", k + a), std::format("{}", context.state.frame[i].volume),
-                            std::format("{}", static_cast<int>(F2L(i, j))));
+                            std::format("{}", static_cast<int>(frame_duration(context, i, j))));
                         j = i;
 //						for (j = i-k; j < i + a; j++)
-//							frame[j].isblack |= C_v;
+//							frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
 
                         if (const auto bucket=comskip::detection::volume_histogram_bucket(
                                 context.state.frame[i].volume,platauHistogram.size())) {
@@ -746,7 +777,7 @@ scanagain:
             std::format("{}", context.settings.max_volume));
     }
 
-    if (context.settings.commDetectMethod & LOGO)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
     {
         // close out last logo cblock if one is open
         ProcessLogoTest(context, context.state.frame_count, false, true);
@@ -777,8 +808,8 @@ scanagain:
         // Clean up logo blocks
         /*
                 for (i = logo_block_count-2; i >= 0; i--) {
-                    if (F2L(logo_block[i+1].start, logo_block[i].end) < min_commercial_size + (2*shrink_logo)) {
-                        Debug(1, "Logo cblock %d and %d combined because gap (%i s) too short with previous\n", i, i+1, (int)F2L(logo_block[i+1].start, logo_block[i].end ));
+                    if (frame_duration(context, logo_block[i+1].start, logo_block[i].end) < min_commercial_size + (2*shrink_logo)) {
+                        Debug(1, "Logo cblock %d and %d combined because gap (%i s) too short with previous\n", i, i+1, (int)frame_duration(context, logo_block[i+1].start, logo_block[i].end ));
                         logo_block[i+1].start = logo_block[i].start;
                         for (t = i; t+1 < logo_block_count; t++) {
                             logo_block[t] = logo_block[t+1];
@@ -789,10 +820,10 @@ scanagain:
         */
         for (i = context.state.logo_block_count-1; i >= 0; i--)
         {
-            if (F2L(context.state.logo_block[i].end, context.state.logo_block[i].start) < context.settings.min_commercial_size - 2*context.settings.shrink_logo)
+            if (frame_duration(context, context.state.logo_block[i].end, context.state.logo_block[i].start) < context.settings.min_commercial_size - 2*context.settings.shrink_logo)
             {
                 DetectionDebug(context, 1, "detection_logo_block_too_short",
-                    std::format("{}", i), std::format("{}", static_cast<int>(F2L(
+                    std::format("{}", i), std::format("{}", static_cast<int>(frame_duration(context,
                         context.state.logo_block[i].end, context.state.logo_block[i].start))));
                 for (t = i; t+1 < context.state.logo_block_count; t++)
                 {
@@ -805,14 +836,14 @@ scanagain:
         {
             for (i = 0; i < context.state.logo_block_count; i++)
             {
-                if (i < context.state.logo_block_count-1 && F2L(context.state.logo_block[i+1].start, context.state.logo_block[i].end)< context.settings.max_commercialbreak/4)
+                if (i < context.state.logo_block_count-1 && frame_duration(context, context.state.logo_block[i+1].start, context.state.logo_block[i].end)< context.settings.max_commercialbreak/4)
                     continue;			// Don't do anything if too close
-                if (i == context.state.logo_block_count-1 && F2L(context.state.frame_count, context.state.logo_block[i].end) < context.settings.max_commercialbreak/4)
+                if (i == context.state.logo_block_count-1 && frame_duration(context, context.state.frame_count, context.state.logo_block[i].end) < context.settings.max_commercialbreak/4)
                     continue;			// Don't do anything if too close
                 if (context.settings.after_logo==999)
                 {
                     j = context.state.logo_block[i].end;
-                    InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,0, C_l);
+                    InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,0, comskip::detection::cause_value(comskip::detection::FrameCause::logo));
                     DetectionDebug(context, 3, "detection_logo_cut_disappears",
                         std::format("{:6}", j), std::format("{:.3f}", get_frame_pts(context, j)));
                     continue;
@@ -891,10 +922,10 @@ scanagain:
                 }
                 if (cp != 0)
                 {
-                    InsertBlackFrame(context, cp,context.state.frame[cp].brightness,context.state.frame[cp].uniform,context.state.frame[cp].volume, C_l);
+                    InsertBlackFrame(context, cp,context.state.frame[cp].brightness,context.state.frame[cp].uniform,context.state.frame[cp].volume, comskip::detection::cause_value(comskip::detection::FrameCause::logo));
                     DetectionDebug(context, 3, "detection_logo_cut_after_disappears",
                         std::format("{:6}", cp), std::format("{:.3f}", get_frame_pts(context, cp)),
-                        std::format("{}", static_cast<int>(F2L(cp, context.state.logo_block[i].end))),
+                        std::format("{}", static_cast<int>(frame_duration(context, cp, context.state.logo_block[i].end))),
                         std::format("{}", maxsc));
                 }
             }
@@ -904,14 +935,14 @@ scanagain:
         {
             for (i = 0; i < context.state.logo_block_count; i++)
             {
-                if (i > 0 && F2L(context.state.logo_block[i].start, context.state.logo_block[i-1].end) < context.settings.max_commercialbreak/4)
+                if (i > 0 && frame_duration(context, context.state.logo_block[i].start, context.state.logo_block[i-1].end) < context.settings.max_commercialbreak/4)
                     continue;
-                if (i == 0 && F2T(context.state.logo_block[i].start) < context.settings.max_commercialbreak/4)
+                if (i == 0 && frame_time(context, context.state.logo_block[i].start) < context.settings.max_commercialbreak/4)
                     continue;
                 if (context.settings.before_logo==999)
                 {
                     j = context.state.logo_block[i].start;
-                    InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,0, C_l);
+                    InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,0, comskip::detection::cause_value(comskip::detection::FrameCause::logo));
                     DetectionDebug(context, 3, "detection_logo_cut_appears",
                         std::format("{:6}", j), std::format("{:.3f}", get_frame_pts(context, j)));
 
@@ -992,10 +1023,10 @@ scanagain:
                 }
                 if (cp != 0)
                 {
-                    InsertBlackFrame(context, cp,context.state.frame[cp].brightness,context.state.frame[cp].uniform,context.state.frame[cp].volume, C_l);
+                    InsertBlackFrame(context, cp,context.state.frame[cp].brightness,context.state.frame[cp].uniform,context.state.frame[cp].volume, comskip::detection::cause_value(comskip::detection::FrameCause::logo));
                     DetectionDebug(context, 3, "detection_logo_cut_before_appears",
                         std::format("{:6}", cp), std::format("{:.3f}", get_frame_pts(context, cp)),
-                        std::format("{}", static_cast<int>(F2L(context.state.logo_block[i].start, cp))),
+                        std::format("{}", static_cast<int>(frame_duration(context, context.state.logo_block[i].start, cp))),
                         std::format("{}", maxsc));
                 }
             }
@@ -1008,7 +1039,7 @@ scanagain:
         {
             Debug(context, 1, "%s", context.translator.format("detection_logo_disabled",
                 std::format("{:.2f}", context.state.logoPercentage)).c_str());
-            context.settings.commDetectMethod -= LOGO;
+            comskip::detection::disable_method(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo);
         }
     }
 
@@ -1023,15 +1054,15 @@ scanagain:
                 if ((context.state.frame[j-1].pts - context.state.frame[i].pts) > context.settings.remove_silent_segments) {
                     DetectionDebug(context, 4, "detection_long_silent_segment",
                         std::format("{}", i), std::format("{}", j - 1));
-                    InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, C_v);
-                    InsertBlackFrame(context, j-1,context.state.frame[j-1].brightness,context.state.frame[j-1].uniform,context.state.frame[j].volume, C_v);
+                    InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
+                    InsertBlackFrame(context, j-1,context.state.frame[j-1].brightness,context.state.frame[j-1].uniform,context.state.frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
                 }
                 i = j + 1;
             }
         }
     }
 
-    if (context.settings.commDetectMethod & SILENCE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::silence))
     {
         silence_count = 0;
         schange_found = false;
@@ -1043,7 +1074,7 @@ scanagain:
         {
             if (context.state.frame[i].volume < 6)
             {
-                InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, C_v);
+                InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
             } else
             if (context.settings.min_silence > 0)
             {
@@ -1082,21 +1113,21 @@ scanagain:
 
                         if ( very_low_volume_count > (int)(silence_count * 0.7) ||  schange_found || context.state.frame[i].schange_percent < context.state.schange_threshold)
                         {
-#define SILENCE_CHECK	((int)(2.5 * context.settings.fps))
+                            const auto silence_check = static_cast<int>(2.5 * context.settings.fps);
                             summed_volume1 = 0;
-                            for (j = max(silence_start - SILENCE_CHECK,1); j < silence_start; j++)
+                            for (j = std::max(silence_start - silence_check, 1); j < silence_start; j++)
                             {
 //							if (summed_volume1 < frame[j].volume)
                                 summed_volume1 += context.state.frame[j].volume;
                             }
-                            summed_volume1 /= min(SILENCE_CHECK, silence_start+1) ;
+                            summed_volume1 /= std::min(silence_check, silence_start + 1);
                             summed_volume2 = 0;
-                            for (j = i; j < min(i+SILENCE_CHECK, context.state.frame_count); j++)
+                            for (j = i; j < std::min<long>(i + silence_check, context.state.frame_count); j++)
                             {
 //							if (summed_volume2 < frame[j].volume)
                                 summed_volume2 += context.state.frame[j].volume;
                             }
-                            summed_volume2 /= min(SILENCE_CHECK, context.state.frame_count - i + 1);
+                            summed_volume2 /= std::min<long>(silence_check, context.state.frame_count - i + 1);
                             if ((summed_volume1 > 0.9*context.settings.max_volume &&  summed_volume2 > 0.9*context.settings.max_volume && low_volume_count > context.settings.min_silence ) ||
                                     (summed_volume1 > 2*context.settings.max_volume &&  summed_volume2 > 2*context.settings.max_volume) ||
                                     (summed_volume1 > 4*context.settings.max_volume ||  summed_volume2 > 4*context.settings.max_volume) ||
@@ -1109,16 +1140,16 @@ scanagain:
 #if 1
                                 for (j=silence_start; j < i; j++)
                                 {
-                                    context.state.frame[j].isblack |= C_v;
-                                    InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,context.state.frame[j].volume, C_v);
+                                    context.state.frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
+                                    InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,context.state.frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
                                 }
 #else
-                                context.state.frame[schange_frame].isblack |= C_v;
-                                InsertBlackFrame(schange_frame,context.state.frame[schange_frame].brightness,context.state.frame[schange_frame].uniform,context.state.frame[schange_frame].volume, C_v);
+                                context.state.frame[schange_frame].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
+                                InsertBlackFrame(schange_frame,context.state.frame[schange_frame].brightness,context.state.frame[schange_frame].uniform,context.state.frame[schange_frame].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
 #endif
                                 //for (j = silence_start /*i - min_silence /* * (int)fps */; j <= i; j++) {
-                                //	frame[j].isblack |= C_v;
-                                //	InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,frame[j].volume, C_v);
+                                //	frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
+                                //	InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
                                 //}
                             }
                         }
@@ -1141,7 +1172,7 @@ scanagain:
 
     context.state.frame[context.state.frame_count].dimCount = 0;
     context.state.frame[context.state.frame_count].hasBright = 0;
-    InsertBlackFrame(context, context.state.frame_count,0,0,0, C_b);
+    InsertBlackFrame(context, context.state.frame_count,0,0,0, comskip::detection::cause_value(comskip::detection::FrameCause::black));
 
     if (context.settings.cut_on_ac_change)
     {
@@ -1163,20 +1194,20 @@ scanagain:
                 std::format("{:6}", context.state.ac_block[i].start),
                 std::format("{:6}", context.state.ac_block[i].end),
                 std::format("{:2}", context.state.ac_block[i].audio_channels),
-                dblSecondsToStrMinutes(context, F2L(context.state.ac_block[i].end,
+                dblSecondsToStrMinutes(context, frame_duration(context, context.state.ac_block[i].end,
                     context.state.ac_block[i].start)));
         }
     }
 
     // close out the last ar cblock
-    if (context.settings.commDetectMethod & AR)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::aspect_ratio))
     {
         const auto debug_ar_block = [&](int level, int index) {
             const auto& block = context.state.ar_block[index];
             DetectionDebug(context, level, "detection_ar_block_row", std::format("{}", index),
                 std::format("{:6}", block.start), std::format("{:6}", block.end),
                 std::format("{:.2f}", block.ar_ratio),
-                dblSecondsToStrMinutes(context, F2L(block.end, block.start)),
+                dblSecondsToStrMinutes(context, frame_duration(context, block.end, block.start)),
                 std::format("{:4}", block.width), std::format("{:4}", block.height),
                 std::format("{:3}", block.minX), std::format("{:3}", block.minY),
                 std::format("{:3}", block.maxX), std::format("{:3}", block.maxY));
@@ -1200,9 +1231,9 @@ scanagain:
         FillARHistogram(context, false);
 
         // Update histogram to remove replaced ratios
-        for (i = 0 ; i < MAX_ASPECT_RATIOS; i++)
+        for (i = 0 ; i < maximum_aspect_ratios; i++)
         {
-            for (j = i+1; j < MAX_ASPECT_RATIOS; j++)
+            for (j = i+1; j < maximum_aspect_ratios; j++)
             {
                 if (context.state.ar_histogram[j].ar_ratio < context.state.ar_histogram[i].ar_ratio+context.settings.ar_delta &&
                         context.state.ar_histogram[j].ar_ratio > context.state.ar_histogram[i].ar_ratio-context.settings.ar_delta )
@@ -1229,15 +1260,15 @@ again:
         {
             length = context.state.ar_block[i].end - context.state.ar_block[i].start;
 
-            if (context.settings.cut_on_ar_change > 2 && length < context.settings.cut_on_ar_change*(int)context.settings.fps && context.state.ar_block[i].ar_ratio != AR_UNDEF )
+            if (context.settings.cut_on_ar_change > 2 && length < context.settings.cut_on_ar_change*(int)context.settings.fps && context.state.ar_block[i].ar_ratio != undefined_aspect_ratio )
             {
                 DetectionDebug(context, 6, "detection_ar_block_undefine", std::format("{}", i));
-                context.state.ar_block[i].ar_ratio = AR_UNDEF;
+                context.state.ar_block[i].ar_ratio = undefined_aspect_ratio;
                 goto again;
             }
 
             /*
-                        if (ar_block[i].ar_ratio == AR_UNDEF && length < 5*(int)fps) {
+                        if (ar_block[i].ar_ratio == undefined_aspect_ratio && length < 5*(int)fps) {
                             ar_block[i - 1].end = ar_block[i].end;
                             ar_block_count--;
                             Debug(
@@ -1255,7 +1286,7 @@ again:
                         }
             */
 #if 1
-            if (context.settings.commDetectMethod & LOGO && 	context.state.ar_block[i - 1].ar_ratio != AR_UNDEF &&
+            if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && 	context.state.ar_block[i - 1].ar_ratio != undefined_aspect_ratio &&
                     context.state.ar_block[i].ar_ratio > context.state.ar_block[i - 1].ar_ratio &&
                     CheckFrameForLogo(context, context.state.ar_block[i-1].end) &&
                     CheckFrameForLogo(context, context.state.ar_block[i].start) )
@@ -1279,7 +1310,7 @@ again:
             }
 //
 #endif
-            if ( i == 1 && context.state.ar_block[i-1].ar_ratio == AR_UNDEF)
+            if ( i == 1 && context.state.ar_block[i-1].ar_ratio == undefined_aspect_ratio)
             {
                 j = context.state.ar_block[i - 1].start;
                 context.state.ar_block[i - 1] = context.state.ar_block[i];
@@ -1309,7 +1340,7 @@ again:
                 goto again;
 
             }
-            if (  context.state.ar_block[i-1].ar_ratio == AR_UNDEF && i > 1 &&
+            if (  context.state.ar_block[i-1].ar_ratio == undefined_aspect_ratio && i > 1 &&
                     context.state.ar_block[i].ar_ratio - context.state.ar_block[i - 2].ar_ratio < context.settings.ar_delta &&
                     context.state.ar_block[i].ar_ratio - context.state.ar_block[i - 2].ar_ratio > -context.settings.ar_delta )
             {
@@ -1377,7 +1408,7 @@ again:
     if (context.settings.output_framearray) OutputBlackArray(context);
 
     BuildBlocks(context, false);
-    if (context.settings.commDetectMethod & LOGO)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
     {
         PrintLogoFrameGroups(context);
     }
@@ -1397,8 +1428,8 @@ again:
 
     if (context.settings.ccCheck && context.state.processCC)
     {
-        const bool has_captions = context.state.most_cc_type == PAINTON ||
-            context.state.most_cc_type == ROLLUP || context.state.most_cc_type == POPON;
+        const bool has_captions = context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::painton) ||
+            context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::rollup) || context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::popon);
         const auto marker_name = context.state.workbasename + (has_captions ? ".ccyes" : ".ccno");
         const auto marker = comskip::platform::own_file(myfopen(marker_name.c_str(), "w"));
         if (!marker)
