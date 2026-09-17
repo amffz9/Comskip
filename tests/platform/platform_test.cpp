@@ -60,7 +60,7 @@ TEST(PlatformFiles, OwnedCppOpenFileClosesThroughItsOwner) {
     const auto encoded = std::string(reinterpret_cast<const char*>(encoded_path.c_str()), encoded_path.size());
     auto file = comskip::platform::open_file_owned(encoded, "wb");
     ASSERT_TRUE(file);
-    ASSERT_EQ(std::fputs("owned", file.get()), 0);
+    ASSERT_GE(std::fputs("owned", file.get()), 0);
     file.reset();
     EXPECT_EQ(myremove(encoded.c_str()), 0);
 }

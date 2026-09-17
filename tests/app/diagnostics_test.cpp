@@ -56,6 +56,10 @@ TEST_F(Diagnostics, VerboseGatingDoesNotCreateOrAppendLog) {
 }
 TEST_F(Diagnostics, StringViewMessagesKeepPercentCharactersLiteral) {
     Debug(*context, 1, std::string_view{"literal 100% complete %s\n"});
+#if defined(_WIN32)
     EXPECT_EQ(log(), "literal 100% complete %s\r\n");
+#else
+    EXPECT_EQ(log(), "literal 100% complete %s\n");
+#endif
 }
 }

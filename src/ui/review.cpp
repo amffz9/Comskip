@@ -665,7 +665,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             const auto composite = std::format("{:2}:{:02}, {:2}/{:2}", (program.composite1 & 0x3f00) / 256,
                 (program.composite1 & 0x1f) % 256, (program.composite2 & 0x1f00) / 256, (program.composite2 & 0x0f) % 256);
             const std::array<std::string, 6> text{details,
-                context.translator.format("review_program_name", program.name),
+                context.translator.format("review_program_name", program.name.data()),
                 context.translator.format("review_program_rating", std::format("{:4x}", program.v_chip)),
                 context.translator.format("review_program_duration", duration),
                 context.translator.format("review_program_position", position),

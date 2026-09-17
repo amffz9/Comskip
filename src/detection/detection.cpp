@@ -1402,7 +1402,7 @@ bool BuildMasterCommList(RecordingContext& context)
                 std::format("{:6}", context.state.cc_text[i].start_frame),
                 std::format("{:6}", context.state.cc_text[i].end_frame),
                 std::format("{:4}", context.state.cc_text[i].text_len),
-                context.state.cc_text[i].text);
+                reinterpret_cast<const char*>(context.state.cc_text[i].text.data()));
         }
     }
 
