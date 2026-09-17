@@ -51,7 +51,7 @@ comskip::platform::FilePtr open_checked_file(std::string_view path, const char* 
     return file;
 }
 
-void append_edl_record(RecordingContext& context, FILE* destination, long start, long end,
+void append_edl_record(RecordingContext& context, FILE& destination, long start, long end,
                        comskip::output::EdlVariant variant, std::string_view path)
 {
     using namespace comskip::output;
@@ -79,7 +79,7 @@ void append_edl_record(RecordingContext& context, FILE* destination, long start,
     std::ostringstream serialized;
     write_edl(serialized, std::span{&interval, 1}, media, options);
     const auto text = serialized.str();
-    if (fwrite(text.data(), 1, text.size(), destination) != text.size())
+    if (fwrite(text.data(), 1, text.size(), &destination) != text.size())
         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
             comskip::diagnostics::Code::output_write,{std::string(path)});
 }
@@ -191,21 +191,21 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 
     if (context.state.edl_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        append_edl_record(context, context.state.edl_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard,
+        append_edl_record(context, *context.state.edl_file, start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard,
                           std::string(context.state.outbasename)+".edl");
     }
     if (last) comskip::output::checked_close(context.state.edl_file,std::string(context.state.outbasename)+".edl");
 
     if (context.state.live_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        append_edl_record(context, context.state.live_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard,
+        append_edl_record(context, *context.state.live_file, start < 5 ? 0 : start, end, comskip::output::EdlVariant::standard,
                           std::string(context.state.outbasename)+".live");
     }
     if (last) comskip::output::checked_close(context.state.live_file,std::string(context.state.outbasename)+".live");
 
     if (context.state.edlp_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
-        append_edl_record(context, context.state.edlp_file.get(), start < 5 ? 0 : start, end, comskip::output::EdlVariant::plus,
+        append_edl_record(context, *context.state.edlp_file, start < 5 ? 0 : start, end, comskip::output::EdlVariant::plus,
                           std::string(context.state.outbasename)+".edlp");
     }
     if (last) comskip::output::checked_close(context.state.edlp_file,std::string(context.state.outbasename)+".edlp");
