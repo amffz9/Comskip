@@ -260,7 +260,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     int      rps,ps;
     // A local view borrows this input payload; it never owns a buffer reference.
     AVPacket borrowed_audio{};
-    AVPacket *pkt_temp = &borrowed_audio;
+    AVPacket& pkt_temp = borrowed_audio;
 
     int got_frame;
     if (!context.state.reviewing)
@@ -270,11 +270,11 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     }
 
 
-    pkt_temp->data = pkt.data;
-    pkt_temp->size = pkt.size;
+    pkt_temp.data = pkt.data;
+    pkt_temp.size = pkt.size;
 
     if ( !context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
-        && (pkt_temp->size < 2 || pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77))
+        && (pkt_temp.size < 2 || pkt_temp.data[0] != 0x0b || pkt_temp.data[1] != 0x77))
     {
 //        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
         context.state.ac3_package_misalignment_count++;
@@ -287,28 +287,28 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     }
 
     if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-        if (pkt_temp->size < 0 || context.state.ac3_packet_index < 0 ||
+        if (pkt_temp.size < 0 || context.state.ac3_packet_index < 0 ||
             context.state.ac3_packet_index > ac3_buffer_capacity ||
-            pkt_temp->size > ac3_buffer_capacity - context.state.ac3_packet_index)
+            pkt_temp.size > ac3_buffer_capacity - context.state.ac3_packet_index)
         {
             audio_debug(context, 8, "media_ac3_sync_error");
             context.state.ac3_packet_index = 0;
             return;
         }
-        std::copy_n(pkt_temp->data, static_cast<std::size_t>(pkt_temp->size),
+        std::copy_n(pkt_temp.data, static_cast<std::size_t>(pkt_temp.size),
             context.state.ac3_packet + context.state.ac3_packet_index);
-        pkt_temp->data = context.state.ac3_packet;
-        pkt_temp->size += context.state.ac3_packet_index;
-        context.state.ac3_packet_index = pkt_temp->size;
+        pkt_temp.data = context.state.ac3_packet;
+        pkt_temp.size += context.state.ac3_packet_index;
+        context.state.ac3_packet_index = pkt_temp.size;
         ps = 0;
-        while (pkt_temp->size >= 2 && (pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77) ) {
-            pkt_temp->data++;
-            pkt_temp->size--;
+        while (pkt_temp.size >= 2 && (pkt_temp.data[0] != 0x0b || pkt_temp.data[1] != 0x77) ) {
+            pkt_temp.data++;
+            pkt_temp.size--;
             ps++;
         }
-        if (pkt_temp->size < 2) {
+        if (pkt_temp.size < 2) {
             // Keep only the possible first byte of a sync word split across packets.
-            const bool partial_sync = pkt_temp->size == 1 && pkt_temp->data[0] == 0x0b;
+            const bool partial_sync = pkt_temp.size == 1 && pkt_temp.data[0] == 0x0b;
             context.state.ac3_packet_index = partial_sync ? 1 : 0;
             if (partial_sync)
                 context.state.ac3_packet[0] = 0x0b;
@@ -316,23 +316,23 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
         }
         if (ps>0)
             audio_debug(context, 8, "media_ac3_skipped_bytes", ps, pkt.size, context.state.framenum);
-        pp = pkt_temp->data;
-        rps = pkt_temp->size-2;
+        pp = pkt_temp.data;
+        rps = pkt_temp.size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
             rps--;
         }
         if (rps >= 2)
         {
-            pkt_temp->size = rps;
+            pkt_temp.size = rps;
         }
         else
         {
             // Retain the candidate frame, discarding bytes before its sync word.
-            memmove(context.state.ac3_packet, pkt_temp->data, pkt_temp->size);
-            context.state.ac3_packet_index = pkt_temp->size;
+            memmove(context.state.ac3_packet, pkt_temp.data, pkt_temp.size);
+            context.state.ac3_packet_index = pkt_temp.size;
             return;
         }
-        if ( (pkt_temp->size % 768 ) != 0)
+        if ( (pkt_temp.size % 768 ) != 0)
             audio_debug(context, 8, "media_ac3_strange_packet_size", rps, context.state.framenum);
 
     }
@@ -386,11 +386,11 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     // this packet. FFmpeg requires zero padding at the submitted packet end.
     std::vector<uint8_t> padded_audio;
     AVPacket decoder_packet{};
-    decoder_packet.data = pkt_temp->data;
-    decoder_packet.size = pkt_temp->size;
+    decoder_packet.data = pkt_temp.data;
+    decoder_packet.size = pkt_temp.size;
     if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-        padded_audio.resize(pkt_temp->size + AV_INPUT_BUFFER_PADDING_SIZE, 0);
-        std::copy_n(pkt_temp->data, pkt_temp->size, padded_audio.data());
+        padded_audio.resize(pkt_temp.size + AV_INPUT_BUFFER_PADDING_SIZE, 0);
+        std::copy_n(pkt_temp.data, pkt_temp.size, padded_audio.data());
         decoder_packet.data = padded_audio.data();
     }
     do {
@@ -400,15 +400,15 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     // send_packet consumes the whole packet on success. receive_frame returns
     // zero on success, rather than the number of input bytes consumed.
     if (send_result >= 0) {
-        pkt_temp->data += pkt_temp->size;
-        pkt_temp->size = 0;
+        pkt_temp.data += pkt_temp.size;
+        pkt_temp.size = 0;
     } else if (send_result != AVERROR(EAGAIN)) {
         if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-            const int skipped = pkt_temp->size < 2 ? pkt_temp->size : 2;
-            pkt_temp->data += skipped;
-            pkt_temp->size -= skipped;
+            const int skipped = pkt_temp.size < 2 ? pkt_temp.size : 2;
+            pkt_temp.data += skipped;
+            pkt_temp.size -= skipped;
         } else {
-            pkt_temp->size = 0;
+            pkt_temp.size = 0;
         }
     }
 
@@ -469,7 +469,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
 
     if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         ps = 0;
-        rps = (pkt_temp->data - context.state.ac3_packet);
+        rps = (pkt_temp.data - context.state.ac3_packet);
         while (0 < context.state.ac3_packet_index - rps)
         {
             context.state.ac3_packet[ps] = context.state.ac3_packet[rps];
