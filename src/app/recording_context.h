@@ -96,9 +96,9 @@ struct RecordingState {
     std::vector<Legacy_commercial_entry> commercial;
     int reffer_count= -1;
     std::vector<Legacy_reffer_entry> reffer;
-    Legacy_ar_histogram_entry ar_histogram[1000]{};
+    std::array<Legacy_ar_histogram_entry, 1000> ar_histogram{};
     double dominant_ar{};
-    Legacy_ac_histogram_entry ac_histogram[12]{};
+    std::array<Legacy_ac_histogram_entry, 12> ac_histogram{};
     int dominant_ac{};
     int use_cuvid{};
     int use_vdpau{};

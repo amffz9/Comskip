@@ -997,3 +997,7 @@ than redefine completion around whichever subset currently passes tests.
 - Scene-analysis histogram storage now uses nested `std::array` containers;
   optional frame histogram publication uses `std::ranges::copy` instead of raw
   byte copying. The complete Windows suite passes **523/523**.
+
+- Aspect-ratio and audio-channel histogram storage now also uses fixed-size
+  `std::array` containers, preserving their capacities while removing implicit
+  C-array decay. The complete Windows suite passes **523/523**.
