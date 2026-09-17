@@ -732,3 +732,7 @@ than redefine completion around whichever subset currently passes tests.
   loop when merges or undefined-ratio fixes mutate storage, replacing restart
   labels while preserving the existing ordering. The complete Windows
   headless suite remains green at **514/514**.
+
+- Volume-threshold estimation and fallback scanning now use bounded structured
+  retry passes instead of labels, preserving the existing threshold escalation
+  rules. The complete Windows headless suite remains green at **514/514**.
