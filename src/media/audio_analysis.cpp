@@ -254,7 +254,7 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
 
 void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& pkt)
 {
-    int prev_codec_id = -1;
+    std::optional<unsigned int> prev_codec_id;
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
@@ -420,7 +420,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
  //       data_size = STORAGE_SIZE;
         got_frame = len1 >= 0;
 
-        if (prev_codec_id != -1 && static_cast<unsigned int>(prev_codec_id) != is.audio_st->codecpar->codec_id)
+        if (prev_codec_id && *prev_codec_id != is.audio_st->codecpar->codec_id)
         {
             audio_debug(context, 2, "media_audio_format_change");
         }
