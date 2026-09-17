@@ -1,4 +1,5 @@
 #include "recording_context.h"
+#include "config/legacy_settings.h"
 #include "output/frame_script_adapter.h"
 #include "output/player_export_adapter.h"
 #include "output/legacy_cutlist_adapter.h"
@@ -16,6 +17,16 @@
 #include <random>
 
 namespace {
+TEST(TimeFormatting, ReturnsIndependentOwnedValuesWithLegacyLayout) {
+    const auto first = dblSecondsToStrMinutes(3661.25);
+    const auto second = dblSecondsToStrMinutes(62.5);
+    EXPECT_EQ(first, "1:01:01.25");
+    EXPECT_EQ(second, "0:01:02.50");
+    EXPECT_EQ(first, "1:01:01.25");
+
+    EXPECT_EQ(dblSecondsToStrMinutesFrames(62.5, 29.97), "0:01:02.14");
+}
+
 class CutlistErrors : public ::testing::Test {
 protected:
     std::filesystem::path directory;

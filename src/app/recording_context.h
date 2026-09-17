@@ -127,7 +127,6 @@ struct RecordingState {
     int frames_with_logo{};
     int framesprocessed= 0;
     std::string HomeDir;
-    char tempString[256]{};
     double average_score{};
     int brightness= 0;
     long sum_brightness=0;

@@ -404,7 +404,7 @@ bool OutputBlocks(RecordingContext& context)
             i,
             context.state.commercial[i].start_frame,
             context.state.commercial[i].end_frame,
-            dblSecondsToStrMinutes(context, context.state.commercial[i].length)
+            dblSecondsToStrMinutes(context.state.commercial[i].length).c_str()
         );
     }
 
@@ -665,7 +665,7 @@ bool OutputBlocks(RecordingContext& context)
                     context.state.commercial[i].end_frame,
                     context.state.commercial[i].start_block,
                     context.state.commercial[i].end_block,
-                    dblSecondsToStrMinutes(context, context.state.commercial[i].length)
+                    dblSecondsToStrMinutes(context.state.commercial[i].length).c_str()
                 );
             OutputCommercialBlock(context, i, prev, context.state.commercial[i].start_frame, context.state.commercial[i].end_frame, (context.state.commercial[i].end_frame < context.state.frame_count-2 ? false : true));
             prev = context.state.commercial[i].end_frame;
@@ -731,7 +731,7 @@ bool OutputBlocks(RecordingContext& context)
             std::format("{:2.3f}", context.state.avg_fps)));
 
         Debug(context, 1, context.translator.format("cutlists_total_commercial_length",
-            dblSecondsToStrMinutes(context, comlength)));
+            dblSecondsToStrMinutes(comlength)));
         Debug(context, 1, context.translator.text("cutlists_cut_codes"));
         Debug(context, 1, context.translator.text("cutlists_weighted_heading"));
         Debug(context,

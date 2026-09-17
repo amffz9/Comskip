@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <format>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -63,18 +64,17 @@ void print_argument_errors(FILE* output, const struct arg_end& errors,
 }
 }
 
-char* intSecondsToStrMinutes(RecordingContext& context, int seconds)
+std::string intSecondsToStrMinutes(int seconds)
 {
     int minutes, hours;
     hours = static_cast<int>(seconds / 3600);
     seconds -= hours * 60 * 60;
     minutes = static_cast<int>(seconds / 60);
     seconds -= minutes * 60;
-    comskip::checked_format(context.state.tempString, "%i:%.2i:%.2i", hours, minutes, seconds);
-    return (context.state.tempString);
+    return std::format("{}:{:02}:{:02}", hours, minutes, seconds);
 }
 
-char* dblSecondsToStrMinutes(RecordingContext& context, double seconds)
+std::string dblSecondsToStrMinutes(double seconds)
 {
     int minutes, hours;
     hours = static_cast<int>(seconds / 3600);
@@ -83,12 +83,10 @@ char* dblSecondsToStrMinutes(RecordingContext& context, double seconds)
     seconds -= minutes * 60;
     const auto whole_seconds = static_cast<int>(seconds);
     const auto hundredths = static_cast<int>((seconds - whole_seconds) * 100);
-    comskip::checked_format(context.state.tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, whole_seconds, hundredths);
-
-    return (context.state.tempString);
+    return std::format("{}:{:02}:{:02}.{:02}", hours, minutes, whole_seconds, hundredths);
 }
 
-char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds)
+std::string dblSecondsToStrMinutesFrames(double seconds, double fps)
 {
     int minutes, hours;
     hours = static_cast<int>(seconds / 3600);
@@ -97,10 +95,8 @@ char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds)
     seconds -= minutes * 60;
     const auto whole_seconds = static_cast<int>(seconds);
     const auto hundredths = static_cast<int>((seconds - whole_seconds) * 100.0);
-    const auto frames = static_cast<int>(hundredths * context.settings.fps / 100.0);
-    comskip::checked_format(context.state.tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, whole_seconds, frames);
-
-    return (context.state.tempString);
+    const auto frames = static_cast<int>(hundredths * fps / 100.0);
+    return std::format("{}:{:02}:{:02}.{:02}", hours, minutes, whole_seconds, frames);
 }
 
 

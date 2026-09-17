@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio>
+#include <string>
 
 struct RecordingContext;
 namespace comskip::localization { class Translator; }
@@ -11,7 +11,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
 void LoadSettings(RecordingContext& context, int argc, char** argv,
     const comskip::localization::Translator& translator);
 
-// Formatting remains tied to the per-recording scratch buffer for compatibility.
-char* intSecondsToStrMinutes(RecordingContext& context, int seconds);
-char* dblSecondsToStrMinutes(RecordingContext& context, double seconds);
-char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds);
+// Time formatting returns owned values so callers can safely retain results.
+std::string intSecondsToStrMinutes(int seconds);
+std::string dblSecondsToStrMinutes(double seconds);
+std::string dblSecondsToStrMinutesFrames(double seconds, double fps);

@@ -932,3 +932,7 @@ than redefine completion around whichever subset currently passes tests.
   removed because recording-owned input state already carries the resource.
   Settings-focused coverage passes **10/10**, and the full Windows suite passes
   **521/521**.
+
+- Legacy time formatting now returns owned `std::string` values, with the
+  frame variant depending only on an explicit FPS value. The shared scratch
+  buffer was removed; the focused regression and cutlist suite pass **6/6**.

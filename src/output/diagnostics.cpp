@@ -510,7 +510,7 @@ void OutputAspect(RecordingContext& context)
         comskip::output::checked_fprintf(
             *output, path,
             "%s %4dx%4d %.2f minX=%4d, minY=%4d, maxX=%4d, maxY=%4d\n",
-            dblSecondsToStrMinutes(context, get_frame_pts(context, block.start)),
+            dblSecondsToStrMinutes(get_frame_pts(context, block.start)).c_str(),
             block.width, block.height, block.ar_ratio,
             block.minX, block.minY, block.maxX, block.maxY
         );

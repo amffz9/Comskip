@@ -94,7 +94,7 @@ void PrintLogoFrameGroups(RecordingContext& context)
         LogoDebug(context, 2, "logo_block_row",
             std::format("{:6}", context.state.logo_block[i].start),
             std::format("{:6}", context.state.logo_block[i].end),
-            dblSecondsToStrMinutes(context, frame_duration(context, context.state.logo_block[i].end, context.state.logo_block[i].start)),
+            dblSecondsToStrMinutes(frame_duration(context, context.state.logo_block[i].end, context.state.logo_block[i].start)),
             std::format("{:.1f}", frame_duration(context, context.state.logo_block[i].start, context.state.cblock[f].f_start)),
             std::format("{:.1f}", frame_duration(context, context.state.cblock[t].f_end, context.state.logo_block[i].end)));
 
@@ -177,7 +177,7 @@ void PrintCCBlocks(RecordingContext& context)
         std::format("{:6}", context.state.cc_block[0].end_frame),
         logo_caption_type(context, context.state.cc_block[0].type));
     LogoDebug(context, 2, "logo_cc_block_length",
-        dblSecondsToStrMinutes(context, duration(context.state.cc_block[0].end_frame,
+        dblSecondsToStrMinutes(duration(context.state.cc_block[0].end_frame,
             context.state.cc_block[0].start_frame)));
     context.state.cc_count[context.state.cc_block[0].type] += context.state.cc_block[0].end_frame - context.state.cc_block[0].start_frame + 1;
 
@@ -188,7 +188,7 @@ void PrintCCBlocks(RecordingContext& context)
             std::format("{:6}", context.state.cc_block[i].end_frame),
             logo_caption_type(context, context.state.cc_block[i].type));
         LogoDebug(context, 2, "logo_cc_block_length",
-            dblSecondsToStrMinutes(context, duration(context.state.cc_block[i].end_frame,
+            dblSecondsToStrMinutes(duration(context.state.cc_block[i].end_frame,
                 context.state.cc_block[i].start_frame)));
         context.state.cc_count[context.state.cc_block[i].type] += context.state.cc_block[i].end_frame - context.state.cc_block[i].start_frame + 1;
     }
@@ -201,7 +201,7 @@ void PrintCCBlocks(RecordingContext& context)
             ? context.state.cc_count[type] / context.settings.fps : 0.0;
         LogoDebug(context, 2, "logo_caption_sum", label,
             std::format("{:6}", context.state.cc_count[type]), std::format("{:5.2f}", percentage),
-            dblSecondsToStrMinutes(context, seconds));
+            dblSecondsToStrMinutes(seconds));
     };
     caption_sum(context.translator.text("logo_caption_popon"), comskip::detection::caption_type_value(comskip::detection::CaptionType::popon));
     caption_sum(context.translator.text("logo_caption_rollup"), comskip::detection::caption_type_value(comskip::detection::CaptionType::rollup));
@@ -947,7 +947,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                 }
                 LogoDebug(context, 3, "logo_block_end", std::format("{}", context.state.logo_block_count),
                     std::format("{}", context.state.logo_block[context.state.logo_block_count].end),
-                    dblSecondsToStrMinutes(context, frame_duration(context, context.state.logo_block[context.state.logo_block_count].end,
+                    dblSecondsToStrMinutes(frame_duration(context, context.state.logo_block[context.state.logo_block_count].end,
                         context.state.logo_block[context.state.logo_block_count].start)));
                 context.state.logo_block_count++;
                 InitializeLogoBlockArray(context,  context.state.logo_block_count);
@@ -988,7 +988,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                 else
                 {
                     LogoDebug(context, 3, "logo_block_start_after_gap",
-                        dblSecondsToStrMinutes(context, frame_duration(context, context.state.logo_block[context.state.logo_block_count].start, context.state.logo_block[context.state.logo_block_count - 1].end)),
+                        dblSecondsToStrMinutes(frame_duration(context, context.state.logo_block[context.state.logo_block_count].start, context.state.logo_block[context.state.logo_block_count - 1].end)),
                         std::format("{}", context.state.logo_block_count),
                         std::format("{}", context.state.logo_block[context.state.logo_block_count].start));
                 }

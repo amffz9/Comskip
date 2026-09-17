@@ -621,7 +621,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
         if (context.state.timeflag == 2 && context.state.framearray)
             frame_text = std::format("{:8.2f}", get_frame_pts(context, frm));
         else if (context.state.timeflag == 1 && context.state.framearray)
-            frame_text = dblSecondsToStrMinutes(context, get_frame_pts(context, frm));
+            frame_text = dblSecondsToStrMinutes(get_frame_pts(context, frm));
         else frame_text = std::format("{:8}", frm);
 
         std::string details;

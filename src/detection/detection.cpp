@@ -1196,7 +1196,7 @@ bool BuildMasterCommList(RecordingContext& context)
                 std::format("{:6}", context.state.ac_block[i].start),
                 std::format("{:6}", context.state.ac_block[i].end),
                 std::format("{:2}", context.state.ac_block[i].audio_channels),
-                dblSecondsToStrMinutes(context, frame_duration(context, context.state.ac_block[i].end,
+                dblSecondsToStrMinutes(frame_duration(context, context.state.ac_block[i].end,
                     context.state.ac_block[i].start)));
         }
     }
@@ -1209,7 +1209,7 @@ bool BuildMasterCommList(RecordingContext& context)
             DetectionDebug(context, level, "detection_ar_block_row", std::format("{}", index),
                 std::format("{:6}", block.start), std::format("{:6}", block.end),
                 std::format("{:.2f}", block.ar_ratio),
-                dblSecondsToStrMinutes(context, frame_duration(context, block.end, block.start)),
+                dblSecondsToStrMinutes(frame_duration(context, block.end, block.start)),
                 std::format("{:4}", block.width), std::format("{:4}", block.height),
                 std::format("{:3}", block.minX), std::format("{:3}", block.minY),
                 std::format("{:3}", block.maxX), std::format("{:3}", block.maxY));
