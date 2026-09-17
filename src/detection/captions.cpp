@@ -883,7 +883,7 @@ void ProcessCCData(RecordingContext& context)
     // Validate the complete packet before changing screen or deferred-pair
     // state. A padded backing array is not evidence that bytes were received.
     const int length = context.state.ccDataLen;
-    const auto* data = context.state.ccData;
+    const auto* data = context.state.ccData.data();
     if (length < 2 || length > static_cast<int>(std::size(context.state.ccData))) return;
     if (data[0] == 'C' && data[1] == 'C') {
         if (length < 5 || data[2] != 1 || data[3] != 0xf8 ||

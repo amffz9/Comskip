@@ -215,12 +215,12 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
         {
                 const auto& caption_packet = caption_packets[caption_index];
                 context.state.ccDataLen = static_cast<int>(caption_packet.payload.size());
-                std::ranges::copy(caption_packet.payload, context.state.ccData);
+                std::ranges::copy(caption_packet.payload, context.state.ccData.begin());
                 context.state.framenum = caption_packet.frame;
 #ifdef PROCESS_CC
                 if (context.state.processCC) ProcessCCData(context);
                 if (context.captions) context.captions->consume_stored_packet(
-                    {context.state.ccData, static_cast<std::size_t>(context.state.ccDataLen)},
+                    {context.state.ccData.data(), static_cast<std::size_t>(context.state.ccDataLen)},
                     std::chrono::duration_cast<comskip::media::CaptionTimestamp>(
                         std::chrono::duration<double>(context.state.frame[i].pts)));
 #endif

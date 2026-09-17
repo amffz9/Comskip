@@ -25,7 +25,7 @@ std::unique_ptr<RecordingContext> recording() {
 }
 void packet(RecordingContext& context, const std::vector<unsigned char>& bytes, int length) {
     std::fill(std::begin(context.state.ccData), std::end(context.state.ccData), 0x41);
-    std::copy(bytes.begin(), bytes.end(), context.state.ccData);
+    std::copy(bytes.begin(), bytes.end(), context.state.ccData.begin());
     context.state.ccDataLen = length;
     ProcessCCData(context);
 }

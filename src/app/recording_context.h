@@ -240,9 +240,9 @@ struct RecordingState {
     std::vector<unsigned char> choriz_edgemask;
     std::vector<unsigned char> cvert_edgemask;
     comskip::platform::FilePtr dump_data_file;
-    uint8_t ccData[500]{};
+    std::array<uint8_t, 500> ccData{};
     int ccDataLen{};
-    uint8_t prevccData[500]{};
+    std::array<uint8_t, 500> prevccData{};
     int prevccDataLen{};
     std::array<long, 5> cc_count{};
     int most_cc_type = comskip::detection::caption_type_value(comskip::detection::CaptionType::none);

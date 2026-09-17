@@ -1009,3 +1009,7 @@ than redefine completion around whichever subset currently passes tests.
 - Cut-scene brightness/length metadata and caption-type counters now use
   fixed-size `std::array` containers, preserving their existing capacities and
   indexed behavior. The complete Windows suite passes **523/523**.
+
+- Caption packet and replay buffers now use fixed-size `std::array` containers;
+  explicit `.data()` and `.begin()` calls mark C-pointer and output-iterator
+  boundaries. The complete Windows suite passes **523/523**.

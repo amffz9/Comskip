@@ -566,9 +566,9 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 if (context.captions && !context.state.reviewing)
                     context.captions->consume({sd->data, sd->size}, comskip::media::video_caption_timestamp(pts));
                 for (const auto& packet : comskip::media::bridge_a53_captions({sd->data, sd->size})) {
-                    std::copy_n(packet.bytes.begin(), packet.size, context.state.ccData);
+                    std::copy_n(packet.bytes.begin(), packet.size, context.state.ccData.begin());
                     context.state.ccDataLen = static_cast<int>(packet.size);
-                    dump_data(context,{context.state.ccData,static_cast<std::size_t>(context.state.ccDataLen)});
+                    dump_data(context,{context.state.ccData.data(),static_cast<std::size_t>(context.state.ccDataLen)});
                     if (context.state.processCC) ProcessCCData(context);
                 }
             }
