@@ -138,7 +138,10 @@ void file_open_impl(RecordingContext& context)
         video_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
         if(video_index >= 0)
         {
-            stream_component_open(context, is, video_index);
+            const int video_open_status = stream_component_open(context, is, video_index);
+            if (video_open_status < 0 || is.videoStream < 0)
+                throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
+                    comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is.filename});
         }
         if(is.videoStream < 0)
         {
@@ -178,11 +181,11 @@ void file_open_impl(RecordingContext& context)
         audio_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, nullptr, 0);
         if(audio_index >= 0)
         {
-            stream_component_open(context, is, audio_index);
-            if (is.audio_st)
+            const int audio_open_status = stream_component_open(context, is, audio_index);
+            if (audio_open_status >= 0 && is.audio_st)
                 context.state.audio_channels = is.audio_st->codecpar->ch_layout.nb_channels;
 
-            if (is.audioStream < 0)
+            if (audio_open_status < 0 || is.audioStream < 0)
             {
                 Debug(context, 1, context.translator.text("media_audio_decoder_warning"));
             }
