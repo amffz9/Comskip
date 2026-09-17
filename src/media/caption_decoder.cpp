@@ -20,10 +20,6 @@ void check_caption_status(int status, comskip::diagnostics::Code operation) {
     av_strerror(status, detail, sizeof(detail));
     throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {detail});
 }
-struct SubtitleOwner {
-    AVSubtitle value{};
-    ~SubtitleOwner() { avsubtitle_free(&value); }
-};
 std::string_view ass_content(std::string_view ass) {
     // FFmpeg's ASS event has eight comma-separated metadata fields followed by
     // the display content. Keep the complete event for rendering/encoding.

@@ -814,3 +814,7 @@ than redefine completion around whichever subset currently passes tests.
 - Frame conversion now reuses the shared `FramePtr` FFmpeg RAII owner instead
   of defining a second local deleter. Focused conversion tests pass **2/2** and
   the complete Windows headless suite remains **515/515**.
+
+- Caption and standalone subtitle decoding now share one non-copyable
+  `SubtitleOwner` for `AVSubtitle` cleanup. The focused decoder suite passes
+  **12/12**.

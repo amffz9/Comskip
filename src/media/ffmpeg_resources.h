@@ -33,6 +33,13 @@ struct CodecDeleter { void operator()(AVCodecContext* value) const noexcept { av
 struct InputDeleter { void operator()(AVFormatContext* value) const noexcept { avformat_close_input(&value); } };
 struct DictionaryDeleter { void operator()(AVDictionary* value) const noexcept { av_dict_free(&value); } };
 struct ScalerDeleter { void operator()(SwsContext* value) const noexcept { sws_freeContext(value); } };
+struct SubtitleOwner {
+    AVSubtitle value{};
+    SubtitleOwner() = default;
+    SubtitleOwner(const SubtitleOwner&) = delete;
+    SubtitleOwner& operator=(const SubtitleOwner&) = delete;
+    ~SubtitleOwner() noexcept { avsubtitle_free(&value); }
+};
 using FramePtr = std::unique_ptr<AVFrame, FrameDeleter>;
 using PacketPtr = std::unique_ptr<AVPacket, PacketDeleter>;
 using CodecPtr = std::unique_ptr<AVCodecContext, CodecDeleter>;
