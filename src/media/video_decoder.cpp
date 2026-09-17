@@ -220,7 +220,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     {
 
         print_decode_progress (context, 0);
-        res = DetectCommercials(context, (int)context.state.framenum, pts);
+        res = DetectCommercials(context, static_cast<int>(context.state.framenum), pts);
         context.state.framenum++;
     if (context.state.selftest == 2 && context.state.pass == 0 && context.state.framenum > 20) //Reset input file
     {
@@ -337,9 +337,9 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
 
         if (context.state.framenum < 500)
         {
-            if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
-            ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
-            (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) )
+            if ( (!(std::fabs(frame_delay - 0.03336666) < 0.001 )) &&
+            ((std::fabs(calculated_delay - 0.0333333) < 0.0001) || (std::fabs(calculated_delay - 0.033) < 0.0001) || (std::fabs(calculated_delay - 0.034) < 0.0001) ||
+            (std::fabs(calculated_delay - 0.067) < 0.0001)     || (std::fabs(calculated_delay - 0.066) < 0.0001) || (std::fabs(calculated_delay - 0.06673332) < 0.0001)  ) )
             {
                 context.state.video_packet_process_find_29fps++;
             }
@@ -352,8 +352,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 context.state.video_packet_process_force_24fps = 0;
             }
 
-            if ( (!(fabs(frame_delay - 0.040) < 0.001 )) &&
-                    (((fabs(calculated_delay - 0.04) < 0.0001)) || (fabs(calculated_delay - 0.039) < 0.0001) || (fabs(calculated_delay - 0.041) < 0.0001)) )
+            if ( (!(std::fabs(frame_delay - 0.040) < 0.001 )) &&
+                    (((std::fabs(calculated_delay - 0.04) < 0.0001)) || (std::fabs(calculated_delay - 0.039) < 0.0001) || (std::fabs(calculated_delay - 0.041) < 0.0001)) )
             {
                 context.state.video_packet_process_find_25fps++;
             }
@@ -366,8 +366,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 context.state.video_packet_process_force_24fps = 0;
             }
 
-            if ( ((context.state.video_packet_process_find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 )) ||
-                    ((context.state.video_packet_process_find_24fps & 1 ) == 1 && (fabs(calculated_delay - 0.033) < 0.001 ))
+            if ( ((context.state.video_packet_process_find_24fps & 1 ) == 0 && (std::fabs(calculated_delay - 0.050) < 0.001 )) ||
+                    ((context.state.video_packet_process_find_24fps & 1 ) == 1 && (std::fabs(calculated_delay - 0.033) < 0.001 ))
                )
             {
                 context.state.video_packet_process_find_24fps++;
@@ -417,7 +417,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
 
         context.state.pts_offset *= 0.9;
         if (!context.state.reviewing && context.settings.timeline_repair) {
-            if (context.state.framenum > 1 && fabs(calculated_delay - context.state.pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
+            if (context.state.framenum > 1 && std::fabs(calculated_delay - context.state.pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
                 if (!approximately_equal(3*frame_delay/ is->ticks_per_frame, calculated_delay))
                     if (!approximately_equal(1*frame_delay/ is->ticks_per_frame, calculated_delay))
                         context.state.pts_offset = context.state.pts_offset + frame_delay - calculated_delay;
@@ -436,12 +436,12 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         calculated_delay = pts - context.state.video_packet_process_prev_pts;
 
         if (!context.state.reviewing
-            && context.state.framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
+            && context.state.framenum > 1 && std::fabs(calculated_delay - frame_delay) > 0.01
             && !approximately_equal(3*frame_delay/ is->ticks_per_frame, calculated_delay)
             && !approximately_equal(2*frame_delay/ is->ticks_per_frame, calculated_delay)
             && !approximately_equal(1*frame_delay/ is->ticks_per_frame, calculated_delay)
             ){
-            if ( (context.state.video_packet_process_prev_strange_framenum + 1 != context.state.framenum) &&( context.state.video_packet_process_prev_strange_step < fabs(calculated_delay - frame_delay))) {
+            if ( (context.state.video_packet_process_prev_strange_framenum + 1 != context.state.framenum) &&( context.state.video_packet_process_prev_strange_step < std::fabs(calculated_delay - frame_delay))) {
                 debug_message(context, 8, "media_strange_video_pts_step",
                               std::format("{:6.5f}", calculated_delay + 0.0000005),
                               std::format("{:6.5f}", frame_delay + 0.0000005),
@@ -450,7 +450,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }
             context.state.video_packet_process_prev_strange_framenum = context.state.framenum;
-            context.state.video_packet_process_prev_strange_step = fabs(calculated_delay - frame_delay);
+            context.state.video_packet_process_prev_strange_step = std::fabs(calculated_delay - frame_delay);
         }
 
         // set_fps(calculated_delay, is->fps, repeat, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
@@ -489,7 +489,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     else
                         debug_message(context, 1, "media_selftest_seek_ok");
                     /*
-                                    if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
+                    if (tries ==  0 && std::fabs(static_cast<double>(av_q2d(is->video_st->time_base)) *
+                                                  static_cast<double>(packet->pts - is->video_st->start_time - is->seek_pos)) > 2.0) {
                                        is->seek_req=1;
                                        is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
                                        is->seek_flags = AVSEEK_FLAG_BYTE;
@@ -533,7 +534,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
             } else {
-                if (fabs(is->seek_pts - is->video_clock) > 80 ) {
+                if (std::fabs(is->seek_pts - is->video_clock) > 80 ) {
                     Debug(context, 1, "%s", context.translator.format("media_positioning_failed",
                         std::format("{:6.2f}", is->video_clock)).c_str());
                     if (context.state.selftest == 1 || context.state.selftest == 3)
