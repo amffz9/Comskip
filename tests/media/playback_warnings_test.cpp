@@ -187,7 +187,7 @@ TEST_F(PlaybackWarnings, InvalidAc3StagingIndexLogsSpanishAndResetsBeforeArrayAc
     AVPacket packet{};
     packet.data = payload;
     packet.size = static_cast<int>(std::size(payload));
-    audio_packet_process(*context, video, &packet);
+    audio_packet_process(*context, video, packet);
     EXPECT_EQ(log(), "Error de sincronización AC3\n");
     EXPECT_EQ(context->state.ac3_packet_index, 0);
 }

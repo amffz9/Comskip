@@ -326,7 +326,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             else if(packet->stream_index == context.state.video_owner->audioStream)
             {
                 if (packet->size > 0 && packet->data != nullptr)
-                    audio_packet_process(context, *context.state.video_owner, packet);
+                    audio_packet_process(context, *context.state.video_owner, *packet);
             }
             else if(packet->stream_index == context.state.video_owner->subtitleStream &&
                     context.captions && !context.state.reviewing && packet->size > 0 && packet->data)

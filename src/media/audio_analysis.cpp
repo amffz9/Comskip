@@ -250,7 +250,7 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
 
 
 
-void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket *pkt)
+void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& pkt)
 {
     int prev_codec_id = -1;
     int len1, data_size;
@@ -266,12 +266,12 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket *p
     if (!context.state.reviewing)
     {
         dump_audio_start(context);
-        dump_audio(context,{pkt->data,static_cast<std::size_t>(pkt->size)});
+        dump_audio(context,{pkt.data,static_cast<std::size_t>(pkt.size)});
     }
 
 
-    pkt_temp->data = pkt->data;
-    pkt_temp->size = pkt->size;
+    pkt_temp->data = pkt.data;
+    pkt_temp->size = pkt.size;
 
     if ( !context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
         && (pkt_temp->size < 2 || pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77))
@@ -315,7 +315,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket *p
             return;
         }
         if (ps>0)
-            audio_debug(context, 8, "media_ac3_skipped_bytes", ps, pkt->size, context.state.framenum);
+            audio_debug(context, 8, "media_ac3_skipped_bytes", ps, pkt.size, context.state.framenum);
         pp = pkt_temp->data;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
@@ -342,10 +342,10 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket *p
 
 
 
-    if (pkt->pts != AV_NOPTS_VALUE)
+    if (pkt.pts != AV_NOPTS_VALUE)
     {
         prev_audio_clock = is.audio_clock;
-        is.audio_clock = av_q2d(is.audio_st->time_base)*( pkt->pts -  (is.audio_st->start_time != AV_NOPTS_VALUE ? is.audio_st->start_time : 0)) - context.state.apts_offset;
+        is.audio_clock = av_q2d(is.audio_st->time_base)*( pkt.pts -  (is.audio_st->start_time != AV_NOPTS_VALUE ? is.audio_st->start_time : 0)) - context.state.apts_offset;
             if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   same_timestamp(is.audio_clock - prev_audio_clock, 0.032)
                         || same_timestamp(is.audio_clock - prev_audio_clock, -0.032)
