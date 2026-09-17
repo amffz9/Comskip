@@ -1413,3 +1413,16 @@ before calling FFmpeg seek APIs.
 - **Verification:** A focused reference-comparison regression blocks the
   optional `quality.csv` destination and verifies that the difference report is
   still written. Build and complete Windows-suite verification remain pending.
+
+### B113: Scoring stores dynamic block ordering in a fixed-size array
+
+- **Evidence:** `BuildPunish` indexed `RecordingState::length_order[2000]`
+  through `block_count`. Commercial-block storage is dynamically sized and can
+  exceed 2,000 entries, so a large recording wrote beyond the ordering array.
+- **Impact:** Scoring a recording with more than 2,000 blocks could corrupt
+  memory or crash.
+- **Status:** Fixed. The ordering is now a `std::vector<int>`, rebuilt with
+  `std::iota` and `std::ranges::sort` when its active size changes. Empty input
+  clears the cached ordering instead of dereferencing its first element.
+- **Verification:** The focused large-block regression builds more than 2,000
+  blocks, exercises `BuildPunish`, and checks that the longest block is first.

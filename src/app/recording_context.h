@@ -25,8 +25,8 @@ struct RecordingState {
     int scan_step{};
     int beforeblocks[100]{};
     int afterblocks[100]{};
-    int length_order[2000]{};
-    int length_sorted= false;
+    std::vector<int> length_order;
+    bool length_sorted = false;
     int min_val[10]{};
     int max_val[10]{};
     int delta_val[10]{};

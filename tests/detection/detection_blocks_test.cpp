@@ -170,3 +170,15 @@ TEST(DetectionBlocks, EmptyScoringAndFinalCommercialLengthAreSafe) {
     EXPECT_TRUE(std::isfinite(context->state.cblock[0].score));
     terminal(*context);
 }
+
+TEST(DetectionBlocks, PunishmentOrderingGrowsBeyondLegacyFixedCapacity) {
+    auto context = observations(2100);
+    ASSERT_TRUE(BuildBlocks(*context, true));
+    ASSERT_GT(context->state.block_count, 2000);
+    context->state.cblock[2000].length = 10'000;
+
+    ASSERT_NO_THROW(BuildPunish(*context));
+    ASSERT_EQ(context->state.length_order.size(),
+              static_cast<std::size_t>(context->state.block_count));
+    EXPECT_EQ(context->state.length_order.front(), 2000);
+}

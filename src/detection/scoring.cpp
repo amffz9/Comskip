@@ -1,5 +1,8 @@
 #include "legacy_detection.h"
+#include <algorithm>
 #include <format>
+#include <numeric>
+#include <ranges>
 #include <string_view>
 #include <utility>
 
@@ -118,47 +121,45 @@ int MatchBlocks(int k, char *t)
 
 void BuildPunish(RecordingContext& context)
 {
-    int i;
-    int j;
-    int t;
-    int l;
-    if (!context.state.length_sorted)
-    {
-        for (i=0 ; i< context.state.block_count; i++)
-            context.state.length_order [i] = i;
-again:
-        for (j=0; j < context.state.block_count; j++)
-        {
-            for (i=j ; i< context.state.block_count; i++)
-            {
-                if (context.state.cblock[context.state.length_order[i]].length > context.state.cblock[context.state.length_order[j]].length)
-                {
-                    t = context.state.length_order[j];
-                    context.state.length_order[j] = context.state.length_order[i];
-                    context.state.length_order[i] = t;
-                    goto again;
-                }
-            }
-        }
+    if (context.state.block_count <= 0) {
+        context.state.length_order.clear();
+        context.state.length_sorted = false;
+        return;
+    }
+
+    const auto block_count = static_cast<std::size_t>(context.state.block_count);
+    if (!context.state.length_sorted || context.state.length_order.size() != block_count) {
+        context.state.length_order.resize(block_count);
+        std::iota(context.state.length_order.begin(), context.state.length_order.end(), 0);
+        std::ranges::sort(context.state.length_order, std::greater<>{}, [&](const int index) {
+            return context.state.cblock[static_cast<std::size_t>(index)].length;
+        });
         context.state.length_sorted = true;
     }
+
     context.state.max_val[0] = context.state.min_val[0] = context.state.cblock[context.state.length_order[0]].brightness;
     context.state.max_val[1] = context.state.min_val[1] = context.state.cblock[context.state.length_order[0]].volume;
     context.state.max_val[2] = context.state.min_val[2] = context.state.cblock[context.state.length_order[0]].silence;
     context.state.max_val[3] = context.state.min_val[3] = context.state.cblock[context.state.length_order[0]].uniform;
     context.state.max_val[4] = context.state.min_val[4] = context.state.cblock[context.state.length_order[0]].ar_ratio;
     context.state.max_val[5] = context.state.min_val[5] = context.state.cblock[context.state.length_order[0]].schange_rate;
-    l = 0;
-    for (i = 0; i < context.state.block_count; i++)
+    int l = 0;
+    const auto update_range = [](int& minimum, int& maximum, const auto value) {
+        if (minimum > value)
+            minimum = value;
+        if (maximum < value)
+            maximum = value;
+    };
+    for (std::size_t i = 0; i < block_count; ++i)
     {
         l += context.state.cblock[context.state.length_order[i]].length * context.settings.fps;
-#define MINMAX(I,FIELD)	{	if (context.state.min_val[I] > context.state.cblock[context.state.length_order[i]].FIELD)			context.state.min_val[I] = context.state.cblock[context.state.length_order[i]].FIELD; 		if (context.state.max_val[I] < context.state.cblock[context.state.length_order[i]].FIELD) 			context.state.max_val[I] = context.state.cblock[context.state.length_order[i]].FIELD; }
-        MINMAX(0, brightness)
-        MINMAX(1, volume)
-        MINMAX(2, silence)
-        MINMAX(3, uniform)
-        MINMAX(4, ar_ratio)
-        MINMAX(5, schange_rate)
+        const auto& block = context.state.cblock[context.state.length_order[i]];
+        update_range(context.state.min_val[0], context.state.max_val[0], block.brightness);
+        update_range(context.state.min_val[1], context.state.max_val[1], block.volume);
+        update_range(context.state.min_val[2], context.state.max_val[2], block.silence);
+        update_range(context.state.min_val[3], context.state.max_val[3], block.uniform);
+        update_range(context.state.min_val[4], context.state.max_val[4], block.ar_ratio);
+        update_range(context.state.min_val[5], context.state.max_val[5], block.schange_rate);
         if (l > context.state.cblock[context.state.block_count - 1].f_end* 70 / 100)
             break;
     }
