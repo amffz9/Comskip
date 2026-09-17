@@ -1345,3 +1345,36 @@ before calling FFmpeg seek APIs.
   and absence of unrelated cut-list output. All **494/494** Windows headless
   and **502/502** SDL tests pass, and the public non-donator application builds.
   Linux verification remains deferred to the final stage.
+
+### B109: Byte seeking dereferences an optional FFmpeg I/O context
+
+- **Evidence:** `Set_seek` called `avio_size(is->pFormatCtx->pb)` whenever it
+  selected byte seeking. FFmpeg permits a valid format context without an
+  `AVIOContext`, including custom and non-seekable inputs.
+- **Impact:** Falling back from a failed timestamp seek, or directly seeking by
+  bytes, could crash instead of reporting that a byte position is unavailable.
+- **Status:** Fixed. The FFmpeg boundary now exposes input size as an optional
+  value. Byte seeking rejects missing I/O state through its existing range
+  diagnostic before calling FFmpeg.
+- **Verification:** Focused tests cover format contexts with and without I/O
+  state, plus the byte-seek failure path. Windows passes **501/501** headless
+  and **509/509** SDL tests. Linux remains deferred to the final stage.
+
+### B110: Windows AddressSanitizer fails in the configured missing-input path
+
+- **Evidence:** In the Release AddressSanitizer build, both ASCII and Unicode
+  missing-input variants of `file_open` terminate with `0xc0000005` before the
+  expected diagnostic is constructed. A direct FFmpeg allocation, missing-file
+  open and close succeeds under the same runtime; a neighboring successful
+  Unicode reopen test also passes.
+- **Impact:** The Windows sanitizer suite cannot currently validate this
+  failure-unwind path. Normal Windows headless and SDL configurations continue
+  to pass it.
+- **Status:** Open. The issue is narrowed to Comskip's configured
+  `file_open_impl` failure path, most likely dictionary/options or
+  `std::inout_ptr` ownership interaction with the uninstrumented vcpkg FFmpeg
+  libraries. The fixture, Unicode conversion and generic FFmpeg failure path
+  are excluded.
+- **Verification needed:** Isolate the options and ownership calls against an
+  instrumented FFmpeg build or a compatible Windows sanitizer runtime, then add
+  a clean sanitizer regression without suppressions.

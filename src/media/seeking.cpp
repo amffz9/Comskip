@@ -31,6 +31,7 @@
 #include "comskip.h"
 #include "ffmpeg_resources.h"
 #include "checked_format.h"
+#include "input_position.h"
 #include "seek_math.h"
 #include "localization/diagnostic.h"
 #include <algorithm>
@@ -64,14 +65,16 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
 
     if (is->seek_by_bytes)
     {
-//                            pos = avio_tell(is->pFormatCtx->pb);
-        const auto size=avio_size(ic->pb);
+        const auto size=comskip::media::input_size(ic, [](AVIOContext* input) {
+            return avio_size(input);
+        });
+        if (!size) failed();
         if (length <= 0 || !std::isfinite(length)) {
             const auto fallback=comskip::media::recording_duration(context.state.frame_count,get_fps(context));
             if (!fallback) failed();
             length=*fallback;
         }
-        const auto position=comskip::media::byte_seek_position(size,length,fmax(0.0,pts-4.0));
+        const auto position=comskip::media::byte_seek_position(*size,length,fmax(0.0,pts-4.0));
         if (!position) failed();
         is->seek_pos=*position;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
@@ -190,9 +193,13 @@ nextpacket:
                 goto nextpacket;
             }
             if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
-                is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 1.1;
-                is->seek_req++;
-                goto again;
+                if (const auto size=comskip::media::input_size(is->pFormatCtx.get(), [](AVIOContext* input) {
+                        return avio_size(input);
+                    })) {
+                    is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * *size * 1.1;
+                    is->seek_req++;
+                    goto again;
+                }
             }
             is->seek_req = 0;
         }

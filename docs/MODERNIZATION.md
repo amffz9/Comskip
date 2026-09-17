@@ -632,3 +632,12 @@ than redefine completion around whichever subset currently passes tests.
   application error prefix. Windows passes **498/498** headless and
   **506/506** SDL tests, and the public non-donator application builds. Linux
   verification remains deferred to the final implementation stage.
+
+- Byte-seek sizing now treats FFmpeg I/O state as optional across initial and
+  refinement seeks, with focused missing-I/O regressions. CMake exposes the
+  opt-in `COMSKIP_ENABLE_SANITIZERS` configuration for supported compilers;
+  the focused Windows AddressSanitizer seek tests pass. A separate configured
+  missing-input path fails only under the current Windows sanitizer runtime and
+  is tracked as B110. Windows passes **501/501** headless and **509/509** SDL
+  tests, and the public non-donator application builds. Linux verification
+  remains deferred to the final implementation stage.

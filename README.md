@@ -24,6 +24,10 @@ The default tests feature supplies the ffmpeg executable for generated media.
 Windows DLLs must be beside the executable or on PATH; the vcpkg toolchain normally copies them.
 For the optional SDL interface, add `-DVCPKG_MANIFEST_FEATURES=gui` and
 `-DCOMSKIP_BUILD_GUI=ON`.
+For a sanitizer build, configure a separate directory with
+`-DCOMSKIP_ENABLE_SANITIZERS=ON`. Clang and GCC enable AddressSanitizer on all
+supported platforms and UndefinedBehaviorSanitizer outside Windows; MSVC
+enables its supported AddressSanitizer mode.
 
 Source lives in `src/` by responsibility and tests in `tests/`.
 
