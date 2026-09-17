@@ -1142,8 +1142,8 @@ bool SearchForLogoEdges(RecordingContext& context)
     }
 #endif
 #else
-    memset(context.state.thoriz_edgemask.data(), 0, context.state.width * context.state.height);
-    memset(context.state.tvert_edgemask.data(), 0, context.state.width * context.state.height);
+    std::ranges::fill(context.state.thoriz_edgemask, 0);
+    std::ranges::fill(context.state.tvert_edgemask, 0);
 //	minY = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore));
 //	if (framearray) minY = std::max(minY, frame[frame_count].minY);
 //	maxY = (subtitles? height/2 : height - edge_radius - (int)(height * borderIgnore));
@@ -1735,7 +1735,7 @@ void LoadLogoMaskData(RecordingContext& context)
 //		DumpEdgeMask(cvert_edgemask, VERT);
         DumpEdgeMasks(context);
     }
-    memset(data, 0, sizeof(data));
+    std::ranges::fill(data, 0);
     std::fflush(nullptr);
     if (context.settings.output_default)
     {
