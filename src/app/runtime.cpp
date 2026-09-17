@@ -37,10 +37,11 @@ int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
         if ((context.state.schange[i].frame > StartFrame) && (context.state.schange[i].frame < EndFrame))
         {
             count++;
-            p += (double)(100 - context.state.schange[i].percentage)  / (100 - context.state.schange_threshold);
+            p += static_cast<double>(100 - context.state.schange[i].percentage) /
+                (100 - context.state.schange_threshold);
         }
     }
-    count = (int) p;
+    count = static_cast<int>(p);
 
     return (count);
 }
@@ -120,7 +121,7 @@ void InitComSkip(RecordingContext& context)
     {
         if(!context.state.initialized)
         {
-            context.state.max_frame_count = (int)(60 * 60 * context.settings.fps) + 1;
+            context.state.max_frame_count = static_cast<int>(60 * 60 * context.settings.fps) + 1;
             allocate_or_exit(context, "runtime_allocate_frame_array_failed", 10,
                 [&] { context.state.frame.resize(context.state.max_frame_count + 2); });
         }
