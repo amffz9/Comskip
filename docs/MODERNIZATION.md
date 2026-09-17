@@ -765,3 +765,7 @@ than redefine completion around whichever subset currently passes tests.
 - Logo geometry, logo ratios, detection percentages, and scoring arithmetic now
   use explicit C++ conversions. The complete Windows headless suite remains
   green at **515/515**.
+
+- Review rendering coordinates, frame navigation, marker midpoint calculations,
+  and playback timing now use explicit C++ conversions. The complete Windows
+  SDL suite remains green at **517/517**.
