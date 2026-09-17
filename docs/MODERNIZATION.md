@@ -693,3 +693,7 @@ than redefine completion around whichever subset currently passes tests.
   through `float`, and cut-list output uses explicit casts for legacy numeric
   fields. The complete Windows headless suite passes **514/514** after these
   output and media-boundary cleanups.
+
+- Media input retries now use a structured loop instead of a `goto`, retaining
+  the existing retry limit, delay, and owned FFmpeg diagnostic path. The
+  complete Windows headless suite passes **514/514** after this change.
