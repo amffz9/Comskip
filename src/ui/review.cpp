@@ -780,7 +780,7 @@ bool ReviewResult(RecordingContext& context)
         for (std::size_t candidate = 0; candidate < candidates.size(); ++candidate) {
             const auto encoded = candidates[candidate].u8string();
             const std::string filename(encoded.begin(), encoded.end());
-            review_file.reset(comskip::platform::open_file(filename, "rb"));
+            review_file = comskip::platform::open_file_owned(filename, "rb");
             if (!review_file) continue;
             if (candidate != 0) {
                 context.state.mpegfilename = filename;

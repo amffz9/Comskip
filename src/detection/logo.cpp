@@ -1759,11 +1759,11 @@ void LoadLogoMaskData(RecordingContext& context)
     std::fflush(nullptr);
     if (context.settings.output_default)
     {
-        txt_file.reset(comskip::platform::open_file(context.state.out_filename, "r"));
+        txt_file = comskip::platform::open_file_owned(context.state.out_filename, "r");
         if (!txt_file)
         {
             sleep_for_ms(50L);
-            txt_file.reset(comskip::platform::open_file(context.state.out_filename, "r"));
+            txt_file = comskip::platform::open_file_owned(context.state.out_filename, "r");
             if (!txt_file)
             {
                 Debug(context, 0, context.translator.format("detection_output_read_failed", context.state.out_filename));
