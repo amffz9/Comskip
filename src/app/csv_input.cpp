@@ -100,7 +100,6 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
     comskip::input::FileStreamBuffer buffer(input.get());
     std::istream source(&buffer);
     source.exceptions(std::ios::badbit);
-again:
     auto header = comskip::input::read_text_line(source);
     if (!header) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_input_has_no_header);
     if (comskip::input::trim_ascii(*header) == "sep=," || comskip::input::trim_ascii(*header) == "sep=;") {
@@ -479,7 +478,7 @@ again:
         {
             LoadIniFile(context);
             input = reopen_csv_inputs(context);
-            goto again;
+            return ProcessCSV(context, std::move(input));
         }
         //		printf(" Press Enter to close debug window\n");
 //		gets(HomeDir);
