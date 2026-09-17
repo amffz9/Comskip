@@ -349,16 +349,16 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             if (x == 0) x = context.state.owidth;
             for (i=context.state.frame[frm].minX/context.state.divider; i < x; i++)  				// AR lines
             {
-                set_pixel(i, ((int)((context.state.frame[frm].minY/context.state.divider)))+barh, 0,0,255);
-                set_pixel(i, ((int)((context.state.frame[frm].maxY/context.state.divider)+barh)), 0,0,255);
+                set_pixel(i, static_cast<int>(context.state.frame[frm].minY/context.state.divider)+barh, 0,0,255);
+                set_pixel(i, static_cast<int>(context.state.frame[frm].maxY/context.state.divider+barh), 0,0,255);
 
 //				context.state.graph[context.state.frame[frm].minY* context.state.owidth + i] = 255;
 //				context.state.graph[context.state.frame[frm].maxY* context.state.owidth + i] = 255;
             }
             for (i=(context.state.frame[frm].minY/context.state.divider); i < (context.state.frame[frm].maxY/context.state.divider); i++)  				// AR lines
             {
-                set_pixel(((int)((context.state.frame[frm].minX/context.state.divider))), i+barh, 0,0,255);
-                set_pixel(((int)((context.state.frame[frm].maxX/context.state.divider))), i+barh, 0,0,255);
+                set_pixel(static_cast<int>(context.state.frame[frm].minX/context.state.divider), i+barh, 0,0,255);
+                set_pixel(static_cast<int>(context.state.frame[frm].maxX/context.state.divider), i+barh, 0,0,255);
             }
 
 
@@ -367,13 +367,13 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
         {
 for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoMaxX/context.state.divider; x++)  		// Logo box X
             {
-                set_pixel(x,((int)(context.state.tlogoMinY/context.state.divider))+barh,255,e,e);
-                set_pixel(x,((int)(context.state.tlogoMaxY/context.state.divider))+barh,255,e,e);
+                set_pixel(x,static_cast<int>(context.state.tlogoMinY/context.state.divider)+barh,255,e,e);
+                set_pixel(x,static_cast<int>(context.state.tlogoMaxY/context.state.divider)+barh,255,e,e);
             }
             for (y = context.state.tlogoMinY/context.state.divider; y < context.state.tlogoMaxY/context.state.divider; y++)  		// Logo box Y
             {
-                set_pixel(((int)(context.state.tlogoMinX/context.state.divider)),y+barh,255,e,e);
-                set_pixel(((int)(context.state.tlogoMaxX/context.state.divider)),y+barh,255,e,e);
+                set_pixel(static_cast<int>(context.state.tlogoMinX/context.state.divider),y+barh,255,e,e);
+                set_pixel(static_cast<int>(context.state.tlogoMaxX/context.state.divider),y+barh,255,e,e);
             }
 
         }
@@ -410,12 +410,12 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             if (context.state.framearray)
             {
                 xd = context.state.XDS_block_count-1;
-                while (xd > 0 && context.state.XDS_block[xd].frame > context.state.zstart+(int)((double)(x+1) * v /context.state.owidth) )
+                while (xd > 0 && context.state.XDS_block[xd].frame > context.state.zstart+static_cast<int>((x+1) * v /context.state.owidth) )
                     xd--;
-                if (!(xd > 0 && context.state.XDS_block[xd].frame >= context.state.zstart+(int)((double)x * v /context.state.owidth)))
+                if (!(xd > 0 && context.state.XDS_block[xd].frame >= context.state.zstart+static_cast<int>(x * v /context.state.owidth)))
                     xd = 0;
 
-                for (i = context.state.zstart+(int)((double)x * v /context.state.owidth); i < context.state.zstart+(int)((double)(x+1) * v /context.state.owidth ); i++)
+                for (i = context.state.zstart+static_cast<int>(x * v /context.state.owidth); i < context.state.zstart+static_cast<int>((x+1) * v /context.state.owidth ); i++)
                 {
                     if (i <= context.state.frame_count)
                     {
@@ -455,8 +455,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                             }
                         }
 //					if (context.state.frame[i].currentGoodEdge > logo_threshold) haslogo = true;
-                        a = (int)((context.state.frame[i].ar_ratio - 0.5 - 0.1)*6);		// Position of AR line
-                        g += (int)(context.state.frame[i].currentGoodEdge * 5);
+                        a = static_cast<int>((context.state.frame[i].ar_ratio - 0.5 - 0.1)*6);		// Position of AR line
+                        g += static_cast<int>(context.state.frame[i].currentGoodEdge * 5);
                         gc++;
                     }
                 }
@@ -468,8 +468,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             {
                 for (i = 0; i <= context.state.commercial_count; i++)  	// Inside commercial?
                 {
-                    if (context.state.zstart+(int)((double)x * v /context.state.owidth ) >= context.state.commercial[i].start_frame &&
-                            context.state.zstart+(int)((double)x * v /context.state.owidth ) <= context.state.commercial[i].end_frame )
+                    if (context.state.zstart+static_cast<int>(x * v /context.state.owidth ) >= context.state.commercial[i].start_frame &&
+                            context.state.zstart+static_cast<int>(x * v /context.state.owidth ) <= context.state.commercial[i].end_frame )
                     {
                         c = 128;
                         break;
@@ -481,8 +481,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             {
                 for (i = 0; i < context.state.block_count; i++)
                 {
-                    if (context.state.zstart+(int)((double)x * v /context.state.owidth ) >= context.state.cblock[i].f_start &&
-                            context.state.zstart+(int)((double)x * v /context.state.owidth ) <= context.state.cblock[i].f_end &&
+                    if (context.state.zstart+static_cast<int>(x * v /context.state.owidth ) >= context.state.cblock[i].f_start &&
+                            context.state.zstart+static_cast<int>(x * v /context.state.owidth ) <= context.state.cblock[i].f_end &&
                             context.state.cblock[i].score > context.settings.global_threshold )
                     {
                         c = 220;
@@ -495,8 +495,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             r = 255;
             for (i = 0; i <= context.state.reffer_count; i++)  		// Inside reference?
             {
-                if (context.state.zstart+(int)((double)x * v /context.state.owidth ) >= context.state.reffer[i].start_frame &&
-                        context.state.zstart+(int)((double)x * v /context.state.owidth ) <= context.state.reffer[i].end_frame )
+                if (context.state.zstart+static_cast<int>(x * v /context.state.owidth ) >= context.state.reffer[i].start_frame &&
+                        context.state.zstart+static_cast<int>(x * v /context.state.owidth ) <= context.state.reffer[i].end_frame )
                 {
                     r = 0;
                     break;
@@ -517,8 +517,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             g = 5; // Disable goodEdge context.state.graph
             for (i = 0; i < context.state.block_count; i++)
             {
-                if (context.state.zstart+(int)((double)x * v /context.state.owidth ) >= context.state.cblock[i].f_start &&
-                        context.state.zstart+(int)((double)x * v /context.state.owidth ) <= context.state.cblock[i].f_end &&
+                if (context.state.zstart+static_cast<int>(x * v /context.state.owidth ) >= context.state.cblock[i].f_start &&
+                        context.state.zstart+static_cast<int>(x * v /context.state.owidth ) <= context.state.cblock[i].f_end &&
                         context.state.cblock[i].correlation > 0 )  					// if inside a correlated context.state.cblock
                 {
                     g=2;
@@ -535,7 +535,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             }
 
             cb = 255;
-            if (context.state.block_count && context.state.cblock[b].f_start <= context.state.zstart+(int)((double)x * v /context.state.owidth ) && context.state.zstart+(int)((double)x * v /context.state.owidth ) <= context.state.cblock[b].f_end)
+            if (context.state.block_count && context.state.cblock[b].f_start <= context.state.zstart+static_cast<int>(x * v /context.state.owidth ) && context.state.zstart+static_cast<int>(x * v /context.state.owidth ) <= context.state.cblock[b].f_end)
                 cb = 0;
 
             if (bothtrue)
@@ -818,12 +818,12 @@ bool ReviewResult(RecordingContext& context)
             }
             if (context.window.input().key == 37) curframe -= 1;
             if (context.window.input().key == 39) curframe += 1;
-            if (context.window.input().key == 38) curframe -= (int)context.settings.fps;
-            if (context.window.input().key == 40) curframe += (int)context.settings.fps;
-            if (context.window.input().key == 33) curframe -= (int)(20*context.settings.fps);
-            if (context.window.input().key == 133) curframe -= (int)(.5*context.settings.fps);
-            if (context.window.input().key == 34) curframe += (int)(20*context.settings.fps);
-            if (context.window.input().key == 134) curframe += (int)(.5*context.settings.fps);
+            if (context.window.input().key == 38) curframe -= static_cast<int>(context.settings.fps);
+            if (context.window.input().key == 40) curframe += static_cast<int>(context.settings.fps);
+            if (context.window.input().key == 33) curframe -= static_cast<int>(20*context.settings.fps);
+            if (context.window.input().key == 133) curframe -= static_cast<int>(.5*context.settings.fps);
+            if (context.window.input().key == 34) curframe += static_cast<int>(20*context.settings.fps);
+            if (context.window.input().key == 134) curframe += static_cast<int>(.5*context.settings.fps);
 
             const auto navigate_interval = [&](comskip::ui::IntervalDirection direction) {
                 const auto choose = [&](const auto& intervals, int last) {
@@ -1057,19 +1057,19 @@ bool ReviewResult(RecordingContext& context)
             }
             if (context.window.input().key == 113)  				// F2 key
             {
-                context.settings.max_volume = (int)(context.settings.max_volume / 1.1);
+                context.settings.max_volume = static_cast<int>(context.settings.max_volume / 1.1);
                 Recalc(context);
                 context.state.oldfrm = -1;
             }
             if (context.window.input().key == 114)  				// F3 key
             {
-                context.settings.non_uniformity = (int)(context.settings.non_uniformity / 1.1);
+                context.settings.non_uniformity = static_cast<int>(context.settings.non_uniformity / 1.1);
                 Recalc(context);
                 context.state.oldfrm = -1;
             }
             if (context.window.input().key == 115)  				// F4 key
             {
-                context.settings.max_avg_brightness = (int)(context.settings.max_avg_brightness / 1.1);
+                context.settings.max_avg_brightness = static_cast<int>(context.settings.max_avg_brightness / 1.1);
                 Recalc(context);
                 context.state.oldfrm = -1;
             }
@@ -1091,8 +1091,9 @@ bool ReviewResult(RecordingContext& context)
                 context.state.preMarkerFrame = curframe;
                 if (context.state.postMarkerFrame > 0 && context.state.preMarkerFrame > 0)
                 {
-                    long midpoint = ((long)context.state.postMarkerFrame + (long)context.state.preMarkerFrame) / 2l;
-                    curframe = (int)midpoint;
+                    const auto midpoint = (static_cast<long>(context.state.postMarkerFrame) +
+                        static_cast<long>(context.state.preMarkerFrame)) / 2l;
+                    curframe = static_cast<int>(midpoint);
                 }
 
                 forceRefresh = true;
@@ -1105,8 +1106,9 @@ bool ReviewResult(RecordingContext& context)
 
                 if (context.state.postMarkerFrame > 0 && context.state.preMarkerFrame > 0)
                 {
-                    long midpoint = ((long)context.state.postMarkerFrame + (long)context.state.preMarkerFrame) / 2l;
-                    curframe = (int)midpoint;
+                    const auto midpoint = (static_cast<long>(context.state.postMarkerFrame) +
+                        static_cast<long>(context.state.preMarkerFrame)) / 2l;
+                    curframe = static_cast<int>(midpoint);
                 }
 
                 forceRefresh = true;
@@ -1138,7 +1140,8 @@ bool ReviewResult(RecordingContext& context)
         if (context.state.frame_count > 0 && review_file)
             if (curframe!= lastcurframe)
             {
-                DecodeOnePicture(context, review_file.get(), (context.state.framearray ? get_frame_pts(context, curframe) : (double)curframe / context.settings.fps));
+                DecodeOnePicture(context, review_file.get(), context.state.framearray ?
+                    get_frame_pts(context, curframe) : static_cast<double>(curframe) / context.settings.fps);
                 lastcurframe = curframe;
             }
         OutputDebugWindow(context, (review_file ? true : false),curframe, grf, forceRefresh);
