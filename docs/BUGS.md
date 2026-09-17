@@ -1458,3 +1458,13 @@ before calling FFmpeg seek APIs.
 - **Verification:** The caption packet regression now uses CRLF dictionary data
   and observes the score adjustment; the focused caption/XDS run passes 4/4.
   Linux verification remains pending.
+
+### B116: FFmpeg durations were narrowed through `float`
+
+- **Evidence:** Unknown-duration handling converted `AVFormatContext::duration`
+  to `float` before storing it in the recording's `double` duration field.
+- **Impact:** Long or high-resolution recordings could lose timing precision in
+  duration-based diagnostics and seek calculations.
+- **Status:** Fixed. The conversion now goes directly to `double`.
+- **Verification:** Complete Windows headless and SDL suites pass **514/514**
+  and **517/517** after the fix.
