@@ -158,7 +158,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     int changed = 0;
 
 //	bitrate = pFrame->bit_rate;
-    if (pFrame->linesize[0] > MAXWIDTH || pFrame->height > MAXHEIGHT || pFrame->linesize[0] < 100 || pFrame->height < 100)
+    if (pFrame->linesize[0] > max_width || pFrame->height > max_height || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
         Debug(context, 1, "%s", context.translator.format("media_invalid_frame",
               pFrame->height, pFrame->width, pFrame->linesize[0]).c_str());

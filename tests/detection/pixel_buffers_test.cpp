@@ -71,7 +71,7 @@ TEST(PixelBuffers, RejectsInvalidAndOverflowingDimensions)
     EXPECT_THROW(checked_image_size(10, 10, 0), std::invalid_argument);
     EXPECT_THROW(checked_image_size(2, 2, std::numeric_limits<std::size_t>::max()), std::length_error);
     auto context = std::make_unique<RecordingContext>();
-    context->state.width = MAXWIDTH + 1;
+    context->state.width = max_width + 1;
     context->state.height = 120;
     EXPECT_THROW(context->state.ensure_pixel_buffers(true), std::invalid_argument);
     EXPECT_TRUE(context->state.haslogo.empty());

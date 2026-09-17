@@ -17,7 +17,7 @@ void replace_buffer(std::vector<T>& buffer, std::size_t size, T value = {})
 void RecordingState::ensure_pixel_buffers(bool use_logo)
 {
     if (width == 0 && height == 0) return; // CSV metadata can precede its geometry.
-    if (width > MAXWIDTH || height > MAXHEIGHT)
+    if (width > max_width || height > max_height)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::detector_image_dimensions_exceed_supported_limits);
     const auto size = comskip::detection::checked_image_size(width, height);
     const auto video_width = videowidth > 0 ? videowidth : width;

@@ -106,7 +106,7 @@ again:
         if (record.number != static_cast<int>(observations.size() + 1))
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_frame_numbers_must_be_consecutive_from_one);
         if (record.min_y < 0 || record.min_x < 0 || record.max_y < record.min_y || record.max_x < record.min_x ||
-            record.max_y > MAXHEIGHT || record.max_x > MAXWIDTH)
+            record.max_y > max_height || record.max_x > max_width)
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::csv_observation_has_invalid_scan_bounds);
         const double timestamp = record.timestamp.value_or((record.number - 1) / frame_rate);
         if (!std::isfinite(timestamp) || timestamp > static_cast<double>(std::numeric_limits<std::int64_t>::max()) / 1e6 - 1 / frame_rate ||
