@@ -92,8 +92,8 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
 
 void DoSeekRequest(RecordingContext& context, VideoState *is)
 {
-    int ret;
-again:
+    int ret{};
+    for (;;) {
 //           ret = avformat_seek_file(is->pFormatCtx.get(), is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
     ret = av_seek_frame(is->pFormatCtx.get(), is->videoStream,  is->seek_pos,  is->seek_flags);
 //            ret = av_seek_frame(is->pFormatCtx.get(), -1,  is->seek_pos,  is->seek_flags);
@@ -101,8 +101,7 @@ again:
     context.state.best_effort_timestamp = 0;
     is->video_clock = 0.0;
     is->audio_clock = 0.0;
-    if(ret < 0)
-    {
+    if(ret < 0) {
         const char *error_text;
 #if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
     LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
@@ -134,8 +133,10 @@ again:
         {
             is->seek_by_bytes = 1; // Fall back to byte seek
             Set_seek(context, is, is->seek_pts);
-            goto again;
+            continue;
         }
+    }
+    break;
     }
     if (!is->seek_no_flush)
     {
@@ -181,10 +182,7 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
         }
         // seek stuff goes here
         if(is->seek_req)
-        {
-again:      DoSeekRequest(context, is);
-        }
-nextpacket:
+            DoSeekRequest(context, is);
         if(av_read_frame(is->pFormatCtx.get(), packet) < 0)
         {
             break;
@@ -193,7 +191,7 @@ nextpacket:
                 double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
             if (packet->pts==AV_NOPTS_VALUE) {
                 av_packet_unref(packet);
-                goto nextpacket;
+                continue;
             }
             if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
                 if (const auto size=comskip::media::input_size(is->pFormatCtx.get(), [](AVIOContext* input) {
@@ -201,7 +199,7 @@ nextpacket:
                     })) {
                     is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * *size * 1.1;
                     is->seek_req++;
-                    goto again;
+                    continue;
                 }
             }
             is->seek_req = 0;
