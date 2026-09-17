@@ -110,7 +110,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
 {
     if (!context.state.ini_file.get()) {
         FindIniFile(context);
-        if (!context.state.inifilename.empty()) context.state.ini_file.reset(comskip::platform::open_file(context.state.inifilename, "r"));
+        if (!context.state.inifilename.empty()) context.state.ini_file = comskip::platform::open_file_owned(context.state.inifilename, "r");
     }
     try {
         context.state.ini_text = comskip::config::defaults().serialize();
@@ -340,7 +340,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
     else if (strcmp(in->extension[0], ".csv") == 0)
     {
         context.state.loadingCSV = true;
-        context.state.in_file.reset(comskip::platform::open_file(in->filename[0], "r"));
+        context.state.in_file = comskip::platform::open_file_owned(in->filename[0], "r");
         fputs(translator.format("array_open", in->filename[0]).c_str(), stdout);
         if (!context.state.in_file.get())
         {
@@ -350,36 +350,36 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
         context.state.inbasename = path_to_utf8(path_from_utf8(in->filename[0]).replace_extension());
         context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
-        test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+        test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".ts";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".tp";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".dvr-ms";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".wtv";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".mp4";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".mkv";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
@@ -399,7 +399,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
     {
         context.state.loadingTXT = true;
         context.settings.output_default = false;
-        context.state.in_file.reset(comskip::platform::open_file(in->filename[0], "r"));
+        context.state.in_file = comskip::platform::open_file_owned(in->filename[0], "r");
         fputs(translator.format("review_open", in->filename[0]).c_str(), stdout);
         if (!context.state.in_file.get())
         {
@@ -411,36 +411,36 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
         context.state.inbasename = path_to_utf8(path_from_utf8(in->filename[0]).replace_extension());
         context.state.mpegfilename = std::string(context.state.inbasename) + ".mpg";
-        test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+        test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".ts";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".tp";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".dvr-ms";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".wtv";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".mp4";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
             context.state.mpegfilename = std::string(context.state.inbasename) + ".mkv";
-            test_file.reset(comskip::platform::open_file(context.state.mpegfilename, "rb"));
+            test_file = comskip::platform::open_file_owned(context.state.mpegfilename, "rb");
         }
         if (!test_file)
         {
@@ -465,7 +465,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         context.state.inifilename = std::string(cl_ini->filename[0]);
         fputs(translator.format("setting_ini", context.state.inifilename).c_str(), stdout);
     }
-    context.state.ini_file.reset(comskip::platform::open_file(context.state.inifilename, "r"));
+    context.state.ini_file = comskip::platform::open_file_owned(context.state.inifilename, "r");
 
     if (cl_work_fname->count)
     {
@@ -510,7 +510,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         if (!context.state.ini_file.get())
         {
             context.state.inifilename = "comskip.ini";
-    context.state.ini_file.reset(comskip::platform::open_file(context.state.inifilename, "r"));
+    context.state.ini_file = comskip::platform::open_file_owned(context.state.inifilename, "r");
         }
         context.state.exefilename = "comskip.exe";
         context.state.dictfilename = "comskip.dictionary";
@@ -520,7 +520,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         if (!context.state.ini_file.get())
         {
             context.state.inifilename = path_to_utf8(path_from_utf8(context.state.HomeDir) / "comskip.ini");
-    context.state.ini_file.reset(comskip::platform::open_file(context.state.inifilename, "r"));
+    context.state.ini_file = comskip::platform::open_file_owned(context.state.inifilename, "r");
         }
         context.state.exefilename = path_to_utf8(path_from_utf8(context.state.HomeDir) / "comskip.exe");
         context.state.dictfilename = path_to_utf8(path_from_utf8(context.state.HomeDir) / "comskip.dictionary");
@@ -635,7 +635,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
     if (!context.state.loadingTXT && !context.settings.useExistingLogoFile && cl_logo->count==0)
     {
-        logo_file.reset(comskip::platform::open_file(context.state.logofilename, "r"));
+        logo_file = comskip::platform::open_file_owned(context.state.logofilename, "r");
         if(logo_file)
         {
             logo_file.reset();
@@ -657,7 +657,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
     if (context.settings.verbose)
     {
-        logo_file.reset(comskip::platform::open_file(context.state.logofilename, "r"));
+        logo_file = comskip::platform::open_file_owned(context.state.logofilename, "r");
         if (context.state.loadingTXT)
         {
             // Do nothing to the log file
@@ -665,7 +665,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         }
         else if (context.state.loadingCSV)
         {
-            log_file.reset(comskip::platform::open_file(context.state.logfilename, "w"));
+            log_file = comskip::platform::open_file_owned(context.state.logfilename, "w");
             if (log_file) {
                 comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
                 comskip::output::checked_fprintf(*log_file, context.state.logfilename,
@@ -681,7 +681,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         else if (logo_file)
         {
             logo_file.reset();
-            log_file.reset(comskip::platform::open_file(context.state.logfilename, "a+"));
+            log_file = comskip::platform::open_file_owned(context.state.logfilename, "a+");
             if (log_file) {
                 comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
                 comskip::output::checked_fprintf(*log_file, context.state.logfilename,
@@ -694,7 +694,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         }
         else
         {
-            log_file.reset(comskip::platform::open_file(context.state.logfilename, "w"));
+            log_file = comskip::platform::open_file_owned(context.state.logfilename, "w");
             if (log_file) {
                 comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
                 comskip::output::checked_fprintf(*log_file, context.state.logfilename,
@@ -831,7 +831,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
     if (!context.state.loadingTXT)
     {
-        logo_file.reset(comskip::platform::open_file(context.state.logofilename, "r+"));
+        logo_file = comskip::platform::open_file_owned(context.state.logofilename, "r+");
         if (logo_file)
         {
             Debug(context, 1, translator.text("cli_logo_exists"));
@@ -869,7 +869,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
     {
         if(!context.state.isSecondPass)
         {
-            context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "w"));
+            context.state.out_file = comskip::platform::open_file_owned(context.state.out_filename, "w");
             if (!context.state.out_file.get())
             {
                 fputs(translator.format("create_failed", strerror(errno), context.state.filename).c_str(), stderr);
