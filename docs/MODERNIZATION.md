@@ -723,3 +723,7 @@ than redefine completion around whichever subset currently passes tests.
 - Audio packet resend/drain handling now uses a structured retry loop instead
   of a label, preserving EAGAIN recovery and borrowed packet ownership. The
   complete Windows headless suite remains green at **514/514**.
+
+- The settings parser now returns directly when argtable allocation fails;
+  the existing RAII argtable owner still performs cleanup. The complete
+  Windows headless suite remains green at **514/514**.
