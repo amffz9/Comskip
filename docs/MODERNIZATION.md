@@ -868,3 +868,7 @@ than redefine completion around whichever subset currently passes tests.
 - Commercial profile parsing now uses `std::string_view` for INI keys and
   explicitly owns diagnostic arguments. Focused settings/profile tests pass
   **4/4**, and the complete Windows headless suite passes **517/517**.
+
+- Saved-logo metadata parsing now uses `std::string_view` for INI keys and
+  owns the reported key in range diagnostics. The focused logo suite passes
+  **53/53**, and the complete Windows headless suite remains **517/517**.

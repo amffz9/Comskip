@@ -4,6 +4,7 @@
 #include "localization/diagnostic.h"
 #include <limits>
 #include <string>
+#include <string_view>
 #include <format>
 
 namespace comskip::detection {
@@ -25,11 +26,11 @@ int pixel(std::FILE& stream) {
     }
     return character;
 }
-int field(const config::Ini& ini, const char* key, int fallback) {
+int field(const config::Ini& ini, std::string_view key, int fallback) {
     if (!ini.find(key)) return fallback;
     const double value = ini.number<double>(key);
     if (value < 0 || value >= static_cast<double>(std::numeric_limits<int>::max()) + 1)
-        throw Error<std::invalid_argument>(Code::saved_logo_metadata_exceeds_frame_range, {key});
+        throw Error<std::invalid_argument>(Code::saved_logo_metadata_exceeds_frame_range, {std::string(key)});
     return static_cast<int>(value); // Preserve representable fractional legacy truncation.
 }
 }
