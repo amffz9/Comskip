@@ -290,7 +290,8 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
             context.state.ac3_packet_index = 0;
             return;
         }
-        memcpy(&context.state.ac3_packet[context.state.ac3_packet_index], pkt_temp->data, pkt_temp->size);
+        std::copy_n(pkt_temp->data, static_cast<std::size_t>(pkt_temp->size),
+            context.state.ac3_packet + context.state.ac3_packet_index);
         pkt_temp->data = context.state.ac3_packet;
         pkt_temp->size += context.state.ac3_packet_index;
         context.state.ac3_packet_index = pkt_temp->size;
