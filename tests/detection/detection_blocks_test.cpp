@@ -2,8 +2,10 @@
 #include "legacy_detection.h" // Legacy detector fixture entry points and bit patterns.
 #include "black_frame_run.h"
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <iterator>
 #include <memory>
 
 namespace {
@@ -94,6 +96,24 @@ TEST(DetectionBlocks, ValidationDoesNotReadPastTheLastActiveBlackFrame) {
     ASSERT_TRUE(BuildBlocks(*context, true));
     EXPECT_GT(context->state.block_count, 0);
     terminal(*context);
+}
+
+TEST(DetectionBlocks, ScanLinesClampOversizedDecodedHeightToOwnedStorage) {
+    auto context = std::make_unique<RecordingContext>();
+    context->state.height = static_cast<int>(std::size(context->state.lineStart)) + 5;
+    context->state.videowidth = 640;
+    context->settings.border = 3;
+    context->state.clogoMinY = 10'000;
+    context->state.clogoMaxY = 10'001;
+    std::fill(std::begin(context->state.lineStart), std::end(context->state.lineStart), 7);
+    std::fill(std::begin(context->state.lineEnd), std::end(context->state.lineEnd), 7);
+
+    InitScanLines(*context);
+
+    EXPECT_EQ(context->state.lineStart[0], 3);
+    EXPECT_EQ(context->state.lineEnd[0], 636);
+    EXPECT_EQ(context->state.lineStart[std::size(context->state.lineStart) - 1], 3);
+    EXPECT_EQ(context->state.lineEnd[std::size(context->state.lineEnd) - 1], 636);
 }
 
 TEST(DetectionBlocks, InitializationClearsPreviousClassificationAndResetPreservesContract) {

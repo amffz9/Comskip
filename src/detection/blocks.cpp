@@ -1,16 +1,35 @@
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
+#include "block_building.h"
+#include "commercial_length.h"
+#include "detection_methods.h"
+#include "detector_runtime.h"
 #include "frame_causes.h"
+#include "frame_timestamps.h"
+#include "length_matching.h"
+#include "logo_detection.h"
+#include "scene_analysis.h"
+#include "storage.h"
+#include "output/diagnostics.h"
 #include "black_frame_run.h"
 #include "logo_histogram.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <limits>
 #include <string_view>
 #include <utility>
 
 namespace {
+constexpr int uniform_scale = 100;
+constexpr double undefined_aspect_ratio = 0.0;
+
+double frame_time(RecordingContext& context, int frame) {
+    return get_frame_pts(context, frame);
+}
+
 template <typename... Args>
 void BlocksDebug(RecordingContext& context, int level, const char* key, Args&&... args)
 {
@@ -108,7 +127,7 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
             static_cast<std::size_t>(i), static_cast<int>(reason)));
         if (i < context.state.black_count)
         {
-            length = F2T(context.state.black[(i+k)/2].frame) - F2T(context.state.black[last].frame);
+            length = frame_time(context, context.state.black[(i+k)/2].frame) - frame_time(context, context.state.black[last].frame);
             if (length > context.settings.max_commercial_size)
             {
                 if (incommercial)
@@ -221,11 +240,11 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
             while (j > 0 && context.state.black[j-1].frame == context.state.black[j].frame - 1)
                 j--;
 
-            length = F2T(context.state.black[i].frame) - F2T(context.state.black[(i-1+j)/2].frame);
+            length = frame_time(context, context.state.black[i].frame) - frame_time(context, context.state.black[(i-1+j)/2].frame);
             if (length > 1.0 && length< context.settings.max_commercial_size)
             {
                 count++;
-                if (IsStandardCommercialLength(context, length, F2T(i) - F2T(j)  + 0.8 , false))
+                if (IsStandardCommercialLength(context, length, frame_time(context, i) - frame_time(context, j)  + 0.8 , false))
                 {
 //				if (length > max_commercial_size) {
                     strict_count++;
@@ -411,7 +430,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     {
         if (context.state.uniformHistogram[k] > 10)
         {
-            context.state.min_uniform = (k-1)*UNIFORMSCALE;
+            context.state.min_uniform = (k-1)*uniform_scale;
             break;
         }
     }
@@ -530,7 +549,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         for (i = 0; i < context.state.ar_block_count; i++)
         {
             if ((context.settings.cut_on_ar_change == 1 || context.state.ar_block[i].volume < context.settings.max_volume) &&
-                    context.state.ar_block[i].ar_ratio != AR_UNDEF && context.state.ar_block[i+1].ar_ratio != AR_UNDEF)
+                    context.state.ar_block[i].ar_ratio != undefined_aspect_ratio && context.state.ar_block[i+1].ar_ratio != undefined_aspect_ratio)
             {
                 a = context.state.ar_block[i].end;
 //					if (a > 20 * fps)
@@ -639,7 +658,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         black_start = 0;
         black_end = 0;
         //Find end of next black cblock
-        while(j < context.state.black_count && (F2T(context.state.black[j].frame) - F2T(b_end) < 1.0 ))   //Allow for 2 missing black frames
+        while(j < context.state.black_count && (frame_time(context, context.state.black[j].frame) - frame_time(context, b_end) < 1.0 ))   //Allow for 2 missing black frames
         {
             if (context.state.black[j].frame - b_end > 2 &&
                     (((context.state.black[j].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) != 0 &&  (cause & (comskip::detection::cause_value(comskip::detection::FrameCause::silence))) == 0) ||
@@ -705,11 +724,11 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             context.state.cblock[context.state.block_count].f_end = b_start + b_counted - 1;
         context.state.cblock[context.state.block_count].b_tail = b_counted;		//half on the tail of this cblock
         context.state.cblock[context.state.block_count].bframe_count = context.state.cblock[context.state.block_count].b_head + context.state.cblock[context.state.block_count].b_tail;
-        context.state.cblock[context.state.block_count].length = F2T(context.state.cblock[context.state.block_count].f_end) - F2T(context.state.cblock[context.state.block_count].f_start);
+        context.state.cblock[context.state.block_count].length = frame_time(context, context.state.cblock[context.state.block_count].f_end) - frame_time(context, context.state.cblock[context.state.block_count].f_start);
 
         //If first cblock is < 1 sec. throw it away
         if( context.state.block_count > 0 ||
-                F2L( context.state.cblock[context.state.block_count].f_end, context.state.cblock[context.state.block_count].f_start) > 1.0 ||
+                comskip::detection::frame_duration(context,  context.state.cblock[context.state.block_count].f_end, context.state.cblock[context.state.block_count].f_start) > 1.0 ||
                 context.state.cblock[context.state.block_count].f_end == context.state.framesprocessed
           )
         {
@@ -742,7 +761,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
             context.state.cblock[i-1].f_end	= context.state.cblock[i].f_end;
             context.state.cblock[i-1].b_tail	= context.state.cblock[i].b_tail;
-            context.state.cblock[i-1].length	= F2L(context.state.cblock[i-1].f_end, context.state.cblock[i-1].f_start);
+            context.state.cblock[i-1].length	= comskip::detection::frame_duration(context, context.state.cblock[i-1].f_end, context.state.cblock[i-1].f_start);
             context.state.cblock[i-1].cause	= context.state.cblock[i].cause;
 
             comskip::detection::erase_blocks(context.state.cblock, context.state.block_count, i);
@@ -828,7 +847,7 @@ void CleanLogoBlocks(RecordingContext& context)
     double sum_brightness2;
     int sum_delta;
 #if 1
-    if ((context.settings.commDetectMethod & LOGO /* || startOverAfterLogoInfoAvail==0 */ ) &&! context.state.reverseLogoLogic && context.settings.connect_blocks_with_logo)
+    if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) /* || startOverAfterLogoInfoAvail==0 */ ) &&! context.state.reverseLogoLogic && context.settings.connect_blocks_with_logo)
     {
         //Combine blocks with both logo
         for (i = context.state.block_count-1; i >= 1; i--)
@@ -844,7 +863,7 @@ void CleanLogoBlocks(RecordingContext& context)
                 context.state.cblock[i-1].b_tail	= context.state.cblock[i].b_tail;
                 if (context.state.cblock[i].length > context.state.cblock[i-1].length)
                     context.state.cblock[i-1].ar_ratio = context.state.cblock[i].ar_ratio;	// Use AR of longest cblock
-                context.state.cblock[i-1].length	= F2L(context.state.cblock[i-1].f_end, context.state.cblock[i-1].f_start);
+                context.state.cblock[i-1].length	= comskip::detection::frame_duration(context, context.state.cblock[i-1].f_end, context.state.cblock[i-1].f_start);
                 context.state.cblock[i-1].cause	= context.state.cblock[i].cause;
 
                 comskip::detection::erase_blocks(context.state.cblock, context.state.block_count, i);
@@ -858,7 +877,7 @@ void CleanLogoBlocks(RecordingContext& context)
     /*
         for (i = 0; i < block_count; i++) {
 
-            if (F2L(cblock[i].f_end, cblock[i].f_start) > (int) min_show_segment_length )
+            if (comskip::detection::frame_duration(context, cblock[i].f_end, cblock[i].f_start) > (int) min_show_segment_length )
             {
                 if (k != -1 && i > k+1)
                 {
@@ -939,13 +958,17 @@ void CleanLogoBlocks(RecordingContext& context)
 
 }
 
-#define LOGO_BORDER 5
+namespace {
+constexpr int logo_border = 5;
+}
+
 void InitScanLines(RecordingContext& context)
 {
-    int i;
-    for (i = 0; i < context.state.height; i++)
+    const auto line_count = static_cast<int>(std::size(context.state.lineStart));
+    const auto visible_height = std::clamp(context.state.height, 0, line_count);
+    for (int i = 0; i < visible_height; ++i)
     {
-        if (i < context.state.clogoMinY - LOGO_BORDER || i > context.state.clogoMaxY + LOGO_BORDER)
+        if (i < context.state.clogoMinY - logo_border || i > context.state.clogoMaxY + logo_border)
         {
             context.state.lineStart[i] = context.settings.border;
             context.state.lineEnd[i] = context.state.videowidth-1-context.settings.border;
@@ -955,20 +978,17 @@ void InitScanLines(RecordingContext& context)
             if ( context.state.clogoMinX > context.state.videowidth - context.state.clogoMaxX)   // Most pixels left of the logo
             {
                 context.state.lineStart[i] = context.settings.border;
-                context.state.lineEnd[i] = MAX(0,context.state.clogoMinX-LOGO_BORDER);
+                context.state.lineEnd[i] = std::max(0,context.state.clogoMinX-logo_border);
             }
             else
             {
-                context.state.lineStart[i] = MIN(context.state.videowidth-1,context.state.clogoMaxX+LOGO_BORDER);
+                context.state.lineStart[i] = std::min(context.state.videowidth-1,context.state.clogoMaxX+logo_border);
                 context.state.lineEnd[i] = context.state.videowidth-1-context.settings.border;
             }
         }
     }
-    for (i = context.state.height; i < MAXHEIGHT; i++)
-    {
-        context.state.lineStart[i] = 0;
-        context.state.lineEnd[i] = 0;
-    }
+    std::fill(std::begin(context.state.lineStart) + visible_height, std::end(context.state.lineStart), 0);
+    std::fill(std::begin(context.state.lineEnd) + visible_height, std::end(context.state.lineEnd), 0);
 }
 
 void InitHasLogo(RecordingContext& context)
@@ -977,9 +997,9 @@ void InitHasLogo(RecordingContext& context)
     int x,y;
     context.state.ensure_pixel_buffers(comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) != 0);
     std::ranges::fill(context.state.haslogo, 0);
-    for (y = MAX(0,context.state.clogoMinY - LOGO_BORDER); y < MIN(context.state.height,context.state.clogoMaxY + LOGO_BORDER); y++)
+    for (y = std::max(0,context.state.clogoMinY - logo_border); y < std::min(context.state.height,context.state.clogoMaxY + logo_border); y++)
     {
-        for (x = MAX(0,context.state.clogoMinX-LOGO_BORDER); x < MIN(context.state.videowidth,context.state.clogoMaxX + LOGO_BORDER) ; x++)
+        for (x = std::max(0,context.state.clogoMinX-logo_border); x < std::min(context.state.videowidth,context.state.clogoMaxX + logo_border) ; x++)
         {
             context.state.haslogo[y*context.state.width+x] = 1;
         }
