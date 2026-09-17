@@ -2,17 +2,29 @@
 #include "media/decoder.h"
 #include "ui/executable_mode.h"
 #include "exit_requested.h"
-#include "legacy_detection.h"
+#include "app/build_info.h"
+#include "app/comskip.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
 #include "checked_format.h"
+#include "detection/detection_methods.h"
+#include "detection/scene_analysis.h"
 #include "translator.h"
 #include "diagnostic_render.h"
 #include "logo_search_time.h"
 #include "arguments.h"
 #include "command_line_value.h"
 
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <string>
+#include <string_view>
+
 namespace {
 using comskip::platform::path_from_utf8;
 using comskip::platform::path_to_utf8;
+using comskip::detection::DetectionMethod;
 void print_argument_errors(FILE* output, const struct arg_end& errors,
                            const comskip::localization::Translator& translator) {
     // Argtable remains responsible for parsing and validation. Its public error
@@ -271,14 +283,14 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         arg_print_syntaxv(stdout, argtable, "\n\n");
         arg_print_glossary(stdout, argtable, "  %-25s %s\n");
         fputs(translator.text("methods"), stdout);
-        fputs(translator.format("method_black", BLACK_FRAME).c_str(), stdout);
-        fputs(translator.format("method_logo", LOGO).c_str(), stdout);
-        fputs(translator.format("method_scene", SCENE_CHANGE).c_str(), stdout);
-        fputs(translator.format("method_resolution", RESOLUTION_CHANGE).c_str(), stdout);
-        fputs(translator.format("method_captions", CC).c_str(), stdout);
-        fputs(translator.format("method_aspect", AR).c_str(), stdout);
-        fputs(translator.format("method_silence", SILENCE).c_str(), stdout);
-        fputs(translator.format("method_cutscenes", CUTSCENE).c_str(), stdout);
+        fputs(translator.format("method_black", static_cast<int>(DetectionMethod::black_frame)).c_str(), stdout);
+        fputs(translator.format("method_logo", static_cast<int>(DetectionMethod::logo)).c_str(), stdout);
+        fputs(translator.format("method_scene", static_cast<int>(DetectionMethod::scene_change)).c_str(), stdout);
+        fputs(translator.format("method_resolution", static_cast<int>(DetectionMethod::resolution_change)).c_str(), stdout);
+        fputs(translator.format("method_captions", static_cast<int>(DetectionMethod::captions)).c_str(), stdout);
+        fputs(translator.format("method_aspect", static_cast<int>(DetectionMethod::aspect_ratio)).c_str(), stdout);
+        fputs(translator.format("method_silence", static_cast<int>(DetectionMethod::silence)).c_str(), stdout);
+        fputs(translator.format("method_cutscenes", static_cast<int>(DetectionMethod::cutscene)).c_str(), stdout);
         fputs(translator.text("all_methods"), stdout);
         comskip::request_exit(2);
     }
@@ -289,14 +301,14 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         arg_print_syntaxv(stdout, argtable, "\n\n");
         arg_print_glossary(stdout, argtable, "  %-25s %s\n");
         fputs(translator.text("available_methods"), stdout);
-        fputs(translator.format("method_black", BLACK_FRAME).c_str(), stdout);
-        fputs(translator.format("method_logo", LOGO).c_str(), stdout);
-        fputs(translator.format("method_scene", SCENE_CHANGE).c_str(), stdout);
-        fputs(translator.format("method_resolution", RESOLUTION_CHANGE).c_str(), stdout);
-        fputs(translator.format("method_captions", CC).c_str(), stdout);
-        fputs(translator.format("method_aspect", AR).c_str(), stdout);
-        fputs(translator.format("method_silence", SILENCE).c_str(), stdout);
-        fputs(translator.format("method_cutscenes", CUTSCENE).c_str(), stdout);
+        fputs(translator.format("method_black", static_cast<int>(DetectionMethod::black_frame)).c_str(), stdout);
+        fputs(translator.format("method_logo", static_cast<int>(DetectionMethod::logo)).c_str(), stdout);
+        fputs(translator.format("method_scene", static_cast<int>(DetectionMethod::scene_change)).c_str(), stdout);
+        fputs(translator.format("method_resolution", static_cast<int>(DetectionMethod::resolution_change)).c_str(), stdout);
+        fputs(translator.format("method_captions", static_cast<int>(DetectionMethod::captions)).c_str(), stdout);
+        fputs(translator.format("method_aspect", static_cast<int>(DetectionMethod::aspect_ratio)).c_str(), stdout);
+        fputs(translator.format("method_silence", static_cast<int>(DetectionMethod::silence)).c_str(), stdout);
+        fputs(translator.format("method_cutscenes", static_cast<int>(DetectionMethod::cutscene)).c_str(), stdout);
         fputs(translator.text("all_methods"), stdout);
         fputs(translator.text("errors"), stdout);
         print_argument_errors(stdout, *end, translator);
@@ -650,7 +662,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
+                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), PACKAGE_STRING);
                 fprintf(log_file.get(), "Loading comskip csv file - %s\n", in->filename[0]);
                 fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
                 fprintf(log_file.get(), "################################################################\n");
@@ -674,7 +686,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
+                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), PACKAGE_STRING);
                 fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
                 fprintf(log_file.get(), "################################################################\n");
                 log_file.reset();
@@ -723,56 +735,56 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         context.state.exefilename, context.state.logofilename, context.state.inifilename).c_str());
     Debug(context, 1, "%s", translator.text("settings_detection_methods"));
     i = 0;
-    if (context.settings.commDetectMethod & BLACK_FRAME)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::black_frame))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_black", i).c_str());
     }
 
-    if (context.settings.commDetectMethod & LOGO)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::logo))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_logo", i,
             context.settings.giveUpOnLogoSearch).c_str());
     }
 
-    if (context.settings.commDetectMethod & CUTSCENE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::cutscene))
     {
 //		commDetectMethod &= ~SCENE_CHANGE;
     }
 
-    if (context.settings.commDetectMethod & SCENE_CHANGE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::scene_change))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_scene_change", i).c_str());
     }
 
-    if (context.settings.commDetectMethod & RESOLUTION_CHANGE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::resolution_change))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_resolution_change", i).c_str());
     }
 
-    if (context.settings.commDetectMethod & CC)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::captions))
     {
         i++;
         context.state.processCC = true;
         Debug(context, 1, "%s", translator.format("settings_method_closed_captions", i).c_str());
     }
 
-    if (context.settings.commDetectMethod & AR)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::aspect_ratio))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_aspect_ratio", i).c_str());
     }
 
-    if (context.settings.commDetectMethod & SILENCE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::silence))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_silence", i).c_str());
     }
 
-    if (context.settings.commDetectMethod & CUTSCENE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::cutscene))
     {
         i++;
         Debug(context, 1, "%s", translator.format("settings_method_cutscenes", i).c_str());

@@ -8,6 +8,8 @@ enum class DetectionMethod : int {
     logo = 1 << 1,
     scene_change = 1 << 2,
     resolution_change = 1 << 3,
+    captions = 1 << 4,
+    aspect_ratio = 1 << 5,
     silence = 1 << 6,
     cutscene = 1 << 7,
 };
