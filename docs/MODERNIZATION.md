@@ -710,3 +710,8 @@ than redefine completion around whichever subset currently passes tests.
 - Decode-loop seek correction, packet skipping, and reopen retries now use
   structured `continue` flow instead of labels and gotos. The complete
   Windows headless suite remains green at **514/514**.
+
+- Fatal application diagnostics still go to stderr, and now also mirror to an
+  already-open run log through the checked file boundary. A log-write failure
+  cannot mask the original diagnostic or exit status. The complete Windows
+  headless suite remains green at **514/514**.
