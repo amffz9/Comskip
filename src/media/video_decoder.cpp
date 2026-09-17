@@ -42,9 +42,23 @@ using namespace comskip::media;
 #include <cstring>
 #include <filesystem>
 #include <format>
+#include <string_view>
+#include <utility>
 #include "checked_format.h"
 #include "frame_conversion.h"
+#include "input_position.h"
 #include "video_timestamp.h"
+
+namespace {
+
+template <typename... Args>
+void debug_message(RecordingContext& context, const int level, const std::string_view message_id, Args&&... args)
+{
+    const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
+    Debug(context, level, "%s", message.c_str());
+}
+
+} // namespace
 
 #define SELFTEST
 
@@ -160,7 +174,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
             InitScanLines(context);
             InitHasLogo(context);
         }
-        Debug(context, 5, "Format changed to [%d : %d]\n", context.state.videowidth, context.state.height);
+        debug_message(context, 5, "media_format_changed", context.state.videowidth, context.state.height);
     }
     context.state.infopos = context.state.headerpos;
     context.state.frame_ptr = pFrame->data[0];
@@ -183,10 +197,10 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         if (context.state.test_pts != pts)
         {
                 comskip::output::write_selftest_log(context.settings.selftest_log_file, "Reset file Failed, initial pts = {:6.3f}, seek pts = {:6.3f}, pass = {}, \"{}\"\n", context.state.test_pts, pts, context.state.pass+1, context.state.video_owner->filename.c_str());
-                Debug(context,  1,"\nSelftest %d FAILED: Reset\n", context.state.selftest);
+                debug_message(context, 1, "media_selftest_reset_failed", context.state.selftest);
         }
         else
-           Debug(context,  1,"\nSelftest 2 OK: Reset\n");
+           debug_message(context, 1, "media_selftest_reset_ok");
 
         comskip::request_exit(1);
     }
@@ -288,13 +302,15 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             real_pts = 0;
         else
         {
-            context.state.headerpos = avio_tell(is->pFormatCtx->pb);
+            context.state.headerpos = comskip::media::input_position(is->pFormatCtx.get(), context.state.headerpos,
+                [](AVIOContext* input) { return avio_tell(input); });
             if ((context.state.initial_pts_set < 3 && !context.state.reviewing) || (context.state.reviewing && context.state.initial_pts_set < 2)  )
             {
 //              if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                 if (!ISSAME(context.state.initial_pts, (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum) )) {
                     context.state.initial_pts = (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum);
-                    Debug(context,  10,"\nInitial video pts = %10.3f\n", context.state.initial_pts);
+                    debug_message(context, 10, "media_initial_video_pts",
+                                  std::format("{:10.3f}", context.state.initial_pts));
 //                    if (timeline_repair<2)
 //                        initial_pts = 0.0;
                 }
@@ -361,28 +377,34 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         if (context.state.video_packet_process_force_29fps && context.state.video_packet_process_find_29fps == 5)
         {
             frame_delay=0.033366666666666669;
-            Debug(context, 1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, context.state.frame_count);
+            debug_message(context, 1, "media_framerate_forced",
+                          std::format("{:6.3f}", 1.0 / frame_delay), context.state.frame_count);
             set_fps(context, frame_delay);
         }
         if (context.state.video_packet_process_force_25fps && context.state.video_packet_process_find_25fps == 5)
         {
             frame_delay=0.04;
-            Debug(context, 1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, context.state.frame_count);
+            debug_message(context, 1, "media_framerate_forced",
+                          std::format("{:6.3f}", 1.0 / frame_delay), context.state.frame_count);
             set_fps(context, frame_delay);
         }
         if (context.state.video_packet_process_force_24fps && context.state.video_packet_process_find_24fps == 5)
         {
             frame_delay=0.0416666666666667;
-            Debug(context, 1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, context.state.frame_count);
+            debug_message(context, 1, "media_framerate_forced",
+                          std::format("{:6.3f}", 1.0 / frame_delay), context.state.frame_count);
             set_fps(context, frame_delay);
         }
 
 //#define SHOW_VIDEO_TIMING
 #ifdef SHOW_VIDEO_TIMING
-        if (framenum==0)
-            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->ticks_per_frame, is->ticks_per_frame, repeat, real_pts,calculated_delay);
-        else if (framenum<20)
-            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->ticks_per_frame, is->ticks_per_frame, repeat, real_pts,calculated_delay);
+        if (context.state.framenum == 0)
+            debug_message(context, 1, "media_video_timing_heading");
+        else if (context.state.framenum < 20)
+            debug_message(context, 1, "media_video_timing_row",
+                          std::format("{:6.5f}", frame_delay / is->ticks_per_frame),
+                          is->ticks_per_frame, repeat, std::format("{:6.3f}", real_pts),
+                          std::format("{:6.5f}", calculated_delay));
 #endif // SHOW_VIDEO_TIMING
 
         context.state.pts_offset *= 0.9;
@@ -412,7 +434,10 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             && !ISSAME(1*frame_delay/ is->ticks_per_frame, calculated_delay)
             ){
             if ( (context.state.video_packet_process_prev_strange_framenum + 1 != context.state.framenum) &&( context.state.video_packet_process_prev_strange_step < fabs(calculated_delay - frame_delay))) {
-                Debug(context, 8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, context.state.framenum); // Unknown strange step
+                debug_message(context, 8, "media_strange_video_pts_step",
+                              std::format("{:6.5f}", calculated_delay + 0.0000005),
+                              std::format("{:6.5f}", frame_delay + 0.0000005),
+                              context.state.framenum); // Unknown strange step
                 if (calculated_delay < -0.5)
                     context.state.do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }
@@ -452,10 +477,10 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
-                        Debug(context,  1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
+                        debug_message(context, 1, "media_selftest_seek_failed");
                    }
                     else
-                        Debug(context,  1,"\nSelftest 1 OK: Seektest\nStarting test 3\n");
+                        debug_message(context, 1, "media_selftest_seek_ok");
                     /*
                                     if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
                                        is->seek_req=1;
@@ -490,10 +515,10 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
-                        Debug(context,  1,"\nSelftest 3 FAILED: Reopen\n");
+                        debug_message(context, 1, "media_selftest_reopen_failed");
                     }
                     else
-                        Debug(context,  1,"\nSelftest 3 OK: Reopen\n");
+                        debug_message(context, 1, "media_selftest_reopen_ok");
                     return comskip::media::VideoPacketOutcome::selftest_complete;
                 }
                 context.state.retries = 0;
@@ -514,7 +539,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                             is->duration,
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename.c_str());
-                        Debug(context,  1,"\nSelftest %d FAILED\n", context.state.selftest);
+                        debug_message(context, 1, "media_selftest_failed", context.state.selftest);
                     }
                     return context.state.selftest == 1 || context.state.selftest == 3
                         ? comskip::media::VideoPacketOutcome::selftest_complete

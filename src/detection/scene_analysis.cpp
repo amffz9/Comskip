@@ -3,15 +3,43 @@
 #include "legacy_detection.h"
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <iterator>
 #include "frame_mask.h"
 #include "scene_sampling.h"
+#include "scene_brightness.h"
 #include "cutscene_file.h"
 #include "platform/utf8_paths.h"
 #include <fstream>
 #include <stdexcept>
+#include <format>
+#include <utility>
 
 static_assert(MAXCSLENGTH == comskip::detection::maximum_cutscene_pixels);
+
+namespace {
+
+inline constexpr int own_histogram_height = 256;
+
+template <typename... Args>
+void SceneDebug(RecordingContext& context, int level, const char* key, Args&&... args)
+{
+    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+}
+
+[[nodiscard]] std::size_t BrightnessIndex(RecordingContext& context, int brightness)
+{
+    const auto index = comskip::detection::brightness_histogram_index(
+        brightness, own_histogram_height);
+    if (!index) {
+        std::fputs(context.translator.format("scene_invalid_brightness", brightness,
+                                             own_histogram_height).c_str(), stdout);
+        comskip::request_exit(1);
+    }
+    return *index;
+}
+
+} // namespace
 
 void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, int maxX)
 {
@@ -46,7 +74,8 @@ void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, 
 //			ar_block[ar_block_count].ar = lastAR;
     context.state.ar_block[context.state.ar_block_count].ar_ratio = context.state.last_ar_ratio;
 //	if (framearray) frame[frame_count].ar_ratio = last_ar_ratio;;
-    Debug(context, 4, "Frame: %i\tRatio: %.2f\tMinY: %i MaxY: %i MinX: %i MaxX: %i\n", context.state.ar_ratio_start, context.state.ar_ratio_trend , minY, maxY, minX, maxX);
+    SceneDebug(context, 4, "scene_aspect_bounds", context.state.ar_ratio_start,
+               std::format("{:.2f}", context.state.ar_ratio_trend), minY, maxY, minX, maxX);
 
 //	Debug(4, "\nFirst Frame\nFrame: %i\tMinY: %i\tMaxY: %i\tRatio: %.2f\n", framenum_real, minY, maxY, last_ar_ratio);
 }
@@ -119,7 +148,8 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
                         context.state.ar_block[context.state.ar_block_count].maxX = maxX;
                         context.state.ar_block[context.state.ar_block_count].maxY = maxY;
                     }
-                    Debug(context, 9, "Frame: %i\tRatio: %.2f\tMinY: %i\tMaxY: %i\tMinX: %i\tMaxX: %i\n", context.state.ar_ratio_start, context.state.ar_ratio_trend , minY, maxY, minX, maxX);
+                    SceneDebug(context, 9, "scene_aspect_bounds_tabbed", context.state.ar_ratio_start,
+                               std::format("{:.2f}", context.state.ar_ratio_trend), minY, maxY, minX, maxX);
                     context.state.last_ar_ratio = context.state.ar_ratio_trend;
                     if (context.state.framearray)
                     {
@@ -188,7 +218,8 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
             context.state.ar_block[context.state.ar_block_count].maxX = maxX;
             context.state.ar_block[context.state.ar_block_count].maxY = maxY;
         }
-        Debug(context, 9, "Frame: %i\tRatio: %.2f\tMinY: %i\tMaxY: %i\n", context.state.ar_ratio_start, context.state.ar_ratio_trend , minY, maxY);
+        SceneDebug(context, 9, "scene_aspect_vertical_bounds", context.state.ar_ratio_start,
+                   std::format("{:.2f}", context.state.ar_ratio_trend), minY, maxY);
         context.state.last_ar_ratio = context.state.ar_ratio_trend;
     }
 //	}
@@ -201,7 +232,8 @@ void ProcessACInfoInit(RecordingContext& context, int audio_channels)
     context.state.ac_block[context.state.ac_block_count].start = context.state.framenum_real;
     context.state.ac_block[context.state.ac_block_count].audio_channels = audio_channels;
     context.state.last_audio_channels = audio_channels;
-    Debug(context, 4, "Frame: %i Channels: %2i\n", context.state.framenum_real, audio_channels);
+    SceneDebug(context, 4, "scene_audio_channels", context.state.framenum_real,
+               std::format("{:2}", audio_channels));
 }
 
 void ProcessACInfo(RecordingContext& context, int audio_channels)
@@ -216,7 +248,8 @@ void ProcessACInfo(RecordingContext& context, int audio_channels)
     context.state.ac_block[context.state.ac_block_count].start = context.state.framenum_real;
     context.state.ac_block[context.state.ac_block_count].audio_channels = audio_channels;
     context.state.last_audio_channels = audio_channels;
-    Debug(context, 4, "Frame: %i Channels: %2i\n", context.state.framenum_real, audio_channels);
+    SceneDebug(context, 4, "scene_audio_channels", context.state.framenum_real,
+               std::format("{:2}", audio_channels));
 }
 
 int MatchCutScene(RecordingContext& context, unsigned char *cutscene)
@@ -285,7 +318,8 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
     if (!output)
         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
             comskip::diagnostics::Code::output_write, {context.settings.cutscenefile});
-    Debug(context, 7, "Saved frame %6i into cutfile \"%s\"\n", frame_count, context.settings.cutscenefile.c_str());
+    SceneDebug(context, 7, "scene_cutfile_saved", std::format("{:6}", frame_count),
+               context.settings.cutscenefile);
 }
 
 void LoadCutScene(RecordingContext& context, const char *filename)
@@ -313,14 +347,8 @@ void LoadCutScene(RecordingContext& context, const char *filename)
     context.state.csbrightness[slot] = record->brightness;
     context.state.cslength[slot] = static_cast<int>(record->pixels.size());
     ++context.state.cutscenes;
-    Debug(context, 7, "Loaded %i bytes from cutfile \"%s\"\n", static_cast<int>(record->pixels.size()), filename);
+    SceneDebug(context, 7, "scene_cutfile_loaded", record->pixels.size(), filename);
 }
-
-#define OWN_HISTOGRAM_WIDTH 4
-#define OWN_HISTOGRAM_HEIGHT 256
-
-
-
 
 void ScanBottom(RecordingContext& context, intptr_t arg)
 {
@@ -347,13 +375,7 @@ void ScanBottom(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-#ifdef DEBUG_HERE_BRIGHT_MEM
-            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
-                printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-                comskip::request_exit(1);
-            }
-#endif
-            context.state.own_histogram[0][hereBright]++;
+            context.state.own_histogram[0][BrightnessIndex(context, hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -392,13 +414,7 @@ void ScanTop(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-#ifdef DEBUG_HERE_BRIGHT_MEM
-            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
-                printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-                comskip::request_exit(1);
-            }
-#endif
-            context.state.own_histogram[1][hereBright]++;
+            context.state.own_histogram[1][BrightnessIndex(context, hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -437,13 +453,7 @@ void ScanLeft(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-#ifdef DEBUG_HERE_BRIGHT_MEM
-            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
-                printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-                comskip::request_exit(1);
-            }
-#endif
-            context.state.own_histogram[2][hereBright]++;
+            context.state.own_histogram[2][BrightnessIndex(context, hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -482,13 +492,7 @@ void ScanRight(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-#ifdef DEBUG_HERE_BRIGHT_MEM
-            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
-                printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
-                comskip::request_exit(1);
-            }
-#endif
-            context.state.own_histogram[3][hereBright]++;
+            context.state.own_histogram[3][BrightnessIndex(context, hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -521,7 +525,8 @@ void DetectCredits(RecordingContext& context, int frame_count)
                   frame_count - context.state.DetectCredits_credit_length - context.state.DetectCredits_prev_credit_end < (int)context.settings.fps/2) {
                 context.state.DetectCredits_credit_count++;
                 if (context.state.DetectCredits_credit_count > 5)
-                    Debug(context, 1,"Credits[%i] detected at frame %i\n",context.state.DetectCredits_credit_count,frame_count);
+                    SceneDebug(context, 1, "scene_credits_detected",
+                               context.state.DetectCredits_credit_count, frame_count);
             }
             context.state.DetectCredits_prev_credit_end = frame_count;
             context.state.DetectCredits_prev_credit_length = context.state.DetectCredits_credit_length;
@@ -783,7 +788,10 @@ bool CheckSceneHasChanged(RecordingContext& context)
                 context.state.width,context.state.height) && !isDim)
         {
             cause |= C_b;
-            Debug(context, 7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.brightness, uniform, context.state.black[MAX(0,context.state.black_count - 1)].volume);
+            SceneDebug(context, 7, "scene_black_frame", std::format("{:6}", context.state.framenum_real),
+                       std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
+                       context.state.brightness, uniform,
+                       context.state.black[MAX(0, context.state.black_count - 1)].volume);
         }
         else if (context.settings.non_uniformity > 0)
         {
@@ -791,12 +799,17 @@ bool CheckSceneHasChanged(RecordingContext& context)
             if ((context.state.brightness <= context.settings.max_avg_brightness) && uniform < context.settings.non_uniformity )
             {
                 cause |= C_u;
-                Debug(context, 7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.brightness, uniform, context.state.black[MAX(0,context.state.black_count - 1)].volume);
+                SceneDebug(context, 7, "scene_black_frame", std::format("{:6}", context.state.framenum_real),
+                           std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
+                           context.state.brightness, uniform,
+                           context.state.black[MAX(0, context.state.black_count - 1)].volume);
             }
             if (context.state.brightness > context.settings.max_avg_brightness && uniform < context.settings.non_uniformity && context.state.brightness < 250 )
             {
                 cause |= C_u;
-                Debug(context, 7, "Frame %6i (%.3fs) - Uniform frame with brightness of %i and uniform of %i\n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.brightness, uniform);
+                SceneDebug(context, 7, "scene_uniform_frame", std::format("{:6}", context.state.framenum_real),
+                           std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
+                           context.state.brightness, uniform);
             }
         }
     }
@@ -806,7 +819,10 @@ bool CheckSceneHasChanged(RecordingContext& context)
         if ((context.state.old_width != 0 && context.state.width != context.state.old_width) || (context.state.old_height != 0 && context.state.height != context.state.old_height))
         {
             cause |= C_r;
-            Debug(context, 7, "Frame %6i (%.3fs) - Resolution change from %d x %d to %d x %d \n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.old_width, context.state.old_height, context.state.width, context.state.height);
+            SceneDebug(context, 7, "scene_resolution_change", std::format("{:6}", context.state.framenum_real),
+                       std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
+                       context.state.old_width, context.state.old_height,
+                       context.state.width, context.state.height);
             context.state.old_width = context.state.width;
             context.state.old_height = context.state.height;
             ResetLogoBuffers(context);
@@ -829,12 +845,18 @@ bool CheckSceneHasChanged(RecordingContext& context)
         {
             if (abs(context.state.frame[context.state.frame_count-1].brightness - context.state.last_brightness) > context.settings.brightness_jump)
             {
-                Debug(context,  7,"Frame %6i (%.3fs) - Black frame because large brightness change from %i to %i with uniform %i\n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.last_brightness, context.state.brightness, uniform);
+                SceneDebug(context, 7, "scene_large_brightness_change",
+                           std::format("{:6}", context.state.framenum_real),
+                           std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
+                           context.state.last_brightness, context.state.brightness, uniform);
                 cause |= C_s;
             }
             else if (/* sceneChangePercent */ context.state.frame[context.state.frame_count-1].schange_percent < context.state.schange_cutlevel)
             {
-                Debug(context,  7,"Frame %6i (%.3fs) - Black frame because large scene change of %i, uniform %i\n", context.state.framenum_real, get_frame_pts(context, context.state.framenum_real), context.state.sceneChangePercent, uniform);
+                SceneDebug(context, 7, "scene_large_scene_change",
+                           std::format("{:6}", context.state.framenum_real),
+                           std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
+                           context.state.sceneChangePercent, uniform);
 
                 cause |= C_s;
             }

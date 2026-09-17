@@ -1263,8 +1263,9 @@ before calling FFmpeg seek APIs.
   analysis while deciding whether the input reached its end.
 - **Status:** Fixed. End-of-input detection now treats a missing I/O context as
   having no separately reported EOF flag and still recognizes `AVERROR_EOF`.
-- **Verification:** Windows integration tests are pending for this batch; Linux
-  verification remains deferred to the final implementation stage.
+- **Verification:** All **490/490** Windows headless and **498/498** SDL tests
+  pass, and the public non-donator application builds. Linux verification
+  remains deferred to the final implementation stage.
 
 ### B104: Reused detector records retain stale observation fields
 
@@ -1278,6 +1279,37 @@ before calling FFmpeg seek APIs.
   documented nonzero defaults are applied. Frame XDS inheritance and current
   black-frame volume remain explicit, and adjacent records are unchanged.
 - **Verification:** Focused tests cover stale-field clearing, neighboring-record
-  preservation, growth/capacity publication, defaults and negative indices.
-  Windows integration tests are pending; Linux remains deferred to the final
-  implementation stage.
+  preservation, growth/capacity publication, defaults and negative indices. All
+  **490/490** Windows headless and **498/498** SDL tests pass, and the public
+  non-donator application builds. Linux remains deferred to the final stage.
+
+### B106: Video decode timestamp handling dereferences an optional FFmpeg I/O context
+
+- **Evidence:** `video_packet_process` captured the current input position with
+  `avio_tell(is->pFormatCtx->pb)` whenever a decoded frame carried a timestamp.
+  FFmpeg format contexts may have no `AVIOContext`, including custom and
+  non-seekable inputs.
+- **Impact:** A valid decoded timestamp could crash analysis before frame
+  submission when the input has no `pb` context.
+- **Status:** Fixed. Header-position capture now runs only when FFmpeg provides
+  an I/O context; the previous header position remains available otherwise.
+- **Verification:** Focused tests cover absent format contexts, absent I/O
+  contexts and a valid position lookup. All **490/490** Windows headless and
+  **498/498** SDL tests pass, and the public non-donator application builds.
+  Linux verification remains deferred to the final implementation stage.
+
+### B105: Scene scan histogram bounds were guarded only in debug builds
+
+- **Evidence:** Each of the four edge scanners indexed `own_histogram` directly.
+  A duplicated range check existed only under `DEBUG_HERE_BRIGHT_MEM`, so normal
+  builds had no executable guard if the brightness source type or histogram
+  dimensions changed.
+- **Impact:** A future wider or signed brightness source could turn an invalid
+  sample into an out-of-bounds write in ordinary builds.
+- **Status:** Fixed. All four scanners use one always-active C++23
+  `std::expected` index conversion before touching the histogram. Failure keeps
+  the existing exit status and now uses a localized diagnostic.
+- **Verification:** Focused tests cover the last valid bucket, negative and
+  upper-bound values, and an empty histogram. All **490/490** Windows headless
+  and **498/498** SDL tests pass, and the public non-donator application builds.
+  Linux verification remains deferred to the final implementation stage.

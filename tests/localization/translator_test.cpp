@@ -239,3 +239,40 @@ TEST(Translator, FormatsDetectorStorageGrowthDiagnostics) {
     EXPECT_EQ(spanish.format("storage_resize_caption_text", 100),
               "Se cambia el tamaño del búfer de texto de subtítulos para alojar 100 entradas.\n");
 }
+
+TEST(Translator, FormatsVideoDecoderDiagnosticsWithStableEnglishLayout) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("media_format_changed", 1920, 1080), "Format changed to [1920 : 1080]\n");
+    EXPECT_EQ(english.format("media_initial_video_pts", "    12.500"), "\nInitial video pts =     12.500\n");
+    EXPECT_EQ(english.format("media_framerate_forced", "29.970", 42),
+              "Framerate forced 29.970 fps at frame 42\n");
+    EXPECT_EQ(english.format("media_video_timing_row", "0.03333", 2, 1, "12.500", "0.03333"),
+              "Video timing fr=0.03333, tick=2, repeat=1, pts=12.500, step=0.03333\n");
+    EXPECT_EQ(english.format("media_strange_video_pts_step", "0.06667", "0.03333", 42),
+              "Strange video pts step of 0.06667 instead of 0.03333 at frame 42\n");
+    EXPECT_STREQ(english.text("media_selftest_seek_failed"),
+                 "\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
+    EXPECT_EQ(spanish.format("media_framerate_forced", "25.000", 42),
+              "Frecuencia de fotogramas forzada a 25.000 fps en el fotograma 42\n");
+    EXPECT_STREQ(spanish.text("media_selftest_reopen_ok"),
+                 "\nAutoprueba 3 CORRECTA: reapertura\n");
+}
+TEST(Translator, FormatsSceneAnalysisDiagnosticsWithStableEnglishLayout) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("scene_aspect_bounds", 42, "1.78", 1, 1079, 2, 1918),
+              "Frame: 42\tRatio: 1.78\tMinY: 1 MaxY: 1079 MinX: 2 MaxX: 1918\n");
+    EXPECT_EQ(english.format("scene_cutfile_saved", "    42", "sample.dmp"),
+              "Saved frame     42 into cutfile \"sample.dmp\"\n");
+    EXPECT_EQ(english.format("scene_black_frame", "    42", "1.250", 10, 20, 30),
+              "Frame     42 (1.250s) - Black frame with brightness of 10,uniform of 20 and volume of 30\n");
+    EXPECT_EQ(english.format("scene_resolution_change", "    42", "1.250", 720, 480, 1920, 1080),
+              "Frame     42 (1.250s) - Resolution change from 720 x 480 to 1920 x 1080 \n");
+    EXPECT_EQ(spanish.format("scene_audio_channels", 42, " 2"),
+              "Fotograma: 42 Canales:  2\n");
+    EXPECT_EQ(spanish.format("scene_invalid_brightness", 256, 256),
+              "Error: brillo actual no válido 256 >= 256");
+    EXPECT_EQ(spanish.format("scene_large_scene_change", "    42", "1.250", 12, 34),
+              "Fotograma     42 (1.250s) - Fotograma negro por cambio grande de escena de 12, uniformidad 34\n");
+}

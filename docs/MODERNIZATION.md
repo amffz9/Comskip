@@ -556,8 +556,9 @@ than redefine completion around whichever subset currently passes tests.
   formatting at the call sites. No active human-message literals remain in
   `analysis.cpp`; the reproducible inventory is down to **96** active sites.
   The read-error path also checks FFmpeg's optional I/O context before reading
-  its EOF flag. Windows and Linux verification are pending integration of this
-  batch.
+  its EOF flag. Windows passes **490/490** headless and **498/498** SDL tests,
+  and the public non-donator application builds. Linux verification remains
+  deferred to the final implementation stage.
 
 - Detector-buffer growth diagnostics now use the English and Spanish catalogs,
   reducing the reproducible literal-message inventory to **88** active sites.
@@ -565,5 +566,18 @@ than redefine completion around whichever subset currently passes tests.
   defaults instead of legacy detector macros. Reused records are reset to
   deterministic values while neighboring observations remain intact; focused
   tests cover rejection of negative indices, growth/capacity publication,
-  preserved observations and value-initialized spare records. Windows and
-  Linux verification are pending integration of this batch.
+  preserved observations and value-initialized spare records. Windows passes
+  **490/490** headless and **498/498** SDL tests, and the public non-donator
+  application builds. Linux verification remains deferred to the final stage.
+
+- Scene-analysis aspect, channel, cutscene, credit, frame-classification and
+  resolution diagnostics now use the English and Spanish catalogs. C++23
+  `std::format` preserves the established English widths and precision before
+  translated templates arrange the values. The four repeated brightness-index
+  guards are replaced by one always-active `std::expected` validator with
+  focused boundary tests. No active human-message literals remain in
+  `scene_analysis.cpp`; the reproducible inventory is down to **70** active
+  sites. Decoder header-position capture now preserves the prior position for
+  custom or non-seekable FFmpeg inputs without an I/O context. Windows passes
+  **490/490** headless and **498/498** SDL tests, and the public non-donator
+  application builds. Linux verification remains deferred to the final stage.
