@@ -893,7 +893,9 @@ than redefine completion around whichever subset currently passes tests.
   references wherever `VideoState` ownership is guaranteed. The picture decode
   interface no longer carries an unused file handle, and the EDL/file-stream
   adapters plus CLI diagnostics require valid non-null `FILE` references at
-  their boundaries.
+  their boundaries. Audio packets and decoded frames use the same explicit
+  non-null contract, and `SubmitFrame` no longer carries an unused stream
+  parameter.
   The complete Windows CTest target passes **523/523**.
 
 - Caption transcript rows now use English/Spanish catalog entries while
