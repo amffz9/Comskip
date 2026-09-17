@@ -706,3 +706,7 @@ than redefine completion around whichever subset currently passes tests.
 - Live interval arithmetic now uses explicit C++ conversions for rate, frame,
   and timestamp values at the legacy output boundary. The complete Windows
   headless suite remains green at **514/514**.
+
+- Decode-loop seek correction, packet skipping, and reopen retries now use
+  structured `continue` flow instead of labels and gotos. The complete
+  Windows headless suite remains green at **514/514**.
