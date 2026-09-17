@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <format>
 #include <string_view>
+#include <span>
 #include <utility>
 
 namespace {
@@ -269,7 +270,7 @@ void ProcessACInfo(RecordingContext& context, int audio_channels)
                std::format("{:2}", audio_channels));
 }
 
-int MatchCutScene(RecordingContext& context, unsigned char *cutscene)
+int MatchCutScene(RecordingContext& context, std::span<const unsigned char> cutscene)
 {
     int x,y,d;
     int delta = 0;
@@ -949,7 +950,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
         {
             if (abs(context.state.brightness - context.state.csbrightness[i]) < 2)
             {
-                context.state.cutscenematch = MatchCutScene(context, context.state.cutscene[i]);
+                context.state.cutscenematch = MatchCutScene(context, std::span{context.state.cutscene[i]});
                 if (context.state.framearray)
                 {
                     if (context.state.frame[context.state.frame_count].cutscenematch > context.state.cutscenematch*100/context.state.cslength[i])

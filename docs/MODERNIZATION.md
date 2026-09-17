@@ -980,3 +980,7 @@ than redefine completion around whichever subset currently passes tests.
 - AC-3 packet staging is also owned by `std::array`; `.data()` is used only at
   FFmpeg and C-library boundaries, and capacity derives from the container.
   The complete Windows suite passes **523/523**.
+
+- Cut-scene matching now accepts a `std::span<const unsigned char>` view, so
+  the detector boundary carries the borrowed sample extent instead of a raw
+  array pointer. The complete Windows suite passes **523/523**.
