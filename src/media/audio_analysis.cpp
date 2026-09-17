@@ -98,13 +98,11 @@ static std::optional<int> retrieve_frame_volume(RecordingContext& context, doubl
             context.state.max_volume_found = volume;
 
         // Remove use samples
-        context.state.audio_buffer_ptr = context.state.audio_buffer;
+        context.state.audio_buffer_size = 0;
         if (context.state.audio_samples > 0)
         {
-            for (i = 0; i < context.state.audio_samples; i++)
-            {
-                *context.state.audio_buffer_ptr++ = *buffer++;
-            }
+            std::ranges::copy_n(buffer, context.state.audio_samples, context.state.audio_buffer);
+            context.state.audio_buffer_size = static_cast<std::size_t>(context.state.audio_samples);
         }
         context.state.base_apts += static_cast<double>(consumed_samples) / sample_rate;
         context.state.top_apts = context.state.base_apts + static_cast<double>(context.state.audio_samples) /
@@ -150,10 +148,10 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
     double avg_volume = 0.0;
 
 
-    context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
+    context.state.audio_samples = static_cast<int>(context.state.audio_buffer_size);
 
     if (context.state.sound_to_frames_old_sample_rate == is.audio_st->codecpar->sample_rate &&
-        ((context.state.audio_buffer_ptr - context.state.audio_buffer) < 0 || (context.state.audio_buffer_ptr - context.state.audio_buffer) >= audio_buffer_capacity
+        (context.state.audio_buffer_size >= audio_buffer_capacity
         || (context.state.top_apts - context.state.base_apts) * (is.audio_st->codecpar->sample_rate+0.5) > audio_buffer_capacity
         || (context.state.top_apts < context.state.base_apts)
         || !same_timestamp((static_cast<double>(context.state.audio_samples) /
@@ -162,7 +160,7 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
         || context.state.audio_samples < 0
         || context.state.audio_samples >= audio_buffer_capacity)) {
        Debug(context, 1, context.translator.text("media_audio_buffer_corrupt"));
-       context.state.audio_buffer_ptr = context.state.audio_buffer;
+       context.state.audio_buffer_size = 0;
        context.state.top_apts = context.state.base_apts = 0;
        context.state.audio_samples=0;
        return;
@@ -209,7 +207,7 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
 
     if (s+context.state.audio_samples > audio_buffer_capacity ) {
         Debug(context, 1, context.translator.text("media_audio_buffer_overflow"));
-       context.state.audio_buffer_ptr = context.state.audio_buffer;
+       context.state.audio_buffer_size = 0;
        context.state.top_apts = context.state.base_apts = 0;
        context.state.audio_samples=0;
        return;
@@ -229,11 +227,11 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
         const auto value = static_cast<short>(std::clamp(volume,
             static_cast<double>(std::numeric_limits<short>::lowest()),
             static_cast<double>(std::numeric_limits<short>::max())));
-        *context.state.audio_buffer_ptr++ = value;
+        context.state.audio_buffer[context.state.audio_buffer_size++] = value;
         avg_volume += std::abs(static_cast<int>(value));
     }
     avg_volume /= s;
-    context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
+    context.state.audio_samples = static_cast<int>(context.state.audio_buffer_size);
     context.state.top_apts = context.state.base_apts + static_cast<double>(context.state.audio_samples) /
         is.audio_st->codecpar->sample_rate;
 

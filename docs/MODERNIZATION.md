@@ -966,3 +966,8 @@ than redefine completion around whichever subset currently passes tests.
   `std::optional<int>` respectively. Empty views and uninitialized ring state
   are explicit, while the existing borrowed FFmpeg frame lifetime is retained.
   The complete Windows suite passes **523/523**.
+
+- Audio accumulation now tracks a checked sample count rather than a raw write
+  pointer into the fixed sample buffer. Compaction uses an indexed range copy,
+  and overflow recovery resets the count explicitly. The complete Windows suite
+  passes **523/523**.

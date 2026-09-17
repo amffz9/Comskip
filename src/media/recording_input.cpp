@@ -218,7 +218,7 @@ void file_open_impl(RecordingContext& context)
                     context.state.base_apts = 0.0;
                     context.state.top_apts = 0.0;
                     context.state.apts = 0.0;
-                    context.state.audio_buffer_ptr = context.state.audio_buffer;
+                    context.state.audio_buffer_size = 0;
                     context.state.audio_samples = 0;
 //                    close_data();
 #ifdef PROCESS_CC

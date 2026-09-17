@@ -150,7 +150,7 @@ TEST_F(PlaybackWarnings, InconsistentAudioTimesReportSpanishAndResetBeforeWritin
     context->state.audio_buffer[0] = 123;
     sound_to_frames(*context, video, *frame);
     EXPECT_EQ(log(), "Error: almacenamiento de audio incoherente\n");
-    EXPECT_EQ(context->state.audio_buffer_ptr, std::data(context->state.audio_buffer));
+    EXPECT_EQ(context->state.audio_buffer_size, 0u);
     EXPECT_EQ(context->state.audio_samples, 0);
     EXPECT_EQ(context->state.base_apts, 0);
     EXPECT_EQ(context->state.top_apts, 0);
@@ -164,11 +164,11 @@ TEST_F(PlaybackWarnings, FullAudioBufferUsesEnglishFallbackWithoutOverwritingFin
     audio_stream(video);
     auto frame = audio_frame(2);
     const auto last = std::size(context->state.audio_buffer) - 1;
-    context->state.audio_buffer_ptr = std::data(context->state.audio_buffer) + last;
+    context->state.audio_buffer_size = last;
     context->state.audio_buffer[last] = 123;
     sound_to_frames(*context, video, *frame);
     EXPECT_EQ(log(), "Panic: Audio buffer overflow, resetting audio buffer\n");
-    EXPECT_EQ(context->state.audio_buffer_ptr, std::data(context->state.audio_buffer));
+    EXPECT_EQ(context->state.audio_buffer_size, 0u);
     EXPECT_EQ(context->state.audio_samples, 0);
     EXPECT_EQ(context->state.base_apts, 0);
     EXPECT_EQ(context->state.top_apts, 0);
