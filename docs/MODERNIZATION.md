@@ -839,3 +839,6 @@ than redefine completion around whichever subset currently passes tests.
 - Subtitle output now uses the shared `OutputFormatPtr` FFmpeg owner for
   `AVFormatContext` and `AVIOContext` cleanup. Focused subtitle output tests
   pass **7/7**.
+
+- FFmpeg metadata sidecars now use the shared `DynamicOutputFormatPtr` owner
+  for dynamic output buffers. Focused sidecar tests pass **7/7**.

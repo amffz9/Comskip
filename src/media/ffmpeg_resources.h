@@ -7,6 +7,7 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
+#include <libavutil/mem.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
@@ -40,6 +41,17 @@ struct OutputFormatDeleter {
         avformat_free_context(value);
     }
 };
+struct DynamicOutputFormatDeleter {
+    void operator()(AVFormatContext* value) const noexcept {
+        if (!value) return;
+        if (value->pb) {
+            unsigned char* buffer = nullptr;
+            avio_close_dyn_buf(value->pb, &buffer);
+            av_free(buffer);
+        }
+        avformat_free_context(value);
+    }
+};
 struct DictionaryDeleter { void operator()(AVDictionary* value) const noexcept { av_dict_free(&value); } };
 struct ScalerDeleter { void operator()(SwsContext* value) const noexcept { sws_freeContext(value); } };
 struct ResamplerDeleter { void operator()(SwrContext* value) const noexcept { swr_free(&value); } };
@@ -56,6 +68,7 @@ using CodecPtr = std::unique_ptr<AVCodecContext, CodecDeleter>;
 using CodecParametersPtr = std::unique_ptr<AVCodecParameters, CodecParametersDeleter>;
 using InputPtr = std::unique_ptr<AVFormatContext, InputDeleter>;
 using OutputFormatPtr = std::unique_ptr<AVFormatContext, OutputFormatDeleter>;
+using DynamicOutputFormatPtr = std::unique_ptr<AVFormatContext, DynamicOutputFormatDeleter>;
 using DictionaryPtr = std::unique_ptr<AVDictionary, DictionaryDeleter>;
 using ScalerPtr = std::unique_ptr<SwsContext, ScalerDeleter>;
 using ResamplerPtr = std::unique_ptr<SwrContext, ResamplerDeleter>;

@@ -1,8 +1,8 @@
 #include "output/ffmpeg_sidecars.h"
 #include "diagnostic.h"
+#include "media/ffmpeg_resources.h"
 extern "C" {
 #include <libavformat/avformat.h>
-#include <libavutil/mem.h>
 }
 #include <cmath>
 #include <format>
@@ -25,16 +25,6 @@ std::int64_t centiseconds(SidecarSeconds time) {
         throw comskip::diagnostics::DiagnosticError<std::out_of_range>(comskip::diagnostics::Code::ffmetadata_timestamp_exceeds_signed_range);
     return static_cast<std::int64_t>(value);
 }
-struct FormatCloser {
-    void operator()(AVFormatContext* format) const noexcept {
-        if (format->pb) {
-            unsigned char* buffer = nullptr;
-            avio_close_dyn_buf(format->pb, &buffer);
-            av_free(buffer);
-        }
-        avformat_free_context(format);
-    }
-};
 void checked(int status, comskip::diagnostics::Code operation) {
     if (status < 0) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation);
 }
@@ -51,7 +41,7 @@ void write_ffmetadata(std::ostream& output, std::span<const SidecarChapter> chap
     AVFormatContext* raw = nullptr;
     checked(avformat_alloc_output_context2(&raw, nullptr, "ffmetadata", nullptr),
         comskip::diagnostics::Code::cannot_create_ffmetadata_muxer);
-    std::unique_ptr<AVFormatContext, FormatCloser> format(raw);
+    comskip::media::DynamicOutputFormatPtr format(raw);
     // Suppress FFmpeg's version-dependent encoder tag; legacy sidecars contain
     // only the header and explicitly supplied chapter metadata.
     format->flags |= AVFMT_FLAG_BITEXACT;
