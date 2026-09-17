@@ -41,7 +41,6 @@
 #include <memory>
 #include <string>
 using namespace comskip::media;
-#define SELFTEST
 
 namespace {
 std::string ffmpeg_detail(int status) {

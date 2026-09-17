@@ -41,7 +41,6 @@
 #include <limits>
 #include <memory>
 using namespace comskip::media;
-#define SELFTEST
 
 namespace {
 constexpr double maximum_gop_duration_seconds = 2.0;
