@@ -109,10 +109,10 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
     }
     const auto mask_storage = comskip::detection::frame_mask_storage_size(
         context.state.videowidth, context.state.height, context.state.width);
-    if (!context.state.frame_ptr)
+    if (context.state.frame_ptr.empty())
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::frame_mask_requires_decoded_image_pixels);
     comskip::detection::apply_frame_mask(
-        std::span<unsigned char>(context.state.frame_ptr, mask_storage),
+        context.state.frame_ptr.first(mask_storage),
         context.state.videowidth, context.state.height, context.state.width,
         {context.settings.ticker_tape, context.settings.top_ticker_tape,
          context.settings.ticker_tape_percentage, context.settings.top_ticker_tape_percentage,
@@ -166,7 +166,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
 //			EdgeCount(frame_ptr);
 //			curLogoTest = logoBuffersFull;
                     context.state.currentGoodEdge = CheckStationLogoEdge(context,
-                        {context.state.frame_ptr, static_cast<std::size_t>(context.state.width) * context.state.height});
+                        context.state.frame_ptr.first(static_cast<std::size_t>(context.state.width) * context.state.height));
             context.state.curLogoTest = (context.state.currentGoodEdge > context.settings.logo_threshold);
             context.state.lastLogoTest = ProcessLogoTest(context, context.state.frame_count, context.state.curLogoTest, false);
             if (!context.state.lastLogoTest && !context.settings.startOverAfterLogoInfoAvail && context.state.logoBuffersFull)   // Lost logo

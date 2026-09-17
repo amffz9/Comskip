@@ -587,7 +587,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
         context.state.videowidth, context.state.height, context.state.width, context.settings.border);
     comskip::detection::validate_scene_brightness(context.settings.max_brightness,
                                                 context.settings.test_brightness);
-    if (!context.state.frame_ptr || context.state.haslogo.size() < sampling.storage_size)
+    if (context.state.frame_ptr.empty() || context.state.haslogo.size() < sampling.storage_size)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::scene_sampling_requires_complete_image_and_logo_buffers);
     context.state.minY = context.settings.border;
     context.state.maxY = context.state.height - context.settings.border;

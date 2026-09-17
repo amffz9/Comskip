@@ -123,7 +123,7 @@ TEST_F(DiagnosticOutput, AspectOutputPreservesLayoutAndClosesDestination) {
 }
 TEST_F(DiagnosticOutput, FrameOutputPreservesLegacyDelimitedLayout) {
     std::array<unsigned char, 4> frame{0, 29, 30, 255};
-    context->state.frame_ptr = frame.data();
+    context->state.frame_ptr = frame;
     context->state.width = 2;
     context->state.videowidth = 2;
     context->state.height = 2;

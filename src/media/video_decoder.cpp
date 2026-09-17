@@ -5,6 +5,7 @@
 #include "detection/detection_methods.h"
 #include "detection/detector_runtime.h"
 #include "detection/frame_timestamps.h"
+#include "detection/image_geometry.h"
 #include "detection/initialization.h"
 #include "detection/logo_detection.h"
 #include "media/decoder.h"
@@ -153,7 +154,7 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
     {
         Debug(context, 1, context.translator.format("media_invalid_frame",
               pFrame.height, pFrame.width, pFrame.linesize[0]).c_str());
-        context.state.frame_ptr = nullptr;
+        context.state.frame_ptr = {};
         return(0);
     }
     if (context.state.height != pFrame.height)
@@ -181,11 +182,13 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
         debug_message(context, 5, "media_format_changed", context.state.videowidth, context.state.height);
     }
     context.state.infopos = context.state.headerpos;
-    context.state.frame_ptr = pFrame.data[0];
-    if (context.state.frame_ptr == nullptr)
+    if (pFrame.data[0] == nullptr)
     {
+        context.state.frame_ptr = {};
         return(0);; // return; // comskip::request_exit(2);
     }
+    context.state.frame_ptr = std::span<unsigned char>{
+        pFrame.data[0], comskip::detection::checked_image_size(context.state.width, context.state.height)};
 
     if (pFrame.pict_type == AV_PICTURE_TYPE_B)
         context.state.pict_type = 'B';

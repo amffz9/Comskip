@@ -1043,7 +1043,7 @@ void FillLogoBuffer(RecordingContext& context)
     i = static_cast<int>(std::min(
         static_cast<std::size_t>(context.state.logoFrameBufferSize),
         static_cast<std::size_t>(context.state.width) * context.state.height * sizeof(context.state.frame_ptr[0])));
-    std::copy_n(context.state.frame_ptr, i,
+    std::copy_n(context.state.frame_ptr.begin(), i,
         context.state.logoFrameBuffer[context.state.newestLogoBuffer].begin());
 
 //	for (y = 0; y < height; y++) {

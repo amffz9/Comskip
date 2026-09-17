@@ -156,10 +156,10 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
 
 
 
-        if (showVideo && context.state.frame_ptr)
+        if (showVideo && !context.state.frame_ptr.empty())
         {
             const comskip::detection::LumaImageView luma(
-                std::span{context.state.frame_ptr, comskip::detection::checked_image_size(context.state.width, context.state.height)},
+                context.state.frame_ptr.first(comskip::detection::checked_image_size(context.state.width, context.state.height)),
                 context.state.width, context.state.videowidth, context.state.height);
             std::ranges::fill(context.state.graph, 0);
             /*
@@ -339,7 +339,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
 
 
 
-        if (context.state.frame_ptr && context.state.framearray)
+        if (!context.state.frame_ptr.empty() && context.state.framearray)
         {
 //			for (x=0; x < context.state.owidth; x++) { // Edge counter indicator
 //				context.state.graph[2* context.state.owidth + x] = (x < edge_count /8 ? 255 : 0);

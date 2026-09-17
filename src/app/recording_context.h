@@ -13,6 +13,7 @@
 #include "portable_threads.h"
 #include <memory>
 #include <array>
+#include <span>
 #include <vector>
 
 struct RecordingState {
@@ -188,7 +189,9 @@ struct RecordingState {
     bool detectBlackFrames{};
     bool detectSceneChanges{};
     int dummy1{};
-    unsigned char * frame_ptr{};
+    // Borrowed pixels for the currently submitted decoded frame. The span is
+    // empty between frames and carries the validated image extent.
+    std::span<unsigned char> frame_ptr{};
     int dummy2{};
     bool sceneHasChanged{};
     int sceneChangePercent{};

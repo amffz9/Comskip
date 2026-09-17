@@ -101,7 +101,7 @@ TEST_F(CutsceneLoading, RecordWritesPortableBytesAndReloadsTheSameSampledPixels)
     context->settings.border = 0;
     std::array<unsigned char, 16> frame{};
     for (std::size_t index = 0; index < frame.size(); ++index) frame[index] = static_cast<unsigned char>(index);
-    context->state.frame_ptr = frame.data();
+    context->state.frame_ptr = frame;
     const auto path = directory / "recorded.cut";
     context->settings.cutscenefile = comskip::platform::path_to_utf8(path);
     RecordCutScene(*context, 7, 0x12345678);
