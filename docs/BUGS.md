@@ -43,6 +43,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B071 | Cross-version fixture corrected; Windows passes. Corrected Linux verification pending. |
 | B111 | Fixed in the current output-diagnostics stage; focused threshold-histogram bounds tests pass on Windows. |
 | B114 | Fixed in the checked-output/time-safety stage; focused platform, settings, timing, and complete Windows suites pass. |
+| B115 | Fixed in the caption portability stage; the CRLF dictionary regression and complete Windows suites pass. |
 
 ## Issue evidence and verification
 
@@ -1444,3 +1445,16 @@ before calling FFmpeg seek APIs.
 - **Verification:** The platform time/file tests pass 3/3; focused settings,
   diagnostic, and in-process tests pass 61/61; complete Windows headless and
   SDL suites pass 512/512 and 517/517. Linux verification remains pending.
+
+### B115: Windows caption dictionaries retain carriage returns
+
+- **Evidence:** `ProcessCCDict` removed only `\n` from each `fgets` line. A
+  Windows CRLF dictionary therefore passed a trailing `\r` into the phrase
+  search and could fail to recognize a valid caption phrase.
+- **Impact:** Caption-based commercial scoring could silently skip dictionary
+  adjustments when the dictionary was authored with Windows line endings.
+- **Status:** Fixed. Dictionary line normalization removes either `\r` or `\n`
+  at the first line terminator.
+- **Verification:** The caption packet regression now uses CRLF dictionary data
+  and observes the score adjustment; the focused caption/XDS run passes 4/4.
+  Linux verification remains pending.
