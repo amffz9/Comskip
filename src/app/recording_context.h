@@ -261,8 +261,8 @@ struct RecordingState {
     int timeflag= 0;
     int recalculate=0;
     double currentGoodEdge= 0.0;
-    int lineStart[4800]{};
-    int lineEnd[4800]{};
+    std::array<int, 4800> lineStart{};
+    std::array<int, 4800> lineEnd{};
     std::vector<unsigned char> hor_edgecount;
     std::vector<unsigned char> ver_edgecount;
     std::vector<unsigned char> max_br;

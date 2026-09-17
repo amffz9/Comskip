@@ -989,3 +989,7 @@ than redefine completion around whichever subset currently passes tests.
   an unreferenced rating-system table from `RecordingState`. `VideoState` is
   now the single owner of selected media streams. The complete Windows suite
   passes **523/523**.
+
+- Internal scan-line bounds now use `std::array<int, 4800>`, retaining the
+  existing fixed capacity while making range and size operations container
+  based. The complete Windows suite passes **523/523**.
