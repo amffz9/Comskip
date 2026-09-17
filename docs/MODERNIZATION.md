@@ -682,3 +682,9 @@ than redefine completion around whichever subset currently passes tests.
   dimensions, caption counts, and black-frame insertion. The focused replay
   tests pass **24/24**, and the complete Windows suites remain green at
   **513/513** headless and **517/517** SDL tests.
+
+- Frame-rate updates now reject zero, negative, and non-finite frame periods
+  before calculating a new rate. Audio and video timing arithmetic uses named
+  C++ casts and `std::fabs` at the FFmpeg boundary. The focused timing tests
+  pass **4/4**, while the complete Windows suites pass **514/514** headless
+  and **517/517** SDL tests.
