@@ -11,6 +11,7 @@
 #include "platform/platform.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -429,7 +430,7 @@ void AddCC(RecordingContext& context, int i)
     long			current_frame = context.state.framenum;
     int hi,lo;
 
-    unsigned char	charmap[0x60] =
+    const std::array<unsigned char, 0x60> charmap =
     {
         ' ',
         '!',
@@ -873,7 +874,7 @@ void ProcessCCData(RecordingContext& context)
     int is_GA = 0;
     int cctype = 0;
     int offset;
-    char temp[2000];
+    std::array<char, 2000> temp{};
     unsigned char t;
     unsigned char *p;
     bool			cc1First = false;
@@ -918,7 +919,7 @@ void ProcessCCData(RecordingContext& context)
 
     if (context.settings.verbose >= 12)
     {
-        p = (unsigned char *)temp;
+        p = reinterpret_cast<unsigned char*>(temp.data());
         for (i = 0; i < context.state.ccDataLen; i++)
         {
             t = context.state.ccData[i] & 0x7f;
@@ -936,9 +937,9 @@ void ProcessCCData(RecordingContext& context)
             temp[7*3] = '0' + (temp[7*3] & 0x03);
         CaptionDebug(context, 10, "caption_cc_data",
             std::format("{:4}", context.state.framenum), std::format("{}", context.state.pict_type),
-            std::format("{:4}", context.state.ccDataLen), reinterpret_cast<const char*>(temp));
+            std::format("{:4}", context.state.ccDataLen), temp.data());
 
-        p = (unsigned char *)temp;
+        p = reinterpret_cast<unsigned char*>(temp.data());
         for (i = 0; i < context.state.ccDataLen; i++)
         {
             const auto hex = std::format("{:2x}", context.state.ccData[i]);
@@ -949,7 +950,7 @@ void ProcessCCData(RecordingContext& context)
         *p++ = 0;
         CaptionDebug(context, 10, "caption_cc_data",
             std::format("{:4}", context.state.framenum), std::format("{}", context.state.pict_type),
-            std::format("{:4}", context.state.ccDataLen), reinterpret_cast<const char*>(temp));
+            std::format("{:4}", context.state.ccDataLen), temp.data());
 
     }
 
@@ -1208,7 +1209,7 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
     int j = 0;
     int cc_block_first = context.state.cc_block_count;
     int cc_block_last = 0;
-    int cc_type_count[5] = { 0, 0, 0, 0, 0 };
+    std::array<int, 5> cc_type_count{};
     while (context.state.cc_block[cc_block_first].start_frame > start) cc_block_first--;
     while (context.state.cc_block[cc_block_last].end_frame < end) cc_block_last++;
 
@@ -1310,7 +1311,7 @@ bool ProcessCCDict(RecordingContext& context)
 {
     int		i, j;
     char*	ptr;
-    char	phrase[1024];
+    std::array<char, 1024> phrase{};
     bool	goodPhrase = true;
     auto dict = comskip::platform::open_file_owned(context.state.dictfilename, "r");
     if (!dict)
@@ -1319,28 +1320,28 @@ bool ProcessCCDict(RecordingContext& context)
     }
 
     Debug(context, 2, context.translator.text("caption_dictionary_start"));
-    while (fgets(phrase, sizeof(phrase), dict.get()) != nullptr)
+    while (fgets(phrase.data(), static_cast<int>(phrase.size()), dict.get()) != nullptr)
     {
-        ptr = strpbrk(phrase, "\r\n");
+        ptr = strpbrk(phrase.data(), "\r\n");
         if (ptr != nullptr) *ptr = '\0';
-        if (strstr(phrase, "-----") != nullptr)
+        if (strstr(phrase.data(), "-----") != nullptr)
         {
             goodPhrase = false;
             Debug(context, 3, context.translator.text("caption_dictionary_bad_phrases"));
             continue;
         }
         // just in case the line is empty
-        if (std::string_view(phrase).empty()) continue;
+        if (std::string_view(phrase.data()).empty()) continue;
 
-        Debug(context, 3, context.translator.format("caption_dictionary_search", phrase));
+        Debug(context, 3, context.translator.format("caption_dictionary_search", phrase.data()));
         for (i = 0; i < context.state.cc_text_count; i++)
         {
             const auto text = std::string_view(
                 reinterpret_cast<const char*>(context.state.cc_text[i].text.data()),
                 static_cast<std::size_t>(context.state.cc_text[i].text_len));
-            if (contains_case_insensitive(text, phrase))
+            if (contains_case_insensitive(text, phrase.data()))
             {
-                Debug(context, 2, context.translator.format("caption_dictionary_found", phrase,
+                Debug(context, 2, context.translator.format("caption_dictionary_found", phrase.data(),
                     std::format("{}", i)));
                 if (goodPhrase)
                 {

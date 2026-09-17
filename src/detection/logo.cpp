@@ -17,6 +17,7 @@
 #include "platform/file_resources.h"
 #include "platform/platform.h"
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstdio>
 #include <format>
@@ -1717,7 +1718,7 @@ void SaveLogoMaskData(RecordingContext& context)
 void LoadLogoMaskData(RecordingContext& context)
 {
     comskip::platform::FilePtr txt_file;
-    char data[2000];
+    std::array<char, 2000> data{};
     char* ptr = nullptr;
     long tmpLong = 0;
     auto logo_file = comskip::platform::open_file_owned(context.state.logofilename, "rb");
@@ -1783,14 +1784,14 @@ void LoadLogoMaskData(RecordingContext& context)
         }
 
 
-        while (fgets(data, 1999, txt_file.get()) != nullptr)
+        while (fgets(data.data(), static_cast<int>(data.size() - 1), txt_file.get()) != nullptr)
         {
-            if (strstr(data, "FILE PROCESSING COMPLETE") != nullptr)
+            if (strstr(data.data(), "FILE PROCESSING COMPLETE") != nullptr)
             {
                 context.state.lastFrame = 0;
                 break;
             }
-            ptr = strchr(data, '\t');
+            ptr = strchr(data.data(), '\t');
             if (ptr != nullptr)
             {
                 ptr++;
