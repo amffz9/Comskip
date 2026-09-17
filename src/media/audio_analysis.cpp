@@ -135,7 +135,7 @@ void backfill_frame_volumes(RecordingContext& context)
 
 
 
-void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& frame)
+void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& frame)
 {
     const int s = frame.nb_samples;
     const int c = frame.ch_layout.nb_channels;
@@ -150,12 +150,12 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
 
     context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
 
-    if (context.state.sound_to_frames_old_sample_rate == is->audio_st->codecpar->sample_rate &&
+    if (context.state.sound_to_frames_old_sample_rate == is.audio_st->codecpar->sample_rate &&
         ((context.state.audio_buffer_ptr - context.state.audio_buffer) < 0 || (context.state.audio_buffer_ptr - context.state.audio_buffer) >= audio_buffer_capacity
-        || (context.state.top_apts - context.state.base_apts) * (is->audio_st->codecpar->sample_rate+0.5) > audio_buffer_capacity
+        || (context.state.top_apts - context.state.base_apts) * (is.audio_st->codecpar->sample_rate+0.5) > audio_buffer_capacity
         || (context.state.top_apts < context.state.base_apts)
         || !same_timestamp((static_cast<double>(context.state.audio_samples) /
-                            (is->audio_st->codecpar->sample_rate + 0.5)) + context.state.base_apts,
+                            (is.audio_st->codecpar->sample_rate + 0.5)) + context.state.base_apts,
                            context.state.top_apts)
         || context.state.audio_samples < 0
         || context.state.audio_samples >= audio_buffer_capacity)) {
@@ -174,22 +174,22 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     }
     context.state.audio_channels = c;
     context.state.sound_to_frames_old_c = c;
-    if (context.state.sound_to_frames_old_sample_rate != 0 && context.state.sound_to_frames_old_sample_rate != is->audio_st->codecpar->sample_rate) {
+    if (context.state.sound_to_frames_old_sample_rate != 0 && context.state.sound_to_frames_old_sample_rate != is.audio_st->codecpar->sample_rate) {
          audio_debug(context, 5, "media_audio_samplerate_switched",
-                     context.state.sound_to_frames_old_sample_rate, is->audio_st->codecpar->sample_rate);
+                     context.state.sound_to_frames_old_sample_rate, is.audio_st->codecpar->sample_rate);
     }
-    context.state.sound_to_frames_old_sample_rate = is->audio_st->codecpar->sample_rate;
+    context.state.sound_to_frames_old_sample_rate = is.audio_st->codecpar->sample_rate;
 
     old_base_apts = context.state.base_apts;
     // Preserve the sample-derived timeline across sub-millisecond container
     // timestamp rounding. Reanchoring the retained buffer on every packet can
     // make a previously consumed video interval appear available again.
     const double timestamp_precision = std::max(
-        av_q2d(is->audio_st->time_base), 1.0 / context.state.sound_to_frames_old_sample_rate);
-    if (context.state.audio_samples == 0 || std::fabs(context.state.top_apts - is->audio_clock) > timestamp_precision * 1.1)
-        context.state.base_apts = is->audio_clock -
-            static_cast<double>(context.state.audio_samples) / is->audio_st->codecpar->sample_rate;
-        if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+        av_q2d(is.audio_st->time_base), 1.0 / context.state.sound_to_frames_old_sample_rate);
+    if (context.state.audio_samples == 0 || std::fabs(context.state.top_apts - is.audio_clock) > timestamp_precision * 1.1)
+        context.state.base_apts = is.audio_clock -
+            static_cast<double>(context.state.audio_samples) / is.audio_st->codecpar->sample_rate;
+        if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   same_timestamp(context.state.base_apts - old_base_apts, 0.032)
                         || same_timestamp(context.state.base_apts - old_base_apts, -0.032)
                         || same_timestamp(context.state.base_apts - old_base_apts, 0.064)
@@ -233,11 +233,11 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     avg_volume /= s;
     context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
     context.state.top_apts = context.state.base_apts + static_cast<double>(context.state.audio_samples) /
-        is->audio_st->codecpar->sample_rate;
+        is.audio_st->codecpar->sample_rate;
 
-    calculated_delay = is->audio_clock - context.state.sound_to_frames_old_audio_clock;
-    comskip::media::write_timing_row(context, "a frame", is->audio_clock, calculated_delay, context.state.top_apts, context.state.base_apts, avg_volume, s);
-    context.state.sound_to_frames_old_audio_clock = is->audio_clock;
+    calculated_delay = is.audio_clock - context.state.sound_to_frames_old_audio_clock;
+    comskip::media::write_timing_row(context, "a frame", is.audio_clock, calculated_delay, context.state.top_apts, context.state.base_apts, avg_volume, s);
+    context.state.sound_to_frames_old_audio_clock = is.audio_clock;
 
     backfill_frame_volumes(context);
 }
@@ -250,13 +250,13 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
 
 
 
-void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *pkt)
+void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
-//    AC3DecodeContext *s = is->audio_st->codecpar->priv_data;
+//    AC3DecodeContext *s = is.audio_st->codecpar->priv_data;
     int      rps,ps;
     // A local view borrows this input payload; it never owns a buffer reference.
     AVPacket borrowed_audio{};
@@ -273,7 +273,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
 
-    if ( !context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
+    if ( !context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
         && (pkt_temp->size < 2 || pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77))
     {
 //        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
@@ -286,7 +286,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         context.settings.ALIGN_AC3_PACKETS = 1;
     }
 
-    if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+    if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         if (pkt_temp->size < 0 || context.state.ac3_packet_index < 0 ||
             context.state.ac3_packet_index > ac3_buffer_capacity ||
             pkt_temp->size > ac3_buffer_capacity - context.state.ac3_packet_index)
@@ -344,34 +344,34 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
 
     if (pkt->pts != AV_NOPTS_VALUE)
     {
-        prev_audio_clock = is->audio_clock;
-        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->audio_st->start_time != AV_NOPTS_VALUE ? is->audio_st->start_time : 0)) - context.state.apts_offset;
-            if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-                    if (   same_timestamp(is->audio_clock - prev_audio_clock, 0.032)
-                        || same_timestamp(is->audio_clock - prev_audio_clock, -0.032)
-                        || same_timestamp(is->audio_clock - prev_audio_clock, 0.064)
-                        || same_timestamp(is->audio_clock - prev_audio_clock, -0.064)
-                        || same_timestamp(is->audio_clock - prev_audio_clock, -0.096)
+        prev_audio_clock = is.audio_clock;
+        is.audio_clock = av_q2d(is.audio_st->time_base)*( pkt->pts -  (is.audio_st->start_time != AV_NOPTS_VALUE ? is.audio_st->start_time : 0)) - context.state.apts_offset;
+            if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+                    if (   same_timestamp(is.audio_clock - prev_audio_clock, 0.032)
+                        || same_timestamp(is.audio_clock - prev_audio_clock, -0.032)
+                        || same_timestamp(is.audio_clock - prev_audio_clock, 0.064)
+                        || same_timestamp(is.audio_clock - prev_audio_clock, -0.064)
+                        || same_timestamp(is.audio_clock - prev_audio_clock, -0.096)
                         )
-                        prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
+                        prev_audio_clock = is.audio_clock; // Ignore AC3 packet jitter
             }
 
-        if ( context.state.initial_apts_set && is->audio_clock != 0.0 && std::fabs( is->audio_clock - prev_audio_clock) > 0.02) {
-            if (context.state.do_audio_repair && std::fabs( is->audio_clock - prev_audio_clock) < 1) {
-                 is->audio_clock = prev_audio_clock; //Ignore small jitter
+        if ( context.state.initial_apts_set && is.audio_clock != 0.0 && std::fabs( is.audio_clock - prev_audio_clock) > 0.02) {
+            if (context.state.do_audio_repair && std::fabs( is.audio_clock - prev_audio_clock) < 1) {
+                 is.audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {
                 audio_debug(context, 8, "media_audio_strange_pts_step",
-                            std::format("{:6.5f}", (is->audio_clock - prev_audio_clock) + 0.0005),
+                            std::format("{:6.5f}", (is.audio_clock - prev_audio_clock) + 0.0005),
                             std::format("{:6.5f}", 0.0), context.state.framenum);
                 if (context.state.do_audio_repair) {
-//                    apts_offset += is->audio_clock - prev_audio_clock ;
-//                    is->audio_clock = prev_audio_clock;
+//                    apts_offset += is.audio_clock - prev_audio_clock ;
+//                    is.audio_clock = prev_audio_clock;
                 }
             }
         }
         if (!context.state.initial_apts_set) {
-            context.state.initial_apts = is->audio_clock;
+            context.state.initial_apts = is.audio_clock;
             audio_debug(context, 10, "media_initial_audio_pts",
                         std::format("{:10.3f}", context.state.initial_apts));
 
@@ -388,14 +388,14 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
     AVPacket decoder_packet{};
     decoder_packet.data = pkt_temp->data;
     decoder_packet.size = pkt_temp->size;
-    if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+    if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         padded_audio.resize(pkt_temp->size + AV_INPUT_BUFFER_PADDING_SIZE, 0);
         std::copy_n(pkt_temp->data, pkt_temp->size, padded_audio.data());
         decoder_packet.data = padded_audio.data();
     }
     do {
     received_frames = 0;
-    send_result = avcodec_send_packet(is->audio_ctx.get(), &decoder_packet);
+    send_result = avcodec_send_packet(is.audio_ctx.get(), &decoder_packet);
 
     // send_packet consumes the whole packet on success. receive_frame returns
     // zero on success, rather than the number of input bytes consumed.
@@ -403,7 +403,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         pkt_temp->data += pkt_temp->size;
         pkt_temp->size = 0;
     } else if (send_result != AVERROR(EAGAIN)) {
-        if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+        if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
             const int skipped = pkt_temp->size < 2 ? pkt_temp->size : 2;
             pkt_temp->data += skipped;
             pkt_temp->size -= skipped;
@@ -412,17 +412,17 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         }
     }
 
-    //		fprintf(stderr, "sac = %f\n", is->audio_clock);
-    while ((len1 = avcodec_receive_frame(is->audio_ctx.get(), is->frame.get())) != AVERROR(EAGAIN))
+    //		fprintf(stderr, "sac = %f\n", is.audio_clock);
+    while ((len1 = avcodec_receive_frame(is.audio_ctx.get(), is.frame.get())) != AVERROR(EAGAIN))
     {
  //       data_size = STORAGE_SIZE;
         got_frame = len1 >= 0;
 
-        if (prev_codec_id != -1 && static_cast<unsigned int>(prev_codec_id) != is->audio_st->codecpar->codec_id)
+        if (prev_codec_id != -1 && static_cast<unsigned int>(prev_codec_id) != is.audio_st->codecpar->codec_id)
         {
             audio_debug(context, 2, "media_audio_format_change");
         }
-        prev_codec_id = is->audio_st->codecpar->codec_id;
+        prev_codec_id = is.audio_st->codecpar->codec_id;
         if (len1 < 0)
             break;
         ++received_frames;
@@ -435,27 +435,27 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
 
 #if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
     LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
-        data_size = av_samples_get_buffer_size(nullptr, is->frame->ch_layout.nb_channels,
-                                               is->frame->nb_samples,
-                                               static_cast<AVSampleFormat>(is->frame->format), 1);
+        data_size = av_samples_get_buffer_size(nullptr, is.frame->ch_layout.nb_channels,
+                                               is.frame->nb_samples,
+                                               static_cast<AVSampleFormat>(is.frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(context, is, *is->frame.get());
+            sound_to_frames(context, is, *is.frame.get());
         }
-        is->audio_clock += static_cast<double>(data_size) /
-                           (is->frame->ch_layout.nb_channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
-        av_frame_unref(is->frame.get());
+        is.audio_clock += static_cast<double>(data_size) /
+                           (is.frame->ch_layout.nb_channels * is.frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is.frame->format)));
+        av_frame_unref(is.frame.get());
 #else
-        data_size = av_samples_get_buffer_size(nullptr, is->frame->channels,
-                                               is->frame->nb_samples,
-                                               static_cast<AVSampleFormat>(is->frame->format), 1);
+        data_size = av_samples_get_buffer_size(nullptr, is.frame->channels,
+                                               is.frame->nb_samples,
+                                               static_cast<AVSampleFormat>(is.frame->format), 1);
         if (data_size > 0)
         {
-            sound_to_frames(is, *is->frame.get());
+            sound_to_frames(context, is, *is.frame.get());
         }
-        is->audio_clock += static_cast<double>(data_size) /
-                           (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
-        av_frame_unref(is->frame.get());
+        is.audio_clock += static_cast<double>(data_size) /
+                           (is.frame->channels * is.frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is.frame->format)));
+        av_frame_unref(is.frame.get());
 #endif
     }
 
@@ -467,7 +467,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         Debug(context, 1, context.translator.text("media_audio_input_refused"));
     }
 
-    if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
+    if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         ps = 0;
         rps = (pkt_temp->data - context.state.ac3_packet);
         while (0 < context.state.ac3_packet_index - rps)

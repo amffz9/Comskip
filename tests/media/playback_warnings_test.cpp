@@ -148,7 +148,7 @@ TEST_F(PlaybackWarnings, InconsistentAudioTimesReportSpanishAndResetBeforeWritin
     context->state.base_apts = 1;
     context->state.top_apts = 0;
     context->state.audio_buffer[0] = 123;
-    sound_to_frames(*context, &video, *frame);
+    sound_to_frames(*context, video, *frame);
     EXPECT_EQ(log(), "Error: almacenamiento de audio incoherente\n");
     EXPECT_EQ(context->state.audio_buffer_ptr, std::data(context->state.audio_buffer));
     EXPECT_EQ(context->state.audio_samples, 0);
@@ -166,7 +166,7 @@ TEST_F(PlaybackWarnings, FullAudioBufferUsesEnglishFallbackWithoutOverwritingFin
     const auto last = std::size(context->state.audio_buffer) - 1;
     context->state.audio_buffer_ptr = std::data(context->state.audio_buffer) + last;
     context->state.audio_buffer[last] = 123;
-    sound_to_frames(*context, &video, *frame);
+    sound_to_frames(*context, video, *frame);
     EXPECT_EQ(log(), "Panic: Audio buffer overflow, resetting audio buffer\n");
     EXPECT_EQ(context->state.audio_buffer_ptr, std::data(context->state.audio_buffer));
     EXPECT_EQ(context->state.audio_samples, 0);
@@ -187,7 +187,7 @@ TEST_F(PlaybackWarnings, InvalidAc3StagingIndexLogsSpanishAndResetsBeforeArrayAc
     AVPacket packet{};
     packet.data = payload;
     packet.size = static_cast<int>(std::size(payload));
-    audio_packet_process(*context, &video, &packet);
+    audio_packet_process(*context, video, &packet);
     EXPECT_EQ(log(), "Error de sincronización AC3\n");
     EXPECT_EQ(context->state.ac3_packet_index, 0);
 }
