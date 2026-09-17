@@ -402,15 +402,13 @@ void BuildCommListAsYouGo(RecordingContext& context)
                 if (!context.state.incommercial_file.get())
                 {
                     fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);
-                    goto skipit;
+                } else {
+                    if(context.state.commercial_count >= 0 && context.state.commercial.back().end_frame > context.state.framenum_real - context.settings.incommercial_frames)
+                        comskip::output::checked_fprintf(*context.state.incommercial_file,filename,"1\n");
+                    else
+                        comskip::output::checked_fprintf(*context.state.incommercial_file,filename,"0\n");
+                    comskip::output::checked_close(context.state.incommercial_file,filename);
                 }
-                if(context.state.commercial_count >= 0 && context.state.commercial.back().end_frame > context.state.framenum_real - context.settings.incommercial_frames)
-                    comskip::output::checked_fprintf(*context.state.incommercial_file,filename,"1\n");
-                else
-                    comskip::output::checked_fprintf(*context.state.incommercial_file,filename,"0\n");
-                comskip::output::checked_close(context.state.incommercial_file,filename);
-skipit:
-                ;
             }
 
         }
