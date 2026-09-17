@@ -9,6 +9,7 @@
 #include "output/csv_field.h"
 #include "output/frame_csv.h"
 #include "output/histogram_report.h"
+#include "output/checked_file.h"
 #include "weighted_scores.h"
 #include "search_path.h"
 #include "checked_format.h"
@@ -230,40 +231,39 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
 
 void OutputFrame(RecordingContext& context, int frame_number)
 {
-    int		x,y;
-    comskip::platform::FilePtr raw;
-    std::string array;
-    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension()) + std::to_string(frame_number) + ".frm";
+    const auto path = comskip::platform::path_to_utf8(
+        comskip::platform::path_from_utf8(context.state.logfilename).replace_extension()) +
+        std::to_string(frame_number) + ".frm";
 
     Debug(context, 5, "Sending frame to file\n");
-    raw.reset(myfopen(array.c_str(), "w"));
-    if (!raw.get())
+    auto file = comskip::platform::own_file(myfopen(path.c_str(), "w"));
+    if (!file)
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_frame_open_failed"));
         return;
     }
 
-    fprintf(raw.get(), "0;");
-    for (x = 0; x < context.state.videowidth; x++)
+    comskip::output::checked_fprintf(*file, path, "0;");
+    for (int x = 0; x < context.state.videowidth; ++x)
     {
-        fprintf(raw.get(), ";%3i", x);
+        comskip::output::checked_fprintf(*file, path, ";%3i", x);
     }
-    fprintf(raw.get(), "\n");
+    comskip::output::checked_fprintf(*file, path, "\n");
 
-    for (y = 0; y < context.state.height; y++)
+    for (int y = 0; y < context.state.height; ++y)
     {
-        fprintf(raw.get(), "%3i", y);
-        for (x = 0; x < context.state.videowidth; x++)
+        comskip::output::checked_fprintf(*file, path, "%3i", y);
+        for (int x = 0; x < context.state.videowidth; ++x)
         {
             if (context.state.frame_ptr[y * context.state.width + x] < 30)
-                fprintf(raw.get(), ";   ");
+                comskip::output::checked_fprintf(*file, path, ";   ");
             else
-                fprintf(raw.get(), ";%3i", context.state.frame_ptr[y * context.state.width + x]);
+                comskip::output::checked_fprintf(*file, path, ";%3i", context.state.frame_ptr[y * context.state.width + x]);
 
         }
-        fprintf(raw.get(), "\n");
+        comskip::output::checked_fprintf(*file, path, "\n");
     }
-    raw.reset();
+    comskip::output::checked_close(file, path);
 }
 
 int FindFrameWithPts(RecordingContext& context, double t)

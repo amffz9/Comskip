@@ -102,6 +102,17 @@ TEST_F(DiagnosticOutput, AspectOutputOpenFailureIsLocalized) {
     OutputAspect(*context);
     EXPECT_EQ(read("log.txt"), "No se pudo abrir el archivo de salida de relaciones de aspecto.\n");
 }
+TEST_F(DiagnosticOutput, FrameOutputPreservesLegacyDelimitedLayout) {
+    std::array<unsigned char, 4> frame{0, 29, 30, 255};
+    context->state.frame_ptr = frame.data();
+    context->state.width = 2;
+    context->state.videowidth = 2;
+    context->state.height = 2;
+
+    OutputFrame(*context, 7);
+
+    EXPECT_EQ(read("log7.frm"), "0;;  0;  1\n  0;   ;   \n  1; 30;255\n");
+}
 TEST_F(DiagnosticOutput, ScreenFrameOutputUsesInitializedLogoValueAndFinalObservation) {
     context->state.frame_count = 1;
     context->state.frame.resize(2);
