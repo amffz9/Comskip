@@ -153,7 +153,7 @@ again:
         }
 
         if ( is->video_st->duration == AV_NOPTS_VALUE ||  is->video_st->duration < 0)
-            is->duration =  ((float)is->pFormatCtx->duration) / AV_TIME_BASE;
+            is->duration = static_cast<double>(is->pFormatCtx->duration) / AV_TIME_BASE;
         else
             is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
 
