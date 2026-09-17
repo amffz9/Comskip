@@ -19,10 +19,14 @@ inline void checked_flush(std::FILE& file, std::string_view path) {
     if (std::fflush(&file) != 0)
         throw diagnostics::DiagnosticError<std::ios_base::failure>(diagnostics::Code::output_write,{std::string(path)});
 }
-inline void checked_close(platform::FilePtr& file, std::string_view path) {
+inline void checked_close(platform::FilePtr& file, std::string_view path,
+    diagnostics::Code close_error) {
     if (!file) return;
     auto* closing=file.release();
     if (std::fclose(closing) != 0)
-        throw diagnostics::DiagnosticError<std::ios_base::failure>(diagnostics::Code::output_write,{std::string(path)});
+        throw diagnostics::DiagnosticError<std::ios_base::failure>(close_error,{std::string(path)});
+}
+inline void checked_close(platform::FilePtr& file, std::string_view path) {
+    checked_close(file, path, diagnostics::Code::output_write);
 }
 }

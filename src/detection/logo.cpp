@@ -16,6 +16,7 @@
 #include "storage.h"
 #include "platform/file_resources.h"
 #include "platform/platform.h"
+#include "output/checked_file.h"
 #include <algorithm>
 #include <array>
 #include <cstdlib>
@@ -1709,10 +1710,8 @@ void SaveLogoMaskData(RecordingContext& context)
         {context.state.width,context.state.height,context.state.clogoMinX,context.state.clogoMaxX,
          context.state.clogoMinY,context.state.clogoMaxY},context.state.choriz_edgemask,
         context.state.cvert_edgemask,context.state.logofilename);
-    auto* closing=logo_file.release();
-    if (std::fclose(closing)!=0)
-        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
-            comskip::diagnostics::Code::output_write,{context.state.logofilename});
+    comskip::output::checked_close(logo_file, context.state.logofilename,
+        comskip::diagnostics::Code::output_write);
 }
 
 void LoadLogoMaskData(RecordingContext& context)
@@ -1734,10 +1733,8 @@ void LoadLogoMaskData(RecordingContext& context)
         {context.settings.edge_radius, context.settings.edge_step, context.settings.border,
          context.settings.logo_at_side != 0, context.settings.logo_at_bottom != 0, context.settings.subtitles != 0},
         maximum_saved_logo_width, maximum_saved_logo_height);
-    auto* closing_logo=logo_file.release();
-    if (std::fclose(closing_logo)!=0)
-        throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
-            comskip::diagnostics::Code::cannot_read_saved_logo);
+    comskip::output::checked_close(logo_file, context.state.logofilename,
+        comskip::diagnostics::Code::cannot_read_saved_logo);
     context.state.videowidth = context.state.width = loaded.geometry.width;
     context.state.height = loaded.geometry.height;
     context.state.ensure_pixel_buffers(true);
@@ -1805,10 +1802,8 @@ void LoadLogoMaskData(RecordingContext& context)
         if (std::ferror(txt_file.get()))
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                 comskip::diagnostics::Code::cannot_read_detection_output,{context.state.out_filename});
-        auto* closing_output=txt_file.release();
-        if (std::fclose(closing_output)!=0)
-            throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
-                comskip::diagnostics::Code::cannot_read_detection_output,{context.state.out_filename});
+        comskip::output::checked_close(txt_file, context.state.out_filename,
+            comskip::diagnostics::Code::cannot_read_detection_output);
     }
     LogoDebug(context, 10, "logo_last_frame", context.state.out_filename,
         std::format("{}", context.state.lastFrame));
