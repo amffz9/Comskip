@@ -19,3 +19,7 @@ enum class FrameCause : int {
 }
 
 } // namespace comskip::detection
+
+struct RecordingContext;
+
+char* CauseString(RecordingContext& context, int cause);

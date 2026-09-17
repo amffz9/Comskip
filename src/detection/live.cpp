@@ -1,9 +1,19 @@
 #include "../localization/diagnostic.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
 #include "checked_format.h"
-#include "legacy_detection.h"
+#include "detection/detection_methods.h"
+#include "detection/frame_causes.h"
+#include "detection/logo_detection.h"
+#include "detection/storage.h"
 #include "output/live_xml.h"
 #include "output/checked_file.h"
+#include "platform/platform.h"
 #include "logo_shrink.h"
+#include <algorithm>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -13,6 +23,14 @@
 #include <vector>
 
 namespace {
+using comskip::detection::DetectionMethod;
+using comskip::detection::FrameCause;
+using comskip::detection::cause_value;
+
+constexpr int black_cause = cause_value(FrameCause::black);
+constexpr int non_uniform_cause = cause_value(FrameCause::non_uniform);
+constexpr int silence_cause = cause_value(FrameCause::silence);
+
 template <typename... Args>
 void LiveDebug(RecordingContext& context, const int level, const char* const message_id, Args&&... args)
 {
@@ -87,9 +105,9 @@ void BuildCommListAsYouGo(RecordingContext& context)
 #ifdef OLD_LIVE_TV
             if (context.state.black[i].brightness <= local_blacklevel)
 #else
-            k = !(context.settings.commDetectMethod & LOGO) &&
-                (context.state.black[i].cause & (C_b | C_u));
-            if ((context.state.black[i].cause & C_v) || (context.state.black[i].cause & C_b) || (context.state.black[i].cause & C_u) )
+            k = !comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::logo) &&
+                (context.state.black[i].cause & (black_cause | non_uniform_cause));
+            if ((context.state.black[i].cause & silence_cause) || (context.state.black[i].cause & black_cause) || (context.state.black[i].cause & non_uniform_cause) )
             {
 
                 const auto logo_window = comskip::detection::logo_scan_window(context.state.black[i].frame,
@@ -105,11 +123,11 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         break;
                     }
                 }
-                if (k == false && (context.state.black[i].cause & C_v) )
+                if (k == false && (context.state.black[i].cause & silence_cause) )
                 {
-                    for (j=max(1,context.state.black[i].frame - context.settings.volume_slip * context.settings.fps); j < min(context.state.framenum_real, context.state.black[i].frame + context.settings.volume_slip * context.settings.fps ); j++ )
+                    for (j=static_cast<int>(std::max<double>(1, context.state.black[i].frame - context.settings.volume_slip * context.settings.fps)); j < static_cast<int>(std::min<double>(context.state.framenum_real, context.state.black[i].frame + context.settings.volume_slip * context.settings.fps)); j++ )
                     {
-                        if (context.state.frame[j].isblack & C_b)
+                        if (context.state.frame[j].isblack & black_cause)
                         {
                             LiveDebug(context, 11, "live_silence_and_dark", context.state.black[i].frame);
                             k = true;
@@ -127,7 +145,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
             }
         }
 
-        useLogo = context.settings.commDetectMethod & LOGO;
+        useLogo = comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::logo);
 
         if ((context.state.logo_block_count == -1) || (!context.state.logoInfoAvailable)) useLogo = false;
 
@@ -344,9 +362,9 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     if (context.state.out_file.get())
                         comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", candidates[i].start + context.settings.padding, candidates[i].end - context.settings.padding);
                     if (context.state.edl_file.get())
-                        comskip::output::checked_fprintf(*context.state.edl_file,std::string(context.state.outbasename)+".edl","%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                        comskip::output::checked_fprintf(*context.state.edl_file,std::string(context.state.outbasename)+".edl","%.2f\t%.2f\t%d\n", (double) std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps , (double) std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.state.live_file.get())
-                        comskip::output::checked_fprintf(*context.state.live_file,std::string(context.state.outbasename)+".live","%.2f\t%.2f\t%d\n", (double) max(candidates[i].start + context.settings.padding - context.settings.edl_offset,0) / context.settings.fps , (double) max(candidates[i].end - context.settings.padding - context.settings.edl_offset,0) / context.settings.fps, context.settings.edl_skip_field );
+                        comskip::output::checked_fprintf(*context.state.live_file,std::string(context.state.outbasename)+".live","%.2f\t%.2f\t%d\n", (double) std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps , (double) std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.settings.output_dvrmstb)
                         dvrmstb_intervals.push_back({candidates[i].start, candidates[i].end});
                 }
