@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include "frame_causes.h"
 #include <algorithm>
 #include <format>
 #include <numeric>
@@ -307,8 +308,8 @@ void WeighBlocks(RecordingContext& context)
                     context.state.cblock[j].score *= context.settings.length_strict_modifier;
 //					cblock[j].score *= length_strict_modifier;
                     scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[j].score));
-                    context.state.cblock[j].cause |= C_STRICT;
-                    context.state.cblock[j].more |= C_STRICT;
+                    context.state.cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::strict);
+                    context.state.cblock[j].more |= comskip::detection::cause_value(comskip::detection::BlockCause::strict);
                     j--;
                 }
             }
@@ -322,8 +323,8 @@ void WeighBlocks(RecordingContext& context)
                     context.state.cblock[j].score *= context.settings.length_nonstrict_modifier;
                     context.state.cblock[j].score = (context.state.cblock[j].score > max_score) ? max_score : context.state.cblock[j].score;
                     scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[j].score));
-                    context.state.cblock[j].cause |= C_NONSTRICT;
-                    context.state.cblock[j].more |= C_NONSTRICT;
+                    context.state.cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::non_strict);
+                    context.state.cblock[j].more |= comskip::detection::cause_value(comskip::detection::BlockCause::non_strict);
                     j--;
                 }
             }
@@ -351,7 +352,7 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].score *= length_strict_modifier;
                     cblock[i].score *= length_strict_modifier;
                     Debug(3, "After - %.2f\n", cblock[i].score);
-                    cblock[i].cause |= C_STRICT;
+                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::strict);
                 } else if (IsStandardCommercialLength(cblock[i].length, tolerance, false)) {
                     cblock[i].strict = 1;
                     Debug(2, "Block %i has non-strict standard length for a commercial.\n", i);
@@ -359,7 +360,7 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].score *= length_nonstrict_modifier;
                     cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
                     Debug(3, "After - %.2f\n", cblock[i].score);
-                    cblock[i].cause |= C_NONSTRICT;
+                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::non_strict);
                 } else
                     cblock[i].strict = 0;
         */
@@ -415,8 +416,8 @@ void WeighBlocks(RecordingContext& context)
                             context.state.cblock[i + k].score = (context.state.cblock[i + k].score > max_score) ? max_score : context.state.cblock[i + k].score;
                             context.state.cblock[i + k].combined_count += 1;
                             scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i + k].score), std::format("{}", context.state.cblock[i + k].combined_count));
-                            context.state.cblock[i + k].cause |= C_COMBINED;
-                            context.state.cblock[i + k].more |= C_COMBINED;
+                            context.state.cblock[i + k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
+                            context.state.cblock[i + k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
 
                         }
                     }
@@ -432,8 +433,8 @@ void WeighBlocks(RecordingContext& context)
                             context.state.cblock[i + k].score = (context.state.cblock[i + k].score > max_score) ? max_score : context.state.cblock[i + k].score;
                             context.state.cblock[i + k].combined_count += 1;
                             scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i + k].score), std::format("{}", context.state.cblock[i + k].combined_count));
-                            context.state.cblock[i + k].cause |= C_COMBINED;
-                            context.state.cblock[i + k].more |= C_COMBINED;
+                            context.state.cblock[i + k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
+                            context.state.cblock[i + k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
                         }
                     }
                 }
@@ -490,8 +491,8 @@ void WeighBlocks(RecordingContext& context)
                             context.state.cblock[i - k].score = (context.state.cblock[i - k].score > max_score) ? max_score : context.state.cblock[i - k].score;
                             context.state.cblock[i - k].combined_count += 1;
                             scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i - k].score), std::format("{}", context.state.cblock[i - k].combined_count));
-                            context.state.cblock[i - k].cause |= C_COMBINED;
-                            context.state.cblock[i - k].more |= C_COMBINED;
+                            context.state.cblock[i - k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
+                            context.state.cblock[i - k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
                         }
                     }
                     else if (IsStandardCommercialLength(context, combined_length - (context.state.cblock[i + 1].b_head + context.state.cblock[i - j].b_head) / context.settings.fps, tolerance, false) && context.settings.combined_length_nonstrict_modifier != 1.0)
@@ -506,8 +507,8 @@ void WeighBlocks(RecordingContext& context)
                             context.state.cblock[i - k].score = (context.state.cblock[i - k].score > max_score) ? max_score : context.state.cblock[i - k].score;
                             context.state.cblock[i - k].combined_count += 1;
                             scoring_debug(context, 3, "scoring_score_after_combined", std::format("{:.2f}", context.state.cblock[i - k].score), std::format("{}", context.state.cblock[i - k].combined_count));
-                            context.state.cblock[i - k].cause |= C_COMBINED;
-                            context.state.cblock[i - k].more |= C_COMBINED;
+                            context.state.cblock[i - k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
+                            context.state.cblock[i - k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::combined);
 
                         }
                     }
@@ -532,8 +533,8 @@ void WeighBlocks(RecordingContext& context)
 //				cblock[i].score *= (logo_present_modifier*cblock[i].logo) + (1-cblock[i].logo);
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_LOGO;
-                context.state.cblock[i].less |= C_LOGO;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
             }
             /*			else if (cblock[i].logo > 0.10) {
                             Debug(2, "Block %i has logo.\n", i);
@@ -542,8 +543,8 @@ void WeighBlocks(RecordingContext& context)
             //				cblock[i].score *= (logo_present_modifier*cblock[i].logo) + (1-cblock[i].logo);
                             cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
                             Debug(3, "After - %.2f\n", cblock[i].score);
-                            cblock[i].cause |= C_LOGO;
-                            cblock[i].less |= C_LOGO;
+                            cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
+                            cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
                         }
             */			else if (context.settings.punish_no_logo && context.state.cblock[i].logo < context.settings.logo_percentage_threshold && context.state.logoPercentage > context.settings.logo_fraction)
             {
@@ -552,8 +553,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= 2;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_LOGO;
-                context.state.cblock[i].more |= C_LOGO;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
+                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
             }
         }
         BuildPunish(context);
@@ -620,8 +621,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_BRIGHT;
-                context.state.cblock[i].less |= C_BRIGHT;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
             }
             if ((context.settings.reward & 2) && context.state.cblock[i].uniform < context.state.avg_uniform / context.settings.punish_threshold)
             {
@@ -630,8 +631,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_BRIGHT;
-                context.state.cblock[i].less |= C_BRIGHT;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
             }
             if ((context.settings.reward & 4) && context.state.cblock[i].volume < context.state.avg_volume / context.settings.punish_threshold)
             {
@@ -640,8 +641,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_BRIGHT;
-                context.state.cblock[i].less |= C_BRIGHT;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
             }
             if ((context.settings.reward & 8) && context.state.cblock[i].silence < context.state.avg_silence / context.settings.punish_threshold)
             {
@@ -650,8 +651,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_BRIGHT;
-                context.state.cblock[i].less |= C_BRIGHT;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
             }
             if ((context.settings.reward & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate < context.state.avg_schange / context.settings.punish_threshold)
             {
@@ -660,8 +661,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.reward_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_BRIGHT;
-                context.state.cblock[i].less |= C_BRIGHT;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
             }
         }
 
@@ -697,8 +698,8 @@ void WeighBlocks(RecordingContext& context)
             context.state.cblock[i].score *= context.settings.excessive_length_modifier * context.settings.excessive_length_modifier;
             context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
             scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-            context.state.cblock[i].cause |= C_EXCEEDS;
-            context.state.cblock[i].less |= C_EXCEEDS;
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::exceeds);
+            context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::exceeds);
         }
         else
 
@@ -709,8 +710,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.excessive_length_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_EXCEEDS;
-                context.state.cblock[i].less |= C_EXCEEDS;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::exceeds);
+                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::exceeds);
             }
 
         // Mod score based on scene change rate
@@ -733,7 +734,7 @@ void WeighBlocks(RecordingContext& context)
                         cblock[i].score *= schange_modifier;
                         cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
                         Debug(3, "\tSC\tAfter - %.2f\n", cblock[i].score);
-                        cblock[i].cause |= C_SC;
+                        cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::scene_change);
                     }
         #endif
 
@@ -799,8 +800,8 @@ void WeighBlocks(RecordingContext& context)
             scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= context.settings.ar_wrong_modifier;
             scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-            context.state.cblock[i].cause |= C_AR;
-            context.state.cblock[i].more |= C_AR;
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio);
         }
         //		}
 
@@ -812,8 +813,8 @@ void WeighBlocks(RecordingContext& context)
             scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= context.settings.ac_wrong_modifier;
             scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-            context.state.cblock[i].cause |= C_AR;
-            context.state.cblock[i].more |= C_AR;
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio);
         }
 
 
@@ -840,28 +841,28 @@ void WeighBlocks(RecordingContext& context)
     {
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( ((context.state.cblock[i].cause & C_STRICT) && (context.state.cblock[i].cause & (C_b | C_u | C_v | C_r)) )  &&
+            if ( ((context.state.cblock[i].cause & comskip::detection::cause_value(comskip::detection::BlockCause::strict)) && (context.state.cblock[i].cause & (C_b | C_u | C_v | C_r)) )  &&
                     context.state.cblock[i+1].score > 1.05 &&  context.state.cblock[i+1].length < 4.8 &&
                     context.state.cblock[i+2].score < 1.0  &&  context.state.cblock[i+2].length > context.settings.min_show_segment_length
                )
             {
                 context.state.cblock[i+1].score = 0.5;
                 scoring_debug(context, 3, "scoring_h2_add_after_strict", std::format("{}", i + 1));
-                context.state.cblock[i+1].cause |= C_H2;
-                context.state.cblock[i+1].less |= C_H2;
+                context.state.cblock[i+1].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                context.state.cblock[i+1].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
             }
         }
         for (i = 0; i < context.state.block_count-2; i++)
         {
-            if ( ((context.state.cblock[i+2].cause & C_STRICT) && (context.state.cblock[i+1].cause & (C_b | C_u | C_v | C_r)) )  &&
+            if ( ((context.state.cblock[i+2].cause & comskip::detection::cause_value(comskip::detection::BlockCause::strict)) && (context.state.cblock[i+1].cause & (C_b | C_u | C_v | C_r)) )  &&
                     context.state.cblock[i+1].score > 1.05 &&  context.state.cblock[i+1].length < 4.8 &&
                     context.state.cblock[i].score < 1.0  &&  context.state.cblock[i].length > context.settings.min_show_segment_length
                )
             {
                 context.state.cblock[i+1].score = 0.5;
                 scoring_debug(context, 3, "scoring_h2_add_between_show_strict", std::format("{}", i + 1));
-                context.state.cblock[i+1].cause |= C_H2;
-                context.state.cblock[i+1].less |= C_H2;
+                context.state.cblock[i+1].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                context.state.cblock[i+1].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
             }
         }
 
@@ -874,8 +875,8 @@ void WeighBlocks(RecordingContext& context)
             {
                 context.state.cblock[i+1].score = 0.5;
                 scoring_debug(context, 3, "scoring_h2_add_ar_after_commercial", std::format("{}", i + 1));
-                context.state.cblock[i+1].cause |= C_H2;
-                context.state.cblock[i+1].less |= C_H2;
+                context.state.cblock[i+1].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                context.state.cblock[i+1].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
             }
         }
         for (i = 0; i < context.state.block_count-2; i++)
@@ -887,8 +888,8 @@ void WeighBlocks(RecordingContext& context)
             {
                 context.state.cblock[i+1].score = 0.5;
                 scoring_debug(context, 3, "scoring_h2_add_ar_before_commercial", std::format("{}", i + 1));
-                context.state.cblock[i+1].cause |= C_H2;
-                context.state.cblock[i+1].less |= C_H2;
+                context.state.cblock[i+1].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                context.state.cblock[i+1].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
             }
         }
 
@@ -925,8 +926,8 @@ void WeighBlocks(RecordingContext& context)
                     {
                         context.state.cblock[k].score = 99.99;
                         scoring_debug(context, 3, "scoring_h1_discard_between_strong", std::format("{}", k));
-                        context.state.cblock[k].cause |= C_H1;
-                        context.state.cblock[k].more |= C_H1;
+                        context.state.cblock[k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
+                        context.state.cblock[k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
                     }
 
                 }
@@ -962,8 +963,8 @@ void WeighBlocks(RecordingContext& context)
                     {
                         context.state.cblock[k].score = 99.99;
                         scoring_debug(context, 3, "scoring_h1_discard_between_weak", std::format("{}", k));
-                        context.state.cblock[k].cause |= C_H1;
-                        context.state.cblock[k].more |= C_H1;
+                        context.state.cblock[k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
+                        context.state.cblock[k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
                     }
 
                 }
@@ -1003,8 +1004,8 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].score = 99.99;
                     Debug(3, "Discarding cblock %i because separated from cblock %i with small non show gap.\n",
                         i, j);
-                    cblock[i].cause |= C_H2;
-                    cblock[i].more |= C_H2;
+                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
                     start_deleted = true;
                     break;
                 }
@@ -1017,8 +1018,8 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].score = 99.99;
                     Debug(3, "Discarding cblock %i because of being first block.\n",
                         i, j);
-                    cblock[i].cause |= C_H2;
-                    cblock[i].more |= C_H2;
+                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
                     start_deleted = true;
                 }
             }
@@ -1034,8 +1035,8 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].score = 99.99;
                     Debug(3, "Discarding cblock %i because seprated from cblock %i with small non show gap.\n",
                         i, j);
-                    cblock[i].cause |= C_H2;
-                    cblock[i].more |= C_H2;
+                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
                     end_deleted = true;
                     break;
                 }
@@ -1049,8 +1050,8 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].score = 99.99;
                     Debug(3, "Discarding cblock %i because being last block.\n",
                         i, j);
-                    cblock[i].cause |= C_H2;
-                    cblock[i].more |= C_H2;
+                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
                     end_deleted = true;
                 }
             }
@@ -1076,8 +1077,8 @@ void WeighBlocks(RecordingContext& context)
 
                     context.state.cblock[i].score = 0.5;
                     scoring_debug(context, 3, "scoring_h8_add_dark_tail", std::format("{}", i));
-                    context.state.cblock[i].cause |= C_H8;
-                    context.state.cblock[i].less |= C_H8;
+                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_8);
+                    context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_8);
                 }
             }
         }
@@ -1130,8 +1131,8 @@ void WeighBlocks(RecordingContext& context)
                     context.state.cblock[i].score = 99.99;
                     scoring_debug(context, 3, "scoring_h7_discard_logo_gap", std::format("{}", i),
                         std::format("{}", static_cast<int>(context.state.cblock[i].length)), std::format("{}", j));
-                    context.state.cblock[i].cause |= C_H7;
-                    context.state.cblock[i].more |= C_H7;
+                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
+                    context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
                     //start_deleted = true;
                     break;
                 }
@@ -1157,8 +1158,8 @@ void WeighBlocks(RecordingContext& context)
                     context.state.cblock[i].score = 99.99;
                     scoring_debug(context, 3, "scoring_h7_discard_logo_gap", std::format("{}", i),
                         std::format("{}", static_cast<int>(context.state.cblock[i].length)), std::format("{}", j));
-                    context.state.cblock[i].cause |= C_H7;
-                    context.state.cblock[i].more |= C_H7;
+                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
+                    context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
                     //end_deleted = true;
                     break;
                 }
@@ -1201,16 +1202,16 @@ void WeighBlocks(RecordingContext& context)
                     {
                         context.state.cblock[i].score *= 1.3;
                         scoring_debug(context, 3, "scoring_h3_demote_no_logo", std::format("{}", i), std::format("{}", i));
-                        context.state.cblock[i].cause |= C_H3;
-                        context.state.cblock[i].more |= C_H3;
+                        context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
+                        context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
 
                     }
                     else if (context.state.cblock[i].f_start > context.state.before_end)
                     {
                         context.state.cblock[i].score *= 1.3;
                         scoring_debug(context, 3, "scoring_demote_no_logo", std::format("{}", i), std::format("{}", i));
-                        context.state.cblock[i].cause |= C_H3;
-                        context.state.cblock[i].more |= C_H3;
+                        context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
+                        context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
 
                     }
                 }
@@ -1230,8 +1231,8 @@ void WeighBlocks(RecordingContext& context)
                 {
                     context.state.cblock[i].score *= 0.5;
                     scoring_debug(context, 3, "scoring_promote_long_no_logo", std::format("{}", i), std::format("{}", i));
-                    context.state.cblock[i].cause |= C_H3;
-                    context.state.cblock[i].more |= C_H3;
+                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
+                    context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
 
                 }
             }
@@ -1256,8 +1257,8 @@ void WeighBlocks(RecordingContext& context)
                         context.state.cblock[j].score *= 0.1;   //  Add blocks with long black periods before show
                         scoring_debug(context, 3, "scoring_h4_add_black_gap", std::format("{}", j), std::format("{}", i));
                         k++;
-                        context.state.cblock[j].cause |= C_H4;
-                        context.state.cblock[j].less |= C_H4;
+                        context.state.cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_4);
+                        context.state.cblock[j].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_4);
                         j--;
                     }
                 }
@@ -1278,8 +1279,8 @@ void WeighBlocks(RecordingContext& context)
                         context.state.cblock[j].score *= 0.1;   //  Add blocks with long black periods before show
                         scoring_debug(context, 3, "scoring_h4_add_black_gap", std::format("{}", j), std::format("{}", i));
                         k++;
-                        context.state.cblock[j].cause |= C_H4;
-                        context.state.cblock[j].less |= C_H4;
+                        context.state.cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_4);
+                        context.state.cblock[j].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_4);
                         j++;
                     }
                 }
@@ -1295,8 +1296,8 @@ void WeighBlocks(RecordingContext& context)
             {
                    context.state.cblock[i].score = 5;
                     scoring_debug(context, 3, "scoring_h9_demote_silent", std::format("{}", i));
-                    context.state.cblock[i].cause |= C_H3;
-                    context.state.cblock[i].more |= C_H3;
+                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
+                    context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_3);
 
             }
         }
@@ -1318,8 +1319,8 @@ void WeighBlocks(RecordingContext& context)
                         cblock[j].score = 99.99;
                         Debug(3, "H2 Discarding cblock %i because too short and before commercial.\n",
                             j);
-                        cblock[j].cause |= C_H2;
-                        cblock[j].more |= C_H2;
+                        cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
+                        cblock[j].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
                     }
                 }
         */
@@ -1336,8 +1337,8 @@ void WeighBlocks(RecordingContext& context)
                         cblock[k].score = 0.05;
                         Debug(3, "H1 Included cblock %i because too long and between two show blocks.\n",
                             k);
-                        cblock[k].cause |= C_H1;
-                        cblock[k].more |= C_H1;
+                        cblock[k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
+                        cblock[k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
                 }
 
             }
