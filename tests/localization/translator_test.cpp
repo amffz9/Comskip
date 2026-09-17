@@ -40,6 +40,18 @@ TEST(Translator, LoadsEditableExternalCatalogs) {
     EXPECT_EQ(translator.format("using_settings", "settings.ini"), "Usando settings.ini para la configuración.\n");
     EXPECT_THROW((Translator("es", std::filesystem::path(COMSKIP_SOURCE_DIR) / "nonexistent-locales")), std::runtime_error);
 }
+TEST(Translator, FormatsDiagnosticsSearchAndThresholdMessages) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("diagnostics_path_for", "comskip.ini", "C:/config/comskip.ini"),
+              "Path for comskip.ini: C:/config/comskip.ini\n");
+    EXPECT_EQ(spanish.format("diagnostics_path_missing", "comskip.dictionary"),
+              "No se encontró comskip.dictionary\n");
+    EXPECT_EQ(english.format("diagnostics_score_percentile", "95.00", 120, "0.75"),
+              "The 95.00 percentile of 120 frames is 0.75\n");
+    EXPECT_EQ(spanish.format("diagnostics_logo_histogram", "12.50000"),
+              "Histograma de logotipos - 12.50000\n");
+}
 TEST(Translator, LocalizesReviewHelpWithStableBindings) {
     const Translator english;
     const Translator spanish("es");

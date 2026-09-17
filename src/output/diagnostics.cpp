@@ -48,10 +48,12 @@ void FindIniFile(RecordingContext& context)
         if (found) {
             const auto bytes = found->u8string();
             comskip::checked_format(destination, "%s", reinterpret_cast<const char*>(bytes.c_str()));
-            Debug(context, 1, "Path for %s: %s\n", std::string(name).c_str(), destination.c_str());
+            Debug(context, 1, "%s", context.translator.format("diagnostics_path_for",
+                std::string(name), destination).c_str());
         } else {
             destination.clear();
-            Debug(context, 1, "%s not found\n", std::string(name).c_str());
+            Debug(context, 1, "%s", context.translator.format("diagnostics_path_missing",
+                std::string(name)).c_str());
         }
     };
     search("comskip.ini", context.state.inifilename);
@@ -78,8 +80,9 @@ double FindScoreThreshold(RecordingContext& context, double percentile)
     if (!threshold) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::cannot_select_score_threshold);
     std::uint64_t frames = 0;
     for (const auto& sample : samples) frames += sample.frames;
-    Debug(context, 6, "The %.2f percentile of %llu frames is %.2f\n",
-        percentile * 100, static_cast<unsigned long long>(frames), *threshold);
+    Debug(context, 6, "%s", context.translator.format("diagnostics_score_percentile",
+        std::format("{:.2f}", percentile * 100), frames,
+        std::format("{:.2f}", *threshold)).c_str());
     return *threshold;
 }
 
@@ -94,7 +97,8 @@ void OutputLogoHistogram(RecordingContext& context,
     const auto divisor = maximum == 0 ? 0.0 : static_cast<double>(columns) / maximum;
     std::uint64_t counter = 0;
 
-    Debug(context, 8, "Logo Histogram - %.5f\n", divisor);
+    Debug(context, 8, "%s", context.translator.format("diagnostics_logo_histogram",
+        std::format("{:.5f}", divisor)).c_str());
 
     for (std::size_t i = 0; i < histogram.size(); ++i) {
         counter += histogram[i];

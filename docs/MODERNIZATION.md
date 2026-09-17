@@ -828,3 +828,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Audio normalization now uses the shared `ResamplerPtr` FFmpeg owner instead
   of a module-local deleter. Focused audio tests pass **2/2**.
+
+- FFmpeg search-path, score-threshold, and logo-histogram diagnostics now use
+  committed English/Spanish catalog entries. The new localization regression
+  passes **1/1**.
