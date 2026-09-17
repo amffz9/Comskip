@@ -1,7 +1,7 @@
 #include "frame_conversion.h"
+#include "ffmpeg_resources.h"
 
 #include <cerrno>
-#include <memory>
 extern "C" {
 #include <libavutil/frame.h>
 #include <libavutil/error.h>
@@ -20,8 +20,7 @@ int convert_frame_to_8bit(AVFrame* frame, SwsContext*& context)
         SWS_POINT, nullptr, nullptr, nullptr);
     if (!context)
         return AVERROR(ENOMEM);
-    const auto release = [](AVFrame* value) { av_frame_free(&value); };
-    std::unique_ptr<AVFrame, decltype(release)> converted(av_frame_alloc(), release);
+    FramePtr converted(av_frame_alloc());
     if (!converted)
         return AVERROR(ENOMEM);
     int result = av_frame_copy_props(converted.get(), frame);

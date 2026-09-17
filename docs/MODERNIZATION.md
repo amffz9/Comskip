@@ -810,3 +810,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - The current Windows SDL configuration passes **523/523** tests after the
   fresh-build dependency change; the headless configuration remains **515/515**.
+
+- Frame conversion now reuses the shared `FramePtr` FFmpeg RAII owner instead
+  of defining a second local deleter. Focused conversion tests pass **2/2** and
+  the complete Windows headless suite remains **515/515**.
