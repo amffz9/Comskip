@@ -37,7 +37,7 @@ void BlocksDebug(RecordingContext& context, int level, std::string_view key, Arg
 }
 }
 
-char *CauseString(RecordingContext& context, int i)
+const char *CauseString(RecordingContext& context, int i)
 {
     char *c = context.state.CauseString_cs[context.state.CauseString_ii].data();
     char *rc = context.state.CauseString_cs[context.state.CauseString_ii].data();

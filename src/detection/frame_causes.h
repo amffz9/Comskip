@@ -60,4 +60,4 @@ enum class BlockCause : long {
 
 struct RecordingContext;
 
-char* CauseString(RecordingContext& context, int cause);
+const char* CauseString(RecordingContext& context, int cause);

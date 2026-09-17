@@ -1036,3 +1036,7 @@ than redefine completion around whichever subset currently passes tests.
 - Removed an unused review scratch buffer and changed INI file reading to a
   fixed-size `std::array` with explicit C-library boundaries. The complete
   Windows suite passes **523/523**.
+
+- `CauseString` now returns a `const char*`, preserving the legacy formatting
+  ABI while preventing callers from mutating the generated diagnostic text. The
+  complete Windows suite passes **523/523**.
