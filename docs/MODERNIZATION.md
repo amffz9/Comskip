@@ -788,7 +788,3 @@ than redefine completion around whichever subset currently passes tests.
 - Caption dictionary, platform file-mode, and codec listing paths now use
   standard C++ string-length operations. The complete Windows headless suite
   remains green at **515/515**.
-
-- The active human-message inventory is now current: it reports zero remaining
-  untranslated console call sites after the application fallback moved through
-  the catalog and checked stream boundary.
