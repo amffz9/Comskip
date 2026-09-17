@@ -2,6 +2,7 @@
 #include "subtitle_stream_decoder.h"
 #include "ffmpeg_resources.h"
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <limits>
 #include <stdexcept>
@@ -16,9 +17,9 @@ namespace {
 using ParametersPtr = CodecParametersPtr;
 void checked(int status, comskip::diagnostics::Code operation) {
     if (status >= 0) return;
-    char error[AV_ERROR_MAX_STRING_SIZE]{};
-    av_strerror(status, error, sizeof(error));
-    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {error});
+    std::array<char, AV_ERROR_MAX_STRING_SIZE> error{};
+    av_strerror(status, error.data(), error.size());
+    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {error.data()});
 }
 std::int64_t add(std::int64_t left, std::int64_t right) {
     if (left < 0 || right < 0 || left > std::numeric_limits<std::int64_t>::max() - right)

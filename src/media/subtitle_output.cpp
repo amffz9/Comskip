@@ -3,6 +3,7 @@
 #include "media/ffmpeg_resources.h"
 #include <pugixml.hpp>
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <limits>
 #include <optional>
@@ -22,8 +23,9 @@ std::string utf8(const std::filesystem::path& path) {
 }
 void check(int status, comskip::diagnostics::Code operation, std::vector<std::string> arguments = {}) {
     if (status < 0) {
-        char detail[AV_ERROR_MAX_STRING_SIZE]; av_strerror(status, detail, sizeof(detail));
-        arguments.emplace_back(detail);
+        std::array<char, AV_ERROR_MAX_STRING_SIZE> detail{};
+        av_strerror(status, detail.data(), detail.size());
+        arguments.emplace_back(detail.data());
         throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, std::move(arguments));
     }
 }

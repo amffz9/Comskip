@@ -1048,3 +1048,7 @@ than redefine completion around whichever subset currently passes tests.
 - XDS titles and caption text now use fixed-size `std::array` character
   storage; `.data()` and `.begin()` are explicit at C-string and algorithm
   boundaries. The complete Windows suite passes **523/523**.
+
+- FFmpeg error-detail buffers in caption and subtitle adapters now use
+  `std::array`, with explicit `.data()`/`.size()` calls at `av_strerror`.
+  The complete Windows suite passes **523/523**.

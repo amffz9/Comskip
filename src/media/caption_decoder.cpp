@@ -3,6 +3,7 @@
 #include "ffmpeg_resources.h"
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -16,9 +17,9 @@ namespace comskip::media {
 namespace {
 void check_caption_status(int status, comskip::diagnostics::Code operation) {
     if (status >= 0) return;
-    char detail[AV_ERROR_MAX_STRING_SIZE]{};
-    av_strerror(status, detail, sizeof(detail));
-    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {detail});
+    std::array<char, AV_ERROR_MAX_STRING_SIZE> detail{};
+    av_strerror(status, detail.data(), detail.size());
+    throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation, {detail.data()});
 }
 std::string_view ass_content(std::string_view ass) {
     // FFmpeg's ASS event has eight comma-separated metadata fields followed by
