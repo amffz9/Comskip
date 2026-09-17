@@ -7,6 +7,7 @@
 #include "platform/utf8_paths.h"
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -26,8 +27,8 @@ void WritePlayerExportFiles(RecordingContext& context,bool use_reference) {
     std::vector<PlayerChapterMark> chapters,ipod;
     std::vector<ScfFrameMark> scf;
     const auto at=[&](long frame) {return PlayerSeconds{get_frame_pts(context,frame)};};
-    const auto append=[&](int index,long previous,long start,long end) {
-        if (previous>=start) return;
+    const auto append=[&](int index,std::optional<long> previous,long start,long end) {
+        if (previous && *previous>=start) return;
         if (end-start>2) {
             intervals.push_back({at(start),at(end)});
             ipod.push_back({at(end),static_cast<std::uint32_t>(index)+2,PlayerBoundary::commercial_end});
@@ -40,17 +41,17 @@ void WritePlayerExportFiles(RecordingContext& context,bool use_reference) {
             scf.push_back({end,number+1,PlayerBoundary::commercial_end});
         }
     };
-    long previous=-1;
+    std::optional<long> previous;
     bool initial_show=false;
     for (int i=0;i<=count;++i) {
         const auto start=use_reference ? state.reffer[i].start_frame : state.commercial[i].start_frame;
         const auto end=use_reference ? state.reffer[i].end_frame : state.commercial[i].end_frame;
-        if (start<0 || end<start || start<=previous || start>=state.frame_count || end>state.frame_count)
+        if (start<0 || end<start || (previous && start<=*previous) || start>=state.frame_count || end>state.frame_count)
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_player_export_commercial_range);
         if (i==0) initial_show=start>5;
         append(i,previous,start,end); previous=end;
     }
-    if (count<0 || previous<state.frame_count-2) append(count+1,previous,state.frame_count-2,state.frame_count-1);
+    if (count<0 || !previous || *previous<state.frame_count-2) append(count+1,previous,state.frame_count-2,state.frame_count-1);
     const auto write=[&](const char* extension,auto serialize) {
         std::ostringstream contents; serialize(contents);
         const auto filename=state.outbasename+extension;
