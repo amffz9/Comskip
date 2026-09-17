@@ -32,6 +32,7 @@
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"
 #include "media/ffmpeg_resources.h"
+#include "media/input_position.h"
 #include "media/stalled_packet_counter.h"
 #include "media/video_timestamp.h"
 #include "output/media_dump.h"
@@ -181,14 +182,24 @@ nextpacket:
             if (ret>=0 && context.state.video_owner->seek_req)
             {
                 double packet_time = (packet->pts - (context.state.video_owner->video_st->start_time != AV_NOPTS_VALUE ? context.state.video_owner->video_st->start_time : 0)) * av_q2d(context.state.video_owner->video_st->time_base);
+                const auto byte_input_size = comskip::media::input_size(
+                    context.state.video_owner->pFormatCtx.get(), [](AVIOContext* input) {
+                        return avio_size(input);
+                    });
                 if (packet->pts==AV_NOPTS_VALUE || packet->pts == 0 )
                 {
                     av_packet_unref(packet);
                     goto nextpacket;
                 }
-                if (context.state.video_owner->seek_req < 6 && (context.state.video_owner->seek_flags & AVSEEK_FLAG_BYTE) &&  context.state.video_owner->duration > 0 && fabs(packet_time - (context.state.video_owner->seek_pts - 2.5) ) < context.state.video_owner->duration / (10 * context.state.video_owner->seek_req))
+                if (context.state.video_owner->seek_req < 6 &&
+                    (context.state.video_owner->seek_flags & AVSEEK_FLAG_BYTE) &&
+                    context.state.video_owner->duration > 0 && byte_input_size && *byte_input_size > 0 &&
+                    fabs(packet_time - (context.state.video_owner->seek_pts - 2.5)) <
+                        context.state.video_owner->duration / (10 * context.state.video_owner->seek_req))
                 {
-                    context.state.video_owner->seek_pos += ((context.state.video_owner->seek_pts - 2.5 - packet_time) / context.state.video_owner->duration ) * avio_size(context.state.video_owner->pFormatCtx->pb) * 0.9;
+                    context.state.video_owner->seek_pos +=
+                        ((context.state.video_owner->seek_pts - 2.5 - packet_time) /
+                            context.state.video_owner->duration) * *byte_input_size * 0.9;
                     context.state.video_owner->seek_req++;
                     goto again;
                 }

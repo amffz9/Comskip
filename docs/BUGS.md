@@ -1349,14 +1349,16 @@ before calling FFmpeg seek APIs.
 
 ### B109: Byte seeking dereferences an optional FFmpeg I/O context
 
-- **Evidence:** `Set_seek` called `avio_size(is->pFormatCtx->pb)` whenever it
-  selected byte seeking. FFmpeg permits a valid format context without an
+- **Evidence:** Byte-seek setup and the decode retry correction called
+  `avio_size(is->pFormatCtx->pb)` without first establishing that FFmpeg had
+  supplied an I/O context. FFmpeg permits a valid format context without an
   `AVIOContext`, including custom and non-seekable inputs.
 - **Impact:** Falling back from a failed timestamp seek, or directly seeking by
   bytes, could crash instead of reporting that a byte position is unavailable.
 - **Status:** Fixed. The FFmpeg boundary now exposes input size as an optional
-  value. Byte seeking rejects missing I/O state through its existing range
-  diagnostic before calling FFmpeg.
+  value. Byte-seek setup rejects missing I/O state through its existing range
+  diagnostic before calling FFmpeg, and decode retry skips byte correction
+  when the optional size is unavailable or invalid.
 - **Verification:** Focused tests cover format contexts with and without I/O
   state, plus the byte-seek failure path. Windows passes **501/501** headless
   and **509/509** SDL tests. Linux remains deferred to the final stage.
