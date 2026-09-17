@@ -1287,7 +1287,7 @@ void SetARofBlocks(RecordingContext& context)
         sumAR = 0.0;
         frameCount = 0; // To prevent divide by zero error
         for (j = context.state.cblock[i].f_start + context.state.cblock[i].b_head;
-                j < context.state.cblock[i].f_end - (int) context.state.cblock[i].b_tail; j++)
+                j < context.state.cblock[i].f_end - static_cast<int>(context.state.cblock[i].b_tail); j++)
         {
             if ( k < context.state.ar_block_count && j >= context.state.ar_block[k].end )
                 k++;

@@ -878,7 +878,7 @@ void CleanLogoBlocks(RecordingContext& context)
     /*
         for (i = 0; i < block_count; i++) {
 
-            if (comskip::detection::frame_duration(context, cblock[i].f_end, cblock[i].f_start) > (int) min_show_segment_length )
+            if (comskip::detection::frame_duration(context, cblock[i].f_end, cblock[i].f_start) > static_cast<int>(min_show_segment_length) )
             {
                 if (k != -1 && i > k+1)
                 {
