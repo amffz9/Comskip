@@ -1063,6 +1063,11 @@ than redefine completion around whichever subset currently passes tests.
   and detection-warning tests pass **17/17**; the complete Windows headless
   suite passes **523/523**.
 
+- FFmetadata chapter records now use a temporary RAII owner until ownership is
+  transferred to FFmpeg's output context. Focused sidecar/XML tests pass
+  **19/19**; the complete Windows headless and SDL suites pass **523/523** and
+  **531/531**.
+
 - Current-tip Windows SDL verification passes **531/531** with dummy video and
   audio drivers. The configured Windows sanitizer run reaches all **523** tests;
   **511** pass and **12** remain affected by the documented Clang exception-
