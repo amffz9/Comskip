@@ -1,6 +1,13 @@
 #include "../localization/diagnostic.h"
 #include "exit_requested.h"
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
+#include "detection/detection_methods.h"
+#include "detection/detector_runtime.h"
+#include "detection/frame_causes.h"
+#include "detection/frame_timestamps.h"
+#include "detection/logo_detection.h"
+#include "detection/storage.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -15,11 +22,18 @@
 #include <format>
 #include <utility>
 
-static_assert(MAXCSLENGTH == comskip::detection::maximum_cutscene_pixels);
-
 namespace {
 
 inline constexpr int own_histogram_height = 256;
+inline constexpr int uniform_scale = 100;
+inline constexpr int maximum_aspect_ratios = 1000;
+inline constexpr double undefined_aspect_ratio = 0.0;
+inline constexpr double aspect_ratio_trend = 0.8;
+
+[[nodiscard]] constexpr int cause_flag(comskip::detection::FrameCause value) noexcept
+{
+    return comskip::detection::cause_value(value);
+}
 
 template <typename... Args>
 void SceneDebug(RecordingContext& context, int level, const char* key, Args&&... args)
@@ -61,7 +75,7 @@ void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, 
     context.state.last_ar_ratio = ceil(context.state.last_ar_ratio * context.state.ar_rounding) / context.state.ar_rounding;
     context.state.ar_ratio_trend = context.state.last_ar_ratio;
     if (context.state.last_ar_ratio < 0.5 || context.state.last_ar_ratio > 3.0)
-        context.state.last_ar_ratio = AR_UNDEF;
+        context.state.last_ar_ratio = undefined_aspect_ratio;
 //	lastAR = (last_ar_ratio <= ar_split);
     context.state.ar_ratio_start = context.state.framenum_real;
     context.state.ar_block[context.state.ar_block_count].start = context.state.framenum_real;
@@ -111,10 +125,10 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
         cur_ar_ratio = (double)(pictureWidth) / (double)pictureHeight;
         cur_ar_ratio = ceil(cur_ar_ratio * context.state.ar_rounding) / context.state.ar_rounding;
         if (cur_ar_ratio > 3.0 || cur_ar_ratio < 0.5)
-            cur_ar_ratio = AR_UNDEF;
+            cur_ar_ratio = undefined_aspect_ratio;
 
         hi = (int)((cur_ar_ratio - 0.5)*100);
-        if (hi >= 0 && hi < MAX_ASPECT_RATIOS)
+        if (hi >= 0 && hi < maximum_aspect_ratios)
         {
             context.state.ar_histogram[hi].frames += 1;
             context.state.ar_histogram[hi].ar_ratio = cur_ar_ratio;
@@ -127,12 +141,13 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
             {
                 // Same ratio as previous trend
                 context.state.ar_ratio_trend_counter++;
-                if (context.state.ar_ratio_trend_counter / context.settings.fps > AR_TREND)
+                if (context.state.ar_ratio_trend_counter / context.settings.fps > aspect_ratio_trend)
                 {
                     context.state.last_ar_ratio = context.state.ar_ratio_trend;
                     context.state.ar_ratio_trend_counter = 0;
                     context.state.ar_misratio_trend_counter = 0;
-                    if (context.settings.commDetectMethod & AR)
+                    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                                           comskip::detection::DetectionMethod::aspect_ratio))
                     {
 
                         context.state.ar_block[context.state.ar_block_count].end = context.state.ar_ratio_start-1;
@@ -200,10 +215,11 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
 
         } else {
     */
-    if (context.state.ar_misratio_trend_counter > 3*context.settings.fps && context.state.last_ar_ratio != AR_UNDEF)
+    if (context.state.ar_misratio_trend_counter > 3*context.settings.fps && context.state.last_ar_ratio != undefined_aspect_ratio)
     {
-        context.state.last_ar_ratio = context.state.ar_ratio_trend = AR_UNDEF;
-        if (context.settings.commDetectMethod & AR)
+        context.state.last_ar_ratio = context.state.ar_ratio_trend = undefined_aspect_ratio;
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                                comskip::detection::DetectionMethod::aspect_ratio))
         {
             context.state.ar_block[context.state.ar_block_count].end = context.state.framenum_real - 3*(int)context.settings.fps -1;
             context.state.ar_block_count++;
@@ -265,7 +281,7 @@ int MatchCutScene(RecordingContext& context, unsigned char *cutscene)
     {
         for (x = context.settings.border; x < (context.state.videowidth - context.settings.border); x += step)
         {
-            if (c < MAXCSLENGTH)
+            if (c < comskip::detection::maximum_cutscene_pixels)
             {
                 d = (int)context.state.frame_ptr[y * context.state.width + x] - (int)(cutscene[c]);
                 if (d > context.settings.edge_level_threshold || d < -context.settings.edge_level_threshold)
@@ -361,7 +377,7 @@ void ScanBottom(RecordingContext& context, intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
     brightCount = 0;
-    max_delta =  min(context.state.videowidth,context.state.height)/2 - context.settings.border;
+    max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     delta = 0;
     while (delta < max_delta)
     {
@@ -399,13 +415,13 @@ void ScanTop(RecordingContext& context, intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
 
-    max_delta =  min(context.state.videowidth,context.state.height)/2 - context.settings.border;
+    max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     brightCount = 0;
     delta = 0;
     while (delta < max_delta)
     {
         x = context.settings.border + delta;
-        y = min(context.state.height - 1, context.state.height - context.settings.border - delta);
+        y = std::min(context.state.height - 1, context.state.height - context.settings.border - delta);
         i = y * context.state.width + x;
         i_max = y * context.state.width + context.state.videowidth - context.settings.border - delta;
         i_step = context.state.scan_step;
@@ -438,7 +454,7 @@ void ScanLeft(RecordingContext& context, intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
 
-    max_delta =  min(context.state.videowidth,context.state.height)/2 - context.settings.border;
+    max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     brightCount = 0;
     delta = 0;
     while (delta < max_delta)
@@ -477,12 +493,12 @@ void ScanRight(RecordingContext& context, intptr_t arg)
     int		brightCount;
     int     w = (int) arg;
 
-    max_delta =  min(context.state.videowidth,context.state.height)/2 - context.settings.border;
+    max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     brightCount = 0;
     delta = 0;
     while (delta < max_delta)
     {
-        x = min(context.state.videowidth - 1, context.state.videowidth - context.settings.border - delta);
+        x = std::min(context.state.videowidth - 1, context.state.videowidth - context.settings.border - delta);
         y = context.settings.border + delta;
         i = y * context.state.width + x;
         i_step = context.state.scan_step * context.state.width;
@@ -547,7 +563,8 @@ void DetectCredits(RecordingContext& context, int frame_count)
 
 bool CheckSceneHasChanged(RecordingContext& context)
 {
-    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0 || context.state.logoInfoAvailable);
+    context.state.ensure_pixel_buffers(comskip::detection::method_enabled(
+        context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) || context.state.logoInfoAvailable);
     int		i;
     int		x;
     int		step;
@@ -626,7 +643,8 @@ bool CheckSceneHasChanged(RecordingContext& context)
         context.state.last_brightness = context.state.brightness;
 
 
-        if (context.settings.commDetectMethod & AR)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                                comskip::detection::DetectionMethod::aspect_ratio))
         {
             ProcessARInfoInit(context, context.state.minY, context.state.maxY, context.state.minX, context.state.maxX);
             if (context.state.framearray) context.state.frame[context.state.frame_count].ar_ratio = context.state.last_ar_ratio;
@@ -643,7 +661,8 @@ bool CheckSceneHasChanged(RecordingContext& context)
             context.state.frame[context.state.frame_count].schange_percent = 0;
         }
 
-        if (context.settings.commDetectMethod & SCENE_CHANGE)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                                comskip::detection::DetectionMethod::scene_change))
         {
             InitializeSchangeArray(context, 0);
             context.state.schange[0].frame = 0;
@@ -765,7 +784,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
     */
     if (context.state.framearray) context.state.frame[context.state.frame_count].brightness = context.state.brightness;
     context.state.brightHistogram[std::clamp(context.state.brightness, 0, 255)]++;
-    context.state.uniformHistogram[std::clamp(uniform / UNIFORMSCALE, 0, 255)]++;
+    context.state.uniformHistogram[std::clamp(uniform / uniform_scale, 0, 255)]++;
     if ((dimCount > (int)(.05 * context.state.width * context.state.height)) && (dimCount < (int)(.35 * context.state.width * context.state.height))) isDim = true;
 
     context.state.sceneChangePercent = (int)(100.0 * similar / pixels);
@@ -781,32 +800,33 @@ bool CheckSceneHasChanged(RecordingContext& context)
 //		InsertBlackFrame(framenum_real,brightness,uniform,curvolume,cause;
 
     cause = 0;
-    if (context.settings.commDetectMethod & BLACK_FRAME)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                            comskip::detection::DetectionMethod::black_frame))
     {
         if ((context.state.brightness <= context.settings.max_avg_brightness) &&
             hasBright <= comskip::detection::scaled_bright_pixel_limit(context.settings.maxbright,
                 context.state.width,context.state.height) && !isDim)
         {
-            cause |= C_b;
+            cause |= cause_flag(comskip::detection::FrameCause::black);
             SceneDebug(context, 7, "scene_black_frame", std::format("{:6}", context.state.framenum_real),
                        std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
                        context.state.brightness, uniform,
-                       context.state.black[MAX(0, context.state.black_count - 1)].volume);
+                       context.state.black[std::max(0L, context.state.black_count - 1)].volume);
         }
         else if (context.settings.non_uniformity > 0)
         {
 //????
             if ((context.state.brightness <= context.settings.max_avg_brightness) && uniform < context.settings.non_uniformity )
             {
-                cause |= C_u;
+                cause |= cause_flag(comskip::detection::FrameCause::non_uniform);
                 SceneDebug(context, 7, "scene_black_frame", std::format("{:6}", context.state.framenum_real),
                            std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
                            context.state.brightness, uniform,
-                           context.state.black[MAX(0, context.state.black_count - 1)].volume);
+                           context.state.black[std::max(0L, context.state.black_count - 1)].volume);
             }
             if (context.state.brightness > context.settings.max_avg_brightness && uniform < context.settings.non_uniformity && context.state.brightness < 250 )
             {
-                cause |= C_u;
+                cause |= cause_flag(comskip::detection::FrameCause::non_uniform);
                 SceneDebug(context, 7, "scene_uniform_frame", std::format("{:6}", context.state.framenum_real),
                            std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
                            context.state.brightness, uniform);
@@ -818,7 +838,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
     {
         if ((context.state.old_width != 0 && context.state.width != context.state.old_width) || (context.state.old_height != 0 && context.state.height != context.state.old_height))
         {
-            cause |= C_r;
+            cause |= cause_flag(comskip::detection::FrameCause::resolution_change);
             SceneDebug(context, 7, "scene_resolution_change", std::format("{:6}", context.state.framenum_real),
                        std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
                        context.state.old_width, context.state.old_height,
@@ -838,10 +858,11 @@ bool CheckSceneHasChanged(RecordingContext& context)
             Debug(7, "Frame %6i - Black frame because large brightness change from %i to %i with uniform %i\n", framenum_real, last_brightness, brightness, uniform);
         } // else
     */
-    if (context.settings.commDetectMethod & SCENE_CHANGE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                            comskip::detection::DetectionMethod::scene_change))
     {
 
-        if (!(context.state.frame[context.state.frame_count-1].isblack & C_b) && !(cause & C_b))
+        if (!(context.state.frame[context.state.frame_count-1].isblack & cause_flag(comskip::detection::FrameCause::black)) && !(cause & cause_flag(comskip::detection::FrameCause::black)))
         {
             if (abs(context.state.frame[context.state.frame_count-1].brightness - context.state.last_brightness) > context.settings.brightness_jump)
             {
@@ -849,7 +870,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
                            std::format("{:6}", context.state.framenum_real),
                            std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
                            context.state.last_brightness, context.state.brightness, uniform);
-                cause |= C_s;
+                cause |= cause_flag(comskip::detection::FrameCause::scene_change);
             }
             else if (/* sceneChangePercent */ context.state.frame[context.state.frame_count-1].schange_percent < context.state.schange_cutlevel)
             {
@@ -858,7 +879,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
                            std::format("{:.3f}", get_frame_pts(context, context.state.framenum_real)),
                            context.state.sceneChangePercent, uniform);
 
-                cause |= C_s;
+                cause |= cause_flag(comskip::detection::FrameCause::scene_change);
             }
         }
 
@@ -894,7 +915,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
                 sceneChangePercent,
                 brightness
                 );
-                cause |= C_s;
+                cause |= cause_flag(comskip::detection::FrameCause::scene_change);
                 }
         */
 
@@ -931,7 +952,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
                     if (context.state.frame[context.state.frame_count].cutscenematch > context.state.cutscenematch*100/context.state.cslength[i])
                         context.state.frame[context.state.frame_count].cutscenematch = context.state.cutscenematch*100/context.state.cslength[i];
                     if (context.state.frame[context.state.frame_count].cutscenematch < context.settings.cutscenedelta)
-                        cause |= C_t;
+                        cause |= cause_flag(comskip::detection::FrameCause::cutscene);
                 }
             }
         }
@@ -942,15 +963,16 @@ bool CheckSceneHasChanged(RecordingContext& context)
 //    if (frame[frame_count].cutscenematch < cutscenedelta)
 //        cause |= C_t;
 
-    if (context.settings.commDetectMethod & SILENCE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                            comskip::detection::DetectionMethod::silence))
     {
         if (0 <= context.state.frame[context.state.frame_count].volume && context.state.frame[context.state.frame_count].volume < context.settings.max_silence && context.settings.min_silence == 1)
         {
-            cause |= C_v;
+            cause |= cause_flag(comskip::detection::FrameCause::silence);
         }
         if (0 == context.state.frame[context.state.frame_count].volume)
         {
-            cause |= C_v;
+            cause |= cause_flag(comskip::detection::FrameCause::silence);
         }
     }
 
