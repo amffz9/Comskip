@@ -669,11 +669,11 @@ void WeighBlocks(RecordingContext& context)
         // if length < min_show_segment_length, score = 150%
         if (context.state.cblock[i].length < min_show_segment_length && context.state.cblock[i].logo < 0.2 ))
         {
-            Debug(2, "Block %i is shorter then minimum show segment.\n", i);
-            Debug(3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+            scoring_debug(context, 2, "scoring_shorter_than_minimum_show_segment", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= 1.5;
             context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-            Debug(3, "After - %.2f\n", context.state.cblock[i].score);
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
         }
 
 #endif
@@ -681,11 +681,11 @@ void WeighBlocks(RecordingContext& context)
         if (framearray && context.state.cblock[i].length < max_commercialbreak &&
                     context.state.cblock[i].brightness < avg_brightness)
         {
-            Debug(2, "Block %i is short but has low brightness.\n", i);
-            Debug(3, "Block %i score:\tBefore - %.2f\t", i, context.state.cblock[i].score);
+            scoring_debug(context, 2, "scoring_short_low_brightness", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
             context.state.cblock[i].score *= dark_block_modifier;
             context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-            Debug(3, "After - %.2f\n", context.state.cblock[i].score);
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
         }
 #endif
         // if length > max_commercial_size * fps, score = 10%

@@ -1,5 +1,7 @@
 #include "exit_requested.h"
 #include "legacy_detection.h"
+#include "localization/diagnostic.h"
+#include <format>
 #include <limits>
 
 double get_fps(RecordingContext& context)
@@ -21,23 +23,23 @@ void set_fps(RecordingContext& context, double fp)
             fps = new_fps;
             if (fps != old_fps)
                 showed_fps=0.0;
-            Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
+            Debug(context, 1, "%s", context.translator.format("media_frame_rate_set", std::format("{:5.3f}", fps)).c_str());
             if (ticks > 1)
-                Debug(1, "Repeats per frame = %d\n", ticks);
+                Debug(context, 1, "%s", context.translator.format("media_repeats_per_frame", ticks).c_str());
             if ((fabs(fps - dfps) > 0.1)) {
-                Debug(1, "DFps[%d]= %5.3f f/s\n", ticks, dfps);
+                Debug(context, 1, "%s", context.translator.format("media_dfps", ticks, std::format("{:5.3f}", dfps)).c_str());
             }
             if (fabs(fps - rfps) > 0.1) {
-                Debug(1, "RFps[%d]= %5.3f f/s\n", ticks, rfps);
+                Debug(context, 1, "%s", context.translator.format("media_rfps", ticks, std::format("{:5.3f}", rfps)).c_str());
             }
             if (fabs(fps - afps) > 0.1) {
-                Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
+                Debug(context, 1, "%s", context.translator.format("media_afps", ticks, std::format("{:5.3f}", afps)).c_str());
             }
 #endif
             if ( new_fps > 9.0 && new_fps < 150 && fabs(new_fps - context.settings.fps) > 1. )
             {
                 context.settings.fps = new_fps;
-                Debug(context, 1, "Frame Rate set to %5.3f f/s\n", context.settings.fps);
+                Debug(context, 1, "%s", context.translator.format("media_frame_rate_set", std::format("{:5.3f}", context.settings.fps)).c_str());
  //               if (/* old_fps != fps && */ showed_fps < 4)
 //                    Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
             }

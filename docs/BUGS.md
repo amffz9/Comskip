@@ -1221,20 +1221,21 @@ before calling FFmpeg seek APIs.
 
 ### B101: Black-frame validation can inspect one element past the active range
 
-- **Evidence:** The contiguous-run loop in `ValidateBlackFrames` allows
-  `k == black_count - 1` and then evaluates `black[k + 1]`. The allocation may
+- **Evidence:** Both contiguous-run loops in `ValidateBlackFrames` allowed
+  `k == black_count - 1` and then evaluated `black[k + 1]`. The allocation may
   currently contain spare capacity, but that slot is outside the active
   black-frame range and its contents do not describe a valid observation.
 - **Impact:** Validation can consume stale/default state when the last active
   black frame starts or extends a run, producing an incorrect run boundary and
   potentially reading outside allocated storage when capacity is exact.
 - **Status:** Fixed. Contiguous-run discovery now receives a span containing
-  exactly the active black-frame observations and checks the successor index
-  before reading it.
+  exactly the active black-frame observations, and both loops check the
+  successor index before reading it.
 - **Verification:** Focused tests cover a contiguous poison record immediately
-  beyond the active span, ordinary run extension and an invalid starting index.
-  All **477/477** Windows headless and **485/485** SDL tests pass, and the
-  public non-donator application builds.
+  beyond the active span, ordinary run extension, an invalid starting index,
+  and exact-capacity active storage during block construction. Windows passes
+  **498/498** headless and **506/506** SDL tests, and the public non-donator
+  application builds.
 
 ### B102: C stream read failures can appear as ordinary text EOF
 

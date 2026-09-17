@@ -168,7 +168,7 @@ again:
         }
         else
         {
-            Debug(context, 10, "Warning, no stream frame rate, deriving from codec\n");
+            Debug(context, 10, "%s", context.translator.text("media_no_stream_frame_rate"));
             is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame );
         }
         set_fps(context,  1.0 / is->fps);

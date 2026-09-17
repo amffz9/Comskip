@@ -207,7 +207,8 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
     {
         total_cause = context.state.black[i].cause;
         k = i;
-        while (k < context.state.black_count && context.state.black[k+1].frame == context.state.black[k].frame+1)
+        while (k + 1 < context.state.black_count &&
+               context.state.black[k + 1].frame == context.state.black[k].frame + 1)
         {
             k++;
             total_cause |= context.state.black[k].cause;
@@ -436,10 +437,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                )
             {
 
-                Debug
-                (context,
-                    12,
-                    "%i - Removing black frame %i, from black frame list because volume %i is more than %i, brightness %i, uniform %i\n",
+                BlocksDebug(context, 12, "blocks_remove_loud_black_frame",
                     k,
                     context.state.black[k].frame,
                     context.state.black[k].volume,
@@ -469,10 +467,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         if ((context.state.black[k].cause & C_b) && context.state.black[k].brightness > context.settings.max_avg_brightness)
         {
 
-                        Debug
-                        (context,
-                        12,
-                        "%i - Removing black frame %i, from black frame list because %i is more than %i, uniform %i\n",
+            BlocksDebug(context, 12, "blocks_remove_bright_black_frame",
                         k,
                         context.state.black[k].frame,
                         context.state.black[k].brightness,
@@ -496,10 +491,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                 continue;
             if ((context.state.black[k].cause & C_u) && context.state.black[k].uniform > context.settings.non_uniformity)
             {
-                Debug
-                (context,
-                12,
-                "%i - Removing uniform frame %i, from black frame list because %i is more than %i, brightness %i\n",
+                BlocksDebug(context, 12, "blocks_remove_nonuniform_frame",
                 k,
                 context.state.black[k].frame,
                 context.state.black[k].uniform,
@@ -557,7 +549,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
 
     if (ValidateBlackFrames(context, C_b, 3.0, false) < 1 / 3.0)
-        Debug(context, 8, "Black Frame cutting too low\n");
+        BlocksDebug(context, 8, "blocks_black_frame_cutting_too_low");
 
     if (context.settings.validate_scenechange /* || (logoPercentage < logo_fraction || logoPercentage > logo_percentile) */)
         ValidateBlackFrames(context, C_s, ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.5), true);
@@ -592,7 +584,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 //		ValidateBlackFrames(C_a, 3.0, true);
 
 
-    Debug(context, 8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tpts\tbright\tuniform\tvolume\t\tcause\tdimcount  bright   type\n", context.state.black_count);
+    BlocksDebug(context, 8, "blocks_black_frame_list_heading", context.state.black_count);
     for (k = 0; k < context.state.black_count; k++)
     {
         Debug(context, 8, "%3i\t%6i\t%8.3f\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\t%c\n", k, context.state.black[k].frame, get_frame_pts(context, context.state.black[k].frame), context.state.black[k].brightness, context.state.black[k].uniform, context.state.black[k].volume,&(CauseString(context, context.state.black[k].cause)[10]), context.state.frame[context.state.black[k].frame].dimCount, context.state.frame[context.state.black[k].frame].hasBright, context.state.frame[context.state.black[k].frame].pict_type);
@@ -653,10 +645,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                      ((context.state.black[j].cause & (C_v)) == 0 &&  (cause & (C_v)) != 0)))
             {
 
-                Debug
-                (context,
-                    6,
-                    "At frame %i there is a gap of %i frames in the blackframe list\n",
+                BlocksDebug(context, 6, "blocks_black_frame_gap",
                     context.state.black[j].frame,
                     context.state.black[j].frame - b_end
                 );
@@ -724,7 +713,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
           )
         {
 
-                        Debug(context, 12, "Creating cblock %i From %i (%i) to %i (%i) because of %s with %i head and %i tail\n",
+            BlocksDebug(context, 12, "blocks_create_cblock",
                                 context.state.block_count, context.state.cblock[context.state.block_count].f_start, (context.state.cblock[context.state.block_count].f_start + context.state.cblock[context.state.block_count].b_head),
                                 context.state.cblock[context.state.block_count].f_end, (context.state.cblock[context.state.block_count].f_end - context.state.cblock[context.state.block_count].b_tail),
                                 CauseString(context, cause),
@@ -747,7 +736,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         if (bfcount < context.settings.min_black_frames_for_break && context.state.cblock[i-1].cause == C_b)
         {
 
-            Debug(context, 10, "Combining blocks %i and %i at %i because there are only %i black frames separating them.\n",
+            BlocksDebug(context, 10, "blocks_combine_blocks",
                   i-1, i, context.state.cblock[i-1].f_end , bfcount);
 
             context.state.cblock[i-1].f_end	= context.state.cblock[i].f_end;
@@ -787,7 +776,8 @@ void FindLogoThreshold(RecordingContext& context)
 
         OutputLogoHistogram(context, result->counts, result->denominator);
         context.state.logo_quality = result->quality;
-        Debug(context, 8, "Set Logo Quality = %.5f\n", context.state.logo_quality);
+        BlocksDebug(context, 8, "blocks_logo_quality",
+                    std::format("{:.5f}", context.state.logo_quality));
 
         /*
                 j = 0;
@@ -846,7 +836,7 @@ void CleanLogoBlocks(RecordingContext& context)
                     CheckFrameForLogo(context, context.state.cblock[i].f_start) )
             {
 
-                Debug(context, 6, "Joining blocks %i and %i at frame %i because they both have a logo.\n",
+                BlocksDebug(context, 6, "blocks_join_logo_blocks",
                       i-1, i, context.state.cblock[i-1].f_end);
 
                 context.state.cblock[i-1].f_end	= context.state.cblock[i].f_end;

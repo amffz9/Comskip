@@ -601,3 +601,34 @@ than redefine completion around whichever subset currently passes tests.
   down to **45** active sites. Windows passes **494/494** headless and
   **502/502** SDL tests, and the public non-donator application builds. Linux
   verification remains deferred to the final implementation stage.
+
+- Frame-rate adjustment and stream-rate fallback diagnostics now use the
+  English and Spanish catalogs. C++23 `std::format` preserves the established
+  three-decimal, five-character FPS field before translated templates arrange
+  the values. The reproducible literal-message inventory is down to **38**
+  active sites. Linux verification remains deferred to the final implementation
+  stage.
+
+- Remaining black-frame removal, reporting, block construction, merge and logo
+  diagnostics in `blocks.cpp` now use the English and Spanish catalogs. The
+  English catalog retains the existing tables, labels, numeric widths and
+  five-decimal logo quality by formatting the number at the C++23 call site.
+  Both contiguous black-frame loops now check that a successor observation is
+  active before reading it; a regression uses exact-capacity storage for the
+  final active observation. The reproducible literal-message inventory is down
+  to **28** active sites.
+
+- Legacy settings input, active-detector selection and settings-heading
+  diagnostics now use the English and Spanish catalogs. The English catalog
+  preserves tabs, line breaks, labels and method numbering. The reproducible
+  literal-message inventory is down to **17** active sites. Focused catalog
+  coverage asserts both the exact legacy English layout and Spanish output.
+
+- The retained scoring diagnostic branches now use the English and Spanish
+  catalogs, including the shared score-before and score-after entries. C++23
+  `std::format` keeps the established two-decimal score representation at the
+  call sites. The English catalog retains the original wording exactly. The
+  reproducible literal-message inventory is down to **1** call site: the
+  application error prefix. Windows passes **498/498** headless and
+  **506/506** SDL tests, and the public non-donator application builds. Linux
+  verification remains deferred to the final implementation stage.

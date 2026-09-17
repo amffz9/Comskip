@@ -719,19 +719,21 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
 
 
-    Debug(context, 9, "Mpeg:\t%s\nExe\t%s\nLogo:\t%s\nIni:\t%s\n", context.state.mpegfilename.c_str(), context.state.exefilename.c_str(), context.state.logofilename.c_str(), context.state.inifilename.c_str());
-    Debug(context, 1, "\nDetection Methods to be used:\n");
+    Debug(context, 9, "%s", translator.format("settings_input_files", context.state.mpegfilename,
+        context.state.exefilename, context.state.logofilename, context.state.inifilename).c_str());
+    Debug(context, 1, "%s", translator.text("settings_detection_methods"));
     i = 0;
     if (context.settings.commDetectMethod & BLACK_FRAME)
     {
         i++;
-        Debug(context, 1, "\t%i) Black Frame\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_black", i).c_str());
     }
 
     if (context.settings.commDetectMethod & LOGO)
     {
         i++;
-        Debug(context, 1, "\t%i) Logo - Give up after %i seconds\n", i, context.settings.giveUpOnLogoSearch);
+        Debug(context, 1, "%s", translator.format("settings_method_logo", i,
+            context.settings.giveUpOnLogoSearch).c_str());
     }
 
     if (context.settings.commDetectMethod & CUTSCENE)
@@ -742,38 +744,38 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (context.settings.commDetectMethod & SCENE_CHANGE)
     {
         i++;
-        Debug(context, 1, "\t%i) Scene Change\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_scene_change", i).c_str());
     }
 
     if (context.settings.commDetectMethod & RESOLUTION_CHANGE)
     {
         i++;
-        Debug(context, 1, "\t%i) Resolution Change\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_resolution_change", i).c_str());
     }
 
     if (context.settings.commDetectMethod & CC)
     {
         i++;
         context.state.processCC = true;
-        Debug(context, 1, "\t%i) Closed Captions\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_closed_captions", i).c_str());
     }
 
     if (context.settings.commDetectMethod & AR)
     {
         i++;
-        Debug(context, 1, "\t%i) Aspect Ratio\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_aspect_ratio", i).c_str());
     }
 
     if (context.settings.commDetectMethod & SILENCE)
     {
         i++;
-        Debug(context, 1, "\t%i) Silence\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_silence", i).c_str());
     }
 
     if (context.settings.commDetectMethod & CUTSCENE)
     {
         i++;
-        Debug(context, 1, "\t%i) CutScenes\n", i);
+        Debug(context, 1, "%s", translator.format("settings_method_cutscenes", i).c_str());
     }
 
 
@@ -797,7 +799,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         }
     }
 
-    Debug(context, 10, "\nSettings\n--------\n");
+    Debug(context, 10, "%s", translator.text("settings_heading"));
     Debug(context, 10, "%s\n", context.state.ini_text.c_str());
     context.state.out_filename = std::string(context.state.outbasename) + ".txt";
 

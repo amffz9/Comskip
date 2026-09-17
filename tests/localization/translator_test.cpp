@@ -95,6 +95,10 @@ TEST(Translator, FormatsScoringDiagnosticsInEnglishAndSpanish) {
               "Block 7 score:\tBefore - 1.25\t");
     EXPECT_EQ(spanish.format("scoring_score_before", "7", "1.25"),
               "Puntuación del bloque 7:\tAntes - 1.25\t");
+    EXPECT_EQ(english.format("scoring_shorter_than_minimum_show_segment", "7"),
+              "Block 7 is shorter then minimum show segment.\n");
+    EXPECT_EQ(spanish.format("scoring_short_low_brightness", "7"),
+              "El bloque 7 es corto pero tiene poco brillo.\n");
     EXPECT_EQ(english.format("scoring_combined_strict_length", "2", "4", "30.00", "0.125000"),
               "Combining blocks 2 through 4 results in strict standard commercial length of 30.00 with a tolerance of 0.125000.\n");
     EXPECT_EQ(spanish.format("scoring_ar_differs", "3", "1.33", "1.78"),
@@ -231,6 +235,22 @@ TEST(Translator, FormatsBlockValidationAndThresholdDiagnostics) {
     EXPECT_EQ(spanish.format("blocks_single_missing_audio_frames", "3"),
               "Fotogramas aislados sin audio: 3\n");
 }
+TEST(Translator, FormatsBlackFrameBlockDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("blocks_remove_loud_black_frame", 2, 42, 19, 15, 3, 4),
+              "2 - Removing black frame 42, from black frame list because volume 19 is more than 15, brightness 3, uniform 4\n");
+    EXPECT_EQ(english.format("blocks_black_frame_list_heading", 7),
+              "Black Frame List\n---------------------------\nBlack Frame Count = 7\nnr \tframe\tpts\tbright\tuniform\tvolume\t\tcause\tdimcount  bright   type\n");
+    EXPECT_EQ(english.format("blocks_create_cblock", 1, 10, 12, 30, 28, "black frame", 2, 2),
+              "Creating cblock 1 From 10 (12) to 30 (28) because of black frame with 2 head and 2 tail\n");
+    EXPECT_EQ(english.format("blocks_logo_quality", std::format("{:.5f}", 0.125)),
+              "Set Logo Quality = 0.12500\n");
+    EXPECT_EQ(spanish.format("blocks_combine_blocks", 2, 3, 120, 4),
+              "Se combinan los bloques 2 y 3 en 120 porque solo los separan 4 fotogramas negros.\n");
+    EXPECT_EQ(spanish.format("blocks_join_logo_blocks", 2, 3, 120),
+              "Se unen los bloques 2 y 3 en el fotograma 120 porque ambos tienen un logotipo.\n");
+}
 TEST(Translator, FormatsDetectorStorageGrowthDiagnostics) {
     const Translator english;
     const Translator spanish("es");
@@ -276,6 +296,15 @@ TEST(Translator, FormatsVideoDecoderDiagnosticsWithStableEnglishLayout) {
     EXPECT_STREQ(spanish.text("media_selftest_reopen_ok"),
                  "\nAutoprueba 3 CORRECTA: reapertura\n");
 }
+TEST(Translator, FormatsFrameTimingAndRecordingInputDiagnostics) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("media_frame_rate_set", "29.970"), "Frame Rate set to 29.970 f/s\n");
+    EXPECT_EQ(english.format("media_dfps", 2, "59.940"), "DFps[2]= 59.940 f/s\n");
+    EXPECT_EQ(spanish.format("media_repeats_per_frame", 2), "Repeticiones por fotograma = 2\n");
+    EXPECT_STREQ(spanish.text("media_no_stream_frame_rate"),
+                 "Advertencia: no hay frecuencia de fotogramas en el flujo; se deriva del códec\n");
+}
 TEST(Translator, FormatsAudioAnalysisDiagnosticsWithStableEnglishLayout) {
     const Translator english;
     const Translator spanish("es");
@@ -307,4 +336,19 @@ TEST(Translator, FormatsSceneAnalysisDiagnosticsWithStableEnglishLayout) {
               "Error: brillo actual no válido 256 >= 256");
     EXPECT_EQ(spanish.format("scene_large_scene_change", "    42", "1.250", 12, 34),
               "Fotograma     42 (1.250s) - Fotograma negro por cambio grande de escena de 12, uniformidad 34\n");
+}
+
+TEST(Translator, FormatsLegacySettingsDiagnosticsWithStableEnglishLayout) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("settings_input_files", "sample.mpg", "comskip.exe", "sample.logo", "sample.ini"),
+              "Mpeg:\tsample.mpg\nExe\tcomskip.exe\nLogo:\tsample.logo\nIni:\tsample.ini\n");
+    EXPECT_STREQ(english.text("settings_detection_methods"), "\nDetection Methods to be used:\n");
+    EXPECT_EQ(english.format("settings_method_logo", 2, 60), "\t2) Logo - Give up after 60 seconds\n");
+    EXPECT_EQ(english.format("settings_method_closed_captions", 5), "\t5) Closed Captions\n");
+    EXPECT_STREQ(english.text("settings_heading"), "\nSettings\n--------\n");
+    EXPECT_EQ(spanish.format("settings_input_files", "sample.mpg", "comskip.exe", "sample.logo", "sample.ini"),
+              "Mpeg:\tsample.mpg\nExe\tcomskip.exe\nLogotipo:\tsample.logo\nINI:\tsample.ini\n");
+    EXPECT_EQ(spanish.format("settings_method_logo", 2, 60), "\t2) Logotipo - abandonar después de 60 segundos\n");
+    EXPECT_STREQ(spanish.text("settings_heading"), "\nConfiguración\n-------------\n");
 }

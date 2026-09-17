@@ -83,6 +83,18 @@ TEST(DetectionBlocks, BlackBoundaryMergingPreservesInitializedTerminal) {
     terminal(*context);
 }
 
+TEST(DetectionBlocks, ValidationDoesNotReadPastTheLastActiveBlackFrame) {
+    auto context = observations(2);
+    context->state.black.resize(context->state.black_count);
+    context->state.black.shrink_to_fit();
+    ASSERT_EQ(context->state.black.size(), 2u);
+    ASSERT_EQ(context->state.black_count, 2);
+
+    ASSERT_TRUE(BuildBlocks(*context, true));
+    EXPECT_GT(context->state.block_count, 0);
+    terminal(*context);
+}
+
 TEST(DetectionBlocks, InitializationClearsPreviousClassificationAndResetPreservesContract) {
     auto context = observations(2);
     ASSERT_TRUE(BuildBlocks(*context, true));
