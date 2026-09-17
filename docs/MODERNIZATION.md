@@ -1071,5 +1071,10 @@ than redefine completion around whichever subset currently passes tests.
 - Current-tip Windows SDL verification passes **531/531** with dummy video and
   audio drivers. The configured Windows sanitizer run reaches all **523** tests;
   **511** pass and **12** remain affected by the documented Clang exception-
-  unwinding/runtime limitation in B118. Linux verification still requires a
-  usable Linux runner; macOS remains deferred.
+  unwinding/runtime limitation in B118. WSL2 Linux verification now passes
+  **518/518** headless tests and **526/526** SDL tests with GCC 14. The Linux
+  GCC build also caught and fixed two implicit `std::array` formatting
+  conversions and two platform-specific test assumptions. The Linux sanitizer
+  suite initially exposed the caption diagnostic indexing bug documented in
+  B119; after the fix it passes **518/518** with AddressSanitizer and
+  UndefinedBehaviorSanitizer enabled. macOS remains deferred.

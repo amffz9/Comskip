@@ -1502,3 +1502,17 @@ before calling FFmpeg seek APIs.
   application diagnostics. Keep the noninteractive `ASAN_OPTIONS`/`UBSAN_OPTIONS`
   recipe and preserve the generated sanitizer logs for a future runtime or
   instrumented-FFmpeg investigation.
+
+### B119: Caption block diagnostics indexed before the first block
+
+- **Evidence:** `OutputCCBlock(context, 0)` attempted to read
+  `cc_block[i - 1]` while formatting the first block. Linux AddressSanitizer
+  reported a heap-buffer-overflow in `captions.cpp` during
+  `CaptionPackets.FirstBlockDiagnosticDoesNotReadBeforeOwnedStorage`.
+- **Impact:** Enabling verbose caption diagnostics for the first caption block
+  could read before the owned block storage and abort under sanitizers.
+- **Status:** Fixed. The diagnostic now validates the requested index, emits
+  the previous block only when one exists, and uses the matching block type for
+  each line.
+- **Verification:** The focused sanitizer regression passes, and the complete
+  Linux GCC sanitizer suite passes **518/518** after the fix.
