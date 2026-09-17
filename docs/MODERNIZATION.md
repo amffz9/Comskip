@@ -889,6 +889,12 @@ than redefine completion around whichever subset currently passes tests.
   only the narrow C compatibility bridge retains C strings. Focused settings,
   diagnostics, and cutlist coverage passes **23/23**.
 
+- Media packet processing, seeking, audio analysis, and file opening now use
+  references wherever `VideoState` ownership is guaranteed. The picture decode
+  interface no longer carries an unused file handle, and the EDL/file-stream
+  adapters require valid non-null `FILE` references at their boundaries.
+  The complete Windows CTest target passes **523/523**.
+
 - Caption transcript rows now use English/Spanish catalog entries while
   preserving their fixed-width machine-readable layout. Localization and
   detection coverage passes **40/40**.
