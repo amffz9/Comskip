@@ -961,3 +961,8 @@ than redefine completion around whichever subset currently passes tests.
   selections with `std::optional<int>`. FFmpeg calls unwrap an explicitly
   selected stream only at the API boundary, removing the shared `-1` stream
   sentinel. The complete Windows suite passes **523/523**.
+
+- The transient decoded-pixel view and logo-ring cursor now use `std::span` and
+  `std::optional<int>` respectively. Empty views and uninitialized ring state
+  are explicit, while the existing borrowed FFmpeg frame lifetime is retained.
+  The complete Windows suite passes **523/523**.

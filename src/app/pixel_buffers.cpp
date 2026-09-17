@@ -32,7 +32,7 @@ void RecordingState::ensure_pixel_buffers(bool use_logo)
         logoFrameNum.clear();
         logoFrameBufferSize = 0;
         lwidth = lheight = 0;
-        newestLogoBuffer = -1;
+        newestLogoBuffer.reset();
         oldestLogoBuffer = 0;
         logoBuffersFull = false;
         edgemask_filled = 0;

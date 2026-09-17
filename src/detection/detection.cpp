@@ -175,7 +175,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
 //				secondLogoSearch = true;
                 context.state.logoBuffersFull = false;
                 InitLogoBuffers(context);
-                context.state.newestLogoBuffer = -1;
+                context.state.newestLogoBuffer.reset();
             }
             if (context.settings.startOverAfterLogoInfoAvail && !context.state.loadingCSV && !context.state.secondLogoSearch && context.state.logo_block_count > 0 &&
                     !context.state.lastLogoTest &&
@@ -192,7 +192,7 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
                 context.state.secondLogoSearch = true;
                 context.state.logoBuffersFull = false;
                 InitLogoBuffers(context);
-                context.state.newestLogoBuffer = -1;
+                context.state.newestLogoBuffer.reset();
             }
         }
     }

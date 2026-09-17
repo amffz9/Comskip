@@ -1011,8 +1011,8 @@ void ResetLogoBuffers(RecordingContext& context)
 {
     context.state.newestLogoBuffer = context.state.oldestLogoBuffer = 0;
     if (!context.state.logoFrameNum.empty()) {
-        if (context.state.newestLogoBuffer == context.settings.num_logo_buffers) context.state.newestLogoBuffer = 0; // rotates buffer
-        context.state.logoFrameNum[context.state.newestLogoBuffer] = context.state.framenum_real;
+        if (*context.state.newestLogoBuffer == context.settings.num_logo_buffers) *context.state.newestLogoBuffer = 0; // rotates buffer
+        context.state.logoFrameNum[*context.state.newestLogoBuffer] = context.state.framenum_real;
         context.state.oldestLogoBuffer = 0;
     /*
          for (i = 0; i < num_logo_buffers; i++) {
@@ -1031,9 +1031,13 @@ void ResetLogoBuffers(RecordingContext& context)
 void FillLogoBuffer(RecordingContext& context)
 {
     int i;
-    context.state.newestLogoBuffer++;
-    if (context.state.newestLogoBuffer == context.settings.num_logo_buffers) context.state.newestLogoBuffer = 0; // rotates buffer
-    context.state.logoFrameNum[context.state.newestLogoBuffer] = context.state.framenum_real;
+    if (context.state.newestLogoBuffer) {
+        ++*context.state.newestLogoBuffer;
+        if (*context.state.newestLogoBuffer == context.settings.num_logo_buffers) *context.state.newestLogoBuffer = 0; // rotates buffer
+    } else {
+        context.state.newestLogoBuffer = 0;
+    }
+    context.state.logoFrameNum[*context.state.newestLogoBuffer] = context.state.framenum_real;
     context.state.oldestLogoBuffer = 0;
     for (i = 0; i < context.settings.num_logo_buffers; i++)
     {
@@ -1044,7 +1048,7 @@ void FillLogoBuffer(RecordingContext& context)
         static_cast<std::size_t>(context.state.logoFrameBufferSize),
         static_cast<std::size_t>(context.state.width) * context.state.height * sizeof(context.state.frame_ptr[0])));
     std::copy_n(context.state.frame_ptr.begin(), i,
-        context.state.logoFrameBuffer[context.state.newestLogoBuffer].begin());
+        context.state.logoFrameBuffer[*context.state.newestLogoBuffer].begin());
 
 //	for (y = 0; y < height; y++) {
 //		for (x = 0; x < width; x++) {
@@ -1052,8 +1056,8 @@ void FillLogoBuffer(RecordingContext& context)
 //		}
 //	}
 
-    EdgeDetect(context, context.state.logoFrameBuffer[context.state.newestLogoBuffer], context.state.newestLogoBuffer);
-    if ((!context.state.logoBuffersFull) && (context.state.newestLogoBuffer == context.settings.num_logo_buffers - 1)) context.state.logoBuffersFull = true;
+    EdgeDetect(context, context.state.logoFrameBuffer[*context.state.newestLogoBuffer], *context.state.newestLogoBuffer);
+    if ((!context.state.logoBuffersFull) && (*context.state.newestLogoBuffer == context.settings.num_logo_buffers - 1)) context.state.logoBuffersFull = true;
 }
 
 bool SearchForLogoEdges(RecordingContext& context)
@@ -1264,7 +1268,7 @@ bool SearchForLogoEdges(RecordingContext& context)
     {
         LogoDebug(context, 3, "logo_double_check_frames",
             std::format("{}", context.state.logoFrameNum[context.state.oldestLogoBuffer]),
-            std::format("{}", context.state.logoFrameNum[context.state.newestLogoBuffer]));
+            std::format("{}", context.state.logoFrameNum[*context.state.newestLogoBuffer]));
         for (i = 0; i < context.settings.num_logo_buffers; i++)
         {
             context.state.currentGoodEdge = DoubleCheckStationLogoEdge(context, context.state.logoFrameBuffer[i].data());

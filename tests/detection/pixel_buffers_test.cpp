@@ -53,7 +53,7 @@ TEST(PixelBuffers, GeometryChangesResetMasksAndLogoHistoryEvenWithTheSamePixelCo
     EXPECT_TRUE(state.logoFrameNum.empty());
     EXPECT_FALSE(state.logoInfoAvailable);
     EXPECT_FALSE(state.logoBuffersFull);
-    EXPECT_EQ(state.newestLogoBuffer, -1);
+    EXPECT_FALSE(state.newestLogoBuffer);
     state.haslogo[0] = 1;
     state.ensure_pixel_buffers(true);
     EXPECT_EQ(state.haslogo[0], 1) << "An unchanged geometry must retain its learned mask";

@@ -106,7 +106,7 @@ void InitLogoBuffers(RecordingContext& context)
     context.state.lwidth = context.state.width;
     context.state.lheight = context.state.height;
     context.state.logoFrameBufferSize = static_cast<int>(size);
-    context.state.newestLogoBuffer = -1;
+    context.state.newestLogoBuffer.reset();
     context.state.oldestLogoBuffer = 0;
     context.state.logoBuffersFull = false;
 }

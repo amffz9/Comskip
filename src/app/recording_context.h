@@ -224,7 +224,7 @@ struct RecordingState {
     int edge_count= 0;
     int hedge_count= 0;
     int vedge_count= 0;
-    int newestLogoBuffer= -1;
+    std::optional<int> newestLogoBuffer;
     std::vector<std::vector<unsigned char>> logoFrameBuffer;
     int logoFrameBufferSize= 0;
     int lwidth{};
