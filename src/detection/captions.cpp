@@ -1321,7 +1321,7 @@ bool ProcessCCDict(RecordingContext& context)
     Debug(context, 2, "%s", context.translator.text("caption_dictionary_start"));
     while (fgets(phrase, sizeof(phrase), dict.get()) != NULL)
     {
-        ptr = strchr(phrase, '\n');
+        ptr = strpbrk(phrase, "\r\n");
         if (ptr != NULL) *ptr = '\0';
         if (strstr(phrase, "-----") != NULL)
         {

@@ -135,17 +135,24 @@ TEST(CaptionPackets, DictionarySearchIsCaseInsensitiveWithoutMutatingCaptionText
     {
         std::ofstream dictionary(path);
         ASSERT_TRUE(dictionary);
-        dictionary << "-----\nOFFER\n";
+        dictionary << "-----\r\nOFFER\r\n";
     }
     const auto path_text = path.u8string();
     owner->state.dictfilename.assign(reinterpret_cast<const char*>(path_text.data()), path_text.size());
     owner->state.cc_text_count = 1;
+    owner->state.cc_text[0].start_frame = 1;
+    owner->state.cc_text[0].end_frame = 2;
+    owner->state.block_count = 1;
+    owner->state.cblock[0].f_start = 0;
+    owner->state.cblock[0].f_end = 3;
+    owner->state.cblock[0].score = 10.0;
     const std::string original = "special offer";
     std::copy(original.begin(), original.end(), owner->state.cc_text[0].text);
     owner->state.cc_text[0].text_len = static_cast<long>(original.size());
 
     EXPECT_TRUE(ProcessCCDict(*owner));
     EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), original.c_str());
+    EXPECT_NE(owner->state.cblock[0].score, 10.0);
 
     std::error_code error;
     EXPECT_TRUE(std::filesystem::remove(path, error)) << error.message();
