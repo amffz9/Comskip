@@ -143,7 +143,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
 }
 
 
-FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
+void LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
 {
     std::string start_timestamp;
     bool has_local_time = false;
@@ -281,7 +281,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
         // NULL entries were detected, some allocations must have failed
         Debug(context, 0, translator.format("cli_insufficient_memory", context.state.progname));
-        return context.state.in_file.get();
+        return;
     }
 
     nerrors = arg_parse(argc, argv, argtable);
@@ -926,5 +926,4 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     }
 
 
-    return (context.state.in_file.get());
 }
