@@ -1140,7 +1140,7 @@ bool ReviewResult(RecordingContext& context)
         if (context.state.frame_count > 0 && review_file)
             if (curframe!= lastcurframe)
             {
-                DecodeOnePicture(context, review_file.get(), context.state.framearray ?
+                DecodeOnePicture(context, context.state.framearray ?
                     get_frame_pts(context, curframe) : static_cast<double>(curframe) / context.settings.fps);
                 lastcurframe = curframe;
             }

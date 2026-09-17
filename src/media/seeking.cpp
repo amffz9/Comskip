@@ -152,9 +152,8 @@ void DoSeekRequest(RecordingContext& context, VideoState& is)
     is.seek_no_flush = 0;
 }
 
-void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
+void DecodeOnePicture(RecordingContext& context, double pts)
 {
-    VideoState *is = context.state.video_owner.get();
     auto packet_owner = make_packet();
     AVPacket *packet = packet_owner.get();
 //    int ret;
@@ -162,10 +161,10 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
 //    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
 
     file_open(context);
-    is = context.state.video_owner.get();
+    auto& is = *context.state.video_owner;
 
     context.state.reviewing = 1;
-    Set_seek(context, *is, pts);
+    Set_seek(context, is, pts);
 
     context.state.pev_best_effort_timestamp = 0;
     context.state.best_effort_timestamp = 0;
@@ -176,48 +175,48 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
 
     for(;;)
     {
-        if(is->quit)
+        if(is.quit)
         {
             break;
         }
         // seek stuff goes here
-        if(is->seek_req)
-            DoSeekRequest(context, *is);
-        if(av_read_frame(is->pFormatCtx.get(), packet) < 0)
+        if(is.seek_req)
+            DoSeekRequest(context, is);
+        if(av_read_frame(is.pFormatCtx.get(), packet) < 0)
         {
             break;
         }
-        if (is->seek_req) {
-                double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
+        if (is.seek_req) {
+                double packet_time = (packet->pts - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0)) * av_q2d(is.video_st->time_base);
             if (packet->pts==AV_NOPTS_VALUE) {
                 av_packet_unref(packet);
                 continue;
             }
-            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && std::fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
-                if (const auto size=comskip::media::input_size(is->pFormatCtx.get(), [](AVIOContext* input) {
+            if (is.seek_req < 6 && (is.seek_flags & AVSEEK_FLAG_BYTE) &&  is.duration > 0 && std::fabs(packet_time - (is.seek_pts - 2.5) ) < is.duration / (10 * is.seek_req)) {
+                if (const auto size=comskip::media::input_size(is.pFormatCtx.get(), [](AVIOContext* input) {
                         return avio_size(input);
                     })) {
-                    is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * *size * 1.1;
-                    is->seek_req++;
+                    is.seek_pos += ((is.seek_pts - 2.5 - packet_time) / is.duration ) * *size * 1.1;
+                    is.seek_req++;
                     continue;
                 }
             }
-            is->seek_req = 0;
+            is.seek_req = 0;
         }
-        is->seek_req = 0;
+        is.seek_req = 0;
 
-        if(packet->stream_index == is->videoStream)
+        if(packet->stream_index == is.videoStream)
         {
 /*
             if (packet->pts != AV_NOPTS_VALUE)
                 comp_pts = packet->pts;
-            pack_pts = comp_pts; // av_rescale_q(comp_pts, is->video_st->time_base, AV_TIME_BASE_Q);
-            pack_duration = packet->duration; //av_rescale_q(packet->duration, is->video_st->time_base, AV_TIME_BASE_Q);
+            pack_pts = comp_pts; // av_rescale_q(comp_pts, is.video_st->time_base, AV_TIME_BASE_Q);
+            pack_duration = packet->duration; //av_rescale_q(packet->duration, is.video_st->time_base, AV_TIME_BASE_Q);
             comp_pts += packet->duration;
  */
  //           pass = 0;
             context.state.retries = 1; // once a frame has been decoded this will be set to zero
-            const auto outcome=video_packet_process(context,*is,packet);
+            const auto outcome=video_packet_process(context,is,packet);
             if (outcome == comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
             if (outcome == comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
             if (outcome == comskip::media::VideoPacketOutcome::frame_decoded)
@@ -226,20 +225,20 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
                 if (context.state.retries == 0) // A frame has been decoded so stop reading packets.
                 {
 #ifdef DEBUG
-    fputs(context.translator.format("media_seek_landed", std::format("{:8.2f}", is->video_clock)).c_str(), stdout);
+    fputs(context.translator.format("media_seek_landed", std::format("{:8.2f}", is.video_clock)).c_str(), stdout);
 #endif // DEBUG
 
                     av_packet_unref(packet);
                     break;
                 }
 /*
-                double frame_delay = av_q2d(is->dec_ctxpar->time_base)* is->dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
-                if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
+                double frame_delay = av_q2d(is.dec_ctxpar->time_base)* is.dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
+                if (is.video_clock - is.seek_pts > -frame_delay / 2.0)
                 {
                     av_packet_unref(packet);
                     break;
                 }
-                if (is->video_clock + (pack_duration * av_q2d(is->video_st->time_base)) >= is->seek_pts)
+                if (is.video_clock + (pack_duration * av_q2d(is.video_st->time_base)) >= is.seek_pts)
                 {
                     av_packet_unref(packet);
                     break;
@@ -247,7 +246,7 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
  */
             }
         }
-        else if(packet->stream_index == is->audioStream)
+        else if(packet->stream_index == is.audioStream)
         {
             // audio_packet_process(is, packet);
         }
