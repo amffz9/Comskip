@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string_view>
 
 struct RecordingContext;
 
@@ -13,8 +14,8 @@ void OutputLogoHistogram(RecordingContext& context,
                          std::uint64_t denominator);
 void OutputbrightHistogram(RecordingContext& context);
 void OutputuniformHistogram(RecordingContext& context);
-void OutputHistogram(RecordingContext& context, int* histogram, int scale,
-                     char* title, bool truncate);
+void OutputHistogram(RecordingContext& context, std::span<const int> histogram, int scale,
+                     std::string_view title, bool truncate);
 int FindBlackThreshold(RecordingContext& context, double percentile);
 int FindUniformThreshold(RecordingContext& context, double percentile);
 void OutputFrame(RecordingContext& context, int frame_number);

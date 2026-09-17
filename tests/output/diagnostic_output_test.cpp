@@ -52,6 +52,10 @@ TEST_F(DiagnosticOutput, BinaryDataRetainsTwelveByteHeaderAndPayload) {
         std::string(reinterpret_cast<const char*>(payload.data()),payload.size()));
     EXPECT_FALSE(context->state.dump_data_file);
 }
+TEST_F(DiagnosticOutput, HistogramRequiresACompleteBoundedInputSpan) {
+    std::array<int, 255> incomplete{};
+    EXPECT_THROW(OutputHistogram(*context, incomplete, 1, "Brightness", false), std::invalid_argument);
+}
 TEST_F(DiagnosticOutput, DataOpenFailureReportsOwnedPathInSpanish) {
     context->translator = comskip::localization::Translator("es");
     comskip::checked_format(context->state.workbasename, "%s", (directory / "missing" / "dump").string().c_str());

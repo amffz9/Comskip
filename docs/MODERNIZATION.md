@@ -842,3 +842,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - FFmpeg metadata sidecars now use the shared `DynamicOutputFormatPtr` owner
   for dynamic output buffers. Focused sidecar tests pass **7/7**.
+
+- `OutputHistogram` now accepts a bounded `std::span<const int>` and
+  `std::string_view`, rejecting incomplete input before processing. Its focused
+  regression passes **1/1**.

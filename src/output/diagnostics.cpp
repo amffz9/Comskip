@@ -143,12 +143,13 @@ void OutputuniformHistogram(RecordingContext& context)
             static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
 }
 
-void OutputHistogram(RecordingContext& context, int *histogram, int scale, char *title, bool truncate)
+void OutputHistogram(RecordingContext& context, std::span<const int> histogram, int scale,
+                     std::string_view title, bool truncate)
 {
-    if (!histogram) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+    if (histogram.size() < 256) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
     Debug(context, 8, "%s", context.translator.format("diagnostics_show_histogram_title", title).c_str());
-    const auto report=comskip::output::make_histogram_report<int>({histogram,256},truncate?255:256,
+    const auto report=comskip::output::make_histogram_report<int>(histogram,truncate?255:256,
         256,scale,70,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
