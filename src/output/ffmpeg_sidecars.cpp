@@ -7,6 +7,7 @@ extern "C" {
 #include <cmath>
 #include <format>
 #include <limits>
+#include <memory>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -27,6 +28,14 @@ std::int64_t centiseconds(SidecarSeconds time) {
 void checked(int status, comskip::diagnostics::Code operation) {
     if (status < 0) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(operation);
 }
+struct ChapterDeleter {
+    void operator()(AVChapter* chapter) const noexcept {
+        if (!chapter) return;
+        av_dict_free(&chapter->metadata);
+        av_free(chapter);
+    }
+};
+using ChapterPtr = std::unique_ptr<AVChapter, ChapterDeleter>;
 }
 void write_ffmetadata(std::ostream& output, std::span<const SidecarChapter> chapters) {
     if (chapters.size() > std::numeric_limits<unsigned>::max())
@@ -50,9 +59,8 @@ void write_ffmetadata(std::ostream& output, std::span<const SidecarChapter> chap
         if (!format->chapters) throw std::bad_alloc{};
     }
     for (const auto& chapter : chapters) {
-        auto* entry = static_cast<AVChapter*>(av_mallocz(sizeof(AVChapter)));
+        ChapterPtr entry(static_cast<AVChapter*>(av_mallocz(sizeof(AVChapter))));
         if (!entry) throw std::bad_alloc{};
-        format->chapters[format->nb_chapters++] = entry;
         entry->id = format->nb_chapters - 1;
         entry->time_base = {1, 100};
         entry->start = centiseconds(chapter.start);
@@ -60,6 +68,7 @@ void write_ffmetadata(std::ostream& output, std::span<const SidecarChapter> chap
         checked(av_dict_set(&entry->metadata, "title",
             chapter.kind == SidecarSegmentKind::show ? "Show Segment" : "Commercial Segment", 0),
             comskip::diagnostics::Code::cannot_allocate_ffmetadata_chapter_title);
+        format->chapters[format->nb_chapters++] = entry.release();
     }
     checked(avformat_write_header(format.get(), nullptr), comskip::diagnostics::Code::cannot_write_ffmetadata_header);
     checked(av_write_trailer(format.get()), comskip::diagnostics::Code::cannot_write_ffmetadata_chapters);
