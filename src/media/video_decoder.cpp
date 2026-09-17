@@ -143,7 +143,7 @@ void list_codecs(const comskip::localization::Translator& translator)
         std::cout << '\n';
 }
 
-int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame& pFrame , double pts)
+int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
 {
     int res=0;
     int changed = 0;
@@ -495,7 +495,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.pass = 0;
 //                    comskip::request_exit(1);
                 }
-                if (SubmitFrame (context, is.video_st, *is.pFrame, is.video_clock))
+                if (SubmitFrame (context, *is.pFrame, is.video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
@@ -522,7 +522,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     return comskip::media::VideoPacketOutcome::selftest_complete;
                 }
                 context.state.retries = 0;
-                if (SubmitFrame (context, is.video_st, *is.pFrame, is.video_clock))
+                if (SubmitFrame (context, *is.pFrame, is.video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }

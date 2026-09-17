@@ -104,7 +104,7 @@ TEST_F(PlaybackWarnings, InvalidDecodedFrameLogsSpanishAndDropsBorrowedPixels) {
     frame->linesize[0] = 160;
     unsigned char borrowed = 42;
     context->state.frame_ptr = &borrowed;
-    EXPECT_EQ(SubmitFrame(*context, nullptr, *frame, 0), 0);
+    EXPECT_EQ(SubmitFrame(*context, *frame, 0), 0);
     EXPECT_EQ(context->state.frame_ptr, nullptr);
     EXPECT_EQ(context->state.frame_count, 0);
     EXPECT_EQ(log(), "Error: altura (99), anchura (160) o paso de fila (160) no válidos\n");
@@ -117,7 +117,7 @@ TEST_F(PlaybackWarnings, InvalidStrideUsesEnglishFallbackBeforeReadingPixels) {
     ASSERT_TRUE(frame);
     frame->width = frame->height = 160;
     frame->linesize[0] = 99;
-    EXPECT_EQ(SubmitFrame(*context, nullptr, *frame, 0), 0);
+    EXPECT_EQ(SubmitFrame(*context, *frame, 0), 0);
     EXPECT_EQ(context->state.frame_ptr, nullptr);
     EXPECT_EQ(log(), "Panic: illegal height (160), width (160) or frame period (99)\n");
 }
