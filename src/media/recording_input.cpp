@@ -136,14 +136,8 @@ void file_open_impl(RecordingContext& context)
     if ( is.videoStream == -1)
     {
         video_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-        if(video_index >= 0)
-        {
-            const int video_open_status = stream_component_open(context, is, video_index);
-            if (video_open_status < 0 || is.videoStream < 0)
-                throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
-                    comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is.filename});
-        }
-        if(is.videoStream < 0)
+        const int video_open_status = video_index >= 0 ? stream_component_open(context, is, video_index) : -1;
+        if(video_open_status < 0 || is.videoStream < 0)
         {
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                 comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is.filename});
