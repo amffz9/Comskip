@@ -98,10 +98,6 @@ void sleep_for_ms(long milliseconds);
 }
 #endif
 
-#ifndef _WIN32
-char *_strupr(char *string);
-#endif
-
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 void gettimeofday (struct timeval * tp, void * dummy);
 #endif

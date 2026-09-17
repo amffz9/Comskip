@@ -85,17 +85,6 @@ int max(int i, int j)
     return i > j ? i : j;
 }
 
-#if !defined(_WIN32)
-char* _strupr(char* string)
-{
-    if (string) {
-        for (char* character = string; *character; ++character)
-            *character = static_cast<char>(toupper(static_cast<unsigned char>(*character)));
-    }
-    return string;
-}
-#endif
-
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 void gettimeofday(struct timeval* time, void*)
 {

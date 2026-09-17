@@ -4,6 +4,9 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -122,6 +125,30 @@ TEST(CaptionPackets, ExtendedCharactersSurviveTextSplittingAndRemainTerminated) 
     }
     EXPECT_GT(owner->state.cc_text_count, 0);
     EXPECT_EQ(observed, std::vector<unsigned char>(300, 0xe1));
+}
+
+TEST(CaptionPackets, DictionarySearchIsCaseInsensitiveWithoutMutatingCaptionText) {
+    auto owner = recording();
+    const auto path = std::filesystem::temp_directory_path() /
+        ("comskip-caption-dictionary-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()) + ".txt");
+    {
+        std::ofstream dictionary(path);
+        ASSERT_TRUE(dictionary);
+        dictionary << "-----\nOFFER\n";
+    }
+    const auto path_text = path.u8string();
+    owner->state.dictfilename.assign(reinterpret_cast<const char*>(path_text.data()), path_text.size());
+    owner->state.cc_text_count = 1;
+    const std::string original = "special offer";
+    std::copy(original.begin(), original.end(), owner->state.cc_text[0].text);
+    owner->state.cc_text[0].text_len = static_cast<long>(original.size());
+
+    EXPECT_TRUE(ProcessCCDict(*owner));
+    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), original.c_str());
+
+    std::error_code error;
+    EXPECT_TRUE(std::filesystem::remove(path, error)) << error.message();
 }
 
 TEST(XdsPackets, FirstValidTitleIsObservedAndBadChecksumCannotReplaceIt) {

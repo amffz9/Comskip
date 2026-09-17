@@ -11,12 +11,14 @@
 #include "platform/platform.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <format>
 #include <iterator>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -29,6 +31,16 @@ constexpr int caption_rollup = caption_type_value(CaptionType::rollup);
 constexpr int caption_popon = caption_type_value(CaptionType::popon);
 constexpr int caption_painton = caption_type_value(CaptionType::painton);
 constexpr int caption_commercial = caption_type_value(CaptionType::commercial);
+
+bool contains_case_insensitive(std::string_view text, std::string_view phrase)
+{
+    const auto equal_ignoring_case = [](char left, char right) {
+        return std::toupper(static_cast<unsigned char>(left)) ==
+            std::toupper(static_cast<unsigned char>(right));
+    };
+    return std::search(text.begin(), text.end(), phrase.begin(), phrase.end(),
+        equal_ignoring_case) != text.end();
+}
 
 template <typename... Args>
 void CaptionDebug(RecordingContext& context, int level, const char* key, Args&&... args)
@@ -1325,7 +1337,10 @@ bool ProcessCCDict(RecordingContext& context)
         Debug(context, 3, "%s", context.translator.format("caption_dictionary_search", phrase).c_str());
         for (i = 0; i < context.state.cc_text_count; i++)
         {
-            if (strstr(_strupr((char*)context.state.cc_text[i].text), _strupr((char*)phrase)) != NULL)
+            const auto text = std::string_view(
+                reinterpret_cast<const char*>(context.state.cc_text[i].text),
+                static_cast<std::size_t>(context.state.cc_text[i].text_len));
+            if (contains_case_insensitive(text, phrase))
             {
                 Debug(context, 2, "%s", context.translator.format("caption_dictionary_found", phrase,
                     std::format("{}", i)).c_str());
