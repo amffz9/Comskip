@@ -4,7 +4,13 @@
 #include "input/file_stream.h"
 #include "input/reference_file.h"
 #include "exit_requested.h"
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
+#include "config/legacy_settings.h"
+#include "detection/frame_causes.h"
+#include "detection/frame_timestamps.h"
+#include "detection/logo_detection.h"
+#include "platform/platform.h"
 #include "output/diagnostics.h"
 #include "output/csv_field.h"
 #include "output/frame_csv.h"
@@ -16,8 +22,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <string>
+
+namespace {
+constexpr int uniform_scale = 100;
+}
 
 void FindIniFile(RecordingContext& context)
 {
@@ -116,7 +127,7 @@ void OutputbrightHistogram(RecordingContext& context)
 void OutputuniformHistogram(RecordingContext& context)
 {
     const auto report=comskip::output::make_histogram_report<int>(context.state.uniformHistogram,
-        30,30,UNIFORMSCALE,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
+        30,30,uniform_scale,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
     Debug(context,1,"Show Uniform - %.5f\n",report->divisor);
@@ -230,7 +241,7 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
         i = 1;
 //	while (uniformHistogram[i+1] < uniformHistogram[i])
 //		i++;
-    return ((i+1)*UNIFORMSCALE);
+    return ((i+1)*uniform_scale);
 }
 
 void OutputFrame(RecordingContext& context, int frame_number)
@@ -384,7 +395,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     for (const auto& event : events) {
         const auto start = static_cast<long>(event.interval.start_frame);
         const auto end = static_cast<long>(event.interval.end_frame);
-        const auto duration = F2L(end, start);
+        const auto duration = comskip::detection::frame_duration(context, end, start);
         if (event.kind == comskip::detection::ReferenceEventKind::reference_duration) {
             total += duration;
             if (context.settings.output_training > 1) {
@@ -407,16 +418,16 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     i = 0;
     while ( i <= context.state.reffer_count && j <= context.state.commercial_count )
     {
-        k = min(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame);
+        k = std::min(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame);
         if ( context.state.commercial[j].end_frame < context.state.reffer[i].start_frame )
         {
-            comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
+            comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame), comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
 //			fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
             j++;
         }
         else if ( context.state.commercial[j].start_frame > context.state.reffer[i].end_frame )
         {
-            comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+            comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame), -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
 //			fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
             i++;
         }
@@ -425,7 +436,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             if (labs(context.state.reffer[i].start_frame-context.state.commercial[j].start_frame) > 40 ||
                     labs(context.state.reffer[i].end_frame-context.state.commercial[j].end_frame) > 40 )
             {
-                comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, F2L(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame , context.state.reffer[i].end_frame));
+                comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, comskip::detection::frame_duration(context, context.state.reffer[i].start_frame, context.state.commercial[j].start_frame), comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.reffer[i].end_frame));
             }
             /*
                         if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ) {
@@ -443,13 +454,13 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     }
     while (j <= context.state.commercial_count)
     {
-        comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
+        comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame), comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
 //		fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
         j++;
     }
     while (i <= context.state.reffer_count)
     {
-        comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+        comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame), -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
 //		fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
         i++;
     }
@@ -491,7 +502,7 @@ void OutputAspect(RecordingContext& context)
         comskip::output::checked_fprintf(
             *output, path,
             "%s %4dx%4d %.2f minX=%4d, minY=%4d, maxX=%4d, maxY=%4d\n",
-            dblSecondsToStrMinutes(context, F2T(block.start)),
+            dblSecondsToStrMinutes(context, get_frame_pts(context, block.start)),
             block.width, block.height, block.ar_ratio,
             block.minX, block.minY, block.maxX, block.maxY
         );
