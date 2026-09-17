@@ -282,7 +282,7 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
     else
         BlocksDebug(context, 1, "blocks_cut_confidence", r,
                     std::format("{:3}", strict_count), std::format("{:3}", count));
-    return (count > 0 ? (double)strict_count / (double) count : 0);
+    return count > 0 ? static_cast<double>(strict_count) / count : 0.0;
 }
 
 //Function code blocks
@@ -342,7 +342,8 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                 {
                     context.state.frame[i].isblack &= ~comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform);
                     if (/*!(frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::black)) && */ context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
-                        InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, (int)comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform));
+                        InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume,
+                                         static_cast<int>(comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform)));
                 }
             }
         }
@@ -825,7 +826,7 @@ void FindLogoThreshold(RecordingContext& context)
                         for (i = buckets/2; i < k; i++) {
                             if (j * 10 / 8 >= logoHistogram[i]) {
                                 j = logoHistogram[i];
-                                logo_quality = ((double) i + 0.5) / (double) buckets;
+                                logo_quality = (static_cast<double>(i) + 0.5) / buckets;
                             }
                         }
                     }
@@ -931,7 +932,7 @@ void CleanLogoBlocks(RecordingContext& context)
         }
         if ((context.state.cblock[i].schange_count = CountSceneChanges(context, context.state.cblock[i].f_start, context.state.cblock[i].f_end)))
         {
-            context.state.cblock[i].schange_rate = (double)context.state.cblock[i].schange_count / n;
+            context.state.cblock[i].schange_rate = static_cast<double>(context.state.cblock[i].schange_count) / n;
         }
         else
             context.state.cblock[i].schange_rate = 0.0;
