@@ -16,6 +16,15 @@ drivers and sanitizer variables to every registered test. CTest writes the
 test summary to `bin/<build>/test-results.log`; sanitizer reports are written
 beside it with the `asan` or `ubsan` prefix when a finding occurs.
 
+Keep sanitizer runs noninteractive. Always set `ASAN_OPTIONS` with
+`abort_on_error=1`, `halt_on_error=1`, and `log_path=asan`, and set
+`UBSAN_OPTIONS` with `halt_on_error=1`, `print_stacktrace=1`, and
+`log_path=ubsan`. Run `cmake --build ... --target comskip-check` instead of
+launching a test executable directly; this keeps missing DLL and sanitizer
+failures in the CTest log instead of opening Windows error dialogs. If a
+dialog still appears, record the executable and missing runtime in
+`bin/<build>/test-results.log` and `docs/BUGS.md` before changing the build.
+
 The current Windows Clang ASan runtime still aborts with `0xc0000005` in a
 small set of expected-failure/unwind paths before Comskip can construct its
 typed diagnostic. This is tracked as B110 in `docs/BUGS.md`; it is a runtime

@@ -920,3 +920,6 @@ than redefine completion around whichever subset currently passes tests.
   translated strings directly as well. Focused coverage passes **60/60**;
   fixed-format diagnostic rows remain on the legacy formatter for layout
   compatibility.
+
+- Cutlist headings, total-length summaries, and cut-code legends now use the
+  English/Spanish catalogs while preserving the existing output layout.

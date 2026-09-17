@@ -394,7 +394,7 @@ bool OutputBlocks(RecordingContext& context)
     }
 
 
-    Debug(context, 2, "\n\n\t---------------------\n\tInitial Commercial List\n\t---------------------\n");
+    Debug(context, 2, context.translator.text("cutlists_initial_list"));
     for (i = 0; i <= context.state.commercial_count; i++)
     {
         Debug(context,
@@ -737,11 +737,10 @@ bool OutputBlocks(RecordingContext& context)
         Debug(context, 1,   "Framerate:                  %2.3f\n", context.settings.fps);
         Debug(context, 1,   "Average framerate:          %2.3f\n", context.state.avg_fps);
 
-        Debug(context, 1,   "Total commercial length:    %s\n",	dblSecondsToStrMinutes(context, comlength));
-        Debug(context, 1,   "Cut codes:\n");
-        Debug(context, 1,   "  F: scene\t c: change\n  A: aspect\t t: cutscene\n  E: exceeds\t l: logo\n  L: logo\t v: volume\n  B: bright\t s: scene_change\n  C: combined\t a: aspect_ratio\n  N: nonstrict\t u: uniform_frame\n  S: strict\t b: black_frame\n  \t\t r: resolution\n");
-        Debug(context, 1,   "----------------------------------------------------\n");
-        Debug(context, 1,   "Block list after weighing\n----------------------------------------------------\n", threshold);
+        Debug(context, 1, context.translator.format("cutlists_total_commercial_length",
+            dblSecondsToStrMinutes(context, comlength)));
+        Debug(context, 1, context.translator.text("cutlists_cut_codes"));
+        Debug(context, 1, context.translator.text("cutlists_weighted_heading"));
         Debug(context,
             1,
             "  #     sbf  bs  be     fs     fe        ts        te       len     sc   scr cmb   ar                   cut    bri logo   vol sil   corr stdev   cc\n"

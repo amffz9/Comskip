@@ -225,6 +225,11 @@ TEST(Translator, FormatsCutlistThresholdAndHeuristicMessages) {
     EXPECT_EQ(spanish.format("cutlists_threshold_rounded", "0.88"), "\tDespués del redondeo - 0.88\n");
     EXPECT_EQ(english.format("cutlists_keep_last_shorten", 2, 5),
               "Shortening commercial block 2 because the last 5 seconds should always be kept.\n");
+    EXPECT_EQ(english.format("cutlists_total_commercial_length", "1:02"),
+              "Total commercial length:    1:02\n");
+    EXPECT_STREQ(english.text("cutlists_initial_list"),
+                 "\n\n\t---------------------\n\tInitial Commercial List\n\t---------------------\n");
+    EXPECT_TRUE(std::string(spanish.text("cutlists_weighted_heading")).contains("Lista de bloques"));
     EXPECT_STREQ(spanish.text("cutlists_no_change"), "Sin cambios\n");
 }
 TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
