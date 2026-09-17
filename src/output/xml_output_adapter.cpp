@@ -80,7 +80,7 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     std::vector<FrameInterval> retained;
     std::vector<SceneMarker> scenes;
     std::vector<ChapterSegment> chapters;
-    long previous = -1;
+    std::optional<long> previous;
     // Commercial timestamps clamp to the reported frame count. Scene/retained
     // timing historically clamps to the decoder's real count instead.
     const auto time = [&](FrameIndex frame) {
@@ -100,13 +100,14 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
         return static_cast<FrameIndex>(position);
     };
     const auto append_retained = [&](long before) {
-        if (previous + 1 < before)
-            retained.push_back({detector_frame(previous + 1), detector_frame(before - 1)});
+        const long previous_frame = previous.value_or(-1);
+        if (previous_frame + 1 < before)
+            retained.push_back({detector_frame(previous_frame + 1), detector_frame(before - 1)});
     };
     for (int i = 0; i <= count; ++i) {
         const long start = list[i].start_frame, end = list[i].end_frame;
         append_retained(start);
-        if (previous < start) {
+        if (!previous || *previous < start) {
             btv.push_back({time(start), time(end)});
             plist.push_back({time(start), time(end)});
             if (end - start > 2) {
@@ -123,10 +124,10 @@ void WriteXmlOutputFiles(RecordingContext& context, bool use_reference)
     }
     // The legacy final sentinel describes the retained tail, not a commercial.
     // Preserve its frame endpoint without serializing it as a false BTV cut.
-    if (previous < context.state.frame_count - 2) append_retained(context.state.frame_count - 2);
+    if (!previous || *previous < context.state.frame_count - 2) append_retained(context.state.frame_count - 2);
     // Unlike the other XML formats, the historical plist includes the final
     // sentinel pair, even when there are no commercial marks.
-    if (previous < context.state.frame_count - 2)
+    if (!previous || *previous < context.state.frame_count - 2)
         plist.push_back({time(context.state.frame_count - 2), time(context.state.frame_count - 1)});
     for (int i = 0; i < context.state.block_count; ++i) {
         const auto index = std::max<FrameIndex>(static_cast<FrameIndex>(context.state.cblock[i].f_end) - context.settings.videoredo_offset - 1, 0);
