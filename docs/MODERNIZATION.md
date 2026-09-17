@@ -715,3 +715,7 @@ than redefine completion around whichever subset currently passes tests.
   already-open run log through the checked file boundary. A log-write failure
   cannot mask the original diagnostic or exit status. The complete Windows
   headless suite remains green at **514/514**.
+
+- Seek fallback retries and review packet skips now use structured loops rather
+  than labels. Byte-seek fallback, decoder flushing, and packet ownership stay
+  unchanged; the complete Windows headless suite remains green at **514/514**.
