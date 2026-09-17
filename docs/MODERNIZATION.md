@@ -749,3 +749,7 @@ than redefine completion around whichever subset currently passes tests.
 - The final fallback application diagnostic now uses standard C++ stream output
   instead of a C formatter; translated diagnostics and run-log mirroring are
   unchanged. The complete Windows headless suite remains green at **515/515**.
+
+- Review plotting and pixel sampling now use explicit C++ conversions at the
+  SDL rendering boundary. The complete Windows SDL suite remains green at
+  **517/517**.
