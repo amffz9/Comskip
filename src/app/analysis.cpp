@@ -47,7 +47,6 @@
 #include <utility>
 
 using namespace comskip::media;
-#define SELFTEST
 
 namespace {
 constexpr double selftest_reopen_time_seconds = 500.0;
@@ -80,9 +79,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
     int64_t last_packet_pts = 0;
     double retry_target = 0.0;
 
-#ifdef SELFTEST
-    //int tries = 0;
-#endif
     context.state.retries = 0;
 
 
@@ -354,7 +350,6 @@ nextpacket:
             if (stalled_packets.observe(video_clock != old_clock))
                 Debug(context, 0, "%s", context.translator.text("media_empty_input"));
             old_clock = video_clock;
-#ifdef SELFTEST
             if (context.state.selftest == 1 && context.state.pass == 0 && context.state.video_owner->seek_req == 0 && context.state.framenum == 50) //Seek test
             {
                 if (context.state.video_owner->duration > 2) {
@@ -366,7 +361,6 @@ nextpacket:
                 context.state.pass = 1;
                 context.state.framenum++;
             }
-#endif
         }
 
         if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
