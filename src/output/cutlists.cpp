@@ -102,7 +102,8 @@ void OpenOutputFiles(RecordingContext& context)
             }
         }
         comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,
-            "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",frame_number(context, context.state.frame_count-1), (int)(context.settings.fps*100));
+            "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",frame_number(context, context.state.frame_count-1),
+            static_cast<int>(context.settings.fps * 100));
         comskip::output::checked_close(context.state.out_file,context.state.out_filename);
     }
 
@@ -158,8 +159,8 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
 
     if (context.settings.sage_minute_bug)
     {
-        s_start = (int)(start * (((int)( minutes+0.5))/minutes));
-        s_end = (int)(end * (((int)(minutes+0.5))/minutes));
+        s_start = static_cast<int>(start * (static_cast<int>(minutes + 0.5) / minutes));
+        s_end = static_cast<int>(end * (static_cast<int>(minutes + 0.5) / minutes));
     }
     if (context.settings.output_default && prev < start /*&& !last */)
     {
@@ -367,7 +368,7 @@ bool OutputBlocks(RecordingContext& context)
             context.state.commercial[context.state.commercial_count].end_frame = context.state.cblock[context.state.block_count-1].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
             context.state.commercial[context.state.commercial_count].length = frame_duration(context, context.state.commercial[context.state.commercial_count].end_frame, context.state.commercial[context.state.commercial_count].start_frame);
             Debug(context, 3, "H5 Deleting cblock %i of %i seconds because it comes after the last commercial and its too short.\n",
-                  context.state.block_count-1, (int)context.state.cblock[context.state.block_count-1].length);
+                  context.state.block_count-1, static_cast<int>(context.state.cblock[context.state.block_count-1].length));
             context.state.cblock[context.state.block_count-1].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
             context.state.cblock[context.state.block_count-1].score = 99.99;
             context.state.cblock[context.state.block_count-1].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
@@ -381,7 +382,7 @@ bool OutputBlocks(RecordingContext& context)
             context.state.commercial[0].start_frame = context.state.cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
             context.state.commercial[0].length = frame_duration(context, context.state.commercial[0].end_frame,	context.state.commercial[0].start_frame);
             Debug(context, 3, "H5 Deleting cblock %i of %i seconds because its too short and before first commercial.\n",
-                  0, (int)context.state.cblock[0].length);
+                  0, static_cast<int>(context.state.cblock[0].length));
             context.state.cblock[0].score = 99.99;
             context.state.cblock[0].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
             context.state.cblock[0].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
@@ -552,7 +553,7 @@ bool OutputBlocks(RecordingContext& context)
         while (i < context.state.block_count)
         {
             Debug(context, 3, "H5 Deleting cblock %i of %i seconds because it comes after the last commercial.\n",
-                  i, (int)context.state.cblock[i].length );
+                  i, static_cast<int>(context.state.cblock[i].length) );
             context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
             context.state.cblock[i].score = 99.99;
             context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
@@ -573,7 +574,7 @@ bool OutputBlocks(RecordingContext& context)
         context.state.commercial[0].start_frame = context.state.cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
         context.state.commercial[0].length = frame_duration(context, context.state.commercial[0].end_frame, context.state.commercial[0].start_frame);
         Debug(context, 3, "H5 Deleting cblock %i of %i seconds because it comes before the first commercial.\n",
-              0, (int)context.state.cblock[0].length);
+              0, static_cast<int>(context.state.cblock[0].length));
         context.state.cblock[0].score = 99.99;
         context.state.cblock[0].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
         context.state.cblock[0].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
