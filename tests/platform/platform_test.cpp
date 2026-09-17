@@ -1,4 +1,5 @@
 #include "platform.h"
+#include "file_resources.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <ctime>
@@ -49,6 +50,18 @@ TEST(PlatformFiles, CppOpenFileAcceptsStringViewsAndRejectsEmbeddedNulls) {
     errno = 0;
     EXPECT_EQ(comskip::platform::open_file(invalid, "rb"), nullptr);
     EXPECT_EQ(errno, EINVAL);
+    EXPECT_EQ(myremove(encoded.c_str()), 0);
+}
+
+TEST(PlatformFiles, OwnedCppOpenFileClosesThroughItsOwner) {
+    namespace fs = std::filesystem;
+    const auto path = fs::temp_directory_path() / "comskip-owned-open-file-test.txt";
+    const auto encoded_path = path.u8string();
+    const auto encoded = std::string(reinterpret_cast<const char*>(encoded_path.c_str()), encoded_path.size());
+    auto file = comskip::platform::open_file_owned(encoded, "wb");
+    ASSERT_TRUE(file);
+    ASSERT_EQ(std::fputs("owned", file.get()), 0);
+    file.reset();
     EXPECT_EQ(myremove(encoded.c_str()), 0);
 }
 

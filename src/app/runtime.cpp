@@ -25,7 +25,7 @@ void write_debug_message(RecordingContext& context, int level, std::string_view 
     if (context.settings.verbose < level) return;
     if (context.state.output_console) std::fwrite(message.data(), 1, message.size(), stdout);
 
-    const auto log_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logfilename, "a+"));
+    const auto log_file = comskip::platform::open_file_owned(context.state.logfilename, "a+");
     if (log_file)
         comskip::output::checked_fprintf(*log_file, context.state.logfilename, std::string(message).c_str());
 }

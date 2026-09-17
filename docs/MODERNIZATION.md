@@ -936,3 +936,8 @@ than redefine completion around whichever subset currently passes tests.
 - Legacy time formatting now returns owned `std::string` values, with the
   frame variant depending only on an explicit FPS value. The shared scratch
   buffer was removed; the focused regression and cutlist suite pass **6/6**.
+
+- C++ file-opening callsites now use `open_file_owned` and receive `FilePtr`
+  directly, keeping the raw `FILE*` bridge at the platform boundary. Platform,
+  diagnostics, and cutlist ownership coverage passes **26/26**; the full
+  Windows suite passes **523/523**.

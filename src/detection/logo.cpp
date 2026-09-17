@@ -1696,7 +1696,7 @@ char CheckFramesForReffer(RecordingContext& context, int start, int end)
 
 void SaveLogoMaskData(RecordingContext& context)
 {
-    auto logo_file=comskip::platform::own_file(comskip::platform::open_file(context.state.logofilename, "w"));
+    auto logo_file=comskip::platform::open_file_owned(context.state.logofilename, "w");
     if (!logo_file)
         throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
             comskip::diagnostics::Code::output_open,{context.state.logofilename});
@@ -1716,7 +1716,7 @@ void LoadLogoMaskData(RecordingContext& context)
     char data[2000];
     char* ptr = nullptr;
     long tmpLong = 0;
-    auto logo_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logofilename, "rb"));
+    auto logo_file = comskip::platform::open_file_owned(context.state.logofilename, "rb");
     if (!logo_file) {
         Debug(context, 0, context.translator.text("detection_logo_file_missing"));
         context.state.logoInfoAvailable = false;

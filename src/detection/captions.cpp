@@ -1312,7 +1312,7 @@ bool ProcessCCDict(RecordingContext& context)
     char*	ptr;
     char	phrase[1024];
     bool	goodPhrase = true;
-    auto dict = comskip::platform::own_file(comskip::platform::open_file(context.state.dictfilename, "r"));
+    auto dict = comskip::platform::open_file_owned(context.state.dictfilename, "r");
     if (!dict)
     {
         return (false);

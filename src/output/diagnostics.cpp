@@ -179,7 +179,7 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
             comskip::diagnostics::Code::invalid_histogram_report);
 
     if (context.settings.output_training) {
-        auto training = comskip::platform::own_file(comskip::platform::open_file("black.csv", "a+"));
+        auto training = comskip::platform::open_file_owned("black.csv", "a+");
         if (training) {
             comskip::output::checked_fprintf(*training, "black.csv", "%s",
                 comskip::output::csv_field(context.state.inbasename).c_str());
@@ -223,7 +223,7 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
             comskip::diagnostics::Code::invalid_histogram_report);
 
     if (context.settings.output_training) {
-        auto training = comskip::platform::own_file(comskip::platform::open_file("uniform.csv", "a+"));
+        auto training = comskip::platform::open_file_owned("uniform.csv", "a+");
         if (training) {
             comskip::output::checked_fprintf(*training, "uniform.csv", "%s",
                 comskip::output::csv_field(context.state.inbasename).c_str());
@@ -259,7 +259,7 @@ void OutputFrame(RecordingContext& context, int frame_number)
         std::to_string(frame_number) + ".frm";
 
         Debug(context, 5, context.translator.text("diagnostics_sending_frame"));
-    auto file = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
+    auto file = comskip::platform::open_file_owned(path, "w");
     if (!file)
     {
         Debug(context, 1, context.translator.text("diagnostics_frame_open_failed"));
@@ -394,7 +394,7 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
     const auto commercials = intervals(context.state.commercial, context.state.commercial_count);
     const auto events = comskip::detection::compare_reference_intervals(references, commercials);
     const auto append_quality = [](const auto&... values) {
-        auto quality = comskip::platform::own_file(comskip::platform::open_file("quality.csv", "a+"));
+        auto quality = comskip::platform::open_file_owned("quality.csv", "a+");
         if (!quality) return;
         comskip::output::checked_fprintf(*quality, "quality.csv",
                                          "%s, %6ld, %6.1f, %6.1f, %6.1f\n", values...);
@@ -496,7 +496,7 @@ void OutputAspect(RecordingContext& context)
 
     const auto path = comskip::platform::path_to_utf8(
         comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".aspects"));
-    auto output = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
+    auto output = comskip::platform::open_file_owned(path, "w");
     if (!output)
     {
         Debug(context, 1, context.translator.text("diagnostics_aspect_open_failed"));
@@ -535,7 +535,7 @@ return;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    auto output = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
+    auto output = comskip::platform::open_file_owned(path, "w");
     if (!output)
     {
         Debug(context, 1, context.translator.text("diagnostics_raw_open_failed"));

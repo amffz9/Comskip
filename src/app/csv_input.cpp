@@ -78,7 +78,7 @@ void PrintArgs(RecordingContext& context)
 comskip::platform::FilePtr reopen_csv_inputs(RecordingContext& context)
 {
     const auto csv_path = context.state.inbasename + ".csv";
-    auto input = comskip::platform::own_file(comskip::platform::open_file(csv_path, "r"));
+    auto input = comskip::platform::open_file_owned(csv_path, "r");
     if (!input)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
             comskip::diagnostics::Code::missing_csv_input);
