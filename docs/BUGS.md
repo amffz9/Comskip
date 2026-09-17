@@ -1468,3 +1468,17 @@ before calling FFmpeg seek APIs.
 - **Status:** Fixed. The conversion now goes directly to `double`.
 - **Verification:** Complete Windows headless and SDL suites pass **514/514**
   and **517/517** after the fix.
+
+### B117: CSV review rerun jumps to an exhausted input stream
+
+- **Evidence:** `ProcessCSV` jumps back to its header parser after
+  `ReviewResult` when the debug window requests a reload. The original CSV
+  stream and optional caption companion have already been consumed, and the
+  stream adapter has no rewind operation; the second pass therefore cannot
+  replay the same input reliably.
+- **Impact:** Changing settings from the CSV review window can fail to reload
+  the recording or lose companion captions.
+- **Status:** Open. The replay path needs an owned input path/reopen operation
+  and a fresh caption packet load before the label can be replaced safely.
+- **Verification needed:** Add a review-reload regression with a CSV and
+  caption companion, then replace the label with an explicit replay loop.
