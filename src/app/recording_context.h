@@ -24,7 +24,6 @@ struct RecordingState {
     int firstXDS= 1;
     int startXDS= 1;
     int baseXDS= 0;
-    const char * ratingSystem[4]= { "MPAA", "TPG", "CE", "CF" };
     int own_histogram[4][256]{};
     int scan_step{};
     int beforeblocks[100]{};
@@ -189,11 +188,9 @@ struct RecordingState {
     double dictionary_modifier= 1.05;
     bool detectBlackFrames{};
     bool detectSceneChanges{};
-    int dummy1{};
     // Borrowed pixels for the currently submitted decoded frame. The span is
     // empty between frames and carries the validated image extent.
     std::span<unsigned char> frame_ptr{};
-    int dummy2{};
     bool sceneHasChanged{};
     int sceneChangePercent{};
     bool lastFrameWasBlack= false;
@@ -278,8 +275,6 @@ struct RecordingState {
     comskip::media::DictionaryPtr myoptions{};
     std::unique_ptr<VideoState> video_owner{};
     int64_t pev_best_effort_timestamp= 0;
-    int video_stream_index= -1;
-    int audio_stream_index= -1;
     int have_frame_rate{};
     int stream_index{};
     int64_t best_effort_timestamp{};

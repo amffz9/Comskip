@@ -984,3 +984,8 @@ than redefine completion around whichever subset currently passes tests.
 - Cut-scene matching now accepts a `std::span<const unsigned char>` view, so
   the detector boundary carries the borrowed sample extent instead of a raw
   array pointer. The complete Windows suite passes **523/523**.
+
+- Removed unused duplicate stream-index fields, placeholder state members, and
+  an unreferenced rating-system table from `RecordingState`. `VideoState` is
+  now the single owner of selected media streams. The complete Windows suite
+  passes **523/523**.
