@@ -1029,3 +1029,6 @@ than redefine completion around whichever subset currently passes tests.
 - Cut-scene sample storage now uses nested fixed-size `std::array` containers;
   loading writes through an explicit iterator while matching consumes a bounded
   span. The complete Windows suite passes **523/523**.
+
+- Removed unreferenced block-history, PID scratch, and MPEG system-header
+  members from `RecordingState`; the complete Windows suite passes **523/523**.

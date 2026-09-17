@@ -26,8 +26,6 @@ struct RecordingState {
     int baseXDS= 0;
     std::array<std::array<int, 256>, 4> own_histogram{};
     int scan_step{};
-    int beforeblocks[100]{};
-    int afterblocks[100]{};
     std::vector<int> length_order;
     bool length_sorted = false;
     std::array<int, 10> min_val{};
@@ -290,11 +288,6 @@ struct RecordingState {
     int demux_pid=0;
     int demux_asf=0;
     int last_pid{};
-    int pids[100]{};
-    int pid_type[100]{};
-    int pid_pcr[100]{};
-    int pid_pid[100]{};
-    int top_pid_count[8192]{};
     int top_pid_pid{};
     int pid{};
     int selected_video_pid=0;
@@ -356,7 +349,6 @@ struct RecordingState {
     int ac3_packet_index= 0;
     int data_size{};
     int ac3_package_misalignment_count= 0;
-    unsigned char MPEG2SysHdr[24]= {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x8E, 0xD3, 0x04, 0xE1, 0x7F, 0xB9, 0xE0, 0xE0, 0xB8, 0xC0, 0x54, 0xBD, 0xE0, 0x3A, 0xBF, 0xE0, 0x02};
     comskip::platform::FilePtr dump_audio_file;
     comskip::platform::FilePtr dump_video_file;
     int oheight= 0;
