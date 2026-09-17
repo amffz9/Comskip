@@ -71,7 +71,7 @@ void ProcessARInfoInit(RecordingContext& context, int minY, int maxY, int minX, 
         ar_width = (int)((maxY + minY) * 1.3);
     */
 
-    context.state.last_ar_ratio = (double)(pictureWidth) / (double)pictureHeight;
+    context.state.last_ar_ratio = pictureWidth / pictureHeight;
     context.state.last_ar_ratio = ceil(context.state.last_ar_ratio * context.state.ar_rounding) / context.state.ar_rounding;
     context.state.ar_ratio_trend = context.state.last_ar_ratio;
     if (context.state.last_ar_ratio < 0.5 || context.state.last_ar_ratio > 3.0)
@@ -122,12 +122,12 @@ void ProcessARInfo(RecordingContext& context, int minY, int maxY, int minX, int 
 
         pictureHeight = maxY - minY;
         pictureWidth = maxX - minX;
-        cur_ar_ratio = (double)(pictureWidth) / (double)pictureHeight;
+        cur_ar_ratio = static_cast<double>(pictureWidth) / pictureHeight;
         cur_ar_ratio = ceil(cur_ar_ratio * context.state.ar_rounding) / context.state.ar_rounding;
         if (cur_ar_ratio > 3.0 || cur_ar_ratio < 0.5)
             cur_ar_ratio = undefined_aspect_ratio;
 
-        hi = (int)((cur_ar_ratio - 0.5)*100);
+        hi = static_cast<int>((cur_ar_ratio - 0.5) * 100);
         if (hi >= 0 && hi < maximum_aspect_ratios)
         {
             context.state.ar_histogram[hi].frames += 1;
@@ -283,7 +283,7 @@ int MatchCutScene(RecordingContext& context, unsigned char *cutscene)
         {
             if (c < comskip::detection::maximum_cutscene_pixels)
             {
-                d = (int)context.state.frame_ptr[y * context.state.width + x] - (int)(cutscene[c]);
+                d = static_cast<int>(context.state.frame_ptr[y * context.state.width + x]) - static_cast<int>(cutscene[c]);
                 if (d > context.settings.edge_level_threshold || d < -context.settings.edge_level_threshold)
                     delta += 1;
             }
@@ -740,7 +740,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
     {
         uniform +=  context.state.histogram[i] * (context.state.brightness - i);
     }
-    uniform = ((double)uniform) * 730/pixels;
+    uniform = static_cast<double>(uniform) * 730 / pixels;
     if (context.state.framearray) context.state.frame[context.state.frame_count].uniform = uniform;
 
 
@@ -786,9 +786,10 @@ bool CheckSceneHasChanged(RecordingContext& context)
     if (context.state.framearray) context.state.frame[context.state.frame_count].brightness = context.state.brightness;
     context.state.brightHistogram[std::clamp(context.state.brightness, 0, 255)]++;
     context.state.uniformHistogram[std::clamp(uniform / uniform_scale, 0, 255)]++;
-    if ((dimCount > (int)(.05 * context.state.width * context.state.height)) && (dimCount < (int)(.35 * context.state.width * context.state.height))) isDim = true;
+    if ((dimCount > static_cast<int>(.05 * context.state.width * context.state.height)) &&
+        (dimCount < static_cast<int>(.35 * context.state.width * context.state.height))) isDim = true;
 
-    context.state.sceneChangePercent = (int)(100.0 * similar / pixels);
+    context.state.sceneChangePercent = static_cast<int>(100.0 * similar / pixels);
 //	sceneChangePercent = (int)(100.0 * (1.0 - ((float)abs(prevsimilar - similar) / pixels)));
 //    prevsimilar = similar;
 
