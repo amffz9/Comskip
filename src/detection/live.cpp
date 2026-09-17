@@ -255,11 +255,11 @@ void BuildCommListAsYouGo(RecordingContext& context)
         {
             if (context.settings.output_default)
             {
-                context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
+                context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "w"));
                 if (!context.state.out_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.out_file.reset(myfopen(context.state.out_filename.c_str(), "w"));
+                    context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "w"));
                     if (!context.state.out_file.get())
                     {
                         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{context.state.out_filename});
@@ -270,11 +270,11 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if (context.settings.output_edl)
             {
                 filename = std::string(context.state.outbasename) + ".edl";
-                context.state.edl_file.reset(myfopen(filename.c_str(), "wb"));
+                context.state.edl_file.reset(comskip::platform::open_file(filename, "wb"));
                 if (!context.state.edl_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.edl_file.reset(myfopen(filename.c_str(), "wb"));
+                    context.state.edl_file.reset(comskip::platform::open_file(filename, "wb"));
                     if (!context.state.edl_file.get())
                     {
                         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{filename});
@@ -284,11 +284,11 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if (context.settings.output_live)
             {
                 filename = std::string(context.state.outbasename) + ".live";
-                context.state.live_file.reset(myfopen(filename.c_str(), "wb"));
+                context.state.live_file.reset(comskip::platform::open_file(filename, "wb"));
                 if (!context.state.live_file.get())
                 {
                     sleep_for_ms(50L);
-                    context.state.live_file.reset(myfopen(filename.c_str(), "wb"));
+                    context.state.live_file.reset(comskip::platform::open_file(filename, "wb"));
                     if (!context.state.live_file.get())
                     {
                         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{filename});
@@ -399,7 +399,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
             if (context.settings.output_incommercial)
             {
                 filename = std::string(context.state.workbasename) + ".incommercial";
-                context.state.incommercial_file.reset(myfopen(filename.c_str(), "w"));
+                context.state.incommercial_file.reset(comskip::platform::open_file(filename, "w"));
                 if (!context.state.incommercial_file.get())
                 {
                     fputs(context.translator.format("create_failed", strerror(errno), filename).c_str(), stderr);

@@ -881,3 +881,6 @@ than redefine completion around whichever subset currently passes tests.
 - Diagnostics, timing, caption, runtime, and detection output paths now use
   the bounded platform opener instead of manufacturing temporary C strings.
   Focused coverage passes **30/30**.
+
+- CSV replay, live output, logo persistence, and review-file paths now use the
+  same bounded opener. Focused coverage passes **22/22**.

@@ -78,13 +78,13 @@ void PrintArgs(RecordingContext& context)
 comskip::platform::FilePtr reopen_csv_inputs(RecordingContext& context)
 {
     const auto csv_path = context.state.inbasename + ".csv";
-    auto input = comskip::platform::own_file(myfopen(csv_path.c_str(), "r"));
+    auto input = comskip::platform::own_file(comskip::platform::open_file(csv_path, "r"));
     if (!input)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
             comskip::diagnostics::Code::missing_csv_input);
 
     const auto caption_path = context.state.inbasename + ".data";
-    context.state.dump_data_file.reset(myfopen(caption_path.c_str(), "rb"));
+    context.state.dump_data_file.reset(comskip::platform::open_file(caption_path, "rb"));
     return input;
 }
 
@@ -138,9 +138,10 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
             reinterpret_cast<const char8_t*>(context.state.inbasename.c_str())));
         companion += ".data";
         const auto name = companion.u8string();
-        opened_caption_file.reset(myfopen(reinterpret_cast<const char*>(name.c_str()), "rb"));
+        opened_caption_file.reset(comskip::platform::open_file(
+            std::string_view(reinterpret_cast<const char*>(name.c_str()), name.size()), "rb"));
         if (!opened_caption_file && context.state.inbasename != context.state.workbasename)
-            opened_caption_file.reset(myfopen((context.state.workbasename + ".data").c_str(), "rb"));
+            opened_caption_file.reset(comskip::platform::open_file(context.state.workbasename + ".data", "rb"));
         caption_file = opened_caption_file.get();
     }
 

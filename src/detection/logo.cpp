@@ -1696,7 +1696,7 @@ char CheckFramesForReffer(RecordingContext& context, int start, int end)
 
 void SaveLogoMaskData(RecordingContext& context)
 {
-    auto logo_file=comskip::platform::own_file(myfopen(context.state.logofilename.c_str(), "w"));
+    auto logo_file=comskip::platform::own_file(comskip::platform::open_file(context.state.logofilename, "w"));
     if (!logo_file)
         throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
             comskip::diagnostics::Code::output_open,{context.state.logofilename});
@@ -1716,7 +1716,7 @@ void LoadLogoMaskData(RecordingContext& context)
     char data[2000];
     char* ptr = nullptr;
     long tmpLong = 0;
-    auto logo_file = comskip::platform::own_file(myfopen(context.state.logofilename.c_str(), "rb"));
+    auto logo_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logofilename, "rb"));
     if (!logo_file) {
         Debug(context, 0, "%s", context.translator.text("detection_logo_file_missing"));
         context.state.logoInfoAvailable = false;
@@ -1759,11 +1759,11 @@ void LoadLogoMaskData(RecordingContext& context)
     std::fflush(nullptr);
     if (context.settings.output_default)
     {
-        txt_file.reset(myfopen(context.state.out_filename.c_str(), "r"));
+        txt_file.reset(comskip::platform::open_file(context.state.out_filename, "r"));
         if (!txt_file)
         {
             sleep_for_ms(50L);
-            txt_file.reset(myfopen(context.state.out_filename.c_str(), "r"));
+            txt_file.reset(comskip::platform::open_file(context.state.out_filename, "r"));
             if (!txt_file)
             {
                 Debug(context, 0, "%s", context.translator.format("detection_output_read_failed", context.state.out_filename.c_str()).c_str());
