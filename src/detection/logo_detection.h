@@ -10,5 +10,6 @@ void SaveLogoMaskData(RecordingContext& context);
 void InitLogoBuffers(RecordingContext& context);
 void ResetLogoBuffers(RecordingContext& context);
 void PrintLogoFrameGroups(RecordingContext& context);
+void PrintCCBlocks(RecordingContext& context);
 char CheckFramesForCommercial(RecordingContext& context, int start, int end);
 char CheckFramesForReffer(RecordingContext& context, int start, int end);

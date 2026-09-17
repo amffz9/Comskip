@@ -18,6 +18,10 @@ enum class DetectionMethod : int {
     return (configured_methods & static_cast<int>(method)) != 0;
 }
 
+constexpr void disable_method(int& configured_methods, DetectionMethod method) noexcept {
+    configured_methods &= ~static_cast<int>(method);
+}
+
 enum class CaptionType : int {
     none = 0,
     rollup = 1,

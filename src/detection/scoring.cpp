@@ -1,5 +1,13 @@
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
+#include "block_building.h"
+#include "block_features.h"
+#include "captions.h"
 #include "frame_causes.h"
+#include "frame_timestamps.h"
+#include "detection_methods.h"
+#include "length_matching.h"
+#include "logo_detection.h"
 #include <algorithm>
 #include <format>
 #include <numeric>
@@ -184,7 +192,7 @@ void WeighBlocks(RecordingContext& context)
     int		max_combined_count = 25;
     bool	breakforcombine = false;
 
-    if (context.settings.commDetectMethod & AR)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::aspect_ratio))
     {
 //		showAvgAR = AverageARForBlock(1, framesprocessed);
         SetARofBlocks(context);
@@ -219,18 +227,18 @@ void WeighBlocks(RecordingContext& context)
     }
 
 
-    if (context.settings.commDetectMethod & LOGO)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
     {
         if (context.state.logoPercentage < context.settings.logo_fraction - 0.05 || context.state.logoPercentage > context.settings.logo_percentile)
         {
             scoring_debug(context, 1, "scoring_disable_logo_detection");
-            context.settings.commDetectMethod -= LOGO;
+            comskip::detection::disable_method(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo);
             max_score = 10000;
         }
     }
     for (i = 0; i < context.state.block_count; i++)
     {
-        if (context.settings.commDetectMethod & LOGO)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
         {
             context.state.cblock[i].logo = CalculateLogoFraction(context, context.state.cblock[i].f_start, context.state.cblock[i].f_end);
         }
@@ -243,7 +251,7 @@ void WeighBlocks(RecordingContext& context)
 
     CleanLogoBlocks(context);		// Can join blocks, so recalculate logo
 
-    if (context.settings.commDetectMethod & SCENE_CHANGE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::scene_change))
     {
         for (i = 0; i < context.state.block_count; i++)
         {
@@ -254,7 +262,7 @@ void WeighBlocks(RecordingContext& context)
 
     for (i = 0; i < context.state.block_count; i++)
     {
-        if (context.settings.commDetectMethod & LOGO)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
         {
             context.state.cblock[i].logo = CalculateLogoFraction(context, context.state.cblock[i].f_start, context.state.cblock[i].f_end);
         }
@@ -263,7 +271,7 @@ void WeighBlocks(RecordingContext& context)
     }
 
 
-    if ((context.settings.commDetectMethod & LOGO) && context.state.logoPercentage > 0.4)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && context.state.logoPercentage > 0.4)
     {
         if (context.settings.score_percentile + context.state.logoPercentage < 1.0)
             context.settings.score_percentile = context.state.logoPercentage + context.settings.score_percentile;
@@ -523,7 +531,7 @@ void WeighBlocks(RecordingContext& context)
         }
 #endif
         // if logo detected in cblock, score = 10%
-        if (context.settings.commDetectMethod & LOGO)
+        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
         {
             if (context.state.cblock[i].logo > context.settings.logo_percentage_threshold)
             {
@@ -567,8 +575,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_AB;
-                context.state.cblock[i].more |= C_AB;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_brightness);
+                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_brightness);
             }
             if ((context.settings.punish & 2) && context.state.cblock[i].uniform > context.state.avg_uniform * context.settings.punish_threshold)
             {
@@ -577,8 +585,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_AU;
-                context.state.cblock[i].more |= C_AU;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_uniformity);
+                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_uniformity);
             }
             if ((context.settings.punish & 4) && context.state.cblock[i].volume > context.state.avg_volume * context.settings.punish_threshold)
             {
@@ -587,8 +595,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_AL;
-                context.state.cblock[i].more |= C_AL;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_length);
+                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_length);
             }
 
             if ((context.settings.punish & 8) && context.state.cblock[i].silence > context.state.avg_silence * context.settings.punish_threshold)
@@ -598,8 +606,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_AS;
-                context.state.cblock[i].more |= C_AS;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
+                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
             }
             if ((context.settings.punish & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate > context.state.avg_schange * context.settings.punish_threshold)
             {
@@ -608,8 +616,8 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].score *= context.settings.punish_modifier;
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= C_AC;
-                context.state.cblock[i].more |= C_AC;
+                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
+                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
             }
         }
         if (false)
@@ -716,7 +724,7 @@ void WeighBlocks(RecordingContext& context)
 
         // Mod score based on scene change rate
         /*
-                if ( (commDetectMethod & SCENE_CHANGE) && (cblock[i].schange_count > 2) && (cblock[i].length > 3)) {
+                if ( (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::scene_change)) && (cblock[i].schange_count > 2) && (cblock[i].length > 3)) {
         #if 0
                     schange_modifier = (cblock[i].schange_rate / avg_schange);
                     schange_modifier = (schange_modifier > min_schange_modifier) ? schange_modifier : min_schange_modifier;
@@ -743,9 +751,9 @@ void WeighBlocks(RecordingContext& context)
         // Mod score based on CC type
         if (context.state.processCC)
         {
-        if (context.state.most_cc_type == NONE)
+        if (context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::none))
             {
-                if (context.state.cblock[i].cc_type != NONE)
+                if (context.state.cblock[i].cc_type != comskip::detection::caption_type_value(comskip::detection::CaptionType::none))
                 {
                     scoring_debug(context, 3, "scoring_cc_in_non_cc_show_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= context.settings.cc_commercial_type_modifier * 2;
@@ -762,14 +770,14 @@ void WeighBlocks(RecordingContext& context)
                     scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
-                else if (context.state.cblock[i].cc_type == COMMERCIAL)
+                else if (context.state.cblock[i].cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::commercial))
                 {
                     scoring_debug(context, 3, "scoring_cc_commercial_type_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= context.settings.cc_commercial_type_modifier;
                     scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 }
-                else if (context.state.cblock[i].cc_type == NONE)
+                else if (context.state.cblock[i].cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::none))
                 {
                     scoring_debug(context, 3, "scoring_no_cc_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                     context.state.cblock[i].score *= (((context.settings.cc_wrong_type_modifier-1.0)/2)+1.0);
@@ -1072,7 +1080,7 @@ void WeighBlocks(RecordingContext& context)
                 while (j>1 && context.state.frame[j].brightness < 16)
                     j--;
                 if (k - j > 10 &&
-                    F2T(k) - F2T(j) > 5.0) // If more then 5 seconds dark frames
+                    get_frame_pts(context, k) - get_frame_pts(context, j) > 5.0) // If more then 5 seconds dark frames
                 {
 
                     context.state.cblock[i].score = 0.5;
@@ -1092,7 +1100,7 @@ void WeighBlocks(RecordingContext& context)
     if (context.settings.delete_show_before_or_after_current && context.state.logo_block_count >= 80)
         scoring_debug(context, 10, "scoring_disable_logo_edge_processing");
     if (context.settings.delete_show_before_or_after_current &&
-            (context.settings.commDetectMethod & LOGO) && context.settings.connect_blocks_with_logo &&
+            (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)) && context.settings.connect_blocks_with_logo &&
             !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction - 0.05 && context.state.logo_block_count < 40)
     {
         /*
@@ -1243,7 +1251,7 @@ void WeighBlocks(RecordingContext& context)
     if (!(context.settings.disable_heuristics & (1 << (4 - 1))))
     {
 
-        if ((context.settings.commDetectMethod & LOGO) && !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction)
+        if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)) && !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction)
         {
             i = 1;
             while (i < context.state.block_count)
@@ -1265,7 +1273,7 @@ void WeighBlocks(RecordingContext& context)
                 i++;
             }
         }
-        if ((context.settings.commDetectMethod & LOGO) && !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction)
+        if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)) && !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction)
         {
             i = 0;
             while (i < context.state.block_count)
