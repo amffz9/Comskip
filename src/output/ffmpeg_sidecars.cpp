@@ -6,7 +6,6 @@ extern "C" {
 }
 #include <cmath>
 #include <format>
-#include <memory>
 #include <limits>
 #include <ostream>
 #include <stdexcept>
@@ -67,7 +66,7 @@ void write_ffmetadata(std::ostream& output, std::span<const SidecarChapter> chap
     unsigned char* raw_bytes = nullptr;
     const int size = avio_close_dyn_buf(format->pb, &raw_bytes);
     format->pb = nullptr;
-    std::unique_ptr<unsigned char, decltype(&av_free)> bytes(raw_bytes, av_free);
+    comskip::media::BufferPtr bytes(raw_bytes);
     checked(size, comskip::diagnostics::Code::cannot_complete_ffmetadata_buffer);
     output.write(reinterpret_cast<const char*>(bytes.get()), size);
     if (!output) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::cannot_write_ffmetadata_output);

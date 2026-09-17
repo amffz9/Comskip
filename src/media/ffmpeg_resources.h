@@ -53,6 +53,7 @@ struct DynamicOutputFormatDeleter {
     }
 };
 struct DictionaryDeleter { void operator()(AVDictionary* value) const noexcept { av_dict_free(&value); } };
+struct BufferDeleter { void operator()(unsigned char* value) const noexcept { av_free(value); } };
 struct ScalerDeleter { void operator()(SwsContext* value) const noexcept { sws_freeContext(value); } };
 struct ResamplerDeleter { void operator()(SwrContext* value) const noexcept { swr_free(&value); } };
 struct SubtitleOwner {
@@ -70,6 +71,7 @@ using InputPtr = std::unique_ptr<AVFormatContext, InputDeleter>;
 using OutputFormatPtr = std::unique_ptr<AVFormatContext, OutputFormatDeleter>;
 using DynamicOutputFormatPtr = std::unique_ptr<AVFormatContext, DynamicOutputFormatDeleter>;
 using DictionaryPtr = std::unique_ptr<AVDictionary, DictionaryDeleter>;
+using BufferPtr = std::unique_ptr<unsigned char, BufferDeleter>;
 using ScalerPtr = std::unique_ptr<SwsContext, ScalerDeleter>;
 using ResamplerPtr = std::unique_ptr<SwrContext, ResamplerDeleter>;
 inline FramePtr make_frame() {

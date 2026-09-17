@@ -900,3 +900,6 @@ than redefine completion around whichever subset currently passes tests.
 - Cutlist keep-first/keep-last decisions and final-list status messages now
   use the same catalogs, including Spanish wording, with the existing output
   layout preserved.
+
+- FFmpeg dynamic sidecar buffers now use the shared `BufferPtr` RAII owner
+  instead of a local deleter. Focused sidecar coverage passes **13/13**.
