@@ -215,7 +215,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                 {
                     if (context.state.frame[frm].currentGoodEdge > context.settings.logo_threshold)
                     {
-                        e = (int)(context.state.frame[frm].currentGoodEdge * 250);
+                        e = static_cast<int>(context.state.frame[frm].currentGoodEdge * 250);
                         for (y = context.state.clogoMinY; y <= context.state.clogoMaxY ; y += context.settings.edge_step)
                         {
                             for (x = context.state.clogoMinX; x <= context.state.clogoMaxX ; x += context.settings.edge_step)
@@ -224,7 +224,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                                 else r = 0;
                                 if (context.state.cvert_edgemask[y * context.state.width + x]) g = 255;
                                 else g = 0;
-                                if (r || g) set_pixel(((int)((x-s)/context.state.divider)),((int)((y-s)/context.state.divider))+barh,r,g,0);
+                                if (r || g) set_pixel(static_cast<int>((x-s)/context.state.divider), static_cast<int>((y-s)/context.state.divider)+barh,r,g,0);
                             }
                         }
                     }
@@ -248,7 +248,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                                 if (r > 255) r = 255;
                                 if (g > 255) g = 255;
                                 //if (r > 128 || g >  128)
-                                    set_pixel(((int)(x/context.state.divider)),((int)(y/context.state.divider))+barh,r,g,0);
+                                    set_pixel(static_cast<int>(x/context.state.divider), static_cast<int>(y/context.state.divider)+barh,r,g,0);
 
 }
                         }
@@ -282,15 +282,15 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                 n = 0;
                 if (context.state.block_count && grf == 2)
                 {
-                    while (bl < context.state.block_count && context.state.cblock[bl].f_end < context.state.zstart+(int)((double)x * v /context.state.owidth))
+                    while (bl < context.state.block_count && context.state.cblock[bl].f_end < context.state.zstart+static_cast<int>(static_cast<double>(x) * v / context.state.owidth))
                         bl++;
 
-                    plot(plot_count, 0, x, context.state.cblock[bl].brightness, 2550, (int)(context.state.avg_brightness*context.settings.punish_threshold), 0, 255, 0); // RED
-                    plot(plot_count, 1, x, context.state.cblock[bl].volume/100, 100000, (int)(context.state.avg_volume*context.settings.punish_threshold)/100, 255, 0, 0); // Green
-                    plot(plot_count, 2, x, context.state.cblock[bl].uniform, 3000, (int)(context.state.avg_uniform*context.settings.punish_threshold), 255, 0,0); // RED
-                    plot(plot_count, 3, x, (int)(context.state.cblock[bl].schange_rate*1000), 1000, (int)(context.state.avg_schange*context.settings.punish_threshold*1000), 255, 0, 0);	// PURPLE
+                    plot(plot_count, 0, x, context.state.cblock[bl].brightness, 2550, static_cast<int>(context.state.avg_brightness*context.settings.punish_threshold), 0, 255, 0); // RED
+                    plot(plot_count, 1, x, context.state.cblock[bl].volume/100, 100000, static_cast<int>(context.state.avg_volume*context.settings.punish_threshold)/100, 255, 0, 0); // Green
+                    plot(plot_count, 2, x, context.state.cblock[bl].uniform, 3000, static_cast<int>(context.state.avg_uniform*context.settings.punish_threshold), 255, 0,0); // RED
+                    plot(plot_count, 3, x, static_cast<int>(context.state.cblock[bl].schange_rate*1000), 1000, static_cast<int>(context.state.avg_schange*context.settings.punish_threshold*1000), 255, 0, 0);	// PURPLE
                 }
-                for (i = context.state.zstart+(int)((double)x * v /context.state.owidth); i < context.state.zstart+(int)((double)(x+1) * v /context.state.owidth ); i++)
+                for (i = context.state.zstart+static_cast<int>(static_cast<double>(x) * v / context.state.owidth); i < context.state.zstart+static_cast<int>(static_cast<double>(x+1) * v / context.state.owidth); i++)
                 {
                     if (i <= context.state.frame_count)
                     {
@@ -300,20 +300,20 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                         plot(plot_count, 1, x, context.state.frame[i].volume, 10000, context.settings.max_volume, (context.state.frame[i].audio_channels * 40), 255, 0);			// GREEN
                         e += context.state.frame[i].uniform;
                         plot(plot_count, 2, x, context.state.frame[i].uniform, 30000, context.settings.non_uniformity, 0, 255, 255);	// LIGHT BLUE
-                        c += (int)(context.state.frame[i].currentGoodEdge*100);
-                        plot(plot_count, 4, x, (int)(context.state.frame[i].currentGoodEdge*100), 100, 0, 255, 255, 0);  // YELLOW
-                        plot(plot_count, 4, x, (int)(context.state.frame[i].logo_filter*50+50), 100, 0, (context.state.frame[i].logo_filter < 0.0 ?255:0) , (context.state.frame[i].logo_filter < 0.0 ?0:255), 0);
-                        plot(plot_count, 5, x, (int)((context.state.frame[i].ar_ratio-0.5) * 100), 250, 0, 0, 0, 255);   // BLUE
+                        c += static_cast<int>(context.state.frame[i].currentGoodEdge*100);
+                        plot(plot_count, 4, x, static_cast<int>(context.state.frame[i].currentGoodEdge*100), 100, 0, 255, 255, 0);  // YELLOW
+                        plot(plot_count, 4, x, static_cast<int>(context.state.frame[i].logo_filter*50+50), 100, 0, (context.state.frame[i].logo_filter < 0.0 ?255:0) , (context.state.frame[i].logo_filter < 0.0 ?0:255), 0);
+                        plot(plot_count, 5, x, static_cast<int>((context.state.frame[i].ar_ratio-0.5) * 100), 250, 0, 0, 0, 255);   // BLUE
 
                         if (comskip::detection::method_enabled(
                                 context.settings.commDetectMethod,
                                 comskip::detection::DetectionMethod::cutscene))
                         {
-                            plot(plot_count, 3, x, (int)(context.state.frame[i].cutscenematch), 100, context.settings.cutscenedelta, 255, 0, 255);     // PURPLE
+                            plot(plot_count, 3, x, static_cast<int>(context.state.frame[i].cutscenematch), 100, context.settings.cutscenedelta, 255, 0, 255);     // PURPLE
                         }
                         else
                         {
-                            plot(plot_count, 3, x, (int)(context.state.frame[i].schange_percent), 100, context.state.schange_cutlevel, 255, 0, 255);	    // PURPLE
+                            plot(plot_count, 3, x, static_cast<int>(context.state.frame[i].schange_percent), 100, context.state.schange_cutlevel, 255, 0, 255);	    // PURPLE
                         }
                         a += context.state.frame[i].maxY;
                         plot(plot_count, 6, x, context.state.frame[i].maxY, context.state.height, 0, 0, 128, 128);
