@@ -301,7 +301,8 @@ void BuildCommListAsYouGo(RecordingContext& context)
             for (i = 0; i < commercials; i++)
             {
                 len = candidates[i].end - candidates[i].start;
-                if ((len >= (int)context.settings.min_commercialbreak * context.settings.fps) && (len <= (int)context.settings.max_commercialbreak * context.settings.fps))
+                if ((len >= static_cast<int>(context.settings.min_commercialbreak) * context.settings.fps) &&
+                    (len <= static_cast<int>(context.settings.max_commercialbreak) * context.settings.fps))
                 {
 #ifdef ADAPT_LIVE_COMMERCIAL
                     // find the middle of the scene change, max 3 seconds.
@@ -317,13 +318,13 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     {
 
                         // find end
-                        if ((onTheFlyBlackFrame[k] - onTheFlyBlackFrame[j]) > (int)(3 * context.settings.fps))
+                        if ((onTheFlyBlackFrame[k] - onTheFlyBlackFrame[j]) > static_cast<int>(3 * context.settings.fps))
                         {
                             break;
                         }
                     }
 
-                    x = j + (int)((k - j) / 2);
+                    x = j + static_cast<int>((k - j) / 2);
                     candidates[i].start = onTheFlyBlackFrame[x];
                     j = candidates[i].end_index;
                     if (j < onTheFlyBlackCount-1)
@@ -339,12 +340,12 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     {
 
                         // find start
-                        if (onTheFlyBlackFrame[j] - (onTheFlyBlackFrame[k]) > (int)(3 * context.settings.fps))
+                        if (onTheFlyBlackFrame[j] - onTheFlyBlackFrame[k] > static_cast<int>(3 * context.settings.fps))
                         {
                             break;
                         }
                     }
-                    x = k + (int)((j - k) / 2);
+                    x = k + static_cast<int>((j - k) / 2);
                     candidates[i].end = onTheFlyBlackFrame[x] - 1;
 #endif
                     LiveDebug(context, 2, "live_output_interval", i, candidates[i].start, candidates[i].end);
@@ -362,9 +363,9 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     if (context.state.out_file.get())
                         comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", candidates[i].start + context.settings.padding, candidates[i].end - context.settings.padding);
                     if (context.state.edl_file.get())
-                        comskip::output::checked_fprintf(*context.state.edl_file,std::string(context.state.outbasename)+".edl","%.2f\t%.2f\t%d\n", (double) std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps , (double) std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps, context.settings.edl_skip_field );
+                        comskip::output::checked_fprintf(*context.state.edl_file,std::string(context.state.outbasename)+".edl","%.2f\t%.2f\t%d\n", static_cast<double>(std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps , static_cast<double>(std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.state.live_file.get())
-                        comskip::output::checked_fprintf(*context.state.live_file,std::string(context.state.outbasename)+".live","%.2f\t%.2f\t%d\n", (double) std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps , (double) std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L) / context.settings.fps, context.settings.edl_skip_field );
+                        comskip::output::checked_fprintf(*context.state.live_file,std::string(context.state.outbasename)+".live","%.2f\t%.2f\t%d\n", static_cast<double>(std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps , static_cast<double>(std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps, context.settings.edl_skip_field );
                     if (context.settings.output_dvrmstb)
                         dvrmstb_intervals.push_back({candidates[i].start, candidates[i].end});
                 }
