@@ -773,3 +773,7 @@ than redefine completion around whichever subset currently passes tests.
 - Remaining active conversions in analysis, captions, live progress, scene
   sampling, block reporting, and detection paths now use explicit C++ casts.
   The complete Windows headless suite remains green at **515/515**.
+
+- Logo edge-mask cleanup now uses a structured found flag and loop break rather
+  than a label jump; unused scan callback arguments are explicitly discarded.
+  The complete Windows headless suite remains green at **515/515**.
