@@ -15,13 +15,16 @@ Google Test is included by the default manifest feature.
 cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
+# Or run the logged target; failures are written to build/test-results.log.
+cmake --build build --target comskip-check --config Release
 ```
 
 PowerShell uses `$env:VCPKG_ROOT` in place of `$VCPKG_ROOT`. To reuse packages
 already installed in vcpkg's classic mode, add `-DVCPKG_MANIFEST_MODE=OFF`.
 The required packages are `ffmpeg`, `argtable2`, `simpleini`, `pugixml`, `rapidcsv`, and `gtest`.
 The default tests feature supplies the ffmpeg executable for generated media.
-Windows DLLs must be beside the executable or on PATH; the vcpkg toolchain normally copies them.
+On Windows, CMake copies vcpkg runtime DLLs beside test executables. This avoids
+missing-DLL dialogs when CTest is launched outside a developer shell.
 For the optional SDL interface, add `-DVCPKG_MANIFEST_FEATURES=gui` and
 `-DCOMSKIP_BUILD_GUI=ON`.
 For a sanitizer build, configure a separate directory with

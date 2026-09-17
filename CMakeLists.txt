@@ -44,6 +44,30 @@ target_link_libraries(input_text PRIVATE rapidcsv::rapidcsv)
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     include(GoogleTest)
+    # A CTest child starts with CTest's environment, which need not contain the
+    # vcpkg bin directory. Copy its runtime DLLs beside the test executables so
+    # Windows loads them without modal "DLL not found" dialogs.
+    if(WIN32)
+        get_target_property(COMSKIP_GTEST_MAIN_DLL GTest::gtest_main IMPORTED_LOCATION_RELEASE)
+        if(NOT COMSKIP_GTEST_MAIN_DLL)
+            get_target_property(COMSKIP_GTEST_MAIN_DLL GTest::gtest_main IMPORTED_LOCATION)
+        endif()
+        if(COMSKIP_GTEST_MAIN_DLL AND EXISTS "${COMSKIP_GTEST_MAIN_DLL}")
+            get_filename_component(COMSKIP_TEST_RUNTIME_DIR "${COMSKIP_GTEST_MAIN_DLL}" DIRECTORY)
+            file(GLOB COMSKIP_TEST_RUNTIME_DLLS LIST_DIRECTORIES false
+                "${COMSKIP_TEST_RUNTIME_DIR}/*.dll")
+            file(COPY ${COMSKIP_TEST_RUNTIME_DLLS} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+            message(STATUS "Copied vcpkg runtime DLLs for Windows CTest execution")
+        else()
+            message(WARNING "GTest runtime DLL location is unavailable; Windows tests may need vcpkg/bin on PATH")
+        endif()
+    endif()
+    add_custom_target(comskip-check
+        COMMAND "${CMAKE_CTEST_COMMAND}" --output-on-failure
+                --output-log "${CMAKE_CURRENT_BINARY_DIR}/test-results.log"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+        USES_TERMINAL
+        COMMENT "Running CTest; writing results to test-results.log")
     add_executable(command_line_value_test tests/config/command_line_value_test.cpp)
     target_include_directories(command_line_value_test PRIVATE src/config)
     target_link_libraries(command_line_value_test PRIVATE GTest::gtest_main)
