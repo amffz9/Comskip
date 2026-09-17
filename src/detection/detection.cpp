@@ -164,7 +164,8 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
         {
 //			EdgeCount(frame_ptr);
 //			curLogoTest = logoBuffersFull;
-            context.state.currentGoodEdge = CheckStationLogoEdge(context, context.state.frame_ptr);
+                    context.state.currentGoodEdge = CheckStationLogoEdge(context,
+                        {context.state.frame_ptr, static_cast<std::size_t>(context.state.width) * context.state.height});
             context.state.curLogoTest = (context.state.currentGoodEdge > context.settings.logo_threshold);
             context.state.lastLogoTest = ProcessLogoTest(context, context.state.frame_count, context.state.curLogoTest, false);
             if (!context.state.lastLogoTest && !context.settings.startOverAfterLogoInfoAvail && context.state.logoBuffersFull)   // Lost logo

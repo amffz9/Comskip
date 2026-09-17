@@ -5,13 +5,13 @@
 #include "detection/interval_storage.h"
 #include "detection/detection_blocks.h"
 #include "detection/logo_shrink.h"
+#include "detection/logo_detection.h"
 #include "detection/reference_comparison.h"
 #include "diagnostic_render.h"
 #include <gtest/gtest.h>
 #include <limits>
 #include <memory>
 #include <ranges>
-void EdgeDetect(RecordingContext&,unsigned char*,int);
 void Add_XDS_block(RecordingContext&);
 namespace {
 using namespace comskip::detection;
@@ -169,7 +169,7 @@ TEST(GeometryDiagnostics, ActualLogoNullPixelsRejectBeforeWritingEdgeState) {
     context->state.width=context->state.videowidth=160; context->state.height=120;
     context->settings.edge_radius=2; context->settings.edge_step=1; context->settings.border=0;
     context->state.ensure_pixel_buffers(true); context->state.hor_edgecount[0]=17;
-    failure<std::invalid_argument>([&]{EdgeDetect(*context,nullptr,0);},
+    failure<std::invalid_argument>([&]{EdgeDetect(*context,{},0);},
         Code::logo_edge_detection_requires_image_pixels,"Logo edge detection requires image pixels","bordes del logotipo requiere píxeles");
     EXPECT_EQ(context->state.hor_edgecount[0],17);
 }

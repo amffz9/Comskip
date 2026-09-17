@@ -1,4 +1,5 @@
 #pragma once
+#include <span>
 
 struct RecordingContext;
 
@@ -13,8 +14,8 @@ void InitProcessLogoTest(RecordingContext& context);
 bool ProcessLogoTest(RecordingContext& context, int frame, int logo_test, int close);
 void FillLogoBuffer(RecordingContext& context);
 bool SearchForLogoEdges(RecordingContext& context);
-double CheckStationLogoEdge(RecordingContext& context, unsigned char* frame);
-void EdgeDetect(RecordingContext& context, unsigned char* frame, int mask_number);
+double CheckStationLogoEdge(RecordingContext& context, std::span<const unsigned char> frame);
+void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame, int mask_number);
 int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temporary,
                       unsigned char* test);
 void SetEdgeMaskArea(RecordingContext& context, unsigned char* temporary);

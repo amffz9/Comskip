@@ -344,10 +344,12 @@ struct EdgeTests {
 };
 
 
-void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNumber)
+void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame, int maskNumber)
 {
     const auto scan = logo_scan(context);
-    if (!frame_ptr) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_edge_detection_requires_image_pixels);
+    if (frame.size() < static_cast<std::size_t>(context.state.width) * context.state.height)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_edge_detection_requires_image_pixels);
+    const auto* frame_ptr = frame.data();
     require_logo_buffer(context.state.hor_edgecount.size(), scan);
     require_logo_buffer(context.state.ver_edgecount.size(), scan);
     const EdgeTests edge_tests{context.state.width, context.settings.edge_radius,
@@ -547,10 +549,12 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
 
 
 
-double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
+double CheckStationLogoEdge(RecordingContext& context, std::span<const unsigned char> frame)
 {
     const auto scan = logo_scan(context);
-    if (!testFrame) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_comparison_requires_image_pixels);
+    if (frame.size() < static_cast<std::size_t>(context.state.width) * context.state.height)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_comparison_requires_image_pixels);
+    const auto* testFrame = frame.data();
     require_logo_buffer(context.state.choriz_edgemask.size(), scan);
     require_logo_buffer(context.state.cvert_edgemask.size(), scan);
     const EdgeTests edge_tests{context.state.width, context.settings.edge_radius,
@@ -1047,7 +1051,7 @@ void FillLogoBuffer(RecordingContext& context)
 //		}
 //	}
 
-    EdgeDetect(context, context.state.logoFrameBuffer[context.state.newestLogoBuffer].data(), context.state.newestLogoBuffer);
+    EdgeDetect(context, context.state.logoFrameBuffer[context.state.newestLogoBuffer], context.state.newestLogoBuffer);
     if ((!context.state.logoBuffersFull) && (context.state.newestLogoBuffer == context.settings.num_logo_buffers - 1)) context.state.logoBuffersFull = true;
 }
 

@@ -32,7 +32,7 @@ TEST(LogoGeometryApplication, ExtremeEdgesFailBeforeDetectorWrites) {
         if(mode==0) context->settings.edge_step=536870912;
         if(mode==1) context->settings.edge_radius=std::numeric_limits<int>::max();
         if(mode==2) context->settings.border=std::numeric_limits<int>::max();
-        EXPECT_THROW(EdgeDetect(*context,pixels.data(),0),std::invalid_argument);
+        EXPECT_THROW(EdgeDetect(*context,pixels,0),std::invalid_argument);
         EXPECT_EQ(context->state.hedge_count,91);
         EXPECT_EQ(pixels,std::vector<unsigned char>(160u*120,7));
     }
@@ -41,10 +41,10 @@ TEST(LogoGeometryApplication, OrdinaryEdgesAreDetectedAndBuffersRequired) {
     auto context=logo_context();
     std::vector<unsigned char> pixels(160u*120);
     for(int y=0;y<120;++y) for(int x=0;x<160;++x) pixels[y*160+x]=(x%8<4 ? 0:255);
-    EXPECT_NO_THROW(EdgeDetect(*context,pixels.data(),0));
+        EXPECT_NO_THROW(EdgeDetect(*context,pixels,0));
     EXPECT_TRUE(std::ranges::any_of(context->state.hor_edgecount,[](auto count){return count>0;}));
     context->state.hor_edgecount.clear();
-    EXPECT_THROW(EdgeDetect(*context,pixels.data(),0),std::invalid_argument);
+        EXPECT_THROW(EdgeDetect(*context,pixels,0),std::invalid_argument);
 }
 TEST(LogoGeometryApplication, ShortAndExtremeFilterHistoryAreSafe) {
     auto context=logo_context();
@@ -66,7 +66,7 @@ TEST(LogoGeometryApplication, PersistedBoundsAreClippedBeforeNeighbourReads) {
     std::vector<unsigned char> pixels(160u*120,7);
     std::ranges::fill(context->state.choriz_edgemask,1);
     std::ranges::fill(context->state.cvert_edgemask,1);
-    EXPECT_NO_THROW(CheckStationLogoEdge(*context,pixels.data()));
+        EXPECT_NO_THROW(CheckStationLogoEdge(*context,pixels));
     EXPECT_EQ(context->state.currentGoodEdge,0);
 }
 TEST(LogoGeometryApplication, EmptyCaptionAndLogoReportsAreSafe) {

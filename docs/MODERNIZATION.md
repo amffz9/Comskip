@@ -855,3 +855,6 @@ than redefine completion around whichever subset currently passes tests.
 
 - Cut-scene loading now accepts `std::string_view` for UTF-8 filenames,
   preserving the existing path conversion and localized errors.
+
+- Logo edge detection and comparison now accept bounded read-only pixel spans,
+  validating storage before indexing instead of relying on raw pointers.
