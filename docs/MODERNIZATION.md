@@ -1013,3 +1013,7 @@ than redefine completion around whichever subset currently passes tests.
 - Caption packet and replay buffers now use fixed-size `std::array` containers;
   explicit `.data()` and `.begin()` calls mark C-pointer and output-iterator
   boundaries. The complete Windows suite passes **523/523**.
+
+- XDS caption staging and retained records now use nested fixed-size
+  `std::array` containers; `.data()` is explicit at diagnostic C-string
+  boundaries. The complete Windows suite passes **523/523**.

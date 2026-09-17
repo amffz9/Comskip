@@ -314,7 +314,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 else if (type == 0x03)
                 {
                     auto& name = context.state.XDS_block[context.state.XDS_block_count].name;
-                    const auto* title = reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]);
+                    const auto* title = reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2);
                     if (!std::equal(std::begin(name), std::end(name), title))
                     {
                         Add_XDS_block(context);
@@ -323,7 +323,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                         std::copy_n(title, std::size(next_name) - 1, std::begin(next_name));
                     }
                     xds_debug("caption_xds_program_name", frame,
-                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                        reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
 //		XDS_block[XDS_block_count].name[0] = 0;
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x04)
@@ -366,17 +366,17 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 else if (context.state.AddXDS_XDSbuf[1] == 0x8c)
                 {
                     xds_debug("caption_xds_program_data", frame,
-                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                        reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x0d)
                 {
                     xds_debug("caption_xds_misc_data", frame,
-                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                        reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x010)
                 {
                     xds_debug("caption_xds_program_description", frame,
-                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                        reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
                 }
                 else
                     xds_debug("caption_xds_unknown", frame);
@@ -387,12 +387,12 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 if (context.state.AddXDS_XDSbuf[1] == 0x01)
                 {
                     xds_debug("caption_xds_network_name", frame,
-                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                        reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x02)
                 {
                     xds_debug("caption_xds_network_call_name", frame,
-                        reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                        reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
                 }
                 else
                     xds_debug("caption_xds_unknown", frame);
@@ -400,7 +400,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
             else if (context.state.AddXDS_XDSbuf[0] == 0x0d)
             {
                 xds_debug("caption_xds_private_data", frame,
-                    reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));
+                    reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
             }
             else
             {
@@ -414,7 +414,7 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 }
                 context.state.AddXDS_XDSbuf[context.state.AddXDS_c - 2] = 0;
                 xds_debug("caption_xds_text", frame,
-                    reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf));
+                    reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data()));
             }
         }
         std::fill(std::begin(context.state.AddXDS_XDSbuf),

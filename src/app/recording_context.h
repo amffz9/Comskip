@@ -19,7 +19,7 @@
 
 struct RecordingState {
     comskip::media::DecodeProgress decode_progress;
-    unsigned char XDSbuffer[40][100]{};
+    std::array<std::array<unsigned char, 100>, 40> XDSbuffer{};
     int lastXDS= 0;
     int firstXDS= 1;
     int startXDS= 1;
@@ -371,7 +371,7 @@ struct RecordingState {
     int postMarkerFrame= 0;
     char CauseString_cs[4][80]{};
     int CauseString_ii=0;
-    unsigned char AddXDS_XDSbuf[1024]{};
+    std::array<unsigned char, 1024> AddXDS_XDSbuf{};
     int AddXDS_c= 0;
     int DetectCredits_credit_length= 0;
     int DetectCredits_prev_credit_length= 0;
