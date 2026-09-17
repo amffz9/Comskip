@@ -821,3 +821,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Standalone subtitle decoding now uses the shared `CodecParametersPtr` owner
   for copied FFmpeg parameters. Its focused suite passes **6/6**.
+
+- Frame conversion now accepts `ScalerPtr&` directly; the video decoder no
+  longer releases the scaler to a raw pointer at the call boundary. Focused
+  conversion tests pass **2/2**.

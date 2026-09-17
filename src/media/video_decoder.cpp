@@ -88,13 +88,6 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-int convert_frame_to_8bit_owned(AVFrame* frame, ScalerPtr& context) {
-    auto* raw_context = context.release();
-    const int result = comskip::media::convert_frame_to_8bit(frame, raw_context);
-    context.reset(raw_context);
-    return result;
-}
-
 // int width, height;
 
 //#include "mpeg2convert.h"
@@ -270,7 +263,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         frameFinished = 1;
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
-            if (convert_frame_to_8bit_owned(is->pFrame.get(), is->img_convert_ctx) < 0) {
+            if (comskip::media::convert_frame_to_8bit(is->pFrame.get(), is->img_convert_ctx) < 0) {
                 Debug(context, 1, "%s", context.translator.text("media_frame_conversion_failed"));
                 av_frame_unref(is->pFrame.get());
                 continue;

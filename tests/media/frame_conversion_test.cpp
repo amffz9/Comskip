@@ -11,8 +11,7 @@ TEST(FrameConversion, ReusesFrameObjectAndPreservesPropertiesAcrossConversions)
 {
     const auto release_frame = [](AVFrame* frame) { av_frame_free(&frame); };
     std::unique_ptr<AVFrame, decltype(release_frame)> frame(av_frame_alloc(), release_frame);
-    const auto release_context = [](SwsContext* context) { sws_freeContext(context); };
-    std::unique_ptr<SwsContext, decltype(release_context)> owned_context(nullptr, release_context);
+    comskip::media::ScalerPtr context;
     ASSERT_NE(frame, nullptr);
     AVFrame* const original = frame.get();
     for (int iteration = 0; iteration < 100; ++iteration) {
@@ -32,9 +31,7 @@ TEST(FrameConversion, ReusesFrameObjectAndPreservesPropertiesAcrossConversions)
                     samples[column] = 512;
             }
         }
-        SwsContext* context = owned_context.release();
         const int result = comskip::media::convert_frame_to_8bit(frame.get(), context);
-        owned_context.reset(context);
         ASSERT_EQ(result, 0);
         EXPECT_EQ(frame.get(), original);
         EXPECT_EQ(frame->format, AV_PIX_FMT_YUV420P);
@@ -51,7 +48,7 @@ TEST(FrameConversion, RejectsUnsupportedInputWithoutChangingFrame)
     frame->format = AV_PIX_FMT_YUV420P;
     frame->width = frame->height = 32;
     frame->pts = 7;
-    SwsContext* context = nullptr;
+    comskip::media::ScalerPtr context;
     EXPECT_LT(comskip::media::convert_frame_to_8bit(frame, context), 0);
     EXPECT_EQ(frame->format, AV_PIX_FMT_YUV420P);
     EXPECT_EQ(frame->pts, 7);
