@@ -223,6 +223,9 @@ TEST(Translator, FormatsCutlistThresholdAndHeuristicMessages) {
     EXPECT_EQ(english.format("cutlists_h5_delete_after_last", 4, 12),
               "H5 Deleting cblock 4 of 12 seconds because it comes after the last commercial and its too short.\n");
     EXPECT_EQ(spanish.format("cutlists_threshold_rounded", "0.88"), "\tDespués del redondeo - 0.88\n");
+    EXPECT_EQ(english.format("cutlists_keep_last_shorten", 2, 5),
+              "Shortening commercial block 2 because the last 5 seconds should always be kept.\n");
+    EXPECT_STREQ(spanish.text("cutlists_no_change"), "Sin cambios\n");
 }
 TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
     const Translator english;

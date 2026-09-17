@@ -896,3 +896,7 @@ than redefine completion around whichever subset currently passes tests.
 - Cutlist threshold and heuristic deletion diagnostics now use catalog-backed
   English/Spanish messages while preserving numeric formatting. Focused
   localization and cutlist coverage passes **37/37**.
+
+- Cutlist keep-first/keep-last decisions and final-list status messages now
+  use the same catalogs, including Spanish wording, with the existing output
+  layout preserved.

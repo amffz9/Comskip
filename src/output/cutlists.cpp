@@ -554,8 +554,8 @@ bool OutputBlocks(RecordingContext& context)
         context.state.commercial[context.state.commercial_count].length = frame_duration(context, context.state.commercial[context.state.commercial_count].end_frame,	context.state.commercial[context.state.commercial_count].start_frame);
         while (i < context.state.block_count)
         {
-            Debug(context, 3, "H5 Deleting cblock %i of %i seconds because it comes after the last commercial.\n",
-                  i, static_cast<int>(context.state.cblock[i].length) );
+            Debug(context, 3, "%s", context.translator.format("cutlists_h5_delete_after_last_all", i,
+                static_cast<int>(context.state.cblock[i].length)).c_str());
             context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
             context.state.cblock[i].score = 99.99;
             context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
@@ -575,8 +575,8 @@ bool OutputBlocks(RecordingContext& context)
         context.state.commercial[0].start_block = 0;
         context.state.commercial[0].start_frame = context.state.cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
         context.state.commercial[0].length = frame_duration(context, context.state.commercial[0].end_frame, context.state.commercial[0].start_frame);
-        Debug(context, 3, "H5 Deleting cblock %i of %i seconds because it comes before the first commercial.\n",
-              0, static_cast<int>(context.state.cblock[0].length));
+        Debug(context, 3, "%s", context.translator.format("cutlists_h5_delete_before_first_all", 0,
+            static_cast<int>(context.state.cblock[0].length)).c_str());
         context.state.cblock[0].score = 99.99;
         context.state.cblock[0].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
         context.state.cblock[0].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
@@ -589,15 +589,15 @@ bool OutputBlocks(RecordingContext& context)
         k = 0;
         while (context.state.commercial_count >= 0 && frame_time(context, context.state.commercial[k].end_frame) < context.settings.always_keep_first_seconds)
         {
-            Debug(context, 3, "Deleting commercial block %i because the first %d seconds should always be kept.\n",
-                  k, context.settings.always_keep_first_seconds);
+            Debug(context, 3, "%s", context.translator.format("cutlists_keep_first_delete", k,
+                context.settings.always_keep_first_seconds).c_str());
             comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
             deleted = true;
         }
         if (context.state.commercial_count >= 0 && frame_time(context, context.state.commercial[k].start_frame ) < context.settings.always_keep_first_seconds)
         {
-            Debug(context, 3, "Shortening commercial block %i because the first %d seconds should always be kept.\n",
-                  k, context.settings.always_keep_first_seconds);
+            Debug(context, 3, "%s", context.translator.format("cutlists_keep_first_shorten", k,
+                context.settings.always_keep_first_seconds).c_str());
             while (frame_time(context, context.state.commercial[k].start_frame ) < context.settings.always_keep_first_seconds && context.state.commercial[k].start_frame < context.settings.always_keep_first_seconds * context.settings.fps)
                 context.state.commercial[k].start_frame++;
         }
@@ -607,16 +607,16 @@ bool OutputBlocks(RecordingContext& context)
         k = context.state.commercial_count;
         while (context.state.commercial_count >= 0 && frame_duration(context, context.state.cblock[context.state.block_count-1].f_end, context.state.commercial[k].start_frame) < context.settings.always_keep_last_seconds)
         {
-            Debug(context, 3, "Deleting commercial block %i because the last %d seconds should always be kept.\n",
-                  k, context.settings.always_keep_last_seconds);
+            Debug(context, 3, "%s", context.translator.format("cutlists_keep_last_delete", k,
+                context.settings.always_keep_last_seconds).c_str());
             comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
             k = context.state.commercial_count;
             deleted = true;
         }
         if (context.state.commercial_count >= 0 && frame_duration(context, context.state.cblock[context.state.block_count-1].f_end, context.state.commercial[k].end_frame) < context.settings.always_keep_last_seconds)
         {
-            Debug(context, 3, "Shortening commercial block %i because the last %d seconds should always be kept.\n",
-                  k, context.settings.always_keep_last_seconds);
+            Debug(context, 3, "%s", context.translator.format("cutlists_keep_last_shorten", k,
+                context.settings.always_keep_last_seconds).c_str());
             while (frame_duration(context, context.state.cblock[context.state.block_count-1].f_end, context.state.commercial[k].end_frame) < context.settings.always_keep_last_seconds && (context.state.cblock[context.state.block_count-1].f_end - context.state.commercial[k].end_frame) < context.settings.fps * context.settings.always_keep_last_seconds)
                 context.state.commercial[k].end_frame--;
         }
@@ -625,9 +625,9 @@ bool OutputBlocks(RecordingContext& context)
 
 
     if (deleted)
-        Debug(context, 1, "\n\n\t---------------------\n\tFinal Commercial List\n\t---------------------\n");
+        Debug(context, 1, "%s", context.translator.text("cutlists_final_list"));
     else
-        Debug(context, 1, "No change\n");
+        Debug(context, 1, "%s", context.translator.text("cutlists_no_change"));
 #endif
 
 
