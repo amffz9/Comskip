@@ -1330,7 +1330,7 @@ bool ProcessCCDict(RecordingContext& context)
             continue;
         }
         // just in case the line is empty
-        if (strlen(phrase) < 1) continue;
+        if (std::string_view(phrase).empty()) continue;
 
         Debug(context, 3, "%s", context.translator.format("caption_dictionary_search", phrase).c_str());
         for (i = 0; i < context.state.cc_text_count; i++)

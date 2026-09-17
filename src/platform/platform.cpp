@@ -30,7 +30,7 @@ FILE* myfopen(const char* filename, const char* mode)
 #if defined(_WIN32)
     try {
         const auto path = utf8_path(filename);
-        const std::wstring wide_mode(mode, mode + strlen(mode));
+        const std::wstring wide_mode(mode, mode + std::char_traits<char>::length(mode));
         FILE* stream = nullptr;
         if (_wfopen_s(&stream, path.c_str(), wide_mode.c_str()) != 0)
             return nullptr;

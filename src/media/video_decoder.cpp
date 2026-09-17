@@ -138,7 +138,7 @@ void list_codecs(const comskip::localization::Translator& translator)
         while (p != nullptr) {
             if (av_codec_is_decoder(p)) {
                 printf("%s", p->name);
-                i += strlen(p->name);
+                i += static_cast<int>(std::char_traits<char>::length(p->name));
                 if (i > 80) {
                     printf("\n");
                     i = 0;
