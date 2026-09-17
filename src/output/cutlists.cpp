@@ -23,9 +23,13 @@
 #include "diagnostics.h"
 #include <algorithm>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 namespace {
+constexpr std::string_view training_layout =
+    "%3d,%c,%c,%7.2f,%7.2f,%7.2f,%7.2f,%7.2f,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",%s\n";
+
 double frame_time(RecordingContext& context, const long frame) {
     return get_frame_pts(context, static_cast<int>(frame));
 }
@@ -920,15 +924,13 @@ void OutputTraining(RecordingContext& context)
 
 #else
 
-#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7.2f,%7.2f,%7.2f,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",%s\n"
-
     comskip::output::checked_fprintf(*context.state.training_file,"comskip.csv", "block, cm,rf, score, length, start, end, fromend ar, logo, cause, less, more\n");
 
     for (i = 0; i < context.state.block_count; i++)
     {
         if (context.settings.output_training)
         {
-            comskip::output::checked_fprintf(*context.state.training_file,"comskip.csv",TRAINING_LAYOUT,
+            comskip::output::checked_fprintf(*context.state.training_file,"comskip.csv",training_layout.data(),
                     i,
                     CheckFramesForCommercial(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail),
                     CheckFramesForReffer(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail),
