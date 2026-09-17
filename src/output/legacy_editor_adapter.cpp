@@ -30,22 +30,22 @@ void WriteLegacyEditorFiles(RecordingContext& context,bool use_reference) {
     const auto offset=[&](long frame){return std::max<std::int64_t>(static_cast<std::int64_t>(frame)-settings.videoredo_offset-1,0);};
     std::vector<EditorInterval> vdr,cuts;std::vector<EditorScene> scenes;
     std::optional<EditorStreamIds> streams;
-    const auto append=[&](int index,long previous,long start,long end){
-        if(previous<start&&end-start>2){
+    const auto append=[&](int index,std::optional<long> previous,long start,long end){
+        if((!previous||*previous<start)&&end-start>2){
             vdr.push_back({at(start<5?0:start),at(end)});
             cuts.push_back({at(offset(start)),at(offset(end))});
             if(index==0&&state.demux_pid)streams=EditorStreamIds{state.selected_video_pid,state.selected_audio_pid,state.selected_subtitle_pid};
         }
     };
-    long previous=-1;
+    std::optional<long> previous;
     for(int i=0;i<=count;++i){
         const auto start=use_reference?state.reffer[i].start_frame:state.commercial[i].start_frame;
         const auto end=use_reference?state.reffer[i].end_frame:state.commercial[i].end_frame;
-        if(start<0||end<start||start<=previous||start>=state.frame_count||end>state.frame_count)
+        if(start<0||end<start||(previous&&start<=*previous)||start>=state.frame_count||end>state.frame_count)
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_legacy_editor_commercial_range);
         append(i,previous,start,end);previous=end;
     }
-    if(count<0||previous<state.frame_count-2)append(count+1,previous,state.frame_count-2,state.frame_count-1);
+    if(count<0||!previous||*previous<state.frame_count-2)append(count+1,previous,state.frame_count-2,state.frame_count-1);
     for(int i=0;project&&i<state.block_count;++i){
         const auto frame=offset(state.cblock[i].f_end);
         if(state.cblock[i].f_end<0)throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_legacy_editor_scene);
