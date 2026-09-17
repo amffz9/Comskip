@@ -59,6 +59,13 @@ using namespace comskip::media;
 
 namespace {
 
+constexpr double timeline_comparison_epsilon = 0.001;
+
+[[nodiscard]] bool approximately_equal(const double left, const double right) noexcept
+{
+    return std::abs(left - right) < timeline_comparison_epsilon;
+}
+
 template <typename... Args>
 void debug_message(RecordingContext& context, const int level, const std::string_view message_id, Args&&... args)
 {
@@ -118,8 +125,6 @@ using namespace comskip::media;
 //test
 
 //extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
-
-#define ISSAME(T1,T2) (fabs((T1) - (T2)) < 0.001)
 
 //extern double fps;
 
@@ -314,8 +319,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 [](AVIOContext* input) { return avio_tell(input); });
             if ((context.state.initial_pts_set < 3 && !context.state.reviewing) || (context.state.reviewing && context.state.initial_pts_set < 2)  )
             {
-//              if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
-                if (!ISSAME(context.state.initial_pts, (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum) )) {
+                if (!approximately_equal(context.state.initial_pts, (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum) )) {
                     context.state.initial_pts = (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum);
                     debug_message(context, 10, "media_initial_video_pts",
                                   std::format("{:10.3f}", context.state.initial_pts));
@@ -418,8 +422,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         context.state.pts_offset *= 0.9;
         if (!context.state.reviewing && context.settings.timeline_repair) {
             if (context.state.framenum > 1 && fabs(calculated_delay - context.state.pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
-                if (!ISSAME(3*frame_delay/ is->ticks_per_frame, calculated_delay))
-                    if (!ISSAME(1*frame_delay/ is->ticks_per_frame, calculated_delay))
+                if (!approximately_equal(3*frame_delay/ is->ticks_per_frame, calculated_delay))
+                    if (!approximately_equal(1*frame_delay/ is->ticks_per_frame, calculated_delay))
                         context.state.pts_offset = context.state.pts_offset + frame_delay - calculated_delay;
             }
         }
@@ -437,9 +441,9 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
 
         if (!context.state.reviewing
             && context.state.framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
-            && !ISSAME(3*frame_delay/ is->ticks_per_frame, calculated_delay)
-            && !ISSAME(2*frame_delay/ is->ticks_per_frame, calculated_delay)
-            && !ISSAME(1*frame_delay/ is->ticks_per_frame, calculated_delay)
+            && !approximately_equal(3*frame_delay/ is->ticks_per_frame, calculated_delay)
+            && !approximately_equal(2*frame_delay/ is->ticks_per_frame, calculated_delay)
+            && !approximately_equal(1*frame_delay/ is->ticks_per_frame, calculated_delay)
             ){
             if ( (context.state.video_packet_process_prev_strange_framenum + 1 != context.state.framenum) &&( context.state.video_packet_process_prev_strange_step < fabs(calculated_delay - frame_delay))) {
                 debug_message(context, 8, "media_strange_video_pts_step",
