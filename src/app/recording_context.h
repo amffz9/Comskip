@@ -24,7 +24,7 @@ struct RecordingState {
     int firstXDS= 1;
     int startXDS= 1;
     int baseXDS= 0;
-    int own_histogram[4][256]{};
+    std::array<std::array<int, 256>, 4> own_histogram{};
     int scan_step{};
     int beforeblocks[100]{};
     int afterblocks[100]{};
@@ -195,8 +195,8 @@ struct RecordingState {
     int sceneChangePercent{};
     bool lastFrameWasBlack= false;
     int lastFrameWasSceneChange{};
-    long histogram[256]{};
-    long lastHistogram[256]{};
+    std::array<long, 256> histogram{};
+    std::array<long, 256> lastHistogram{};
     int cutscenematch{};
     int cutscenes=0;
     unsigned char cutscene[8][120000]{};

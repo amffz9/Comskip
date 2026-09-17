@@ -993,3 +993,7 @@ than redefine completion around whichever subset currently passes tests.
 - Internal scan-line bounds now use `std::array<int, 4800>`, retaining the
   existing fixed capacity while making range and size operations container
   based. The complete Windows suite passes **523/523**.
+
+- Scene-analysis histogram storage now uses nested `std::array` containers;
+  optional frame histogram publication uses `std::ranges::copy` instead of raw
+  byte copying. The complete Windows suite passes **523/523**.
