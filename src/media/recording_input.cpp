@@ -141,7 +141,7 @@ void file_open_impl(RecordingContext& context)
         video_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
         if(video_index >= 0)
         {
-            stream_component_open(context, is, video_index);
+            stream_component_open(context, *is, video_index);
         }
         if(is->videoStream < 0)
         {
@@ -181,7 +181,7 @@ void file_open_impl(RecordingContext& context)
         audio_index = av_find_best_stream(is->pFormatCtx.get(), AVMEDIA_TYPE_AUDIO, -1, video_index, nullptr, 0);
         if(audio_index >= 0)
         {
-            stream_component_open(context, is, audio_index);
+            stream_component_open(context, *is, audio_index);
             if (is->audio_st)
                 context.state.audio_channels = is->audio_st->codecpar->ch_layout.nb_channels;
 

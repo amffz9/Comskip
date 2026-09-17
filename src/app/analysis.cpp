@@ -157,7 +157,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             {
                 if (context.state.video_owner->seek_pts > 0.0)
                 {
-                    DoSeekRequest(context, context.state.video_owner.get());
+                    DoSeekRequest(context, *context.state.video_owner);
                 }
                 else
                 {
@@ -286,7 +286,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 
                         if (context.state.selftest == 0) sleep_for_ms(4000L);
                         file_open(context);
-                        Set_seek(context, context.state.video_owner.get(), retry_target);
+                        Set_seek(context, *context.state.video_owner, retry_target);
 
                         context.state.retries++;
                         continue;
@@ -355,7 +355,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                 } else {
                     context.state.selftest_target = 1.0;
                 }
-                Set_seek(context, context.state.video_owner.get(), context.state.selftest_target);
+                Set_seek(context, *context.state.video_owner, context.state.selftest_target);
                 context.state.pass = 1;
                 context.state.framenum++;
             }

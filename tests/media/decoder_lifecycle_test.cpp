@@ -146,7 +146,7 @@ TEST(DecoderLifecycle, ByteSeekWithoutIoContextReportsRangeDiagnostic) {
     ASSERT_EQ(video.pFormatCtx->pb,nullptr);
     video.seek_by_bytes=1;
     video.duration=100;
-    try { Set_seek(*context,&video,20); FAIL() << "expected unavailable byte seek failure"; }
+    try { Set_seek(*context,video,20); FAIL() << "expected unavailable byte seek failure"; }
     catch (const comskip::diagnostics::DiagnosticProvider& error) {
         EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::integer_range);
     }

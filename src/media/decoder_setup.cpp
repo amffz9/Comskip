@@ -35,9 +35,9 @@ extern "C" {
 }
 using namespace comskip::media;
 
-int stream_component_open(RecordingContext& context, VideoState *is, int stream_index)
+int stream_component_open(RecordingContext& context, VideoState& is, int stream_index)
 {
-    AVFormatContext* pFormatCtx = is->pFormatCtx.get();
+    AVFormatContext* pFormatCtx = is.pFormatCtx.get();
     AVCodecParameters* codecPar = nullptr;
     AVCodecContext *codecCtx;
     const AVCodec *codec;
@@ -175,27 +175,27 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
     switch(codecCtx->codec_type)
     {
     case AVMEDIA_TYPE_SUBTITLE:
-        is->subtitleStream = stream_index;
-        is->subtitle_st = pFormatCtx->streams[stream_index];
-        is->subtitle_ctx = std::move(codec_owner);
+        is.subtitleStream = stream_index;
+        is.subtitle_st = pFormatCtx->streams[stream_index];
+        is.subtitle_ctx = std::move(codec_owner);
         if (context.state.demux_pid)
-            context.state.selected_subtitle_pid = is->subtitle_st->id;
+            context.state.selected_subtitle_pid = is.subtitle_st->id;
         break;
     case AVMEDIA_TYPE_AUDIO:
-        is->audioStream = stream_index;
-        is->audio_st = pFormatCtx->streams[stream_index];
-        is->audio_ctx = std::move(codec_owner);
+        is.audioStream = stream_index;
+        is.audio_st = pFormatCtx->streams[stream_index];
+        is.audio_ctx = std::move(codec_owner);
 
         if (context.state.demux_pid)
-            context.state.selected_audio_pid = is->audio_st->id;
+            context.state.selected_audio_pid = is.audio_st->id;
 
         break;
     case AVMEDIA_TYPE_VIDEO:
-        is->videoStream = stream_index;
-        is->video_st = pFormatCtx->streams[stream_index];
-        is->dec_ctx = std::move(codec_owner);
+        is.videoStream = stream_index;
+        is.video_st = pFormatCtx->streams[stream_index];
+        is.dec_ctx = std::move(codec_owner);
 
-        is->pFrame = make_frame();
+        is.pFrame = make_frame();
         if (!context.settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
@@ -214,9 +214,9 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
             codecCtx->thread_count= 1;
 #endif
         }
-        is->ticks_per_frame = (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO) ? 1 : 2;
+        is.ticks_per_frame = (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO) ? 1 : 2;
         if (context.state.demux_pid)
-            context.state.selected_video_pid = is->video_st->id;
+            context.state.selected_video_pid = is.video_st->id;
         
         if (context.settings.skip_B_frames)
             codecCtx->skip_frame = AVDISCARD_NONREF;

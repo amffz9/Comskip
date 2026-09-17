@@ -46,16 +46,16 @@ namespace {
 constexpr double maximum_gop_duration_seconds = 2.0;
 }
 
-void Set_seek(RecordingContext& context, VideoState *is, double pts)
+void Set_seek(RecordingContext& context, VideoState& is, double pts)
 {
-    AVFormatContext *ic = is->pFormatCtx.get();
+    AVFormatContext *ic = is.pFormatCtx.get();
 
-    double length = is->duration;
+    double length = is.duration;
 
-    is->seek_flags = AVSEEK_FLAG_ANY;
-    is->seek_flags = AVSEEK_FLAG_BACKWARD;
-    is->seek_req = true;
-    is->seek_pts = pts;
+    is.seek_flags = AVSEEK_FLAG_ANY;
+    is.seek_flags = AVSEEK_FLAG_BACKWARD;
+    is.seek_req = true;
+    is.seek_pts = pts;
 #ifdef DEBUG
     fputs(context.translator.format("media_seek_target", std::format("{:8.2f}", pts)).c_str(), stdout);
 #endif // DEBUG
@@ -66,7 +66,7 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
             comskip::diagnostics::Code::integer_range,{"seek target"});
     };
 
-    if (is->seek_by_bytes)
+    if (is.seek_by_bytes)
     {
         const auto size=comskip::media::input_size(ic, [](AVIOContext* input) {
             return avio_size(input);
@@ -79,39 +79,39 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
         }
         const auto position=comskip::media::byte_seek_position(*size,length,std::fmax(0.0,pts-4.0));
         if (!position) failed();
-        is->seek_pos=*position;
-        is->seek_flags |= AVSEEK_FLAG_BYTE;
+        is.seek_pos=*position;
+        is.seek_flags |= AVSEEK_FLAG_BYTE;
     } else {
         const auto position=comskip::media::timestamp_seek_position(pts,context.state.initial_pts,
-            is->video_st->time_base.num,is->video_st->time_base.den,
-            is->video_st->start_time==AV_NOPTS_VALUE ? std::nullopt : std::optional{is->video_st->start_time});
+            is.video_st->time_base.num,is.video_st->time_base.den,
+            is.video_st->start_time==AV_NOPTS_VALUE ? std::nullopt : std::optional{is.video_st->start_time});
         if (!position) failed();
-        is->seek_pos=*position;
+        is.seek_pos=*position;
     }
 }
 
-void DoSeekRequest(RecordingContext& context, VideoState *is)
+void DoSeekRequest(RecordingContext& context, VideoState& is)
 {
     int ret{};
     for (;;) {
-//           ret = avformat_seek_file(is->pFormatCtx.get(), is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
-    ret = av_seek_frame(is->pFormatCtx.get(), is->videoStream,  is->seek_pos,  is->seek_flags);
-//            ret = av_seek_frame(is->pFormatCtx.get(), -1,  is->seek_pos,  is->seek_flags);
+//           ret = avformat_seek_file(is.pFormatCtx.get(), is.videoStream, INT64_MIN, is.seek_pos, INT64_MAX, is.seek_flags);
+    ret = av_seek_frame(is.pFormatCtx.get(), is.videoStream,  is.seek_pos,  is.seek_flags);
+//            ret = av_seek_frame(is.pFormatCtx.get(), -1,  is.seek_pos,  is.seek_flags);
     context.state.pev_best_effort_timestamp = 0;
     context.state.best_effort_timestamp = 0;
-    is->video_clock = 0.0;
-    is->audio_clock = 0.0;
+    is.video_clock = 0.0;
+    is.audio_clock = 0.0;
     if(ret < 0) {
         const char *error_text;
 #if LIBAVCODEC_BUILD >= AV_VERSION_INT(59, 37, 100) && \
     LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 28, 100)
         error_text = "Generic";
 #else
-        if (is->pFormatCtx->iformat->read_seek)
+        if (is.pFormatCtx->iformat->read_seek)
         {
             error_text = "Format specific";
         }
-        else if(is->pFormatCtx->iformat->read_timestamp)
+        else if(is.pFormatCtx->iformat->read_timestamp)
         {
             error_text = "Frame binary";
         }
@@ -122,34 +122,34 @@ void DoSeekRequest(RecordingContext& context, VideoState *is)
 #endif
 
         fputs(context.translator.format("media_seek_error", error_text,
-              std::format("{:6.3f}", is->seek_pts), is->pFormatCtx->url).c_str(), stderr);
+              std::format("{:6.3f}", is.seek_pts), is.pFormatCtx->url).c_str(), stderr);
 
         if (context.state.selftest)
         {
-            comskip::output::write_selftest_log(context.settings.selftest_log_file, "{} error while seeking, target={:6.3f}, \"{}\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
+            comskip::output::write_selftest_log(context.settings.selftest_log_file, "{} error while seeking, target={:6.3f}, \"{}\"\n", error_text,is.seek_pts, is.pFormatCtx->url);
         }
 
-        if (!is->seek_by_bytes)
+        if (!is.seek_by_bytes)
         {
-            is->seek_by_bytes = 1; // Fall back to byte seek
-            Set_seek(context, is, is->seek_pts);
+            is.seek_by_bytes = 1; // Fall back to byte seek
+            Set_seek(context, is, is.seek_pts);
             continue;
         }
     }
     break;
     }
-    if (!is->seek_no_flush)
+    if (!is.seek_no_flush)
     {
-        if(is->audioStream >= 0)
+        if(is.audioStream >= 0)
         {
-            avcodec_flush_buffers(is->audio_ctx.get());
+            avcodec_flush_buffers(is.audio_ctx.get());
         }
-        if(is->videoStream >= 0)
+        if(is.videoStream >= 0)
         {
-            avcodec_flush_buffers(is->dec_ctx.get());
+            avcodec_flush_buffers(is.dec_ctx.get());
         }
     }
-    is->seek_no_flush = 0;
+    is.seek_no_flush = 0;
 }
 
 void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
@@ -165,7 +165,7 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
     is = context.state.video_owner.get();
 
     context.state.reviewing = 1;
-    Set_seek(context, is, pts);
+    Set_seek(context, *is, pts);
 
     context.state.pev_best_effort_timestamp = 0;
     context.state.best_effort_timestamp = 0;
@@ -182,7 +182,7 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
         }
         // seek stuff goes here
         if(is->seek_req)
-            DoSeekRequest(context, is);
+            DoSeekRequest(context, *is);
         if(av_read_frame(is->pFormatCtx.get(), packet) < 0)
         {
             break;
