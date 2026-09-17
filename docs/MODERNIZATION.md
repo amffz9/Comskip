@@ -1040,3 +1040,7 @@ than redefine completion around whichever subset currently passes tests.
 - `CauseString` now returns a `const char*`, preserving the legacy formatting
   ABI while preventing callers from mutating the generated diagnostic text. The
   complete Windows suite passes **523/523**.
+
+- Caption packet pairs now use `std::array<unsigned char, 2>` members, keeping
+  their indexed decoder behavior while removing implicit C-array decay. The
+  complete Windows suite passes **523/523**.

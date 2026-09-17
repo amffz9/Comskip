@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 
 // Per-recording detector observations and intervals. No application
@@ -78,8 +79,8 @@ struct logo_block_info {
 };
 
 struct ccPacket {
-    unsigned char cc1[2];
-    unsigned char cc2[2];
+    std::array<unsigned char, 2> cc1{};
+    std::array<unsigned char, 2> cc2{};
 };
 
 struct cc_block_info {
