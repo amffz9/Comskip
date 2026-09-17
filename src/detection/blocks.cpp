@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <format>
 #include <limits>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -31,7 +32,8 @@ char *CauseString(RecordingContext& context, int i)
     *c++ = (i & C_H2		? '2' : ' ');
     *c++ = (i & C_H1		? '1' : ' ');
 
-    if (strncmp((char*)context.state.CauseString_cs[context.state.CauseString_ii],"       ",7))
+    const std::string_view history{context.state.CauseString_cs[context.state.CauseString_ii], 7};
+    if (history != "       ")
         *c++ = '{';
     else
         *c++ = ' ';
