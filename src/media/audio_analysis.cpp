@@ -393,7 +393,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         std::copy_n(pkt_temp->data, pkt_temp->size, padded_audio.data());
         decoder_packet.data = padded_audio.data();
     }
-retry_audio_send:
+    do {
     received_frames = 0;
     send_result = avcodec_send_packet(is->audio_ctx.get(), &decoder_packet);
 
@@ -459,11 +459,11 @@ retry_audio_send:
 #endif
     }
 
+    } while (send_result == AVERROR(EAGAIN) && received_frames > 0);
+
     // EAGAIN means that no input was accepted. Drain queued frames and retry
     // that same packet; moving on would silently drop non-aligned audio input.
     if (send_result == AVERROR(EAGAIN)) {
-        if (received_frames > 0)
-            goto retry_audio_send;
         Debug(context, 1, "%s", context.translator.text("media_audio_input_refused"));
     }
 
