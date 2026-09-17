@@ -43,6 +43,10 @@
 using namespace comskip::media;
 #define SELFTEST
 
+namespace {
+constexpr double maximum_gop_duration_seconds = 2.0;
+}
+
 void Set_seek(RecordingContext& context, VideoState *is, double pts)
 {
     AVFormatContext *ic = is->pFormatCtx.get();
@@ -57,8 +61,7 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
     fputs(context.translator.format("media_seek_target", std::format("{:8.2f}", pts)).c_str(), stdout);
 #endif // DEBUG
 
-#define MAX_GOP_SIZE 2.0
-    pts = fmax(0.0,pts-MAX_GOP_SIZE);
+    pts = std::max(0.0, pts - maximum_gop_duration_seconds);
     const auto failed=[]() -> void {
         throw comskip::diagnostics::DiagnosticError<std::out_of_range>(
             comskip::diagnostics::Code::integer_range,{"seek target"});
