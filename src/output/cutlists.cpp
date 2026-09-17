@@ -22,6 +22,7 @@
 #include "edl.h"
 #include "diagnostics.h"
 #include <algorithm>
+#include <format>
 #include <sstream>
 #include <string_view>
 #include <vector>
@@ -427,8 +428,7 @@ bool OutputBlocks(RecordingContext& context)
             {
                 for (i = context.state.commercial[k].start_block; i <= context.state.commercial[k].end_block; i++)
                 {
-                    Debug(context, 3, "H6 Deleting block %i because it is part of a too short or too long commercial.\n",
-                          i);
+                    Debug(context, 3, context.translator.format("cutlists_h6_delete_length", i));
                     context.state.cblock[i].score = 0;
                     context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
                     context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
@@ -714,28 +714,21 @@ bool OutputBlocks(RecordingContext& context)
 
     if (context.settings.verbose)
     {
-        Debug(context, 1, "\nLogo fraction:              %.4f      %s\n",context.state.logoPercentage, (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) ? (context.state.reverseLogoLogic? "(Reversed Logo Logic)": "") : "Logo disabled") );
-        Debug(context, 1,   "Maximum volume found:       %6i\n", context.state.maxi_volume);
-        Debug(context, 1,   "Average volume:             %6i\n", context.state.avg_volume);
-        Debug(context, 1,   "Sound threshold:            %6i\n", context.settings.max_volume);
-        Debug(context, 1,   "Silence threshold:          %6i\n", context.settings.max_silence);
-        Debug(context, 1,   "Minimum volume found:       %6i\n", context.state.min_volume);
-        Debug(context, 1,   "Average frames with silence:%6i\n", context.state.avg_silence);
-        Debug(context, 1,   "Black threshold:            %6i\n", context.settings.max_avg_brightness);
-        Debug(context, 1,   "Minimum brightness found:   %6i\n", context.state.min_brightness_found);
-        Debug(context, 1,   "Minimum bright pixels found:%6i\n", context.state.min_hasBright);
-        Debug(context, 1,   "Minimum dim level found:    %6i\n", context.state.min_dimCount);
-        Debug(context, 1,   "Average brightness:         %6i\n", context.state.avg_brightness);
-        Debug(context, 1,   "Uniformity level:           %6i\n", context.settings.non_uniformity);
-        Debug(context, 1,   "Average non uniformity:     %6i\n", context.state.avg_uniform);
-        Debug(context, 1,   "Maximum gap between logo's: %6i\n", context.state.max_logo_gap);
-        Debug(context, 1,   "Suggested logo_threshold:   %.4f\n",context.state.logo_quality);
-        Debug(context, 1,   "Suggested shrink_logo:	    %.2f\n", context.state.logo_overshoot);
-        Debug(context, 1,   "Max commercial size found:  %6i\n", context.state.max_nonlogo_block_length);
-        Debug(context, 1,   "Dominant aspect ratio:      %.4f\n",context.state.dominant_ar);
-        Debug(context, 1,   "Score threshold:            %.4f\n", threshold);
-        Debug(context, 1,   "Framerate:                  %2.3f\n", context.settings.fps);
-        Debug(context, 1,   "Average framerate:          %2.3f\n", context.state.avg_fps);
+        Debug(context, 1, context.translator.format("cutlists_statistics",
+            std::format("{:.4f}", context.state.logoPercentage),
+            comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)
+                ? (context.state.reverseLogoLogic ? "(Reversed Logo Logic)" : "") : "Logo disabled",
+            std::format("{:6}", context.state.maxi_volume), std::format("{:6}", context.state.avg_volume),
+            std::format("{:6}", context.settings.max_volume), std::format("{:6}", context.settings.max_silence),
+            std::format("{:6}", context.state.min_volume), std::format("{:6}", context.state.avg_silence),
+            std::format("{:6}", context.settings.max_avg_brightness), std::format("{:6}", context.state.min_brightness_found),
+            std::format("{:6}", context.state.min_hasBright), std::format("{:6}", context.state.min_dimCount),
+            std::format("{:6}", context.state.avg_brightness), std::format("{:6}", context.settings.non_uniformity),
+            std::format("{:6}", context.state.avg_uniform), std::format("{:6}", context.state.max_logo_gap),
+            std::format("{:.4f}", context.state.logo_quality), std::format("{:.2f}", context.state.logo_overshoot),
+            std::format("{:6}", context.state.max_nonlogo_block_length), std::format("{:.4f}", context.state.dominant_ar),
+            std::format("{:.4f}", threshold), std::format("{:2.3f}", context.settings.fps),
+            std::format("{:2.3f}", context.state.avg_fps)));
 
         Debug(context, 1, context.translator.format("cutlists_total_commercial_length",
             dblSecondsToStrMinutes(context, comlength)));

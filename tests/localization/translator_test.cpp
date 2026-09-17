@@ -227,6 +227,9 @@ TEST(Translator, FormatsCutlistThresholdAndHeuristicMessages) {
               "Shortening commercial block 2 because the last 5 seconds should always be kept.\n");
     EXPECT_EQ(english.format("cutlists_total_commercial_length", "1:02"),
               "Total commercial length:    1:02\n");
+    EXPECT_EQ(english.format("cutlists_h6_delete_length", 3),
+              "H6 Deleting block 3 because it is part of a too short or too long commercial.\n");
+    EXPECT_TRUE(std::string(spanish.text("cutlists_statistics")).contains("Proporción de logotipo"));
     EXPECT_STREQ(english.text("cutlists_initial_list"),
                  "\n\n\t---------------------\n\tInitial Commercial List\n\t---------------------\n");
     EXPECT_TRUE(std::string(spanish.text("cutlists_weighted_heading")).contains("Lista de bloques"));

@@ -923,3 +923,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Cutlist headings, total-length summaries, and cut-code legends now use the
   English/Spanish catalogs while preserving the existing output layout.
+
+- Active cutlist H6 diagnostics and verbose statistics now use the same
+  catalogs, with preformatted numeric fields preserving the legacy widths.
+  Focused localization and cutlist coverage passes **37/37**.
