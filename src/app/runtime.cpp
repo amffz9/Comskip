@@ -68,7 +68,7 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
     }
     va_end(ap);
 
-    if (context.state.output_console) _cprintf("%s", message.c_str());
+    if (context.state.output_console) std::fputs(message.c_str(), stdout);
 
     const auto log_file = comskip::platform::own_file(myfopen(context.state.logfilename.c_str(), "a+"));
     if (log_file)

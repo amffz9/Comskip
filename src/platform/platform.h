@@ -99,12 +99,6 @@ void sleep_for_ms(long milliseconds);
 #endif
 
 #ifndef _WIN32
-#define _read read
-#define _write write
-#define _close close
-#define _cprintf printf
-#define _getcwd(x, y) getcwd(x, y)
-
 char *_strupr(char *string);
 #endif
 
