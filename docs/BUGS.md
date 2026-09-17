@@ -41,6 +41,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B067 | Fixed at `66d45a8`; actual Linux SDL invalid-font CLI and relocated-font tests pass. One separate fixture issue B071 prevents its full suite from passing. |
 | B068–B070 | Fixed in the editor/geometry/codec stage; all 398 Windows headless and 402 SDL tests pass. |
 | B071 | Cross-version fixture corrected; Windows passes. Corrected Linux verification pending. |
+| B111 | Fixed in the current output-diagnostics stage; focused threshold-histogram bounds tests pass on Windows. |
 
 ## Issue evidence and verification
 
@@ -1378,3 +1379,22 @@ before calling FFmpeg seek APIs.
 - **Verification needed:** Isolate the options and ownership calls against an
   instrumented FFmpeg build or a compatible Windows sanitizer runtime, then add
   a clean sanitizer regression without suppressions.
+
+### B111: Empty threshold histograms can divide by zero and overrun their bins
+
+- **Evidence:** `FindBlackThreshold` and `FindUniformThreshold` divide their
+  first 35 bins by the accumulated total, then advance through a fixed
+  256-element array until the requested percentile is reached. Empty or
+  negative histograms leave the total non-positive, so the output is nonfinite
+  and the terminating condition can read beyond the array. The prior `long`
+  accumulator could also overflow on Windows while adding valid `int` bins.
+- **Impact:** A recording with no usable brightness or uniformity observations
+  can produce invalid training diagnostics or undefined memory access while
+  deriving automatic thresholds.
+- **Status:** Fixed. Both threshold paths use a 64-bit accumulator and reject
+  a non-positive total and any negative bin with the existing
+  `invalid_histogram_report` diagnostic before writing or indexing.
+- **Verification:** The focused diagnostic-output regression covers empty and
+  negative brightness/uniformity histograms, verifies the typed diagnostic,
+  confirms no output files are created, and covers valid large-bin totals. All
+  11 focused Windows tests pass.

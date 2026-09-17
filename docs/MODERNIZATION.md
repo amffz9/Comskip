@@ -641,3 +641,10 @@ than redefine completion around whichever subset currently passes tests.
   is tracked as B110. Windows passes **501/501** headless and **509/509** SDL
   tests, and the public non-donator application builds. Linux verification
   remains deferred to the final implementation stage.
+
+- Automatic brightness and uniformity thresholds validate every histogram bin
+  and accumulated count before opening a training CSV or scanning for a
+  percentile. Empty and negative input now produces the established typed
+  diagnostic; wide accumulation preserves the legacy first-uniform-bin rule.
+  All **11** focused Windows output-diagnostics tests pass. Linux verification
+  remains deferred to the final implementation stage.

@@ -13,6 +13,7 @@
 #include "search_path.h"
 #include "checked_format.h"
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <string>
@@ -141,18 +142,25 @@ void OutputHistogram(RecordingContext& context, int *histogram, int scale, char 
 int FindBlackThreshold(RecordingContext& context, double percentile)
 {
     int		i;
-    long	tempCount;
-    long	targetCount;
-    long	totalframes = 0;
+    std::int64_t tempCount;
+    std::int64_t targetCount;
+    std::int64_t totalframes = 0;
+
+    for (i = 0; i < 256; i++)
+    {
+        if (context.state.brightHistogram[i] < 0)
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+                comskip::diagnostics::Code::invalid_histogram_report);
+        totalframes += context.state.brightHistogram[i];
+    }
+
+    if (totalframes <= 0)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+            comskip::diagnostics::Code::invalid_histogram_report);
 
     comskip::platform::FilePtr raw;
     if (context.settings.output_training) raw.reset(myfopen("black.csv", "a+"));
-
     if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
-    for (i = 0; i < 256; i++)
-    {
-        totalframes += context.state.brightHistogram[i];
-    }
 
     for (i = 0; i < 35; i++)
     {
@@ -162,7 +170,7 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
     if (raw.get()) raw.reset();
 
     tempCount = 0;
-    targetCount = (long)(totalframes * percentile);
+    targetCount = static_cast<std::int64_t>(totalframes * percentile);
     i = -1;
     tempCount = 0;
     do
@@ -177,19 +185,25 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
 int FindUniformThreshold(RecordingContext& context, double percentile)
 {
     int		i;
-    long	tempCount;
-    long	targetCount;
-    long	totalframes = 0;
-
-    comskip::platform::FilePtr raw;
-
-    if (context.settings.output_training) raw.reset(myfopen("uniform.csv", "a+"));
-    if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
+    std::int64_t tempCount;
+    std::int64_t targetCount;
+    std::int64_t totalframes = 0;
 
     for (i = 0; i < 256; i++)
     {
+        if (context.state.uniformHistogram[i] < 0)
+            throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+                comskip::diagnostics::Code::invalid_histogram_report);
         totalframes += context.state.uniformHistogram[i];
     }
+    if (totalframes <= 0)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+            comskip::diagnostics::Code::invalid_histogram_report);
+
+    comskip::platform::FilePtr raw;
+    if (context.settings.output_training) raw.reset(myfopen("uniform.csv", "a+"));
+    if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
+
     for (i = 0; i < 35; i++)
     {
         if (raw.get()) fprintf(raw.get(), ",%6.2f", (1000.0*(double)context.state.uniformHistogram[i])/totalframes);
@@ -198,7 +212,7 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
     if (raw.get()) raw.reset();
 
     tempCount = 0;
-    targetCount = (long)(totalframes * percentile);
+    targetCount = static_cast<std::int64_t>(totalframes * percentile);
     i = -1;
     tempCount = 0;
     do

@@ -127,6 +127,31 @@ TEST_F(DiagnosticOutput, EmptyHistogramsAvoidNonfiniteOutputAndRejectNegativeCou
         EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::invalid_histogram_report);
     }
 }
+TEST_F(DiagnosticOutput, ThresholdHistogramsRejectEmptyAndNegativeBinsBeforeOutputOrIndexing) {
+    context->settings.output_training = true;
+    for (const auto threshold : {FindBlackThreshold, FindUniformThreshold}) {
+        try { threshold(*context, 0.95); FAIL() << "Expected invalid histogram"; }
+        catch (const comskip::diagnostics::DiagnosticProvider& error) {
+            EXPECT_EQ(error.diagnostic().code,comskip::diagnostics::Code::invalid_histogram_report);
+        }
+    }
+    context->state.brightHistogram[0] = -1;
+    context->state.uniformHistogram[0] = -1;
+    EXPECT_THROW(FindBlackThreshold(*context,0.95),std::invalid_argument);
+    EXPECT_THROW(FindUniformThreshold(*context,0.95),std::invalid_argument);
+    EXPECT_FALSE(std::filesystem::exists(directory / "black.csv"));
+    EXPECT_FALSE(std::filesystem::exists(directory / "uniform.csv"));
+}
+TEST_F(DiagnosticOutput, ThresholdHistogramsAccumulateLargeBinCountsWithoutOverflow) {
+    constexpr int large_bin = 1'500'000'000;
+    context->state.brightHistogram[0] = large_bin;
+    context->state.brightHistogram[1] = large_bin;
+    context->state.uniformHistogram[0] = large_bin;
+    context->state.uniformHistogram[1] = large_bin;
+    EXPECT_EQ(FindBlackThreshold(*context,0.5),0);
+    // A first-bin uniform threshold retains the legacy minimum-bin adjustment.
+    EXPECT_EQ(FindUniformThreshold(*context,0.5),2 * UNIFORMSCALE);
+}
 TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles) {
     context->settings.output_demux = true;
     dump_audio_start(*context);
