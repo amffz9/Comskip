@@ -1444,7 +1444,7 @@ bool BuildMasterCommList(RecordingContext& context)
 
     if (context.settings.deleteLogoFile)
     {
-        logo_file.reset(comskip::platform::open_file(context.state.logofilename, "r"));
+        logo_file = comskip::platform::open_file_owned(context.state.logofilename, "r");
         if(logo_file)
         {
             logo_file.reset();
