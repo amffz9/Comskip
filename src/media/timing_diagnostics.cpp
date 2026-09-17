@@ -2,13 +2,14 @@
 #include "recording_context.h"
 #include "platform/platform.h"
 #include "platform/utf8_paths.h"
+#include "output/checked_file.h"
 #include <cstdio>
 
 namespace comskip::media {
 namespace {
 void write_timing_header(RecordingContext& context) {
     if (context.state.timing_file)
-        std::fprintf(context.state.timing_file.get(),
+        comskip::output::checked_fprintf(*context.state.timing_file, context.state.inbasename + ".timing.csv",
             "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
 }
 }
@@ -23,7 +24,7 @@ void write_timing_row(RecordingContext& context, const char* type, double real_p
                       double step, double pts, double clock, double offset, int repeat) {
     if (context.state.timing_file && !context.state.csStepping &&
         !context.state.csJumping && !context.state.csStartJump)
-        std::fprintf(context.state.timing_file.get(),
+        comskip::output::checked_fprintf(*context.state.timing_file, context.state.inbasename + ".timing.csv",
             "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n",
             type, real_pts, step, pts, clock, pts - clock, offset, repeat);
 }
