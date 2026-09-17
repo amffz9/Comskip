@@ -30,9 +30,9 @@ struct RecordingState {
     int afterblocks[100]{};
     std::vector<int> length_order;
     bool length_sorted = false;
-    int min_val[10]{};
-    int max_val[10]{};
-    int delta_val[10]{};
+    std::array<int, 10> min_val{};
+    std::array<int, 10> max_val{};
+    std::array<int, 10> delta_val{};
     std::vector<std::string> argument;
     bool initialized= false;
     const char * progname= "ComSkip";

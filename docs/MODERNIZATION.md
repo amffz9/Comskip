@@ -1021,3 +1021,7 @@ than redefine completion around whichever subset currently passes tests.
 - Block-cause history now uses a nested `std::array` text buffer, with explicit
   `.data()` at the formatter's string-view boundary. The complete Windows
   suite passes **523/523**.
+
+- Scoring range metadata now uses fixed-size `std::array<int, 10>` containers,
+  preserving indexed calculations without implicit C-array decay. The complete
+  Windows suite passes **523/523**.
