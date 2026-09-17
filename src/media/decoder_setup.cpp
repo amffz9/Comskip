@@ -35,7 +35,7 @@ extern "C" {
 }
 using namespace comskip::media;
 
-int stream_component_open(RecordingContext& context, VideoState& is, int stream_index)
+StreamOpenResult stream_component_open(RecordingContext& context, VideoState& is, int stream_index)
 {
     AVFormatContext* pFormatCtx = is.pFormatCtx.get();
     AVCodecParameters* codecPar = nullptr;
@@ -45,7 +45,7 @@ int stream_component_open(RecordingContext& context, VideoState& is, int stream_
 
     if(!pFormatCtx || stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
     {
-        return -1;
+        return StreamOpenResult::unavailable;
     }
 
     if (pFormatCtx->iformat && std::string_view(pFormatCtx->iformat->name) == "mpegts")
@@ -106,7 +106,7 @@ int stream_component_open(RecordingContext& context, VideoState& is, int stream_
 
     if (!codec) {
         fputs(context.translator.text("media_unsupported_codec"), stderr);
-        return -1;
+        return StreamOpenResult::unavailable;
     }
     CodecPtr codec_owner(avcodec_alloc_context3(codec));
     codecCtx = codec_owner.get();
@@ -169,7 +169,7 @@ int stream_component_open(RecordingContext& context, VideoState& is, int stream_
     if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(context.state.myoptions)) < 0))
     {
         fputs(context.translator.text("media_unsupported_codec"), stderr);
-        return -1;
+        return StreamOpenResult::unavailable;
     }
 
     switch(codecCtx->codec_type)
@@ -226,6 +226,6 @@ int stream_component_open(RecordingContext& context, VideoState& is, int stream_
         break;
     }
 
-    return(0);
+    return StreamOpenResult::opened;
 }
 
