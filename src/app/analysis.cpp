@@ -146,7 +146,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 //
 
         // main decode loop
-again:
         for(;;)
         {
             if(context.state.video_owner->quit)
@@ -174,7 +173,6 @@ again:
 #endif
                 }
             }
-nextpacket:
             ret=av_read_frame(context.state.video_owner->pFormatCtx.get(), packet);
 
             if (ret>=0 && context.state.video_owner->seek_req)
@@ -187,7 +185,7 @@ nextpacket:
                 if (packet->pts==AV_NOPTS_VALUE || packet->pts == 0 )
                 {
                     av_packet_unref(packet);
-                    goto nextpacket;
+                    continue;
                 }
                 if (context.state.video_owner->seek_req < 6 &&
                     (context.state.video_owner->seek_flags & AVSEEK_FLAG_BYTE) &&
@@ -199,7 +197,7 @@ nextpacket:
                         ((context.state.video_owner->seek_pts - 2.5 - packet_time) /
                             context.state.video_owner->duration) * *byte_input_size * 0.9;
                     context.state.video_owner->seek_req++;
-                    goto again;
+                    continue;
                 }
                 if (context.state.retries)
                     analysis_debug(context, 9, "analysis_retry_packet", last_packet_pos,
@@ -291,7 +289,7 @@ nextpacket:
                         Set_seek(context, context.state.video_owner.get(), retry_target);
 
                         context.state.retries++;
-                        goto again;
+                        continue;
                     }
 
                     // Frame-threaded decoders retain output until an explicit
