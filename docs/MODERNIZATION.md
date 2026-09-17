@@ -795,3 +795,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - CSV argument and close-window console output now uses standard C++ streams.
   The complete Windows headless suite remains green at **515/515**.
+
+- Legacy command-line argument display and screen-only frame diagnostics now
+  use standard C++ streams while preserving their text layout. The complete
+  Windows headless suite remains green at **515/515**.
