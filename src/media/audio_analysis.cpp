@@ -106,7 +106,8 @@ static int retreive_frame_volume(RecordingContext& context, double from_pts, dou
             }
         }
         context.state.base_apts += static_cast<double>(consumed_samples) / sample_rate;
-        context.state.top_apts = context.state.base_apts + context.state.audio_samples / (double)(is->audio_st->codecpar->sample_rate);
+        context.state.top_apts = context.state.base_apts + static_cast<double>(context.state.audio_samples) /
+            is->audio_st->codecpar->sample_rate;
         context.state.sound_frame_counter++;
     }
     return(volume);
@@ -153,7 +154,9 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
         ((context.state.audio_buffer_ptr - context.state.audio_buffer) < 0 || (context.state.audio_buffer_ptr - context.state.audio_buffer) >= audio_buffer_capacity
         || (context.state.top_apts - context.state.base_apts) * (is->audio_st->codecpar->sample_rate+0.5) > audio_buffer_capacity
         || (context.state.top_apts < context.state.base_apts)
-        || !same_timestamp(((double)context.state.audio_samples /(double)(is->audio_st->codecpar->sample_rate+0.5))+ context.state.base_apts, context.state.top_apts)
+        || !same_timestamp((static_cast<double>(context.state.audio_samples) /
+                            (is->audio_st->codecpar->sample_rate + 0.5)) + context.state.base_apts,
+                           context.state.top_apts)
         || context.state.audio_samples < 0
         || context.state.audio_samples >= audio_buffer_capacity)) {
        Debug(context, 1, "%s", context.translator.text("media_audio_buffer_corrupt"));
@@ -184,7 +187,8 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     const double timestamp_precision = std::max(
         av_q2d(is->audio_st->time_base), 1.0 / context.state.sound_to_frames_old_sample_rate);
     if (context.state.audio_samples == 0 || fabs(context.state.top_apts - is->audio_clock) > timestamp_precision * 1.1)
-        context.state.base_apts = (is->audio_clock - ((double)context.state.audio_samples /(double)(is->audio_st->codecpar->sample_rate)));
+        context.state.base_apts = is->audio_clock -
+            static_cast<double>(context.state.audio_samples) / is->audio_st->codecpar->sample_rate;
         if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   same_timestamp(context.state.base_apts - old_base_apts, 0.032)
                         || same_timestamp(context.state.base_apts - old_base_apts, -0.032)
@@ -228,7 +232,8 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     }
     avg_volume /= s;
     context.state.audio_samples = (context.state.audio_buffer_ptr - context.state.audio_buffer);
-    context.state.top_apts = context.state.base_apts + context.state.audio_samples / (double)(is->audio_st->codecpar->sample_rate);
+    context.state.top_apts = context.state.base_apts + static_cast<double>(context.state.audio_samples) /
+        is->audio_st->codecpar->sample_rate;
 
     calculated_delay = is->audio_clock - context.state.sound_to_frames_old_audio_clock;
     comskip::media::write_timing_row(context, "a frame", is->audio_clock, calculated_delay, context.state.top_apts, context.state.base_apts, avg_volume, s);
@@ -413,7 +418,7 @@ retry_audio_send:
  //       data_size = STORAGE_SIZE;
         got_frame = len1 >= 0;
 
-        if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
+        if (prev_codec_id != -1 && static_cast<unsigned int>(prev_codec_id) != is->audio_st->codecpar->codec_id)
         {
             audio_debug(context, 2, "media_audio_format_change");
         }
@@ -437,7 +442,7 @@ retry_audio_send:
         {
             sound_to_frames(context, is, *is->frame.get());
         }
-        is->audio_clock += (double)data_size /
+        is->audio_clock += static_cast<double>(data_size) /
                            (is->frame->ch_layout.nb_channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
         av_frame_unref(is->frame.get());
 #else
@@ -448,7 +453,7 @@ retry_audio_send:
         {
             sound_to_frames(is, *is->frame.get());
         }
-        is->audio_clock += (double)data_size /
+        is->audio_clock += static_cast<double>(data_size) /
                            (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(static_cast<AVSampleFormat>(is->frame->format)));
         av_frame_unref(is->frame.get());
 #endif
