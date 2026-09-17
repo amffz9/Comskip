@@ -677,3 +677,8 @@ than redefine completion around whichever subset currently passes tests.
   caption parsing, and packet checks now use `nullptr` and typed opaque state
   instead of C `NULL` casts. The complete Windows suites remain green at
   **513/513** headless and **517/517** SDL tests.
+
+- CSV replay now uses explicit C++ casts at the legacy C boundary for frame
+  dimensions, caption counts, and black-frame insertion. The focused replay
+  tests pass **24/24**, and the complete Windows suites remain green at
+  **513/513** headless and **517/517** SDL tests.
