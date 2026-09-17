@@ -719,3 +719,7 @@ than redefine completion around whichever subset currently passes tests.
 - Seek fallback retries and review packet skips now use structured loops rather
   than labels. Byte-seek fallback, decoder flushing, and packet ownership stay
   unchanged; the complete Windows headless suite remains green at **514/514**.
+
+- Audio packet resend/drain handling now uses a structured retry loop instead
+  of a label, preserving EAGAIN recovery and borrowed packet ownership. The
+  complete Windows headless suite remains green at **514/514**.
