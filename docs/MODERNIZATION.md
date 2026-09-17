@@ -927,3 +927,8 @@ than redefine completion around whichever subset currently passes tests.
 - Active cutlist H6 diagnostics and verbose statistics now use the same
   catalogs, with preformatted numeric fields preserving the legacy widths.
   Focused localization and cutlist coverage passes **37/37**.
+
+- `LoadSettings` now returns `void`; its obsolete borrowed `FILE*` result was
+  removed because recording-owned input state already carries the resource.
+  Settings-focused coverage passes **10/10**, and the full Windows suite passes
+  **521/521**.
