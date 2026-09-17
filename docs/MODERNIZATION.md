@@ -884,3 +884,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - CSV replay, live output, logo persistence, and review-file paths now use the
   same bounded opener. Focused coverage passes **22/22**.
+
+- Legacy settings and cutlist output now use the bounded opener throughout;
+  only the narrow C compatibility bridge retains C strings. Focused settings,
+  diagnostics, and cutlist coverage passes **23/23**.
