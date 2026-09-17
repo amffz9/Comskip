@@ -1,4 +1,5 @@
 #include "legacy_detection.h"
+#include "frame_causes.h"
 #include "black_frame_run.h"
 #include "logo_histogram.h"
 #include <algorithm>
@@ -22,10 +23,10 @@ char *CauseString(RecordingContext& context, int i)
     char *c = &(context.state.CauseString_cs[context.state.CauseString_ii][0]);
     char *rc = &(context.state.CauseString_cs[context.state.CauseString_ii][0]);
     constexpr std::array<std::pair<long, char>, 8> history_flags{
-        std::pair<long, char>{C_H8, '8'}, std::pair<long, char>{C_H7, '7'},
-        std::pair<long, char>{C_H6, '6'}, std::pair<long, char>{C_H5, '5'},
-        std::pair<long, char>{C_H4, '4'}, std::pair<long, char>{C_H3, '3'},
-        std::pair<long, char>{C_H2, '2'}, std::pair<long, char>{C_H1, '1'},
+        std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_8), '8'}, std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_7), '7'},
+        std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_6), '6'}, std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_5), '5'},
+        std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_4), '4'}, std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_3), '3'},
+        std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_2), '2'}, std::pair<long, char>{comskip::detection::cause_value(comskip::detection::BlockCause::history_1), '1'},
     };
     for (const auto [flag, marker] : history_flags)
         *c++ = (i & flag) ? marker : ' ';
