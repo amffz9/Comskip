@@ -780,3 +780,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Remaining active block and caption arithmetic now uses explicit C++
   conversions. The complete Windows headless suite remains green at **515/515**.
+
+- Media timing, seeking, audio alignment, scoring, and detection comparisons
+  now call the standard C++ math overloads explicitly. The complete Windows
+  headless suite remains green at **515/515**.
