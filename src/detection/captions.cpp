@@ -66,7 +66,7 @@ std::string CCTypeText(RecordingContext& context, int type)
 
 void OutputCCBlock(RecordingContext& context, long i)
 {
-    if (i < 0)
+    if (i < 0 || static_cast<std::size_t>(i) >= context.state.cc_block.size())
         return;
     if (i > 1)
     {
@@ -81,16 +81,13 @@ void OutputCCBlock(RecordingContext& context, long i)
         CaptionDebug(context, 11, "caption_block_line", std::format("{}", i - 1),
             std::format("{:6}", context.state.cc_block[i - 1].start_frame),
             std::format("{:6}", context.state.cc_block[i - 1].end_frame),
-            CCTypeText(context, context.state.cc_block[i].type));
-    }
-
-    if (i <= 0)
-    {
-        CaptionDebug(context, 11, "caption_block_line", std::format("{}", i),
-            std::format("{:6}", context.state.cc_block[i].start_frame),
-            std::format("{:6}", context.state.cc_block[i].end_frame),
             CCTypeText(context, context.state.cc_block[i - 1].type));
     }
+
+    CaptionDebug(context, 11, "caption_block_line", std::format("{}", i),
+        std::format("{:6}", context.state.cc_block[i].start_frame),
+        std::format("{:6}", context.state.cc_block[i].end_frame),
+        CCTypeText(context, context.state.cc_block[i].type));
 }
 
 void Init_XDS_block(RecordingContext& context)
