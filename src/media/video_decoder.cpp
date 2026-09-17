@@ -75,8 +75,6 @@ void debug_message(RecordingContext& context, const int level, const std::string
 
 } // namespace
 
-#define SELFTEST
-
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -224,13 +222,11 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         print_decode_progress (context, 0);
         res = DetectCommercials(context, (int)context.state.framenum, pts);
         context.state.framenum++;
-#ifdef SELFTEST
     if (context.state.selftest == 2 && context.state.pass == 0 && context.state.framenum > 20) //Reset input file
     {
         res = true;
         context.state.pass++;
     }
-#endif
         if (res) {
             context.state.framenum = 0;
             context.state.sound_frame_counter = 0;
@@ -477,7 +473,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
             {
 
-#ifdef SELFTEST
                 if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) //Seek test
                 {
                    if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
@@ -506,7 +501,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.pass = 0;
 //                    comskip::request_exit(1);
                 }
-#endif
                 if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
