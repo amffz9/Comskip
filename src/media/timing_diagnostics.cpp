@@ -17,7 +17,7 @@ void write_timing_header(RecordingContext& context) {
 bool open_timing_diagnostics(RecordingContext& context) {
     if (!context.settings.output_timing) return false;
     const auto filename = context.state.inbasename + ".timing.csv";
-    context.state.timing_file.reset(myfopen(filename.c_str(), "w"));
+    context.state.timing_file.reset(comskip::platform::open_file(filename, "w"));
     write_timing_header(context);
     return static_cast<bool>(context.state.timing_file);
 }

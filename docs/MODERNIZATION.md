@@ -877,3 +877,7 @@ than redefine completion around whichever subset currently passes tests.
   validates embedded NULs before crossing the legacy UTF-8 C boundary. Output
   open helpers use it directly; focused platform/output coverage passes
   **12/12**.
+
+- Diagnostics, timing, caption, runtime, and detection output paths now use
+  the bounded platform opener instead of manufacturing temporary C strings.
+  Focused coverage passes **30/30**.

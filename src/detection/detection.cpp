@@ -1437,7 +1437,7 @@ bool BuildMasterCommList(RecordingContext& context)
         const bool has_captions = context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::painton) ||
             context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::rollup) || context.state.most_cc_type == comskip::detection::caption_type_value(comskip::detection::CaptionType::popon);
         const auto marker_name = context.state.workbasename + (has_captions ? ".ccyes" : ".ccno");
-        const auto marker = comskip::platform::own_file(myfopen(marker_name.c_str(), "w"));
+        const auto marker = comskip::platform::own_file(comskip::platform::open_file(marker_name, "w"));
         if (!marker)
             Debug(context, 0, "%s", context.translator.format("create_failed", strerror(errno), marker_name).c_str());
         else {
@@ -1448,7 +1448,7 @@ bool BuildMasterCommList(RecordingContext& context)
 
     if (context.settings.deleteLogoFile)
     {
-        logo_file.reset(myfopen(context.state.logofilename.c_str(), "r"));
+        logo_file.reset(comskip::platform::open_file(context.state.logofilename, "r"));
         if(logo_file)
         {
             logo_file.reset();

@@ -73,7 +73,7 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
 
     if (context.state.output_console) std::fputs(message.c_str(), stdout);
 
-    const auto log_file = comskip::platform::own_file(myfopen(context.state.logfilename.c_str(), "a+"));
+    const auto log_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logfilename, "a+"));
     if (log_file)
     {
         comskip::output::checked_fprintf(*log_file, context.state.logfilename, message.c_str());

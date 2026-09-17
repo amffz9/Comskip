@@ -259,7 +259,7 @@ void OutputFrame(RecordingContext& context, int frame_number)
         std::to_string(frame_number) + ".frm";
 
     Debug(context, 5, "%s", context.translator.text("diagnostics_sending_frame"));
-    auto file = comskip::platform::own_file(myfopen(path.c_str(), "w"));
+    auto file = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
     if (!file)
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_frame_open_failed"));
@@ -325,7 +325,7 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
     auto basename = std::string(context.state.logfilename);
     if (basename.ends_with(".log") || basename.ends_with(".txt")) basename.resize(basename.size() - 4);
     const auto reference_name = basename + std::string(extension);
-    raw.reset(myfopen(reference_name.c_str(), "r"));
+    raw.reset(comskip::platform::open_file(reference_name, "r"));
     if (!raw) {
         if (!context.settings.output_live) return 0;
     } else {
@@ -373,7 +373,7 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
         return(frames);
 
     const auto difference_name = basename + ".dif";
-    raw.reset(myfopen(difference_name.c_str(), "w"));
+    raw.reset(comskip::platform::open_file(difference_name, "w"));
     if (!raw.get())
     {
         return(0);
@@ -496,7 +496,7 @@ void OutputAspect(RecordingContext& context)
 
     const auto path = comskip::platform::path_to_utf8(
         comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".aspects"));
-    auto output = comskip::platform::own_file(myfopen(path.c_str(), "w"));
+    auto output = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
     if (!output)
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_aspect_open_failed"));
@@ -535,7 +535,7 @@ return;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    auto output = comskip::platform::own_file(myfopen(path.c_str(), "w"));
+    auto output = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
     if (!output)
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
