@@ -338,7 +338,7 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
                context.settings.cutscenefile);
 }
 
-void LoadCutScene(RecordingContext& context, const char *filename)
+void LoadCutScene(RecordingContext& context, std::string_view filename)
 {
     const auto failed = [&] {
         Debug(context, 1, "%s", context.translator.format("detection_cutfile_read_failed", filename).c_str());

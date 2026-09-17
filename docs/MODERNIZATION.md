@@ -852,3 +852,6 @@ than redefine completion around whichever subset currently passes tests.
 
 - Reference input loading now accepts `std::string_view` for the sidecar
   extension, removing another null-terminated string contract.
+
+- Cut-scene loading now accepts `std::string_view` for UTF-8 filenames,
+  preserving the existing path conversion and localized errors.
