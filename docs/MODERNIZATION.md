@@ -761,3 +761,7 @@ than redefine completion around whichever subset currently passes tests.
 - Scene-analysis geometry, histogram, and cut-scene calculations now use
   explicit C++ conversions. The complete Windows headless suite remains green
   at **515/515**.
+
+- Logo geometry, logo ratios, detection percentages, and scoring arithmetic now
+  use explicit C++ conversions. The complete Windows headless suite remains
+  green at **515/515**.
