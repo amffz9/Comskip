@@ -43,7 +43,7 @@ long frame_number(RecordingContext& context, const long frame) {
 }
 
 comskip::platform::FilePtr open_checked_file(std::string_view path, const char* mode) {
-    auto file=comskip::platform::own_file(myfopen(std::string(path).c_str(),mode));
+    auto file=comskip::platform::own_file(comskip::platform::open_file(path,mode));
     if (!file)
         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
             comskip::diagnostics::Code::output_open,{std::string(path)});

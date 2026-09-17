@@ -37,6 +37,21 @@ TEST(PlatformFiles, RejectsNullPathsWithErrno) {
     EXPECT_EQ(errno, EINVAL);
 }
 
+TEST(PlatformFiles, CppOpenFileAcceptsStringViewsAndRejectsEmbeddedNulls) {
+    const auto filename = std::filesystem::temp_directory_path() / "comskip-open-file-test.txt";
+    const auto encoded_path = filename.u8string();
+    const auto encoded = std::string(reinterpret_cast<const char*>(encoded_path.c_str()), encoded_path.size());
+    auto file = comskip::platform::open_file(encoded, "wb");
+    ASSERT_NE(file, nullptr);
+    std::fputs("ok", file);
+    ASSERT_EQ(std::fclose(file), 0);
+    const std::string invalid = encoded + '\0';
+    errno = 0;
+    EXPECT_EQ(comskip::platform::open_file(invalid, "rb"), nullptr);
+    EXPECT_EQ(errno, EINVAL);
+    EXPECT_EQ(myremove(encoded.c_str()), 0);
+}
+
 TEST(PlatformTime, ConvertsCurrentTimeWithoutUsingSharedStorage) {
     std::tm local{};
     ASSERT_TRUE(comskip::platform::local_time(std::time(nullptr), local));

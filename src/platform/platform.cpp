@@ -48,6 +48,19 @@ FILE* myfopen(const char* filename, const char* mode)
 #endif
 }
 
+namespace comskip::platform {
+FILE* open_file(std::string_view filename, std::string_view mode)
+{
+    if (filename.find('\0') != std::string_view::npos || mode.find('\0') != std::string_view::npos) {
+        errno = EINVAL;
+        return nullptr;
+    }
+    const std::string filename_owned(filename);
+    const std::string mode_owned(mode);
+    return myfopen(filename_owned.c_str(), mode_owned.c_str());
+}
+}
+
 int myremove(const char* filename)
 {
     if (!filename) {

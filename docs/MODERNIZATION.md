@@ -872,3 +872,8 @@ than redefine completion around whichever subset currently passes tests.
 - Saved-logo metadata parsing now uses `std::string_view` for INI keys and
   owns the reported key in range diagnostics. The focused logo suite passes
   **53/53**, and the complete Windows headless suite remains **517/517**.
+
+- Platform file opening now exposes a bounded C++ `std::string_view` API that
+  validates embedded NULs before crossing the legacy UTF-8 C boundary. Output
+  open helpers use it directly; focused platform/output coverage passes
+  **12/12**.

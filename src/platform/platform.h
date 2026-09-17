@@ -47,6 +47,7 @@
 #include <stdint.h>
 #include <ctime>
 #include <string>
+#include <string_view>
 #ifdef __cplusplus
 #include "portable_threads.h"
 #endif
@@ -66,6 +67,8 @@ void gettimeofday (struct timeval * tp, void * dummy);
 #endif
 
 namespace comskip::platform {
+// C++ callers can pass bounded text without manufacturing a temporary C string.
+FILE* open_file(std::string_view filename, std::string_view mode);
 bool local_time(std::time_t value, std::tm& result) noexcept;
 std::string time_string(std::time_t value);
 }

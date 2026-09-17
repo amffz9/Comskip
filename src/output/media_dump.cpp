@@ -9,7 +9,7 @@
 
 namespace {
 comskip::platform::FilePtr open_dump(std::string_view path) {
-    auto file=comskip::platform::own_file(myfopen(std::string(path).c_str(),"wb"));
+    auto file=comskip::platform::own_file(comskip::platform::open_file(path,"wb"));
     if (!file)
         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
             comskip::diagnostics::Code::output_open,{std::string(path)});
