@@ -317,7 +317,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             BlocksDebug(context, 1, "blocks_setting_uniform_threshold",
                         std::format("{}", uniform_threshold));
 
-            if (context.settings.commDetectMethod & BLACK_FRAME)
+            if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::black_frame))
             {
                 for (i = 1; i < context.state.frame_count; i++)
                 {
@@ -524,7 +524,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 //			cut_on_ar_change = 2;
     }
 
-    if (((context.settings.commDetectMethod & LOGO) && context.settings.cut_on_ar_change ) || context.settings.cut_on_ar_change >= 2)
+    if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && context.settings.cut_on_ar_change ) || context.settings.cut_on_ar_change >= 2)
     {
 //	if (cut_on_ar_change ) {
         for (i = 0; i < context.state.ar_block_count; i++)
@@ -561,7 +561,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform), ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.0), true);
 
 
-    if (context.settings.commDetectMethod & SILENCE)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::silence))
     {
         k = 0;
         for (i = 0; i < context.state.frame_count; i++)
@@ -623,7 +623,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
     while(i < context.state.black_count || a < context.state.ar_block_count)
     {
-        if (!(context.settings.commDetectMethod & LOGO) && i < context.state.black_count && (context.state.black[i].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::scene_change) | comskip::detection::cause_value(comskip::detection::FrameCause::logo))))
+        if (!comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && i < context.state.black_count && (context.state.black[i].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::scene_change) | comskip::detection::cause_value(comskip::detection::FrameCause::logo))))
         {
 //			i++; // Skip logo cuts and brighness cuts when not enough logo detected
 //			goto again;
@@ -975,7 +975,7 @@ void InitHasLogo(RecordingContext& context)
 {
 
     int x,y;
-    context.state.ensure_pixel_buffers((context.settings.commDetectMethod & LOGO) != 0);
+    context.state.ensure_pixel_buffers(comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) != 0);
     std::ranges::fill(context.state.haslogo, 0);
     for (y = MAX(0,context.state.clogoMinY - LOGO_BORDER); y < MIN(context.state.height,context.state.clogoMaxY + LOGO_BORDER); y++)
     {
