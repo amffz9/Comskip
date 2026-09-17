@@ -133,6 +133,14 @@ TEST_F(LiveStorage, EmptyCandidatesWriteZeroCommercialStatusAndReleaseFiles) {
     EXPECT_TRUE(read(".live").empty()); EXPECT_EQ(read(".incommercial"), "0\n");
     EXPECT_FALSE(context->state.live_file); EXPECT_FALSE(context->state.incommercial_file);
 }
+TEST_F(LiveStorage, InCommercialOutputWorksWithoutAnyCutlistOutputEnabled) {
+    context->settings.output_live = false;
+    BuildCommListAsYouGo(*context);
+    EXPECT_EQ(context->state.commercial_count, -1);
+    EXPECT_EQ(read(".incommercial"), "0\n");
+    EXPECT_FALSE(std::filesystem::exists(directory / "record.live"));
+    EXPECT_FALSE(context->state.incommercial_file);
+}
 TEST_F(LiveStorage, ActualCandidatesAndPublishedListsGrowBeyondFormerCapacity) {
     constexpr int runs = 100001;
     context->state.black.resize(runs * 2 + 1);

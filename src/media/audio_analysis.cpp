@@ -9,9 +9,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <format>
 #include <iterator>
 #include <limits>
+#include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 extern "C" {
@@ -24,6 +27,10 @@ constexpr int audio_buffer_capacity = static_cast<int>(std::extent_v<decltype(Re
 constexpr int ac3_buffer_capacity = static_cast<int>(std::extent_v<decltype(RecordingState::ac3_packet)>);
 bool same_timestamp(double first, double second) {
     return std::fabs(first - second) < 0.001;
+}
+template<class... Args>
+void audio_debug(RecordingContext& context, int level, std::string_view key, Args&&... args) {
+    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
 }
 }
 
@@ -155,13 +162,16 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     }
 
     if (context.state.sound_to_frames_old_c != 0 && context.state.sound_to_frames_old_c != c) {
-        Debug(context, 5, "Audio channels switched at pts=%6.5f from %d to %d\n", context.state.base_apts, context.state.sound_to_frames_old_c, c);
+        audio_debug(context, 5, "media_audio_channels_switched",
+                    std::format("{:6.5f}", context.state.base_apts),
+                    context.state.sound_to_frames_old_c, c);
 //        InsertBlackFrame()
     }
     context.state.audio_channels = c;
     context.state.sound_to_frames_old_c = c;
     if (context.state.sound_to_frames_old_sample_rate != 0 && context.state.sound_to_frames_old_sample_rate != is->audio_st->codecpar->sample_rate) {
-         Debug(context, 5, "Audio samplerate switched from %d to %d\n", context.state.sound_to_frames_old_sample_rate, is->audio_st->codecpar->sample_rate );
+         audio_debug(context, 5, "media_audio_samplerate_switched",
+                     context.state.sound_to_frames_old_sample_rate, is->audio_st->codecpar->sample_rate);
     }
     context.state.sound_to_frames_old_sample_rate = is->audio_st->codecpar->sample_rate;
 
@@ -183,7 +193,10 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
                         old_base_apts = context.state.base_apts; // Ignore AC3 packet jitter
             }
     if (old_base_apts != 0.0 && (fabs(context.state.base_apts - old_base_apts)>0.01)) {
-        Debug(context, 8, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, context.state.base_apts, context.state.base_apts -old_base_apts);
+        audio_debug(context, 8, "media_audio_base_pts_jump",
+                    std::format("{:6.5f}", old_base_apts),
+                    std::format("{:6.5f}", context.state.base_apts),
+                    std::format("{:6.5f}", context.state.base_apts - old_base_apts));
     }
 
     if (s+context.state.audio_samples > audio_buffer_capacity ) {
@@ -262,14 +275,16 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         context.state.ac3_package_misalignment_count = 0;
     }
     if (!context.settings.ALIGN_AC3_PACKETS && context.state.ac3_package_misalignment_count > 4) {
-        Debug(context, 8, "AC3 packets misaligned, enabling AC3 re-alignment\n");
+        audio_debug(context, 8, "media_ac3_packets_misaligned");
         context.settings.ALIGN_AC3_PACKETS = 1;
     }
 
     if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
-        if (pkt_temp->size < 0 || pkt_temp->size > ac3_buffer_capacity - context.state.ac3_packet_index)
+        if (pkt_temp->size < 0 || context.state.ac3_packet_index < 0 ||
+            context.state.ac3_packet_index > ac3_buffer_capacity ||
+            pkt_temp->size > ac3_buffer_capacity - context.state.ac3_packet_index)
         {
-            Debug(context, 8,"AC3 sync error\n");
+            audio_debug(context, 8, "media_ac3_sync_error");
             context.state.ac3_packet_index = 0;
             return;
         }
@@ -292,7 +307,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
             return;
         }
         if (ps>0)
-            Debug(context, 8,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, context.state.framenum);
+            audio_debug(context, 8, "media_ac3_skipped_bytes", ps, pkt->size, context.state.framenum);
         pp = pkt_temp->data;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
@@ -310,7 +325,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
             return;
         }
         if ( (pkt_temp->size % 768 ) != 0)
-            Debug(context, 8,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, context.state.framenum);
+            audio_debug(context, 8, "media_ac3_strange_packet_size", rps, context.state.framenum);
 
     }
 
@@ -338,7 +353,9 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {
-                Debug(context, 8 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , context.state.framenum);
+                audio_debug(context, 8, "media_audio_strange_pts_step",
+                            std::format("{:6.5f}", (is->audio_clock - prev_audio_clock) + 0.0005),
+                            std::format("{:6.5f}", 0.0), context.state.framenum);
                 if (context.state.do_audio_repair) {
 //                    apts_offset += is->audio_clock - prev_audio_clock ;
 //                    is->audio_clock = prev_audio_clock;
@@ -347,7 +364,8 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
         }
         if (!context.state.initial_apts_set) {
             context.state.initial_apts = is->audio_clock;
-            Debug(context,  10,"\nInitial audio pts = %10.3f\n", context.state.initial_apts);
+            audio_debug(context, 10, "media_initial_audio_pts",
+                        std::format("{:10.3f}", context.state.initial_apts));
 
         }
     }
@@ -394,7 +412,7 @@ retry_audio_send:
 
         if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
         {
-            Debug(context, 2 ,"Audio format change\n");
+            audio_debug(context, 2, "media_audio_format_change");
         }
         prev_codec_id = is->audio_st->codecpar->codec_id;
         if (len1 < 0)

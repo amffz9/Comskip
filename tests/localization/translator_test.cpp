@@ -240,6 +240,24 @@ TEST(Translator, FormatsDetectorStorageGrowthDiagnostics) {
               "Se cambia el tamaño del búfer de texto de subtítulos para alojar 100 entradas.\n");
 }
 
+TEST(Translator, FormatsLiveDetectionDiagnosticsWithStableEnglishLayout) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("live_cutpoint_without_logo", 42, "Black Frame  "),
+              "[42] Cutpoint Black Frame   without logo\n");
+    EXPECT_EQ(english.format("live_logo_detected_setting_commercial", 100, 125, 80, 100),
+              "Logo detected between frames 100 and 125.  Setting commercial to 80 to 100.\n");
+    EXPECT_EQ(english.format("live_candidate_extended", 100, 850, "30.00", "29.00"),
+              "--start: 100, end: 850, len: 30.00s\t29.00s\n");
+    EXPECT_EQ(english.format("live_candidate_started", 100, 850, "30.00"),
+              "\n  start: 100, end: 850, len: 30.00s\n");
+    EXPECT_EQ(english.format("live_output_interval", 3, 100, 850),
+              "Output: 3 - start: 100   end: 850\n");
+    EXPECT_EQ(spanish.format("live_silence_and_dark", 42), "[42] Silencio y oscuridad\n");
+    EXPECT_EQ(spanish.format("live_candidate_confirmed", 100, 850, 30),
+              "\n  inicio: 100, fin: 850, duración: 30s\n");
+}
+
 TEST(Translator, FormatsVideoDecoderDiagnosticsWithStableEnglishLayout) {
     const Translator english;
     const Translator spanish("es");
@@ -257,6 +275,20 @@ TEST(Translator, FormatsVideoDecoderDiagnosticsWithStableEnglishLayout) {
               "Frecuencia de fotogramas forzada a 25.000 fps en el fotograma 42\n");
     EXPECT_STREQ(spanish.text("media_selftest_reopen_ok"),
                  "\nAutoprueba 3 CORRECTA: reapertura\n");
+}
+TEST(Translator, FormatsAudioAnalysisDiagnosticsWithStableEnglishLayout) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("media_audio_channels_switched", "1.25000", 2, 6),
+              "Audio channels switched at pts=1.25000 from 2 to 6\n");
+    EXPECT_EQ(english.format("media_audio_base_pts_jump", "1.00000", "1.03200", "0.03200"),
+              "Jump in base apts from 1.00000 to 1.03200, delta=0.03200\n");
+    EXPECT_EQ(english.format("media_audio_strange_pts_step", "0.06667", "0.00000", 42),
+              "Strange audio pts step of 0.06667 instead of 0.00000 at frame 42\n");
+    EXPECT_EQ(english.format("media_initial_audio_pts", "     1.250"),
+              "\nInitial audio pts =      1.250\n");
+    EXPECT_EQ(spanish.format("media_ac3_skipped_bytes", 3, 100, 42),
+              "Se omitieron 3 de 100 bytes añadidos en el flujo de audio cerca del fotograma 42\n");
 }
 TEST(Translator, FormatsSceneAnalysisDiagnosticsWithStableEnglishLayout) {
     const Translator english;

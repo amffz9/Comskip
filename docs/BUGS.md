@@ -1313,3 +1313,34 @@ before calling FFmpeg seek APIs.
   upper-bound values, and an empty histogram. All **490/490** Windows headless
   and **498/498** SDL tests pass, and the public non-donator application builds.
   Linux verification remains deferred to the final implementation stage.
+
+### B107: AC3 staging accepts a negative write index
+
+- **Evidence:** `audio_packet_process` checked the incoming packet length against
+  `ac3_buffer_capacity - ac3_packet_index`, but did not validate the retained
+  index itself before forming `ac3_packet[ac3_packet_index]`.
+- **Impact:** A corrupt negative retained index could write before the owned AC3
+  staging array.
+- **Status:** Fixed. The packet boundary now rejects negative and over-capacity
+  retained indices before any array or pointer arithmetic, resets the staging
+  state and reports the existing localized AC3 synchronization diagnostic.
+- **Verification:** An actual packet-processing regression injects a negative
+  retained index and verifies the Spanish warning and reset. All **494/494**
+  Windows headless and **502/502** SDL tests pass, and the public non-donator
+  application builds. Linux verification remains deferred to the final stage.
+
+### B108: In-commercial status output is skipped when it is enabled alone
+
+- **Evidence:** `BuildCommListAsYouGo` entered its output section only when a
+  cut-list or DVRMSTB export was enabled. `output_incommercial` was absent from
+  that condition, despite the status writer being inside the skipped section.
+- **Impact:** A live integration configured to request only `.incommercial`
+  received no status file.
+- **Status:** Fixed. The output condition includes `output_incommercial`; the
+  status file retains its existing optional-open policy and checked write/close
+  boundary.
+- **Verification:** A focused live-storage regression enables only
+  `output_incommercial` and verifies the `0` status, released file ownership,
+  and absence of unrelated cut-list output. All **494/494** Windows headless
+  and **502/502** SDL tests pass, and the public non-donator application builds.
+  Linux verification remains deferred to the final stage.

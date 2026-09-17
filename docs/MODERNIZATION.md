@@ -581,3 +581,23 @@ than redefine completion around whichever subset currently passes tests.
   custom or non-seekable FFmpeg inputs without an I/O context. Windows passes
   **490/490** headless and **498/498** SDL tests, and the public non-donator
   application builds. Linux verification remains deferred to the final stage.
+
+- Audio-analysis channel, sample-rate, timestamp, AC3 and decoder-format
+  diagnostics now use the English and Spanish catalogs. C++23 `std::format`
+  preserves the established decimal widths before translated templates arrange
+  the values. AC3 staging now rejects a corrupted negative index before array
+  indexing; an actual packet-processing regression verifies the localized
+  warning and reset. The reproducible literal-message inventory is down to
+  **60** active sites. Windows passes **494/494** headless and **502/502** SDL
+  tests, and the public non-donator application builds. Linux verification
+  remains deferred to the final implementation stage.
+
+- Live-detection progress diagnostics now use the English and Spanish catalogs.
+  C++23 `std::format` preserves the established two-decimal duration layout
+  before translated templates arrange the values. The live output boundary now
+  writes `.incommercial` when it is the only selected output, while retaining
+  checked cut-list and XML writes. A focused integration regression covers the
+  standalone status-file path. The reproducible literal-message inventory is
+  down to **45** active sites. Windows passes **494/494** headless and
+  **502/502** SDL tests, and the public non-donator application builds. Linux
+  verification remains deferred to the final implementation stage.

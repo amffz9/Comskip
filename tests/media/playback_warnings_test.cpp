@@ -6,6 +6,7 @@
 #include "localization/diagnostic.h"
 #include <gtest/gtest.h>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -172,5 +173,22 @@ TEST_F(PlaybackWarnings, FullAudioBufferUsesEnglishFallbackWithoutOverwritingFin
     EXPECT_EQ(context->state.base_apts, 0);
     EXPECT_EQ(context->state.top_apts, 0);
     EXPECT_EQ(context->state.audio_buffer[last], 123);
+}
+TEST_F(PlaybackWarnings, InvalidAc3StagingIndexLogsSpanishAndResetsBeforeArrayAccess) {
+    context->translator = comskip::localization::Translator("es");
+    context->settings.verbose = 8;
+    context->state.reviewing = true;
+    VideoState video{};
+    audio_stream(video);
+    video.audio_st->codecpar->codec_id = AV_CODEC_ID_AC3;
+    context->settings.ALIGN_AC3_PACKETS = 1;
+    context->state.ac3_packet_index = -1;
+    std::uint8_t payload[] = {0x0b, 0x77};
+    AVPacket packet{};
+    packet.data = payload;
+    packet.size = static_cast<int>(std::size(payload));
+    audio_packet_process(*context, &video, &packet);
+    EXPECT_EQ(log(), "Error de sincronización AC3\n");
+    EXPECT_EQ(context->state.ac3_packet_index, 0);
 }
 }
