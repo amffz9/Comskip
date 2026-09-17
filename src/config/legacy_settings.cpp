@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <iostream>
 #include <string>
 #include <string_view>
 
@@ -246,14 +247,14 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
         if (strchr(argv[i], ' '))
         {
-            printf("\t\"%s\"\n", argv[i]);
+            std::cout << "\t\"" << argv[i] << "\"\n";
         }
         else
         {
-            printf("\t%s\n", argv[i]);
+            std::cout << '\t' << argv[i] << '\n';
         }
     }
-    printf("\n\n");
+    std::cout << "\n\n";
 
     context.state.argument = comskip::snapshot_arguments(argc, argv);
 

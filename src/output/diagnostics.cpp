@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <string>
 
 namespace {
@@ -560,8 +561,9 @@ void OutputFrameArray(RecordingContext& context, bool screenOnly)
     if (screenOnly) {
         Debug(context,1,"Frame\tBrightness\tS_Change\tLogo Present\t%i\n",last_observation);
         for (std::size_t index=0; index<observations.size(); ++index)
-            printf("%zu\t%i\t%i\t%i\tHistogram\n",index+1,observations[index].brightness,
-                observations[index].schange_percent,observations[index].logo_present);
+            std::cout << index + 1 << '\t' << observations[index].brightness << '\t'
+                << observations[index].schange_percent << '\t' << observations[index].logo_present
+                << "\tHistogram\n";
         return;
     }
     try {
