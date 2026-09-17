@@ -1483,3 +1483,20 @@ before calling FFmpeg seek APIs.
 - **Verification:** The focused application text-input suite passes **10/10**,
   including fresh CSV and companion-file ownership; the complete Windows
   headless suite passes **515/515**.
+
+### B118: Windows Clang ASan aborts while unwinding typed C++ failures
+
+- **Evidence:** The configured Windows sanitizer run completed with dialogs
+  suppressed and logged **12/523** failures. The affected tests report
+  `0xc0000005` in `VCRUNTIME140.dll` exception handling; sanitizer logs show
+  `_C_specific_handler_noexcept` and `_CxxFrameHandler3` above
+  `comskip::request_exit` or a typed diagnostic throw. The ordinary Windows
+  build passes the same failure-path tests.
+- **Impact:** Sanitizer cannot validate several intentional error and recovery
+  paths, including CLI, input-recovery, and repeated-analysis cases. The
+  failures occur before the test can inspect the expected diagnostic.
+- **Status:** Open. This appears to be an interaction between the Windows
+  Clang sanitizer runtime and C++ exception unwinding, separate from the
+  application diagnostics. Keep the noninteractive `ASAN_OPTIONS`/`UBSAN_OPTIONS`
+  recipe and preserve the generated sanitizer logs for a future runtime or
+  instrumented-FFmpeg investigation.
