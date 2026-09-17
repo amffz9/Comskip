@@ -777,3 +777,6 @@ than redefine completion around whichever subset currently passes tests.
 - Logo edge-mask cleanup now uses a structured found flag and loop break rather
   than a label jump; unused scan callback arguments are explicitly discarded.
   The complete Windows headless suite remains green at **515/515**.
+
+- Remaining active block and caption arithmetic now uses explicit C++
+  conversions. The complete Windows headless suite remains green at **515/515**.
