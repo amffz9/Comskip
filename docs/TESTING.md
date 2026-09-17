@@ -50,4 +50,7 @@ limitation, not a reason to disable sanitizer reporting or hide failures.
 The Windows CMake setup copies the vcpkg GoogleTest runtime DLLs beside the
 tests. This prevents the missing-`gtest_main.dll` loader dialog that occurs
 when a test executable is launched without the vcpkg runtime directory on
-`PATH`. Keep test execution under CTest so failures remain in the log.
+`PATH`. Keep test execution under CTest so failures remain in the log. If a
+loader dialog appears anyway, stop the run, record the executable and missing
+DLL in `docs/BUGS.md`, and rerun through `comskip-check`; do not repeatedly
+dismiss the dialog or launch the test binary directly.
