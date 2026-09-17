@@ -1,7 +1,8 @@
 #include "diagnostic.h"
-#include "legacy_detection.h"
+#include "app/recording_context.h"
 #include "output/media_dump.h"
 #include "output/checked_file.h"
+#include "platform/platform.h"
 #include <format>
 #include <stdexcept>
 #include <string>
