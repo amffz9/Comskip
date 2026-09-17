@@ -50,6 +50,8 @@ using namespace comskip::media;
 #define SELFTEST
 
 namespace {
+constexpr double selftest_reopen_time_seconds = 500.0;
+
 template<class... Args>
 void analysis_debug(RecordingContext& context, int level, std::string_view message_id,
                     Args&&... args)
@@ -219,9 +221,7 @@ nextpacket:
 
 
 
-#define REOPEN_TIME 500.0
-
-            if ((context.state.selftest == 3 && context.state.retries==0 && context.state.video_owner->video_clock >=REOPEN_TIME))
+            if ((context.state.selftest == 3 && context.state.retries==0 && context.state.video_owner->video_clock >= selftest_reopen_time_seconds))
             {
                 ret=AVERROR_EOF;  // Simulate EOF
                 context.settings.live_tv = 1;
@@ -240,7 +240,7 @@ nextpacket:
                 const auto* input = context.state.video_owner->pFormatCtx->pb;
                 if (ret == AVERROR_EOF || (input != nullptr && input->eof_reached))
                 {
-                    if (context.state.selftest == 3)   // Either simulated EOF or real EOF before REOPEN_TIME
+                    if (context.state.selftest == 3)   // Either simulated EOF or real EOF before the reopen target
                     {
                         if (context.state.retries > 0)
                         {
@@ -254,13 +254,13 @@ nextpacket:
                         }
                         else
                         {
-                            if (context.state.video_owner->video_clock < REOPEN_TIME)
+                            if (context.state.video_owner->video_clock < selftest_reopen_time_seconds)
                             {
                                 context.state.selftest_target = context.state.video_owner->video_clock - 2.0;
                             }
                             else
                             {
-                                context.state.selftest_target = REOPEN_TIME;
+                                context.state.selftest_target = selftest_reopen_time_seconds;
                             }
                             analysis_debug(context, 1, "analysis_selftest_reopen",
                                            context.state.selftest);
