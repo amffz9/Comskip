@@ -740,3 +740,8 @@ than redefine completion around whichever subset currently passes tests.
 - CSV review reload now reopens the owned CSV and companion caption files from
   the recording basename before restarting parsing. The focused input suite
   passes **10/10**, and the complete Windows headless suite passes **515/515**.
+
+- CSV review reload now starts a fresh `ProcessCSV` pass instead of jumping to
+  a consumed parser label, resetting per-pass locals while retaining the
+  reopened owned inputs. The complete Windows headless suite remains green at
+  **515/515**.
