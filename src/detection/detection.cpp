@@ -1252,10 +1252,11 @@ scanagain:
         context.state.dominant_ar = context.state.ar_histogram[0].ar_ratio;
 
 
-again:
-        // Clean up ar cblock list
-
-        for (i = context.state.ar_block_count - 1; i > 0; i--)
+        // Clean up the AR block list until a complete pass makes no changes.
+        bool changed;
+        do {
+            changed = false;
+            for (i = context.state.ar_block_count - 1; i > 0; i--)
         {
             length = context.state.ar_block[i].end - context.state.ar_block[i].start;
 
@@ -1263,7 +1264,8 @@ again:
             {
                 DetectionDebug(context, 6, "detection_ar_block_undefine", std::format("{}", i));
                 context.state.ar_block[i].ar_ratio = undefined_aspect_ratio;
-                goto again;
+                changed = true;
+                break;
             }
 
             /*
@@ -1305,7 +1307,8 @@ again:
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 1];
                 }
-                goto again;
+                changed = true;
+                break;
             }
 //
 #endif
@@ -1321,7 +1324,8 @@ again:
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 1];
                 }
-                goto again;
+                changed = true;
+                break;
 
             }
             if (( context.state.ar_block[i].ar_ratio - context.state.ar_block[i - 1].ar_ratio < context.settings.ar_delta &&
@@ -1336,7 +1340,8 @@ again:
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 1];
                 }
-                goto again;
+                changed = true;
+                break;
 
             }
             if (  context.state.ar_block[i-1].ar_ratio == undefined_aspect_ratio && i > 1 &&
@@ -1351,10 +1356,12 @@ again:
                 {
                     context.state.ar_block[j] = context.state.ar_block[j + 2];
                 }
-                goto again;
+                changed = true;
+                break;
 
             }
         }
+        } while (changed);
 
         // Print out ar cblock list
         DetectionDebug(context, 4, "detection_ar_blocks_heading");
