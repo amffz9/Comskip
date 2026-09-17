@@ -31,7 +31,7 @@ TEST(FrameConversion, ReusesFrameObjectAndPreservesPropertiesAcrossConversions)
                     samples[column] = 512;
             }
         }
-        const int result = comskip::media::convert_frame_to_8bit(frame.get(), context);
+        const int result = comskip::media::convert_frame_to_8bit(*frame, context);
         ASSERT_EQ(result, 0);
         EXPECT_EQ(frame.get(), original);
         EXPECT_EQ(frame->format, AV_PIX_FMT_YUV420P);
@@ -49,7 +49,7 @@ TEST(FrameConversion, RejectsUnsupportedInputWithoutChangingFrame)
     frame->width = frame->height = 32;
     frame->pts = 7;
     comskip::media::ScalerPtr context;
-    EXPECT_LT(comskip::media::convert_frame_to_8bit(frame, context), 0);
+    EXPECT_LT(comskip::media::convert_frame_to_8bit(*frame, context), 0);
     EXPECT_EQ(frame->format, AV_PIX_FMT_YUV420P);
     EXPECT_EQ(frame->pts, 7);
     EXPECT_EQ(context, nullptr);

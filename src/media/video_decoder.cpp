@@ -263,7 +263,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         frameFinished = 1;
         // convert to 8bit
         if (is.pFrame->format == AV_PIX_FMT_YUV420P10LE) {
-            if (comskip::media::convert_frame_to_8bit(is.pFrame.get(), is.img_convert_ctx) < 0) {
+            if (comskip::media::convert_frame_to_8bit(*is.pFrame, is.img_convert_ctx) < 0) {
             Debug(context, 1, context.translator.text("media_frame_conversion_failed"));
                 av_frame_unref(is.pFrame.get());
                 continue;
