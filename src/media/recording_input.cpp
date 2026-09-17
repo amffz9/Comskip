@@ -136,8 +136,8 @@ void file_open_impl(RecordingContext& context)
     if ( is.videoStream == -1)
     {
         video_index = av_find_best_stream(is.pFormatCtx.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-        const auto video_open_status = video_index >= 0 ? stream_component_open(context, is, video_index) : StreamOpenResult::unavailable;
-        if(video_open_status != StreamOpenResult::opened || is.videoStream < 0)
+        const auto video_open_status = video_index >= 0 ? stream_component_open(context, is, video_index) : comskip::media::StreamOpenResult::unavailable;
+        if(video_open_status != comskip::media::StreamOpenResult::opened || is.videoStream < 0)
         {
             throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                 comskip::diagnostics::Code::recording_has_no_decodable_video_stream,{is.filename});
@@ -176,10 +176,10 @@ void file_open_impl(RecordingContext& context)
         if(audio_index >= 0)
         {
             const auto audio_open_status = stream_component_open(context, is, audio_index);
-            if (audio_open_status == StreamOpenResult::opened && is.audio_st)
+            if (audio_open_status == comskip::media::StreamOpenResult::opened && is.audio_st)
                 context.state.audio_channels = is.audio_st->codecpar->ch_layout.nb_channels;
 
-            if (audio_open_status != StreamOpenResult::opened || is.audioStream < 0)
+            if (audio_open_status != comskip::media::StreamOpenResult::opened || is.audioStream < 0)
             {
                 Debug(context, 1, context.translator.text("media_audio_decoder_warning"));
             }
