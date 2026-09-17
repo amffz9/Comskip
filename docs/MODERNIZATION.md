@@ -702,3 +702,7 @@ than redefine completion around whichever subset currently passes tests.
   explicit conditional instead of a skip label, keeping the failure nonfatal
   while making file ownership and the success path clear. The complete
   Windows headless suite remains green at **514/514**.
+
+- Live interval arithmetic now uses explicit C++ conversions for rate, frame,
+  and timestamp values at the legacy output boundary. The complete Windows
+  headless suite remains green at **514/514**.
