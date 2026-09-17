@@ -13,7 +13,7 @@ verification evidence. Passing the current media smoke tests alone is insufficie
   rather than terminate the process.
 - [x] The review UI uses SDL across supported platforms with explicit event state,
   RAII graphics resources, and a deliberate headless backend.
-- [ ] Human-facing messages and review labels use committed catalogs with locale
+- [x] Human-facing messages and review labels use committed catalogs with locale
   selection, fallback, and validated formatting. Machine-readable formats stay stable.
 - [x] Tests cover independent repeated analyses, seeking/reopening, damaged and
   truncated media, stream format changes, known commercial intervals, and exact
