@@ -25,6 +25,23 @@ failures in the CTest log instead of opening Windows error dialogs. If a
 dialog still appears, record the executable and missing runtime in
 `bin/<build>/test-results.log` and `docs/BUGS.md` before changing the build.
 
+When running manually, set the same variables in the shell before starting
+Comskip or a test. Do not dismiss an ASan or missing-DLL dialog and continue
+without a record: copy the executable name, error text, and the corresponding
+`asan.*`/`ubsan.*` log into the issue notes. The reliable dialog-suppression
+recipe is therefore:
+
+```powershell
+$env:ASAN_OPTIONS = "abort_on_error=1:halt_on_error=1:log_path=asan"
+$env:UBSAN_OPTIONS = "halt_on_error=1:print_stacktrace=1:log_path=ubsan"
+cmake --build bin/build23-sanitize --target comskip-check -j 3
+```
+
+Keep this recipe in mind for every future Windows sanitizer run. CTest is the
+supported entry point because it supplies copied runtime DLLs and captures the
+failure in `test-results.log` instead of relying on interactive Windows error
+dialogs.
+
 The current Windows Clang ASan runtime still aborts with `0xc0000005` in a
 small set of expected-failure/unwind paths before Comskip can construct its
 typed diagnostic. This is tracked as B110 in `docs/BUGS.md`; it is a runtime
