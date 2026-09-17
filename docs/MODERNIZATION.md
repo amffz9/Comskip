@@ -672,3 +672,8 @@ than redefine completion around whichever subset currently passes tests.
   through `ctime_s`/`ctime_r`, with platform tests covering both conversion and
   formatting. The complete Windows suites pass **513/513** headless and
   **517/517** with SDL dummy drivers.
+
+- Active FFmpeg setup, recording input, codec iteration, seeking, audio staging,
+  caption parsing, and packet checks now use `nullptr` and typed opaque state
+  instead of C `NULL` casts. The complete Windows suites remain green at
+  **513/513** headless and **517/517** SDL tests.
