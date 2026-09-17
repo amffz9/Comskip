@@ -128,14 +128,14 @@ using namespace comskip::media;
 
 void list_codecs(const comskip::localization::Translator& translator)
 {
-        const AVCodec *p;
-        int * p_i = (int *)NULL;
+        const AVCodec* p;
+        void* iterator = nullptr;
         int i = 0;
 //        avcodec_register_all();
-        p = av_codec_iterate((void **)&p_i);
+        p = av_codec_iterate(&iterator);
         fputs(translator.text("media_decoders"), stdout);
         printf("---------\n");
-        while (p != NULL) {
+        while (p != nullptr) {
             if (av_codec_is_decoder(p)) {
                 printf("%s", p->name);
                 i += strlen(p->name);
@@ -145,7 +145,7 @@ void list_codecs(const comskip::localization::Translator& translator)
                 } else
                     printf(", ");
             }
-            p = av_codec_iterate((void **)&p_i);
+            p = av_codec_iterate(&iterator);
         }
         printf("\n");
 }
@@ -160,7 +160,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     {
         Debug(context, 1, "%s", context.translator.format("media_invalid_frame",
               pFrame->height, pFrame->width, pFrame->linesize[0]).c_str());
-        context.state.frame_ptr = NULL;
+        context.state.frame_ptr = nullptr;
         return(0);
     }
     if (context.state.height != pFrame->height)
@@ -189,7 +189,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     }
     context.state.infopos = context.state.headerpos;
     context.state.frame_ptr = pFrame->data[0];
-    if (context.state.frame_ptr == NULL)
+    if (context.state.frame_ptr == nullptr)
     {
         return(0);; // return; // comskip::request_exit(2);
     }
