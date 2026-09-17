@@ -12,6 +12,7 @@
 #include "detection/logo_detection.h"
 #include "detection/scene_analysis.h"
 #include "output/diagnostics.h"
+#include "output/checked_file.h"
 #include "platform/platform.h"
 #include "app/csv_input.h"
 #include "ui/review.h"
@@ -138,6 +139,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
 
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
 {
+    const char* start_timestamp = nullptr;
     comskip::platform::FilePtr logo_file;
     comskip::platform::FilePtr log_file;
     comskip::platform::FilePtr test_file;
@@ -542,6 +544,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     time(&ltime);
     now = localtime(&ltime);
+    start_timestamp = ctime(&ltime);
     mil_time = (now->tm_hour * 100) + now->tm_min;
     if ((context.settings.play_nice_start > -1) && (context.settings.play_nice_end > -1))
     {
@@ -661,11 +664,14 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         {
             log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
-                fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), package_string);
-                fprintf(log_file.get(), "Loading comskip csv file - %s\n", in->filename[0]);
-                fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
-                fprintf(log_file.get(), "################################################################\n");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Generated using %s %s\n", comskip::build::distribution_variant.data(), package_string);
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Loading comskip csv file - %s\n", in->filename[0]);
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Time at start of run:\n%s", start_timestamp ? start_timestamp : "");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
                 log_file.reset();
             }
         }
@@ -674,10 +680,12 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             logo_file.reset();
             log_file.reset(myfopen(context.state.logfilename.c_str(), "a+"));
             if (log_file) {
-                fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Starting second pass using %s\n", context.state.logofilename.c_str());
-                fprintf(log_file.get(), "Time at start of second run:\n%s", ctime(&ltime));
-                fprintf(log_file.get(), "################################################################\n");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Starting second pass using %s\n", context.state.logofilename.c_str());
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Time at start of second run:\n%s", start_timestamp ? start_timestamp : "");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
                 log_file.reset();
             }
         }
@@ -685,10 +693,12 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         {
             log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
-                fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), package_string);
-                fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
-                fprintf(log_file.get(), "################################################################\n");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Generated using %s %s\n", comskip::build::distribution_variant.data(), package_string);
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename,
+                    "Time at start of run:\n%s", start_timestamp ? start_timestamp : "");
+                comskip::output::checked_fprintf(*log_file, context.state.logfilename, "################################################################\n");
                 log_file.reset();
             }
         }
