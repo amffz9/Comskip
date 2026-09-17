@@ -342,7 +342,7 @@ void RecordCutScene(RecordingContext& context, int frame_count, int brightness)
 void LoadCutScene(RecordingContext& context, std::string_view filename)
 {
     const auto failed = [&] {
-        Debug(context, 1, "%s", context.translator.format("detection_cutfile_read_failed", filename).c_str());
+        Debug(context, 1, context.translator.format("detection_cutfile_read_failed", filename));
     };
     const int slot = context.state.cutscenes;
     if (slot < 0 || slot >= static_cast<int>(std::size(context.state.cutscene))) {
@@ -351,7 +351,7 @@ void LoadCutScene(RecordingContext& context, std::string_view filename)
     }
     std::ifstream input(comskip::platform::path_from_utf8(filename), std::ios::binary);
     if (!input) {
-        Debug(context, 1, "%s", context.translator.format("detection_cutfile_open_failed", filename).c_str());
+        Debug(context, 1, context.translator.format("detection_cutfile_open_failed", filename));
         return;
     }
     auto record = comskip::detection::read_cutscene(input);

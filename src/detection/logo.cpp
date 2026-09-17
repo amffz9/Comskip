@@ -1346,7 +1346,7 @@ bool SearchForLogoEdges(RecordingContext& context)
     if (!context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail &&
         (context.state.framenum_real > static_cast<int>(context.settings.giveUpOnLogoSearch * context.settings.fps)))
     {
-        Debug(context, 1, "%s", context.translator.format("detection_no_logo", context.state.framenum_real).c_str());
+        Debug(context, 1, context.translator.format("detection_no_logo", context.state.framenum_real));
         comskip::detection::disable_method(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo);
     }
     if (context.settings.added_recording > 0)
@@ -1718,7 +1718,7 @@ void LoadLogoMaskData(RecordingContext& context)
     long tmpLong = 0;
     auto logo_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logofilename, "rb"));
     if (!logo_file) {
-        Debug(context, 0, "%s", context.translator.text("detection_logo_file_missing"));
+        Debug(context, 0, context.translator.text("detection_logo_file_missing"));
         context.state.logoInfoAvailable = false;
         return;
     }
@@ -1766,7 +1766,7 @@ void LoadLogoMaskData(RecordingContext& context)
             txt_file.reset(comskip::platform::open_file(context.state.out_filename, "r"));
             if (!txt_file)
             {
-                Debug(context, 0, "%s", context.translator.format("detection_output_read_failed", context.state.out_filename.c_str()).c_str());
+                Debug(context, 0, context.translator.format("detection_output_read_failed", context.state.out_filename));
                 context.state.isSecondPass = false;
                 return;
             }
@@ -1775,7 +1775,7 @@ void LoadLogoMaskData(RecordingContext& context)
 
         if(fseek( txt_file.get(), 0L, SEEK_SET ))
         {
-            Debug(context, 0, "%s", context.translator.text("detection_output_seek_failed"));
+            Debug(context, 0, context.translator.text("detection_output_seek_failed"));
         }
 
 

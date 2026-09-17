@@ -908,3 +908,7 @@ than redefine completion around whichever subset currently passes tests.
   messages avoid the variadic `"%s"` bridge. A regression confirms literal
   percent characters are preserved; focused diagnostics coverage passes
   **25/25**.
+
+- Runtime, decoder setup, recording input, timing, audio, playback, CSV, and
+  analysis callsites now pass translated strings directly to the type-safe
+  sink. The focused integration coverage passes **45/45**.

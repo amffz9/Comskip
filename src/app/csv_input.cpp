@@ -199,7 +199,7 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
     context.state.videowidth = context.state.width = maxmaxX + minminX;
 
     context.state.last_brightness = context.state.frame[1].brightness;
-    Debug(context, 8, "%s", context.translator.text("csv_loaded"));
+    Debug(context, 8, context.translator.text("csv_loaded"));
     input.reset();
 
     context.state.black_count = 0;

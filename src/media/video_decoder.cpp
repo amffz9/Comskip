@@ -151,7 +151,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
 //	bitrate = pFrame->bit_rate;
     if (pFrame->linesize[0] > max_width || pFrame->height > max_height || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
-        Debug(context, 1, "%s", context.translator.format("media_invalid_frame",
+        Debug(context, 1, context.translator.format("media_invalid_frame",
               pFrame->height, pFrame->width, pFrame->linesize[0]).c_str());
         context.state.frame_ptr = nullptr;
         return(0);
@@ -264,7 +264,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
             if (comskip::media::convert_frame_to_8bit(is->pFrame.get(), is->img_convert_ctx) < 0) {
-                Debug(context, 1, "%s", context.translator.text("media_frame_conversion_failed"));
+            Debug(context, 1, context.translator.text("media_frame_conversion_failed"));
                 av_frame_unref(is->pFrame.get());
                 continue;
             }
@@ -528,7 +528,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 }
             } else {
                 if (std::fabs(is->seek_pts - is->video_clock) > 80 ) {
-                    Debug(context, 1, "%s", context.translator.format("media_positioning_failed",
+                    Debug(context, 1, context.translator.format("media_positioning_failed",
                         std::format("{:6.2f}", is->video_clock)).c_str());
                     if (context.state.selftest == 1 || context.state.selftest == 3)
                     {

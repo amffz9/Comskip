@@ -136,7 +136,7 @@ void InitComSkip(RecordingContext& context)
         }
         if (context.state.frame.empty())
         {
-            Debug(context, 0, "%s", context.translator.text("runtime_allocate_frame_array_failed"));
+            Debug(context, 0, context.translator.text("runtime_allocate_frame_array_failed"));
             comskip::request_exit(10);
         }
     }
@@ -150,7 +150,7 @@ void InitComSkip(RecordingContext& context)
     }
     if (context.state.black.empty())
     {
-        Debug(context, 0, "%s", context.translator.text("runtime_allocate_black_array_failed"));
+        Debug(context, 0, context.translator.text("runtime_allocate_black_array_failed"));
         comskip::request_exit(11);
     }
 //	} else {
@@ -169,7 +169,7 @@ void InitComSkip(RecordingContext& context)
         }
         if (context.state.logo_block.empty())
         {
-            Debug(context, 0, "%s", context.translator.text("runtime_allocate_logo_blocks_failed"));
+            Debug(context, 0, context.translator.text("runtime_allocate_logo_blocks_failed"));
             comskip::request_exit(13);
         }
 
@@ -191,7 +191,7 @@ void InitComSkip(RecordingContext& context)
         }
         if (context.state.schange.empty())
         {
-            Debug(context, 0, "%s", context.translator.text("runtime_allocate_scene_changes_failed"));
+            Debug(context, 0, context.translator.text("runtime_allocate_scene_changes_failed"));
             comskip::request_exit(12);
         }
     }
@@ -206,7 +206,7 @@ void InitComSkip(RecordingContext& context)
         }
         if (context.state.cc_block.empty())
         {
-            Debug(context, 0, "%s", context.translator.text("runtime_allocate_caption_blocks_failed"));
+            Debug(context, 0, context.translator.text("runtime_allocate_caption_blocks_failed"));
             comskip::request_exit(22);
         }
 
@@ -231,7 +231,7 @@ void InitComSkip(RecordingContext& context)
         }
         if (context.state.cc_text.empty())
         {
-            Debug(context, 0, "%s", context.translator.text("runtime_allocate_caption_text_failed"));
+            Debug(context, 0, context.translator.text("runtime_allocate_caption_text_failed"));
             comskip::request_exit(22);
         }
 
@@ -260,12 +260,12 @@ void InitComSkip(RecordingContext& context)
     }
     if (context.state.ar_block.empty())
     {
-        Debug(context, 0, "%s", context.translator.text("runtime_allocate_aspect_blocks_failed"));
+        Debug(context, 0, context.translator.text("runtime_allocate_aspect_blocks_failed"));
         comskip::request_exit(31);
     }
     if (context.state.ac_block.empty())
     {
-        Debug(context, 0, "%s", context.translator.text("runtime_allocate_audio_blocks_failed"));
+        Debug(context, 0, context.translator.text("runtime_allocate_audio_blocks_failed"));
         comskip::request_exit(31);
     }
 //	}

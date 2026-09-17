@@ -346,7 +346,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             av_packet_unref(packet);
             const auto video_clock = context.state.video_owner->video_clock;
             if (stalled_packets.observe(video_clock != old_clock))
-                Debug(context, 0, "%s", context.translator.text("media_empty_input"));
+                Debug(context, 0, context.translator.text("media_empty_input"));
             old_clock = video_clock;
             if (context.state.selftest == 1 && context.state.pass == 0 && context.state.video_owner->seek_req == 0 && context.state.framenum == 50) //Seek test
             {
@@ -373,7 +373,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                         (context.state.video_owner->seek_by_bytes ? "byteseek": "timeseek" ),
                         context.state.video_owner->filename.c_str());
             } else
-                Debug(context, 1, "%s", context.translator.text("analysis_selftest_seek_ok"));
+                Debug(context, 1, context.translator.text("analysis_selftest_seek_ok"));
 
             /*
                             if (tries ==  0 && fabs(av_q2d(is->video_st->time_base) * static_cast<double>(packet->pts - is->video_st->start_time - is->seek_pos)) > 2.0) {

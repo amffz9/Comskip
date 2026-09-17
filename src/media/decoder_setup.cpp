@@ -136,7 +136,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
             context.state.is_h264 = 1;
 #ifdef DONATOR
 #else
-            Debug(context, 0, "%s", context.translator.text("media_public_h264_speed"));
+            Debug(context, 0, context.translator.text("media_public_h264_speed"));
 #endif
         }
         else
@@ -203,7 +203,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
             context.state.is_h264 = 1;
 #ifdef DONATOR
 #else
-            Debug(context, 0, "%s", context.translator.text("media_public_h264_speed"));
+            Debug(context, 0, context.translator.text("media_public_h264_speed"));
 #endif
         }
 

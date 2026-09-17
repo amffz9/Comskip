@@ -159,7 +159,7 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
                            context.state.top_apts)
         || context.state.audio_samples < 0
         || context.state.audio_samples >= audio_buffer_capacity)) {
-       Debug(context, 1, "%s", context.translator.text("media_audio_buffer_corrupt"));
+       Debug(context, 1, context.translator.text("media_audio_buffer_corrupt"));
        context.state.audio_buffer_ptr = context.state.audio_buffer;
        context.state.top_apts = context.state.base_apts = 0;
        context.state.audio_samples=0;
@@ -206,7 +206,7 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     }
 
     if (s+context.state.audio_samples > audio_buffer_capacity ) {
-        Debug(context, 1, "%s", context.translator.text("media_audio_buffer_overflow"));
+        Debug(context, 1, context.translator.text("media_audio_buffer_overflow"));
        context.state.audio_buffer_ptr = context.state.audio_buffer;
        context.state.top_apts = context.state.base_apts = 0;
        context.state.audio_samples=0;
@@ -464,7 +464,7 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
     // EAGAIN means that no input was accepted. Drain queued frames and retry
     // that same packet; moving on would silently drop non-aligned audio input.
     if (send_result == AVERROR(EAGAIN)) {
-        Debug(context, 1, "%s", context.translator.text("media_audio_input_refused"));
+        Debug(context, 1, context.translator.text("media_audio_input_refused"));
     }
 
     if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {

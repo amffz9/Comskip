@@ -155,7 +155,7 @@ void file_open_impl(RecordingContext& context)
             is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
 
         if (is->duration < 0 && (context.settings.live_tv_retries > 0)) {
-           Debug(context, 0, "%s", context.translator.text("media_duration_warning"));
+           Debug(context, 0, context.translator.text("media_duration_warning"));
         }
 
 
@@ -166,7 +166,7 @@ void file_open_impl(RecordingContext& context)
         }
         else
         {
-            Debug(context, 10, "%s", context.translator.text("media_no_stream_frame_rate"));
+            Debug(context, 10, context.translator.text("media_no_stream_frame_rate"));
             is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame );
         }
         set_fps(context,  1.0 / is->fps);
@@ -187,7 +187,7 @@ void file_open_impl(RecordingContext& context)
 
             if (is->audioStream < 0)
             {
-                Debug(context, 1, "%s", context.translator.text("media_audio_decoder_warning"));
+                Debug(context, 1, context.translator.text("media_audio_decoder_warning"));
             }
         }
 
