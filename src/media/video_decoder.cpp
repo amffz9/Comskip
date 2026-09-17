@@ -231,7 +231,7 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
     return (res);
 }
 
-comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& context, VideoState *is,AVPacket *packet)
+comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& context, VideoState& is,AVPacket *packet)
 {
     double frame_delay;
     int len1, frameFinished = 0;
@@ -251,65 +251,65 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
     }
     real_pts = 0.0;
     pts = 0;
-    //is->dec_ctx.get().thread_type
-    if (!context.settings.hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
+    //is.dec_ctx.get().thread_type
+    if (!context.settings.hardware_decode) is.dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
-    len1 = avcodec_send_packet(is->dec_ctx.get(), packet);
+    len1 = avcodec_send_packet(is.dec_ctx.get(), packet);
     comskip::media::require_video_packet_sent(len1);
 
     // Did we get a video frame?
-    while ((len1 = avcodec_receive_frame(is->dec_ctx.get(), is->pFrame.get())) >= 0)
+    while ((len1 = avcodec_receive_frame(is.dec_ctx.get(), is.pFrame.get())) >= 0)
     {
         frameFinished = 1;
         // convert to 8bit
-        if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
-            if (comskip::media::convert_frame_to_8bit(is->pFrame.get(), is->img_convert_ctx) < 0) {
+        if (is.pFrame->format == AV_PIX_FMT_YUV420P10LE) {
+            if (comskip::media::convert_frame_to_8bit(is.pFrame.get(), is.img_convert_ctx) < 0) {
             Debug(context, 1, context.translator.text("media_frame_conversion_failed"));
-                av_frame_unref(is->pFrame.get());
+                av_frame_unref(is.pFrame.get());
                 continue;
             }
         }
 
-        if(is->dec_ctx->framerate.den && is->dec_ctx->framerate.num)
+        if(is.dec_ctx->framerate.den && is.dec_ctx->framerate.num)
         {
-            frame_delay = (1/ av_q2d(is->dec_ctx->framerate) ) /* * is->ticks_per_frame */ ;
+            frame_delay = (1/ av_q2d(is.dec_ctx->framerate) ) /* * is.ticks_per_frame */ ;
         }
         else
         {
            // Codec time_base is not necessarily a field duration (FFV1, for
            // example). Prefer the demuxer's actual frame rate before applying
            // the legacy MPEG field-time fallback.
-           const AVRational rate = av_guess_frame_rate(is->pFormatCtx.get(), is->video_st, is->pFrame.get());
+           const AVRational rate = av_guess_frame_rate(is.pFormatCtx.get(), is.video_st, is.pFrame.get());
            frame_delay = rate.num > 0 && rate.den > 0
                ? av_q2d(av_inv_q(rate))
-               : av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame;
+               : av_q2d(is.dec_ctx->time_base) * is.ticks_per_frame;
         }
 
-//        frame_delay = av_q2d(is->dec_ctx->time_base) * is->ticks_per_frame ;
-        repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
+//        frame_delay = av_q2d(is.dec_ctx->time_base) * is.ticks_per_frame ;
+        repeat = av_stream_get_parser(is.video_st) ? av_stream_get_parser(is.video_st)->repeat_pict: 4;
 
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
  //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         context.state.pev_best_effort_timestamp = context.state.best_effort_timestamp;
         if (context.state.use_cuvid)
-            is->pFrame->best_effort_timestamp = is->pFrame->pts;
-        context.state.best_effort_timestamp = is->pFrame->best_effort_timestamp;
+            is.pFrame->best_effort_timestamp = is.pFrame->pts;
+        context.state.best_effort_timestamp = is.pFrame->best_effort_timestamp;
         calculated_delay = frame_delay;
         if (context.state.best_effort_timestamp != AV_NOPTS_VALUE &&
             context.state.pev_best_effort_timestamp != AV_NOPTS_VALUE)
             calculated_delay = static_cast<double>(static_cast<long double>(context.state.best_effort_timestamp) -
-                static_cast<long double>(context.state.pev_best_effort_timestamp)) * av_q2d(is->video_st->time_base);
+                static_cast<long double>(context.state.pev_best_effort_timestamp)) * av_q2d(is.video_st->time_base);
 
         if (context.state.best_effort_timestamp == AV_NOPTS_VALUE)
             real_pts = 0;
         else
         {
-            context.state.headerpos = comskip::media::input_position(is->pFormatCtx.get(), context.state.headerpos,
+            context.state.headerpos = comskip::media::input_position(is.pFormatCtx.get(), context.state.headerpos,
                 [](AVIOContext* input) { return avio_tell(input); });
             if ((context.state.initial_pts_set < 3 && !context.state.reviewing) || (context.state.reviewing && context.state.initial_pts_set < 2)  )
             {
-                if (!approximately_equal(context.state.initial_pts, (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum) )) {
-                    context.state.initial_pts = (context.state.best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * context.state.framenum);
+                if (!approximately_equal(context.state.initial_pts, (context.state.best_effort_timestamp  - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0)) * av_q2d(is.video_st->time_base) - (frame_delay * context.state.framenum) )) {
+                    context.state.initial_pts = (context.state.best_effort_timestamp  - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0)) * av_q2d(is.video_st->time_base) - (frame_delay * context.state.framenum);
                     debug_message(context, 10, "media_initial_video_pts",
                                   std::format("{:10.3f}", context.state.initial_pts));
 //                    if (timeline_repair<2)
@@ -320,11 +320,11 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                 context.state.pts_offset = 0.0;
 
             }
-            real_pts = av_q2d(is->video_st->time_base)* ( context.state.best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0))  - context.state.initial_pts;
-            context.state.final_pts = context.state.best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+            real_pts = av_q2d(is.video_st->time_base)* ( context.state.best_effort_timestamp - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0))  - context.state.initial_pts;
+            context.state.final_pts = context.state.best_effort_timestamp -  (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0);
         }
 
-//        dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
+//        dts =  av_q2d(is.video_st->time_base)* ( is.pFrame->pkt_dts - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0)) ;
 
         calculated_delay = real_pts - context.state.video_packet_process_prev_real_pts;
 
@@ -403,36 +403,36 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             debug_message(context, 1, "media_video_timing_heading");
         else if (context.state.framenum < 20)
             debug_message(context, 1, "media_video_timing_row",
-                          std::format("{:6.5f}", frame_delay / is->ticks_per_frame),
-                          is->ticks_per_frame, repeat, std::format("{:6.3f}", real_pts),
+                          std::format("{:6.5f}", frame_delay / is.ticks_per_frame),
+                          is.ticks_per_frame, repeat, std::format("{:6.3f}", real_pts),
                           std::format("{:6.5f}", calculated_delay));
 #endif // SHOW_VIDEO_TIMING
 
         context.state.pts_offset *= 0.9;
         if (!context.state.reviewing && context.settings.timeline_repair) {
             if (context.state.framenum > 1 && std::fabs(calculated_delay - context.state.pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
-                if (!approximately_equal(3*frame_delay/ is->ticks_per_frame, calculated_delay))
-                    if (!approximately_equal(1*frame_delay/ is->ticks_per_frame, calculated_delay))
+                if (!approximately_equal(3*frame_delay/ is.ticks_per_frame, calculated_delay))
+                    if (!approximately_equal(1*frame_delay/ is.ticks_per_frame, calculated_delay))
                         context.state.pts_offset = context.state.pts_offset + frame_delay - calculated_delay;
             }
         }
         else
             context.state.do_audio_repair = 0;
 
-//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->dec_ctxpar->ticks_per_frame);
+//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is.pFrame->interlaced_frame, is.dec_ctxpar->ticks_per_frame);
 
         // EOF-drained frames may have no timestamp. Residual repair offset is
         // relative to an actual PTS; adding it to zero would reset the clock.
         pts = context.state.best_effort_timestamp == AV_NOPTS_VALUE
-            ? is->video_clock : real_pts + context.state.pts_offset;
+            ? is.video_clock : real_pts + context.state.pts_offset;
 
         calculated_delay = pts - context.state.video_packet_process_prev_pts;
 
         if (!context.state.reviewing
             && context.state.framenum > 1 && std::fabs(calculated_delay - frame_delay) > 0.01
-            && !approximately_equal(3*frame_delay/ is->ticks_per_frame, calculated_delay)
-            && !approximately_equal(2*frame_delay/ is->ticks_per_frame, calculated_delay)
-            && !approximately_equal(1*frame_delay/ is->ticks_per_frame, calculated_delay)
+            && !approximately_equal(3*frame_delay/ is.ticks_per_frame, calculated_delay)
+            && !approximately_equal(2*frame_delay/ is.ticks_per_frame, calculated_delay)
+            && !approximately_equal(1*frame_delay/ is.ticks_per_frame, calculated_delay)
             ){
             if ( (context.state.video_packet_process_prev_strange_framenum + 1 != context.state.framenum) &&( context.state.video_packet_process_prev_strange_step < std::fabs(calculated_delay - frame_delay))) {
                 debug_message(context, 8, "media_strange_video_pts_step",
@@ -446,47 +446,47 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             context.state.video_packet_process_prev_strange_step = std::fabs(calculated_delay - frame_delay);
         }
 
-        // set_fps(calculated_delay, is->fps, repeat, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
+        // set_fps(calculated_delay, is.fps, repeat, av_q2d(is.video_st->r_frame_rate),  av_q2d(is.video_st->avg_frame_rate));
 
         if(pts != 0)
         {
-            is->video_clock = pts;
-            comskip::media::write_timing_row(context, "v   set", real_pts, calculated_delay, pts, is->video_clock, context.state.pts_offset, repeat);
+            is.video_clock = pts;
+            comskip::media::write_timing_row(context, "v   set", real_pts, calculated_delay, pts, is.video_clock, context.state.pts_offset, repeat);
         }
         else
         {
             /* if we aren't given a pts, set it to the clock */
-            comskip::media::write_timing_row(context, "v clock", real_pts, calculated_delay, pts, is->video_clock, context.state.pts_offset, repeat);
-            pts = is->video_clock;
+            comskip::media::write_timing_row(context, "v clock", real_pts, calculated_delay, pts, is.video_clock, context.state.pts_offset, repeat);
+            pts = is.video_clock;
         }
-        is->video_clock_submitted = is->video_clock;
+        is.video_clock_submitted = is.video_clock;
 
         if (context.state.retries == 0)
         {
-            if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
+            if (is.video_clock - is.seek_pts > -frame_delay / 2.0)
             {
 
-                if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) //Seek test
+                if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is.video_clock > 0 */) //Seek test
                 {
-                   if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
+                   if (is.video_clock < context.state.selftest_target - 0.05 || is.video_clock > context.state.selftest_target + 0.05)
                    {
                     comskip::output::write_selftest_log(context.settings.selftest_log_file, "Seek error: target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}, \"{}\"\n",
-                            is->seek_pts,
-                            is->video_clock,
-                            is->video_clock - is->seek_pts,
-                            is->duration,
-                            (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                            is->filename.c_str());
+                            is.seek_pts,
+                            is.video_clock,
+                            is.video_clock - is.seek_pts,
+                            is.duration,
+                            (is.seek_by_bytes ? "byteseek": "timeseek" ),
+                            is.filename.c_str());
                         debug_message(context, 1, "media_selftest_seek_failed");
                    }
                     else
                         debug_message(context, 1, "media_selftest_seek_ok");
                     /*
-                    if (tries ==  0 && std::fabs(static_cast<double>(av_q2d(is->video_st->time_base)) *
-                                                  static_cast<double>(packet->pts - is->video_st->start_time - is->seek_pos)) > 2.0) {
-                                       is->seek_req=1;
-                                       is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
-                                       is->seek_flags = AVSEEK_FLAG_BYTE;
+                    if (tries ==  0 && std::fabs(static_cast<double>(av_q2d(is.video_st->time_base)) *
+                                                  static_cast<double>(packet->pts - is.video_st->start_time - is.seek_pos)) > 2.0) {
+                                       is.seek_req=1;
+                                       is.seek_pos = 20.0 / av_q2d(is.video_st->time_base);
+                                       is.seek_flags = AVSEEK_FLAG_BYTE;
                                        tries++;
                                    } else
                      */
@@ -495,26 +495,26 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.pass = 0;
 //                    comskip::request_exit(1);
                 }
-                if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
+                if (SubmitFrame (context, is.video_st, is.pFrame.get(), is.video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
             }
         }
         else {
-            if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
+            if (is.video_clock - is.seek_pts > -frame_delay / 2.0)
             {
                 if (context.state.selftest == 3) //Reopen at same location
                 {
-                    if (is->video_clock < context.state.selftest_target - 0.05 || is->video_clock > context.state.selftest_target + 0.05)
+                    if (is.video_clock < context.state.selftest_target - 0.05 || is.video_clock > context.state.selftest_target + 0.05)
                     {
                         comskip::output::write_selftest_log(context.settings.selftest_log_file, "Reopen error: target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}, \"{}\"\n",
-                            is->seek_pts,
-                            is->video_clock,
-                            is->video_clock - is->seek_pts,
-                            is->duration,
-                            (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                            is->filename.c_str());
+                            is.seek_pts,
+                            is.video_clock,
+                            is.video_clock - is.seek_pts,
+                            is.duration,
+                            (is.seek_by_bytes ? "byteseek": "timeseek" ),
+                            is.filename.c_str());
                         debug_message(context, 1, "media_selftest_reopen_failed");
                     }
                     else
@@ -522,23 +522,23 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     return comskip::media::VideoPacketOutcome::selftest_complete;
                 }
                 context.state.retries = 0;
-                if (SubmitFrame (context, is->video_st, is->pFrame.get(), is->video_clock))
+                if (SubmitFrame (context, is.video_st, is.pFrame.get(), is.video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
             } else {
-                if (std::fabs(is->seek_pts - is->video_clock) > 80 ) {
+                if (std::fabs(is.seek_pts - is.video_clock) > 80 ) {
                     Debug(context, 1, context.translator.format("media_positioning_failed",
-                        std::format("{:6.2f}", is->video_clock)).c_str());
+                        std::format("{:6.2f}", is.video_clock)).c_str());
                     if (context.state.selftest == 1 || context.state.selftest == 3)
                     {
                         comskip::output::write_selftest_log(context.settings.selftest_log_file, "Seek error : target={:8.1f}, result={:8.1f}, error={:6.3f}, size={:8.1f}, mode={}, \"{}\"\n",
-                            is->seek_pts,
-                            is->video_clock,
-                            is->video_clock - is->seek_pts,
-                            is->duration,
-                            (is->seek_by_bytes ? "byteseek": "timeseek" ),
-                            is->filename.c_str());
+                            is.seek_pts,
+                            is.video_clock,
+                            is.video_clock - is.seek_pts,
+                            is.duration,
+                            (is.seek_by_bytes ? "byteseek": "timeseek" ),
+                            is.filename.c_str());
                         debug_message(context, 1, "media_selftest_failed", context.state.selftest);
                     }
                     return context.state.selftest == 1 || context.state.selftest == 3
@@ -549,16 +549,16 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
 //            if (selftest == 4) comskip::request_exit(1);
         }
         /* update the video clock */
-        is->video_clock += frame_delay;
+        is.video_clock += frame_delay;
         context.state.video_packet_process_prev_pts = pts;
         context.state.video_packet_process_prev_real_pts = real_pts;
 //        prev_frame_delay = frame_delay;
 
 #ifdef PROCESS_CC
-        if (is->pFrame->nb_side_data) {
+        if (is.pFrame->nb_side_data) {
             static_assert(sizeof(context.state.ccData) >= comskip::media::ga94_max_packet_size);
-            for (int side_data_index = 0; side_data_index < is->pFrame->nb_side_data; ++side_data_index) {
-                const AVFrameSideData *sd = is->pFrame->side_data[side_data_index];
+            for (int side_data_index = 0; side_data_index < is.pFrame->nb_side_data; ++side_data_index) {
+                const AVFrameSideData *sd = is.pFrame->side_data[side_data_index];
                 if (sd->type != AV_FRAME_DATA_A53_CC) continue;
                 if (context.captions && !context.state.reviewing)
                     context.captions->consume({sd->data, sd->size}, comskip::media::video_caption_timestamp(pts));

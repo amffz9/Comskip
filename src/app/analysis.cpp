@@ -295,7 +295,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                     // Frame-threaded decoders retain output until an explicit
                     // end-of-input packet. Drain it before finalizing detection.
                     if (context.state.video_owner->dec_ctx.get()) {
-                        const auto outcome=video_packet_process(context,context.state.video_owner.get(),nullptr);
+                    const auto outcome=video_packet_process(context,*context.state.video_owner,nullptr);
                         if (outcome==comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
                         if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
                     }
@@ -318,7 +318,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             if(packet->stream_index == context.state.video_owner->videoStream)
             {
                 if (packet->size > 0 && packet->data != nullptr) {
-                    const auto outcome=video_packet_process(context,context.state.video_owner.get(),packet);
+                    const auto outcome=video_packet_process(context,*context.state.video_owner,packet);
                     if (outcome==comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
                     if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
                 }
