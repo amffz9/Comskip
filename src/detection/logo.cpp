@@ -30,6 +30,8 @@ constexpr int diagonal_1_edge_direction = 2;
 constexpr int diagonal_2_edge_direction = 3;
 constexpr int maximum_saved_logo_width = 2000;
 constexpr int maximum_saved_logo_height = 1200;
+constexpr int aspect_ratio_exclusion_distance = 20;
+constexpr double maximum_edge_search_fraction = 0.02;
 
 double frame_duration(RecordingContext& context, const long end_frame, const long start_frame) {
     return get_frame_pts(context, static_cast<int>(end_frame)) -
@@ -316,9 +318,6 @@ FRAME[((Y)-context.settings.edge_radius)*context.state.width+(X)+context.setting
 ) >= context.settings.edge_level_threshold)
 
 
-#define AR_DIST	20
-
-
 void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNumber)
 {
     const auto scan = logo_scan(context);
@@ -340,7 +339,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
     }
     for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
     {
-        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
+        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+aspect_ratio_exclusion_distance); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-aspect_ratio_exclusion_distance); x++)
         {
             herePixel = frame_ptr[y * context.state.width + x];
             if (herePixel < min_br[y * context.state.width + x])
@@ -355,7 +354,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
     memset(vert_edges[maskNumber], 0, context.state.width * context.state.height);
     for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
     {
-        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
+        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+aspect_ratio_exclusion_distance); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-aspect_ratio_exclusion_distance); x++)
         {
             herePixel = frame_ptr[y * context.state.width + x];
             if ((abs(frame_ptr[y * context.state.width + (x - context.settings.edge_radius)] - herePixel) >= context.settings.edge_level_threshold) ||
@@ -842,12 +841,12 @@ void InitProcessLogoTest(RecordingContext& context)
 }
 
 
-#define LOGO_SAMPLE comskip::detection::logo_sampling_interval(context.settings.fps, context.state.logoFreq)
-
 bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close)
 {
     const auto shrink = comskip::detection::logo_shrink(context.settings.shrink_logo,
         context.settings.shrink_logo_tail, context.settings.fps);
+    const auto logo_sample = comskip::detection::logo_sampling_interval(
+        context.settings.fps, context.state.logoFreq);
 
 
     int i;
@@ -856,7 +855,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
     if (context.settings.logo_filter > 0)
     {
         const auto history = comskip::detection::validate_logo_filter(context.settings.logo_filter,
-            LOGO_SAMPLE, framenum_real, context.state.frame.size());
+            logo_sample, framenum_real, context.state.frame.size());
         if (!close)
         {
             if (history.complete_windows)
@@ -1323,8 +1322,6 @@ bool SearchForLogoEdges(RecordingContext& context)
 }
 
 
-#define MAX_SEARCH_FRACTION 0.02
-
 int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned char* test)
 {
     const auto scan = logo_scan(context);
@@ -1348,7 +1345,7 @@ int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned c
 //					goto found;
                     count++;
 
-                for (offset = context.settings.edge_step; offset < (int) (MAX_SEARCH_FRACTION * context.state.width); offset += context.settings.edge_step)
+                for (offset = context.settings.edge_step; offset < static_cast<int>(maximum_edge_search_fraction * context.state.width); offset += context.settings.edge_step)
                 {
                     iy = std::min(y+offset,context.state.height-1);
                     for (ix= std::max(x-offset,0); ix <= std::min(x+offset, context.state.width-1); ix += context.settings.edge_step)
