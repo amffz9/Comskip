@@ -3,6 +3,8 @@
 struct RecordingContext;
 
 bool CheckFramesForLogo(RecordingContext& context, int start, int end);
+bool CheckFrameForLogo(RecordingContext& context, int frame);
+double CalculateLogoFraction(RecordingContext& context, int start, int end);
 void LoadLogoMaskData(RecordingContext& context);
 void SaveLogoMaskData(RecordingContext& context);
 void InitLogoBuffers(RecordingContext& context);
