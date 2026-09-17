@@ -29,7 +29,7 @@ bool WithinDivisibleTolerance(double test_number, double divisor, double toleran
     double	added;
     double	remainder;
     added = test_number + tolerance;
-    remainder = added - divisor * ((int)(added / (double)divisor));
+    remainder = added - divisor * static_cast<int>(added / divisor);
     return ((remainder >= 0) && (remainder <= (2 * tolerance)));
 }
 

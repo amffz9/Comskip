@@ -232,8 +232,8 @@ void EdgeCount(unsigned char* frame_ptr) {
 
     edge_count = 0;
     if (aggressive_logo_rejection) {
-        for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
-            for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
+        for (y = edge_radius + static_cast<int>(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - static_cast<int>(height * borderIgnore))); y++) {
+            for (x = edge_radius + static_cast<int>(width * borderIgnore); x < (width - edge_radius - static_cast<int>(width * borderIgnore)); x++) {
                 herePixel = frame_ptr[y * width + x];
                 if (
                     (abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold)
@@ -257,8 +257,8 @@ void EdgeCount(unsigned char* frame_ptr) {
             }
         }
     } else {
-        for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
-            for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
+        for (y = edge_radius + static_cast<int>(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - static_cast<int>(height * borderIgnore))); y++) {
+            for (x = edge_radius + static_cast<int>(width * borderIgnore); x < (width - edge_radius - static_cast<int>(width * borderIgnore)); x++) {
                 herePixel = frame_ptr[y * width + x];
                 if (
                     (abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold) ||
@@ -365,9 +365,9 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
         memset(max_br, 0, sizeof(max_br));
         memset(min_br, 255, sizeof(max_br));
     }
-    for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
+    for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + static_cast<int>(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - static_cast<int>(context.state.height * borderIgnore))); y++)
     {
-        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+aspect_ratio_exclusion_distance); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-aspect_ratio_exclusion_distance); x++)
+        for (x = std::max(context.settings.edge_radius + static_cast<int>(context.state.width * borderIgnore), minX+aspect_ratio_exclusion_distance); x < std::min((context.state.width - context.settings.edge_radius - static_cast<int>(context.state.width * borderIgnore)),maxX-aspect_ratio_exclusion_distance); x++)
         {
             herePixel = frame_ptr[y * context.state.width + x];
             if (herePixel < min_br[y * context.state.width + x])
@@ -380,9 +380,9 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
 #if MULTI_EDGE_BUFFER
     memset(horiz_edges[maskNumber], 0, context.state.width * context.state.height);
     memset(vert_edges[maskNumber], 0, context.state.width * context.state.height);
-    for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
+    for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + static_cast<int>(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - static_cast<int>(context.state.height * borderIgnore))); y++)
     {
-        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+aspect_ratio_exclusion_distance); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-aspect_ratio_exclusion_distance); x++)
+        for (x = std::max(context.settings.edge_radius + static_cast<int>(context.state.width * borderIgnore), minX+aspect_ratio_exclusion_distance); x < std::min((context.state.width - context.settings.edge_radius - static_cast<int>(context.state.width * borderIgnore)),maxX-aspect_ratio_exclusion_distance); x++)
         {
             herePixel = frame_ptr[y * context.state.width + x];
             if ((abs(frame_ptr[y * context.state.width + (x - context.settings.edge_radius)] - herePixel) >= context.settings.edge_level_threshold) ||
@@ -704,7 +704,7 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     }
     if (testEdges == 0)
         return(0.5);
-    return (((double)goodEdges / (double)testEdges));
+    return static_cast<double>(goodEdges) / static_cast<double>(testEdges);
 }
 
 double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
@@ -860,7 +860,7 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     }
     if (testEdges == 0)
         return(0.5);
-    return (((double)goodEdges / (double)testEdges));
+    return static_cast<double>(goodEdges) / static_cast<double>(testEdges);
 }
 
 void InitProcessLogoTest(RecordingContext& context)
@@ -1062,7 +1062,8 @@ bool SearchForLogoEdges(RecordingContext& context)
     int		i;
     int		x;
     int		y;
-    double scale = ((double)context.state.height / 572) * ( (double) context.state.videowidth / 720 );
+    double scale = (static_cast<double>(context.state.height) / 572) *
+        (static_cast<double>(context.state.videowidth) / 720);
     double	logoPercentageOfScreen;
     bool	LogoIsThere;
     int		sum;
@@ -1185,7 +1186,9 @@ bool SearchForLogoEdges(RecordingContext& context)
     if (tempMinY < context.state.tlogoMinY) context.state.tlogoMinY = tempMinY;
     if (tempMaxY > context.state.tlogoMaxY) context.state.tlogoMaxY = tempMaxY;
     context.state.edgemask_filled = 1;
-    logoPercentageOfScreen = (double)((context.state.tlogoMaxY - context.state.tlogoMinY) * (context.state.tlogoMaxX - context.state.tlogoMinX)) / (double)(context.state.height * context.state.width);
+    logoPercentageOfScreen = static_cast<double>((context.state.tlogoMaxY - context.state.tlogoMinY) *
+        (context.state.tlogoMaxX - context.state.tlogoMinX)) /
+        static_cast<double>(context.state.height * context.state.width);
     if (logoPercentageOfScreen > context.settings.logo_max_percentage_of_screen)
     {
 //			Debug(
@@ -1205,7 +1208,9 @@ bool SearchForLogoEdges(RecordingContext& context)
 //	if (i > 350/(lowres+1)/(edge_step)) {
     if ( i > 150 * scale /context.settings.edge_step)
     {
-        logoPercentageOfScreen = (double)((context.state.tlogoMaxY - context.state.tlogoMinY) * (context.state.tlogoMaxX - context.state.tlogoMinX)) / (double)(context.state.height * context.state.width);
+        logoPercentageOfScreen = static_cast<double>((context.state.tlogoMaxY - context.state.tlogoMinY) *
+            (context.state.tlogoMaxX - context.state.tlogoMinX)) /
+            static_cast<double>(context.state.height * context.state.width);
         if (i > 40000 || logoPercentageOfScreen > context.settings.logo_max_percentage_of_screen)
         {
             LogoDebug(context, 3, "logo_edge_too_big", std::format("{}", i),
@@ -1260,7 +1265,7 @@ bool SearchForLogoEdges(RecordingContext& context)
             context.state.currentGoodEdge = DoubleCheckStationLogoEdge(context, context.state.logoFrameBuffer[i].data());
             LogoIsThere = (context.state.currentGoodEdge > context.settings.logo_threshold);
 
-            for (x = context.state.logoFrameNum[i]; x < context.state.logoFrameNum[i] + (int)( context.state.logoFreq * context.settings.fps ); x++)
+            for (x = context.state.logoFrameNum[i]; x < context.state.logoFrameNum[i] + static_cast<int>(context.state.logoFreq * context.settings.fps); x++)
             {
                 context.state.frame[x].currentGoodEdge = context.state.currentGoodEdge;
                 context.state.frame[x].logo_present = LogoIsThere;
@@ -1283,7 +1288,7 @@ bool SearchForLogoEdges(RecordingContext& context)
     }
 
 
-    if (logoFound && (sum >= (int)(context.settings.num_logo_buffers * .9)))
+    if (logoFound && (sum >= static_cast<int>(context.settings.num_logo_buffers * .9)))
     {
 
         context.state.clogoMinX = context.state.tlogoMinX;
@@ -1333,7 +1338,8 @@ bool SearchForLogoEdges(RecordingContext& context)
         context.state.currentGoodEdge = 0.0;
     }
 
-    if (!context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail && (context.state.framenum_real > (int)(context.settings.giveUpOnLogoSearch * context.settings.fps)))
+    if (!context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail &&
+        (context.state.framenum_real > static_cast<int>(context.settings.giveUpOnLogoSearch * context.settings.fps)))
     {
         Debug(context, 1, "%s", context.translator.format("detection_no_logo", context.state.framenum_real).c_str());
         comskip::detection::disable_method(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo);
@@ -1615,8 +1621,8 @@ double CalculateLogoFraction(RecordingContext& context, int start, int end)
             count++;
     }
     if (context.state.reverseLogoLogic)
-        return (1.0 - (double) count / (double)(end - start + 1));
-    return ((double) count / (double)(end - start + 1));
+        return 1.0 - static_cast<double>(count) / static_cast<double>(end - start + 1);
+    return static_cast<double>(count) / static_cast<double>(end - start + 1);
 }
 
 bool CheckFrameForLogo(RecordingContext& context, int i)

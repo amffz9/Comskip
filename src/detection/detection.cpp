@@ -178,7 +178,8 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
             if (context.settings.startOverAfterLogoInfoAvail && !context.state.loadingCSV && !context.state.secondLogoSearch && context.state.logo_block_count > 0 &&
                     !context.state.lastLogoTest &&
                     frame_duration(context, context.state.frame_count,context.state.logo_block[context.state.logo_block_count-1].end) > ( context.settings.max_commercialbreak * 1.2 ) &&
-                    (double)context.state.frames_with_logo / (double)context.state.frame_count < 0.5
+                    static_cast<double>(context.state.frames_with_logo) /
+                        static_cast<double>(context.state.frame_count) < 0.5
                )
             {
                 DetectionDebug(context, 6, "detection_logo_search_restart",
@@ -328,7 +329,7 @@ void FillARHistogram(RecordingContext& context, bool refill)
 
         for (i = 0; i < context.state.ar_block_count; i++)
         {
-            hi = (int)((context.state.ar_block[i].ar_ratio - 0.5)*100);
+            hi = static_cast<int>((context.state.ar_block[i].ar_ratio - 0.5) * 100);
             if (hi >= 0 && hi < maximum_aspect_ratios)
             {
                 context.state.ar_histogram[hi].frames += context.state.ar_block[i].end - context.state.ar_block[i].start + 1;
@@ -568,7 +569,8 @@ bool BuildMasterCommList(RecordingContext& context)
     }
 
 
-    context.state.logoPercentage = (double) context.state.frames_with_logo / (double) context.state.framenum_real;
+    context.state.logoPercentage = static_cast<double>(context.state.frames_with_logo) /
+        static_cast<double>(context.state.framenum_real);
 
 //	if (max_volume == 0)
     {
@@ -791,7 +793,8 @@ bool BuildMasterCommList(RecordingContext& context)
                             frame[i].logo_present = lastLogoTest;
                             if (lastLogoTest) frames_with_logo++;
                         }
-                        logoPercentage = (double) frames_with_logo / (double) framenum_real;
+                        logoPercentage = static_cast<double>(frames_with_logo) /
+                            static_cast<double>(framenum_real);
                     }
                     else
                         logo_threshold = prev_logo_threshold;
