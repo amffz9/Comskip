@@ -1038,7 +1038,8 @@ void FillLogoBuffer(RecordingContext& context)
     i = static_cast<int>(std::min(
         static_cast<std::size_t>(context.state.logoFrameBufferSize),
         static_cast<std::size_t>(context.state.width) * context.state.height * sizeof(context.state.frame_ptr[0])));
-    memcpy(context.state.logoFrameBuffer[context.state.newestLogoBuffer].data(), context.state.frame_ptr, i);
+    std::copy_n(context.state.frame_ptr, i,
+        context.state.logoFrameBuffer[context.state.newestLogoBuffer].begin());
 
 //	for (y = 0; y < height; y++) {
 //		for (x = 0; x < width; x++) {
@@ -1289,8 +1290,8 @@ bool SearchForLogoEdges(RecordingContext& context)
         context.state.clogoMaxX = context.state.tlogoMaxX;
         context.state.clogoMinY = context.state.tlogoMinY;
         context.state.clogoMaxY = context.state.tlogoMaxY;
-        memcpy(context.state.choriz_edgemask.data(), context.state.thoriz_edgemask.data(), context.state.width * context.state.height);
-        memcpy(context.state.cvert_edgemask.data(), context.state.tvert_edgemask.data(), context.state.width * context.state.height);
+        std::ranges::copy(context.state.thoriz_edgemask, context.state.choriz_edgemask.begin());
+        std::ranges::copy(context.state.tvert_edgemask, context.state.cvert_edgemask.begin());
 
 
         context.state.logoTrendCounter = context.settings.num_logo_buffers;
