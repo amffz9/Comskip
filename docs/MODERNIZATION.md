@@ -788,3 +788,7 @@ than redefine completion around whichever subset currently passes tests.
 - Caption dictionary, platform file-mode, and codec listing paths now use
   standard C++ string-length operations. The complete Windows headless suite
   remains green at **515/515**.
+
+- Codec enumeration output now uses standard C++ streams while preserving the
+  existing localized text and line wrapping. The complete Windows headless
+  suite remains green at **515/515**.
