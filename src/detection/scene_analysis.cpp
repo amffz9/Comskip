@@ -598,13 +598,14 @@ bool CheckSceneHasChanged(RecordingContext& context)
     if (context.settings.edge_step == 0)
         context.settings.edge_step = step; // Automatic adjust edge step for video size
 
-    memcpy(context.state.lastHistogram, context.state.histogram, sizeof(context.state.histogram));
+    std::ranges::copy(context.state.histogram, std::begin(context.state.lastHistogram));
     context.state.last_brightness = context.state.brightness;
     context.state.brightness = 0;
 
     // compare current frame with last frame here
 //    memset(histogram, 0, sizeof(histogram));
-    memset(context.state.own_histogram, 0, sizeof(context.state.own_histogram));
+    for (auto& row : context.state.own_histogram)
+        std::ranges::fill(row, 0);
 
 //    max_delta =  min(videowidth,height)/2 - border;
 
@@ -639,7 +640,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
     if (context.state.framenum_real <= 1)
     {
 
-        memcpy(context.state.lastHistogram, context.state.histogram, sizeof(context.state.histogram));
+        std::ranges::copy(context.state.histogram, std::begin(context.state.lastHistogram));
         context.state.last_brightness = context.state.brightness;
 
 
