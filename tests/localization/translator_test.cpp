@@ -208,6 +208,14 @@ TEST(Translator, FormatsDetectionBlockReportsAndCompletion) {
     EXPECT_EQ(spanish.format("detection_frames_processed", "250"),
               "\n250 fotogramas procesados\n");
 }
+TEST(Translator, FormatsCaptionTranscriptRows) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("detection_caption_transcript_row", 2, "    10", "    20", "   5", "Hello"),
+              "2) S:    10 E:    20 L:   5 Hello\n");
+    EXPECT_EQ(spanish.format("detection_caption_transcript_row", 2, "    10", "    20", "   5", "Hola"),
+              "2) S:    10 E:    20 L:   5 Hola\n");
+}
 TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
     const Translator english;
     const Translator spanish("es");

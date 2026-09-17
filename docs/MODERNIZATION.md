@@ -888,3 +888,7 @@ than redefine completion around whichever subset currently passes tests.
 - Legacy settings and cutlist output now use the bounded opener throughout;
   only the narrow C compatibility bridge retains C strings. Focused settings,
   diagnostics, and cutlist coverage passes **23/23**.
+
+- Caption transcript rows now use English/Spanish catalog entries while
+  preserving their fixed-width machine-readable layout. Localization and
+  detection coverage passes **40/40**.

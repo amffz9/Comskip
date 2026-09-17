@@ -1398,15 +1398,11 @@ bool BuildMasterCommList(RecordingContext& context)
 
         for (i = 0; i < context.state.cc_text_count; i++)
         {
-            Debug(context,
-                2,
-                "%i) S:%6i E:%6i L:%4i %s\n",
-                i,
-                context.state.cc_text[i].start_frame,
-                context.state.cc_text[i].end_frame,
-                context.state.cc_text[i].text_len,
-                context.state.cc_text[i].text
-            );
+            DetectionDebug(context, 2, "detection_caption_transcript_row", i,
+                std::format("{:6}", context.state.cc_text[i].start_frame),
+                std::format("{:6}", context.state.cc_text[i].end_frame),
+                std::format("{:4}", context.state.cc_text[i].text_len),
+                context.state.cc_text[i].text);
         }
     }
 
