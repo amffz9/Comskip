@@ -4,6 +4,7 @@
 #include "platform/utf8_paths.h"
 #include "output/checked_file.h"
 #include <cstdio>
+#include <string>
 
 namespace comskip::media {
 namespace {
@@ -20,13 +21,13 @@ bool open_timing_diagnostics(RecordingContext& context) {
     write_timing_header(context);
     return static_cast<bool>(context.state.timing_file);
 }
-void write_timing_row(RecordingContext& context, const char* type, double real_pts,
+void write_timing_row(RecordingContext& context, std::string_view type, double real_pts,
                       double step, double pts, double clock, double offset, int repeat) {
     if (context.state.timing_file && !context.state.csStepping &&
         !context.state.csJumping && !context.state.csStartJump)
         comskip::output::checked_fprintf(*context.state.timing_file, context.state.inbasename + ".timing.csv",
             "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n",
-            type, real_pts, step, pts, clock, pts - clock, offset, repeat);
+            std::string(type).c_str(), real_pts, step, pts, clock, pts - clock, offset, repeat);
 }
 void close_timing_diagnostics(RecordingContext& context) noexcept {
     context.state.timing_file.reset();

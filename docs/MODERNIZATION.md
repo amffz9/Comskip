@@ -846,3 +846,6 @@ than redefine completion around whichever subset currently passes tests.
 - `OutputHistogram` now accepts a bounded `std::span<const int>` and
   `std::string_view`, rejecting incomplete input before processing. Its focused
   regression passes **1/1**.
+
+- Timing diagnostics now accept `std::string_view` for row labels while
+  retaining the exact CSV layout.
