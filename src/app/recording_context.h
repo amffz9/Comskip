@@ -13,6 +13,7 @@
 #include "portable_threads.h"
 #include <memory>
 #include <array>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -366,7 +367,7 @@ struct RecordingState {
     int oheight= 0;
     int owidth= 0;
     double divider= 1;
-    int oldfrm= -1;
+    std::optional<int> oldfrm;
     int zstart= 0;
     int zfactor= 1;
     int show_XDS=0;

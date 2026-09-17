@@ -78,7 +78,8 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
 //	frm++;
-    if (!forceRefresh && context.state.oldfrm == frm && context.state.review_source_width == context.state.videowidth && context.state.review_source_height == context.state.height)
+    if (!forceRefresh && context.state.oldfrm && *context.state.oldfrm == frm &&
+        context.state.review_source_width == context.state.videowidth && context.state.review_source_height == context.state.height)
         return;
     context.state.oldfrm = frm;
     if (context.settings.output_debugwindow && context.state.frame_count )
@@ -802,14 +803,14 @@ bool ReviewResult(RecordingContext& context)
             if (context.window.input().key == 112)
             {
                 context.state.helpflag = 1;     // F1 Key
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             else
             {
                 if (context.state.helpflag == 1)
                 {
                     context.state.helpflag = 0;
-                    context.state.oldfrm = -1;
+                    context.state.oldfrm.reset();
                 }
             }
             if (context.window.input().key == 16)
@@ -881,7 +882,7 @@ bool ReviewResult(RecordingContext& context)
                     while (i >= 0 && curframe < context.state.reffer[i].start_frame) i--;
                     if (i >= 0)
                         context.state.reffer[i].end_frame = curframe;
-                    context.state.oldfrm = -1;
+                    context.state.oldfrm.reset();
                 }
             }
             if (context.window.input().key == 'B')  	// begin key
@@ -901,7 +902,7 @@ bool ReviewResult(RecordingContext& context)
                     while (i <= context.state.reffer_count && curframe > context.state.reffer[i].end_frame) i++;
                     if (i <= context.state.reffer_count)
                         context.state.reffer[i].start_frame = curframe;
-                    context.state.oldfrm = -1;
+                    context.state.oldfrm.reset();
                 }
             }
             if (context.window.input().key == 'T')  	// Toggle key
@@ -917,7 +918,7 @@ bool ReviewResult(RecordingContext& context)
                         else
                             context.state.cblock[i].score = 0.01;
                         context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::FrameCause::forced);
-                        context.state.oldfrm = -1;
+                        context.state.oldfrm.reset();
                         BuildCommercial(context);
                         context.window.input().key = 'W';			// Trick to cause writing of the new commercial list
                     }
@@ -933,7 +934,7 @@ bool ReviewResult(RecordingContext& context)
                     {
                         context.state.cblock[i].score = 99.99;
                         context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::FrameCause::forced);
-                        context.state.oldfrm = -1;
+                        context.state.oldfrm.reset();
                         BuildCommercial(context);
                     }
                 }
@@ -944,7 +945,7 @@ bool ReviewResult(RecordingContext& context)
                     if (i >= 0 && context.state.reffer[i].start_frame <= curframe && curframe <= context.state.reffer[i].end_frame )
                     {
                         comskip::detection::erase_interval(context.state.reffer, context.state.reffer_count, i);
-                        context.state.oldfrm = -1;
+                        context.state.oldfrm.reset();
                     }
                 }
             }
@@ -958,7 +959,7 @@ bool ReviewResult(RecordingContext& context)
                     {
                         context.state.cblock[i].score = 0.01;
                         context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::FrameCause::forced);
-                        context.state.oldfrm = -1;
+                        context.state.oldfrm.reset();
                         BuildCommercial(context);
                     }
                 }
@@ -967,7 +968,7 @@ bool ReviewResult(RecordingContext& context)
                     if (comskip::detection::insert_reference(context.state.reffer, context.state.reffer_count,
                                                             curframe, context.state.frame_count))
                     {
-                        context.state.oldfrm = -1;
+                        context.state.oldfrm.reset();
                     }
                 }
             }
@@ -1004,7 +1005,7 @@ bool ReviewResult(RecordingContext& context)
                 WriteLegacyEditorFiles(context, !context.state.framearray);
                 WriteLegacyCutlistFiles(context, !context.state.framearray);
                 context.settings.output_default = false;
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             if (context.window.input().key == 'Z')
             {
@@ -1014,7 +1015,7 @@ bool ReviewResult(RecordingContext& context)
                     context.state.zfactor = context.state.zfactor << 1;
 //						zstart = i * frame_count / context.state.owidth / zfactor;
                     context.state.zstart = (curframe + context.state.zstart) / 2;
-                    context.state.oldfrm = -1;
+                    context.state.oldfrm.reset();
                 }
             }
             if (context.window.input().key == 'U')
@@ -1027,7 +1028,7 @@ bool ReviewResult(RecordingContext& context)
                     context.state.zstart = context.state.zstart - (curframe - context.state.zstart);
                     if (context.state.zstart < 0)
                         context.state.zstart = 0;
-                    context.state.oldfrm = -1;
+                    context.state.oldfrm.reset();
 
                 }
             }
@@ -1039,13 +1040,13 @@ bool ReviewResult(RecordingContext& context)
             if (context.window.input().key == 'X')
             {
                 context.state.show_XDS = !context.state.show_XDS;
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
 
             if (context.window.input().key == 'V')
             {
                 context.state.show_silence = !context.state.show_silence;
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
 
             if (context.window.input().key == 'G')
@@ -1053,36 +1054,36 @@ bool ReviewResult(RecordingContext& context)
                 grf++;
                 if (grf > 2)
                     grf = 0;
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             if (context.window.input().key == 113)  				// F2 key
             {
                 context.settings.max_volume = static_cast<int>(context.settings.max_volume / 1.1);
                 Recalc(context);
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             if (context.window.input().key == 114)  				// F3 key
             {
                 context.settings.non_uniformity = static_cast<int>(context.settings.non_uniformity / 1.1);
                 Recalc(context);
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             if (context.window.input().key == 115)  				// F4 key
             {
                 context.settings.max_avg_brightness = static_cast<int>(context.settings.max_avg_brightness / 1.1);
                 Recalc(context);
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             if (context.window.input().key == 116)  				// F5 key
             {
                 context.state.timeflag++;
                 if (context.state.timeflag > maximum_time_flags)
                     context.state.timeflag = 0;
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
             if (context.window.input().key == '.')
             {
-                context.state.oldfrm = -1;
+                context.state.oldfrm.reset();
             }
 
             if (context.window.input().key == 'J')
