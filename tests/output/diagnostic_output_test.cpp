@@ -2,6 +2,7 @@
 #include "diagnostic_render.h"
 #include "detection/legacy_detection.h"
 #include "checked_format.h"
+#include "output/csv_field.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -175,6 +176,41 @@ TEST_F(DiagnosticOutput, ThresholdHistogramsAccumulateLargeBinCountsWithoutOverf
     EXPECT_EQ(FindBlackThreshold(*context,0.5),0);
     // A first-bin uniform threshold retains the legacy minimum-bin adjustment.
     EXPECT_EQ(FindUniformThreshold(*context,0.5),2 * UNIFORMSCALE);
+}
+TEST_F(DiagnosticOutput, TrainingThresholdReportsQuoteNamesAndCloseBothOutputs) {
+    struct CurrentPathGuard {
+        std::filesystem::path original = std::filesystem::current_path();
+        ~CurrentPathGuard() { std::filesystem::current_path(original); }
+    } guard;
+    std::filesystem::current_path(directory);
+    context->settings.output_training = true;
+    context->state.inbasename = "recording, \"part\"";
+    context->state.brightHistogram[0] = 10;
+    context->state.uniformHistogram[0] = 10;
+
+    EXPECT_EQ(FindBlackThreshold(*context, 0.5), 0);
+    EXPECT_EQ(FindUniformThreshold(*context, 0.5), 2 * UNIFORMSCALE);
+
+    std::string expected = comskip::output::csv_field(context->state.inbasename) + ",1000.00";
+    for (int index = 1; index < 35; ++index) expected += ",  0.00";
+    expected += '\n';
+    EXPECT_EQ(read("black.csv"), expected);
+    EXPECT_EQ(read("uniform.csv"), expected);
+}
+TEST_F(DiagnosticOutput, UnavailableOptionalTrainingReportsDoNotPreventThresholdSelection) {
+    struct CurrentPathGuard {
+        std::filesystem::path original = std::filesystem::current_path();
+        ~CurrentPathGuard() { std::filesystem::current_path(original); }
+    } guard;
+    std::filesystem::current_path(directory);
+    context->settings.output_training = true;
+    context->state.brightHistogram[0] = 10;
+    context->state.uniformHistogram[0] = 10;
+    ASSERT_TRUE(std::filesystem::create_directory("black.csv"));
+    ASSERT_TRUE(std::filesystem::create_directory("uniform.csv"));
+
+    EXPECT_EQ(FindBlackThreshold(*context, 0.5), 0);
+    EXPECT_EQ(FindUniformThreshold(*context, 0.5), 2 * UNIFORMSCALE);
 }
 TEST_F(DiagnosticOutput, ClosingDumpsAfterDisablingDemuxFlushesAndReleasesFiles) {
     context->settings.output_demux = true;

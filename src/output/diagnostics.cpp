@@ -159,16 +159,18 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
             comskip::diagnostics::Code::invalid_histogram_report);
 
-    comskip::platform::FilePtr raw;
-    if (context.settings.output_training) raw.reset(myfopen("black.csv", "a+"));
-    if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
-
-    for (i = 0; i < 35; i++)
-    {
-        if (raw.get()) fprintf(raw.get(), ",%6.2f", (1000.0*(double)context.state.brightHistogram[i])/totalframes);
+    if (context.settings.output_training) {
+        auto training = comskip::platform::own_file(myfopen("black.csv", "a+"));
+        if (training) {
+            comskip::output::checked_fprintf(*training, "black.csv", "%s",
+                comskip::output::csv_field(context.state.inbasename).c_str());
+            for (i = 0; i < 35; ++i)
+                comskip::output::checked_fprintf(*training, "black.csv", ",%6.2f",
+                    (1000.0 * static_cast<double>(context.state.brightHistogram[i])) / totalframes);
+            comskip::output::checked_fprintf(*training, "black.csv", "\n");
+            comskip::output::checked_close(training, "black.csv");
+        }
     }
-    if (raw.get()) fprintf(raw.get(), "\n");
-    if (raw.get()) raw.reset();
 
     tempCount = 0;
     targetCount = static_cast<std::int64_t>(totalframes * percentile);
@@ -201,16 +203,18 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
             comskip::diagnostics::Code::invalid_histogram_report);
 
-    comskip::platform::FilePtr raw;
-    if (context.settings.output_training) raw.reset(myfopen("uniform.csv", "a+"));
-    if (raw.get()) fprintf(raw.get(), "%s", comskip::output::csv_field(context.state.inbasename).c_str());
-
-    for (i = 0; i < 35; i++)
-    {
-        if (raw.get()) fprintf(raw.get(), ",%6.2f", (1000.0*(double)context.state.uniformHistogram[i])/totalframes);
+    if (context.settings.output_training) {
+        auto training = comskip::platform::own_file(myfopen("uniform.csv", "a+"));
+        if (training) {
+            comskip::output::checked_fprintf(*training, "uniform.csv", "%s",
+                comskip::output::csv_field(context.state.inbasename).c_str());
+            for (i = 0; i < 35; ++i)
+                comskip::output::checked_fprintf(*training, "uniform.csv", ",%6.2f",
+                    (1000.0 * static_cast<double>(context.state.uniformHistogram[i])) / totalframes);
+            comskip::output::checked_fprintf(*training, "uniform.csv", "\n");
+            comskip::output::checked_close(training, "uniform.csv");
+        }
     }
-    if (raw.get()) fprintf(raw.get(), "\n");
-    if (raw.get()) raw.reset();
 
     tempCount = 0;
     targetCount = static_cast<std::int64_t>(totalframes * percentile);
