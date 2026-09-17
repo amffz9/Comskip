@@ -30,6 +30,9 @@ and standard synchronization. Supporting libraries retain responsibility for
 media formats, configuration syntax, XML syntax, localization catalog syntax,
 command-line parsing, graphics, and testing.
 
+Windows sanitizer and non-interactive test execution details are documented in
+[`docs/TESTING.md`](TESTING.md).
+
 Commit each verified migration step. Keep remaining limitations explicit rather
 than redefine completion around whichever subset currently passes tests.
 
@@ -799,3 +802,8 @@ than redefine completion around whichever subset currently passes tests.
 - Legacy command-line argument display and screen-only frame diagnostics now
   use standard C++ streams while preserving their text layout. The complete
   Windows headless suite remains green at **515/515**.
+
+- `comskip-check` now builds all registered test executables before CTest,
+  copies the Clang ASan runtime on Windows, and applies non-interactive
+  sanitizer logging. A fresh sanitizer build reaches all 515 tests; the known
+  Windows ASan failure-unwind limitation remains tracked as B110.

@@ -23,6 +23,7 @@
 
 #include "decoder.h"
 #include "recording_context.h"
+#include "app/debug.h"
 #include "diagnostic.h"
 #include <algorithm>
 #include <array>

@@ -61,6 +61,18 @@ if(BUILD_TESTING)
         else()
             message(WARNING "GTest runtime DLL location is unavailable; Windows tests may need vcpkg/bin on PATH")
         endif()
+        if(COMSKIP_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            get_filename_component(COMSKIP_CLANG_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+            file(GLOB COMSKIP_ASAN_RUNTIME_DLLS LIST_DIRECTORIES false
+                "${COMSKIP_CLANG_RUNTIME_DIR}/clang_rt.asan*.dll"
+                "${COMSKIP_CLANG_RUNTIME_DIR}/../lib/clang/*/lib/windows/clang_rt.asan*.dll")
+            file(COPY ${COMSKIP_ASAN_RUNTIME_DLLS} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+            if(COMSKIP_ASAN_RUNTIME_DLLS)
+                message(STATUS "Copied Clang sanitizer runtime DLLs for Windows CTest execution")
+            else()
+                message(WARNING "Clang sanitizer runtime DLL was not found; Windows ASan tests may show a loader dialog")
+            endif()
+        endif()
     endif()
     add_custom_target(comskip-check
         COMMAND "${CMAKE_CTEST_COMMAND}" --output-on-failure
@@ -599,5 +611,23 @@ if(COMSKIP_BUILD_APP)
         else()
             message(STATUS "ffmpeg executable unavailable: media_formats test disabled")
         endif()
+
+        # A fresh build (especially a sanitizer build) must compile the test
+        # executables before CTest starts. Without this dependency, CTest can
+        # report missing binaries and Windows may show a loader dialog.
+        get_property(COMSKIP_LOCAL_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+        list(FILTER COMSKIP_LOCAL_TARGETS INCLUDE REGEX "(_test|comskip)$")
+        if(TARGET comskip)
+            list(APPEND COMSKIP_LOCAL_TARGETS comskip)
+        endif()
+        add_dependencies(comskip-check ${COMSKIP_LOCAL_TARGETS})
+
+        # Keep sanitizer failures non-interactive and write runtime reports
+        # beside the CTest log. These variables are harmless for unsanitized
+        # builds and are inherited by both CTest binaries and Python drivers.
+        get_property(COMSKIP_REGISTERED_TESTS DIRECTORY PROPERTY TESTS)
+        set_tests_properties(${COMSKIP_REGISTERED_TESTS} PROPERTIES
+            ENVIRONMENT
+            "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;ASAN_OPTIONS=abort_on_error=1:halt_on_error=1:log_path=asan;UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:log_path=ubsan")
     endif()
 endif()
