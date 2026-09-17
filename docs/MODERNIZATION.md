@@ -648,3 +648,9 @@ than redefine completion around whichever subset currently passes tests.
   diagnostic; wide accumulation preserves the legacy first-uniform-bin rule.
   All **11** focused Windows output-diagnostics tests pass. Linux verification
   remains deferred to the final implementation stage.
+
+- The current Windows branch passes the complete headless CTest target
+  **511/511** and the SDL/GUI target **517/517** with dummy video and audio
+  drivers. These runs include generated-media, localization, subtitle,
+  output, repeated-analysis, and resource-cleanup tests. Linux, sanitizer,
+  and macOS execution remain separate verification work.
