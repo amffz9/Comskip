@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <iostream>
 #include <optional>
 #include <ranges>
 #include <vector>
@@ -71,7 +72,7 @@ constexpr int resolution_change_cause = cause_value(FrameCause::resolution_chang
 void PrintArgs(RecordingContext& context)
 {
     for (std::size_t i = 0; i < context.state.argument.size(); ++i)
-        printf("%zu\t%s\n", i, context.state.argument[i].c_str());
+        std::cout << i << '\t' << context.state.argument[i] << '\n';
 }
 
 comskip::platform::FilePtr reopen_csv_inputs(RecordingContext& context)
@@ -473,7 +474,7 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
 #endif
         context.state.processCC = 0;
         i = 0;
-        printf("%s", context.translator.text("csv_close_window"));
+        std::cout << context.translator.text("csv_close_window");
         if (ReviewResult(context))
         {
             LoadIniFile(context);
