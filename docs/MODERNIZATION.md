@@ -807,3 +807,6 @@ than redefine completion around whichever subset currently passes tests.
   copies the Clang ASan runtime on Windows, and applies non-interactive
   sanitizer logging. A fresh sanitizer build reaches all 515 tests; the known
   Windows ASan failure-unwind limitation remains tracked as B110.
+
+- The current Windows SDL configuration passes **523/523** tests after the
+  fresh-build dependency change; the headless configuration remains **515/515**.
