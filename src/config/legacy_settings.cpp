@@ -748,8 +748,8 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
 
 
-    Debug(context, 9, "%s", translator.format("settings_input_files", context.state.mpegfilename,
-        context.state.exefilename, context.state.logofilename, context.state.inifilename).c_str());
+    Debug(context, 9, translator.format("settings_input_files", context.state.mpegfilename,
+        context.state.exefilename, context.state.logofilename, context.state.inifilename));
     Debug(context, 1, translator.text("settings_detection_methods"));
     i = 0;
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::black_frame))
@@ -761,8 +761,8 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::logo))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_logo", i,
-            context.settings.giveUpOnLogoSearch).c_str());
+        Debug(context, 1, translator.format("settings_method_logo", i,
+            context.settings.giveUpOnLogoSearch));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::cutscene))
