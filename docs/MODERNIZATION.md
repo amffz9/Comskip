@@ -825,3 +825,6 @@ than redefine completion around whichever subset currently passes tests.
 - Frame conversion now accepts `ScalerPtr&` directly; the video decoder no
   longer releases the scaler to a raw pointer at the call boundary. Focused
   conversion tests pass **2/2**.
+
+- Audio normalization now uses the shared `ResamplerPtr` FFmpeg owner instead
+  of a module-local deleter. Focused audio tests pass **2/2**.

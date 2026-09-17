@@ -9,6 +9,7 @@ extern "C" {
 #include <libavutil/error.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
 }
 
 namespace comskip::media {
@@ -34,6 +35,7 @@ struct CodecParametersDeleter { void operator()(AVCodecParameters* value) const 
 struct InputDeleter { void operator()(AVFormatContext* value) const noexcept { avformat_close_input(&value); } };
 struct DictionaryDeleter { void operator()(AVDictionary* value) const noexcept { av_dict_free(&value); } };
 struct ScalerDeleter { void operator()(SwsContext* value) const noexcept { sws_freeContext(value); } };
+struct ResamplerDeleter { void operator()(SwrContext* value) const noexcept { swr_free(&value); } };
 struct SubtitleOwner {
     AVSubtitle value{};
     SubtitleOwner() = default;
@@ -48,6 +50,7 @@ using CodecParametersPtr = std::unique_ptr<AVCodecParameters, CodecParametersDel
 using InputPtr = std::unique_ptr<AVFormatContext, InputDeleter>;
 using DictionaryPtr = std::unique_ptr<AVDictionary, DictionaryDeleter>;
 using ScalerPtr = std::unique_ptr<SwsContext, ScalerDeleter>;
+using ResamplerPtr = std::unique_ptr<SwrContext, ResamplerDeleter>;
 inline FramePtr make_frame() {
     FramePtr value(av_frame_alloc());
     if (!value) throw std::bad_alloc();

@@ -1,25 +1,20 @@
 #include "../localization/diagnostic.h"
 #include "audio_samples.h"
+#include "ffmpeg_resources.h"
 
 extern "C" {
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
 #include <libavutil/samplefmt.h>
-#include <libswresample/swresample.h>
 }
 
 #include <array>
 #include <cstdint>
-#include <memory>
 #include <stdexcept>
 #include <string>
 
 namespace comskip::media {
 namespace {
-struct ResamplerDeleter {
-    void operator()(SwrContext* context) const noexcept { swr_free(&context); }
-};
-
 void check(int result, comskip::diagnostics::Code operation) {
     if (result >= 0) return;
     std::array<char, AV_ERROR_MAX_STRING_SIZE> message{};
@@ -52,7 +47,7 @@ PlanarAudio normalize_audio(const AVFrame& frame) {
     const int allocated = swr_alloc_set_opts2(&raw_context,
         &frame.ch_layout, AV_SAMPLE_FMT_FLTP, frame.sample_rate,
         &frame.ch_layout, format, frame.sample_rate, 0, nullptr);
-    std::unique_ptr<SwrContext, ResamplerDeleter> context(raw_context);
+    ResamplerPtr context(raw_context);
     check(allocated, comskip::diagnostics::Code::configure_audio_conversion_detail);
     check(swr_init(context.get()), comskip::diagnostics::Code::initialize_audio_conversion_detail);
     const int capacity = swr_get_out_samples(context.get(), frame.nb_samples);
