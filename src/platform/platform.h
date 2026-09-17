@@ -103,7 +103,6 @@ void sleep_for_ms(long milliseconds);
 #define _write write
 #define _close close
 #define _cprintf printf
-#define _flushall() fflush(NULL)
 #define _getcwd(x, y) getcwd(x, y)
 
 char *_strupr(char *string);

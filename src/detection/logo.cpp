@@ -17,6 +17,7 @@
 #include "platform/file_resources.h"
 #include "platform/platform.h"
 #include <algorithm>
+#include <cstdio>
 #include <format>
 #include <stdexcept>
 #include <utility>
@@ -1705,7 +1706,7 @@ void LoadLogoMaskData(RecordingContext& context)
         DumpEdgeMasks(context);
     }
     memset(data, 0, sizeof(data));
-    _flushall();
+    std::fflush(nullptr);
     if (context.settings.output_default)
     {
         txt_file.reset(myfopen(context.state.out_filename.c_str(), "r"));
