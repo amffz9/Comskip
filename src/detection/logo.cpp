@@ -53,7 +53,7 @@ void require_logo_buffer(std::size_t available, const comskip::detection::LogoSc
 }
 template <typename... Args>
 void LogoDebug(RecordingContext& context, int level, std::string_view key, Args&&... args) {
-    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+    Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 std::string logo_caption_type(RecordingContext& context, int type) {
     if (!context.state.processCC) return {};

@@ -39,7 +39,7 @@ inline constexpr double aspect_ratio_trend = 0.8;
 template <typename... Args>
 void SceneDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
-    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+    Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 
 [[nodiscard]] std::size_t BrightnessIndex(RecordingContext& context, int brightness)

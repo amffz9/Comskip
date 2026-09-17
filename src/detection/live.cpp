@@ -34,7 +34,7 @@ constexpr int silence_cause = cause_value(FrameCause::silence);
 template <typename... Args>
 void LiveDebug(RecordingContext& context, const int level, const char* const message_id, Args&&... args)
 {
-    Debug(context, level, "%s", context.translator.format(message_id, std::forward<Args>(args)...).c_str());
+    Debug(context, level, context.translator.format(message_id, std::forward<Args>(args)...));
 }
 }
 

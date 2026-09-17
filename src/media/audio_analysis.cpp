@@ -32,7 +32,7 @@ bool same_timestamp(double first, double second) {
 }
 template<class... Args>
 void audio_debug(RecordingContext& context, int level, std::string_view key, Args&&... args) {
-    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+    Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 }
 

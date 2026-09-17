@@ -20,11 +20,21 @@
 #include <vector>
 
 namespace {
+void write_debug_message(RecordingContext& context, int level, std::string_view message)
+{
+    if (context.settings.verbose < level) return;
+    if (context.state.output_console) std::fwrite(message.data(), 1, message.size(), stdout);
+
+    const auto log_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logfilename, "a+"));
+    if (log_file)
+        comskip::output::checked_fprintf(*log_file, context.state.logfilename, std::string(message).c_str());
+}
+
 template <class Operation>
 void allocate_or_exit(RecordingContext& context, std::string_view message_key, int status, Operation&& operation)
 {
     if (comskip::attempt_allocation(std::forward<Operation>(operation))) return;
-    Debug(context, 0, "%s", context.translator.text(message_key));
+    Debug(context, 0, context.translator.text(message_key));
     comskip::request_exit(status);
 }
 }
@@ -46,6 +56,11 @@ int CountSceneChanges(RecordingContext& context, int StartFrame, int EndFrame)
     count = static_cast<int>(p);
 
     return (count);
+}
+
+void Debug(RecordingContext& context, int level, std::string_view message)
+{
+    write_debug_message(context, level, message);
 }
 
 void Debug(RecordingContext& context, int level, const char * fmt, ...)
@@ -71,15 +86,7 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
     }
     va_end(ap);
 
-    if (context.state.output_console) std::fputs(message.c_str(), stdout);
-
-    const auto log_file = comskip::platform::own_file(comskip::platform::open_file(context.state.logfilename, "a+"));
-    if (log_file)
-    {
-        comskip::output::checked_fprintf(*log_file, context.state.logfilename, message.c_str());
-    }
-
-
+    write_debug_message(context, level, message);
 }
 
 void InitLogoBuffers(RecordingContext& context)

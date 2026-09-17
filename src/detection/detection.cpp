@@ -51,7 +51,7 @@ double frame_duration(RecordingContext& context, int end_frame, int start_frame)
 template <typename... Args>
 void DetectionDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
-    Debug(context, level, "%s", context.translator.format(key, std::forward<Args>(args)...).c_str());
+    Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 }
 

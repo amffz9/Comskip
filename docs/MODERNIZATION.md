@@ -903,3 +903,8 @@ than redefine completion around whichever subset currently passes tests.
 
 - FFmpeg dynamic sidecar buffers now use the shared `BufferPtr` RAII owner
   instead of a local deleter. Focused sidecar coverage passes **13/13**.
+
+- The debug sink now accepts `std::string_view` directly, so translated
+  messages avoid the variadic `"%s"` bridge. A regression confirms literal
+  percent characters are preserved; focused diagnostics coverage passes
+  **25/25**.

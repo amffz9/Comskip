@@ -13,7 +13,7 @@ namespace {
 
 void report_growth(RecordingContext& context, std::string_view message, long capacity)
 {
-    Debug(context, 9, "%s", context.translator.format(message, capacity).c_str());
+    Debug(context, 9, context.translator.format(message, capacity));
 }
 
 }

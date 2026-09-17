@@ -56,7 +56,7 @@ void analysis_debug(RecordingContext& context, int level, std::string_view messa
                     Args&&... args)
 {
     const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
-    Debug(context, level, "%s", message.c_str());
+    Debug(context, level, message);
 }
 }
 

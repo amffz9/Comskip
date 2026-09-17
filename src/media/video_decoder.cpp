@@ -71,7 +71,7 @@ template <typename... Args>
 void debug_message(RecordingContext& context, const int level, const std::string_view message_id, Args&&... args)
 {
     const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
-    Debug(context, level, "%s", message.c_str());
+    Debug(context, level, message);
 }
 
 } // namespace
