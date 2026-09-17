@@ -1005,3 +1005,7 @@ than redefine completion around whichever subset currently passes tests.
 - The six 256-bin detector histograms now use `std::array<int, 256>`, while
   diagnostics continue to consume them through their span-compatible range
   interfaces. The complete Windows suite passes **523/523**.
+
+- Cut-scene brightness/length metadata and caption-type counters now use
+  fixed-size `std::array` containers, preserving their existing capacities and
+  indexed behavior. The complete Windows suite passes **523/523**.

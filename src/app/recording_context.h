@@ -200,8 +200,8 @@ struct RecordingState {
     int cutscenematch{};
     int cutscenes=0;
     unsigned char cutscene[8][120000]{};
-    int csbrightness[8]{};
-    int cslength[8]{};
+    std::array<int, 8> csbrightness{};
+    std::array<int, 8> cslength{};
     bool logoInfoAvailable{};
     bool secondLogoSearch= false;
     bool logoBuffersFull= false;
@@ -244,7 +244,7 @@ struct RecordingState {
     int ccDataLen{};
     uint8_t prevccData[500]{};
     int prevccDataLen{};
-    long cc_count[5]= { 0, 0, 0, 0, 0 };
+    std::array<long, 5> cc_count{};
     int most_cc_type = comskip::detection::caption_type_value(comskip::detection::CaptionType::none);
     std::array<std::array<unsigned char, 32>, 15> cc_screen{};
     std::array<std::array<unsigned char, 32>, 15> cc_memory{};
