@@ -971,3 +971,8 @@ than redefine completion around whichever subset currently passes tests.
   pointer into the fixed sample buffer. Compaction uses an indexed range copy,
   and overflow recovery resets the count explicitly. The complete Windows suite
   passes **523/523**.
+
+- The owned audio sample buffer is now a `std::array`, with its capacity derived
+  from the container type. FFmpeg-facing packet storage remains a C-compatible
+  buffer only where the library API requires it. The complete Windows suite
+  passes **523/523**.

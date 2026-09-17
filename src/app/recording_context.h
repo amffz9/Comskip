@@ -349,7 +349,7 @@ struct RecordingState {
     double base_apts= 0.0;
     double apts{};
     double top_apts= 0.0;
-    short audio_buffer[1600000]{};
+    std::array<short, 1600000> audio_buffer{};
     std::size_t audio_buffer_size{};
     int audio_samples= 0;
     int sound_frame_counter= 0;

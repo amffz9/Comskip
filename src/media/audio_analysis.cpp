@@ -26,7 +26,7 @@ extern "C" {
 }
 
 namespace {
-constexpr int audio_buffer_capacity = static_cast<int>(std::extent_v<decltype(RecordingState::audio_buffer)>);
+constexpr int audio_buffer_capacity = static_cast<int>(std::tuple_size_v<decltype(RecordingState::audio_buffer)>);
 constexpr int ac3_buffer_capacity = static_cast<int>(std::extent_v<decltype(RecordingState::ac3_packet)>);
 bool same_timestamp(double first, double second) {
     return std::fabs(first - second) < 0.001;
@@ -101,7 +101,7 @@ static std::optional<int> retrieve_frame_volume(RecordingContext& context, doubl
         context.state.audio_buffer_size = 0;
         if (context.state.audio_samples > 0)
         {
-            std::ranges::copy_n(buffer, context.state.audio_samples, context.state.audio_buffer);
+            std::ranges::copy_n(buffer, context.state.audio_samples, context.state.audio_buffer.begin());
             context.state.audio_buffer_size = static_cast<std::size_t>(context.state.audio_samples);
         }
         context.state.base_apts += static_cast<double>(consumed_samples) / sample_rate;
