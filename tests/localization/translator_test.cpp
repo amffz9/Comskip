@@ -216,6 +216,14 @@ TEST(Translator, FormatsCaptionTranscriptRows) {
     EXPECT_EQ(spanish.format("detection_caption_transcript_row", 2, "    10", "    20", "   5", "Hola"),
               "2) S:    10 E:    20 L:   5 Hola\n");
 }
+TEST(Translator, FormatsCutlistThresholdAndHeuristicMessages) {
+    const Translator english;
+    const Translator spanish("es");
+    EXPECT_EQ(english.format("cutlists_threshold_used", "0.8750"), "Threshold used - 0.8750\n");
+    EXPECT_EQ(english.format("cutlists_h5_delete_after_last", 4, 12),
+              "H5 Deleting cblock 4 of 12 seconds because it comes after the last commercial and its too short.\n");
+    EXPECT_EQ(spanish.format("cutlists_threshold_rounded", "0.88"), "\tDespués del redondeo - 0.88\n");
+}
 TEST(Translator, LocalizesRuntimeAllocationAndCsvLifecycleMessages) {
     const Translator english;
     const Translator spanish("es");

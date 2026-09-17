@@ -892,3 +892,7 @@ than redefine completion around whichever subset currently passes tests.
 - Caption transcript rows now use English/Spanish catalog entries while
   preserving their fixed-width machine-readable layout. Localization and
   detection coverage passes **40/40**.
+
+- Cutlist threshold and heuristic deletion diagnostics now use catalog-backed
+  English/Spanish messages while preserving numeric formatting. Focused
+  localization and cutlist coverage passes **37/37**.

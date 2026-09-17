@@ -291,9 +291,11 @@ bool OutputBlocks(RecordingContext& context)
     OpenOutputFiles(context);
 
 
-    Debug(context, 1, "Threshold used - %.4f", threshold);
+    Debug(context, 1, "%s", context.translator.format("cutlists_threshold_used",
+        std::format("{:.4f}", threshold)).c_str());
     threshold = ceil(threshold * 100) / 100.0;
-    Debug(context, 1, "\tAfter rounding - %.4f\n", threshold);
+    Debug(context, 1, "%s", context.translator.format("cutlists_threshold_rounded",
+        std::format("{:.4f}", threshold)).c_str());
 
     BuildCommercial(context);
 
@@ -347,8 +349,7 @@ bool OutputBlocks(RecordingContext& context)
                 if (i < context.state.block_count && context.state.cblock[i].length < context.settings.delete_block_after_commercial &&
                         context.state.cblock[i].score < threshold)
                 {
-                    Debug(context, 3, "H5 Deleting cblock %i because it is short and comes after a commercial.\n",
-                          i);
+                    Debug(context, 3, "%s", context.translator.format("cutlists_h5_delete_after_commercial", i).c_str());
                     context.state.commercial[k].end_frame = context.state.cblock[i].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
                     context.state.commercial[k].length = frame_duration(context, context.state.commercial[k].end_frame, context.state.commercial[k].start_frame);
                     context.state.commercial[k].end_block = i;
@@ -367,8 +368,9 @@ bool OutputBlocks(RecordingContext& context)
             context.state.commercial[context.state.commercial_count].end_block = context.state.block_count-1;
             context.state.commercial[context.state.commercial_count].end_frame = context.state.cblock[context.state.block_count-1].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
             context.state.commercial[context.state.commercial_count].length = frame_duration(context, context.state.commercial[context.state.commercial_count].end_frame, context.state.commercial[context.state.commercial_count].start_frame);
-            Debug(context, 3, "H5 Deleting cblock %i of %i seconds because it comes after the last commercial and its too short.\n",
-                  context.state.block_count-1, static_cast<int>(context.state.cblock[context.state.block_count-1].length));
+            Debug(context, 3, "%s", context.translator.format("cutlists_h5_delete_after_last",
+                context.state.block_count-1,
+                static_cast<int>(context.state.cblock[context.state.block_count-1].length)).c_str());
             context.state.cblock[context.state.block_count-1].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
             context.state.cblock[context.state.block_count-1].score = 99.99;
             context.state.cblock[context.state.block_count-1].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
@@ -381,8 +383,8 @@ bool OutputBlocks(RecordingContext& context)
             context.state.commercial[0].start_block = 0;
             context.state.commercial[0].start_frame = context.state.cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
             context.state.commercial[0].length = frame_duration(context, context.state.commercial[0].end_frame,	context.state.commercial[0].start_frame);
-            Debug(context, 3, "H5 Deleting cblock %i of %i seconds because its too short and before first commercial.\n",
-                  0, static_cast<int>(context.state.cblock[0].length));
+            Debug(context, 3, "%s", context.translator.format("cutlists_h5_delete_before_first", 0,
+                static_cast<int>(context.state.cblock[0].length)).c_str());
             context.state.cblock[0].score = 99.99;
             context.state.cblock[0].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
             context.state.cblock[0].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_5);
