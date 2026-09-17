@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -137,6 +138,9 @@ TEST(XdsPackets, FirstValidTitleIsObservedAndBadChecksumCannotReplaceIt) {
 TEST(XdsPackets, LongPacketsAndMoreThanFortyTypesPreserveSubsequentMetadata) {
     auto owner = recording();
     xds(*owner, 3, std::string(200, 'L'));
+    const auto& long_name = owner->state.XDS_block[owner->state.XDS_block_count].name;
+    EXPECT_EQ(std::string_view(long_name), std::string(39, 'L'));
+    EXPECT_EQ(long_name[39], '\0');
     xds(*owner, 3, std::string(200, 'M'));
     EXPECT_EQ(owner->state.XDS_block[owner->state.XDS_block_count].name[0], 'M');
     for (unsigned char type = 16; type < 80; ++type) xds(*owner, type, "DATA");

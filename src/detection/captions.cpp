@@ -303,12 +303,14 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 }
                 else if (type == 0x03)
                 {
-                    size_t n = sizeof(context.state.XDS_block[context.state.XDS_block_count].name);
-                    if (strncmp((const char*) context.state.XDS_block[context.state.XDS_block_count].name, (const char*)&context.state.AddXDS_XDSbuf[2], n) != 0)
+                    auto& name = context.state.XDS_block[context.state.XDS_block_count].name;
+                    const auto* title = reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]);
+                    if (!std::equal(std::begin(name), std::end(name), title))
                     {
                         Add_XDS_block(context);
-                        strncpy(context.state.XDS_block[context.state.XDS_block_count].name, (const char*) &context.state.AddXDS_XDSbuf[2], n - 1);
-                        context.state.XDS_block[context.state.XDS_block_count].name[n - 1] = '\0';
+                        auto& next_name = context.state.XDS_block[context.state.XDS_block_count].name;
+                        std::fill(std::begin(next_name), std::end(next_name), '\0');
+                        std::copy_n(title, std::size(next_name) - 1, std::begin(next_name));
                     }
                     xds_debug("caption_xds_program_name", frame,
                         reinterpret_cast<const char*>(&context.state.AddXDS_XDSbuf[2]));

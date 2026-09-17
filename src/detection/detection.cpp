@@ -1378,10 +1378,7 @@ again:
             {
                 for (j = i; j < context.state.cc_text_count; j++)
                 {
-                    context.state.cc_text[j].start_frame = context.state.cc_text[j + 1].start_frame;
-                    context.state.cc_text[j].end_frame = context.state.cc_text[j + 1].end_frame;
-                    context.state.cc_text[j].text_len = context.state.cc_text[j + 1].text_len;
-                    strncpy((char*)context.state.cc_text[j].text, (char*)context.state.cc_text[j + 1].text, sizeof(context.state.cc_text[j].text));
+                    context.state.cc_text[j] = context.state.cc_text[j + 1];
                 }
 
                 context.state.cc_text_count--;
