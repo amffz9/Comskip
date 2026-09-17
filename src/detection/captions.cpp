@@ -1336,7 +1336,7 @@ bool ProcessCCDict(RecordingContext& context)
         for (i = 0; i < context.state.cc_text_count; i++)
         {
             const auto text = std::string_view(
-                reinterpret_cast<const char*>(context.state.cc_text[i].text),
+                reinterpret_cast<const char*>(context.state.cc_text[i].text.data()),
                 static_cast<std::size_t>(context.state.cc_text[i].text_len));
             if (contains_case_insensitive(text, phrase))
             {

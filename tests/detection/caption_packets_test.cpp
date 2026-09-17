@@ -81,7 +81,7 @@ TEST(CaptionPackets, RejectsInvalidFlagsAndOversizedDeclaredLengthsThenAcceptsVa
     EXPECT_EQ(owner->state.cc_text[0].text_len, 0);
     packet(*owner, {'G','A','9','4',3,0x41,0,0xfc,'H','I'}, 10);
     EXPECT_EQ(owner->state.cc_text[0].text_len, 2);
-    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), "HI");
+    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text.data()), "HI");
 }
 TEST(CaptionPackets, ControlOnlyPairsOnEmptyTextPreserveFollowingPrintableText) {
     auto owner = recording();
@@ -96,7 +96,7 @@ TEST(CaptionPackets, ControlOnlyPairsOnEmptyTextPreserveFollowingPrintableText) 
     owner->state.cc.cc1[0] = 'H';
     owner->state.cc.cc1[1] = 'I';
     AddCC(*owner, 0);
-    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), "HI");
+    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text.data()), "HI");
 }
 
 TEST(CaptionPackets, FirstBlockDiagnosticDoesNotReadBeforeOwnedStorage) {
@@ -121,7 +121,7 @@ TEST(CaptionPackets, ExtendedCharactersSurviveTextSplittingAndRemainTerminated) 
         ASSERT_GE(row.text_len, 0);
         ASSERT_LT(row.text_len, static_cast<long>(std::size(row.text)));
         EXPECT_EQ(row.text[row.text_len], 0);
-        observed.insert(observed.end(), row.text, row.text + row.text_len);
+        observed.insert(observed.end(), row.text.begin(), row.text.begin() + row.text_len);
     }
     EXPECT_GT(owner->state.cc_text_count, 0);
     EXPECT_EQ(observed, std::vector<unsigned char>(300, 0xe1));
@@ -147,11 +147,11 @@ TEST(CaptionPackets, DictionarySearchIsCaseInsensitiveWithoutMutatingCaptionText
     owner->state.cblock[0].f_end = 3;
     owner->state.cblock[0].score = 10.0;
     const std::string original = "special offer";
-    std::copy(original.begin(), original.end(), owner->state.cc_text[0].text);
+    std::copy(original.begin(), original.end(), owner->state.cc_text[0].text.begin());
     owner->state.cc_text[0].text_len = static_cast<long>(original.size());
 
     EXPECT_TRUE(ProcessCCDict(*owner));
-    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text), original.c_str());
+    EXPECT_STREQ(reinterpret_cast<const char*>(owner->state.cc_text[0].text.data()), original.c_str());
     EXPECT_NE(owner->state.cblock[0].score, 10.0);
 
     std::error_code error;
@@ -161,26 +161,26 @@ TEST(CaptionPackets, DictionarySearchIsCaseInsensitiveWithoutMutatingCaptionText
 TEST(XdsPackets, FirstValidTitleIsObservedAndBadChecksumCannotReplaceIt) {
     auto owner = recording();
     xds(*owner, 3, "ORIGINAL");
-    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "ORIGINAL");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name.data(), "ORIGINAL");
     const auto count = owner->state.XDS_block_count;
     xds(*owner, 3, "CORRUPTED", false);
     EXPECT_EQ(owner->state.XDS_block_count, count);
-    EXPECT_STREQ(owner->state.XDS_block[count].name, "ORIGINAL");
+    EXPECT_STREQ(owner->state.XDS_block[count].name.data(), "ORIGINAL");
     xds(*owner, 3, "NEXT");
-    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "NEXT");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name.data(), "NEXT");
 }
 TEST(XdsPackets, LongPacketsAndMoreThanFortyTypesPreserveSubsequentMetadata) {
     auto owner = recording();
     xds(*owner, 3, std::string(200, 'L'));
     const auto& long_name = owner->state.XDS_block[owner->state.XDS_block_count].name;
-    EXPECT_EQ(std::string_view(long_name), std::string(39, 'L'));
+    EXPECT_EQ(std::string_view(long_name.data(), 39), std::string(39, 'L'));
     EXPECT_EQ(long_name[39], '\0');
     xds(*owner, 3, std::string(200, 'M'));
     EXPECT_EQ(owner->state.XDS_block[owner->state.XDS_block_count].name[0], 'M');
     for (unsigned char type = 16; type < 80; ++type) xds(*owner, type, "DATA");
     EXPECT_LE(owner->state.lastXDS, 40);
     xds(*owner, 3, "FINAL");
-    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "FINAL ");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name.data(), "FINAL ");
 }
 TEST(XdsPackets, ShortFieldsAndOverflowedAssemblyCannotReusePreviousPayload) {
     auto owner = recording();
@@ -197,5 +197,5 @@ TEST(XdsPackets, ShortFieldsAndOverflowedAssemblyCannotReusePreviousPayload) {
     xds(*owner, 3, std::string(1100, 'X'));
     EXPECT_TRUE(owner->state.startXDS);
     xds(*owner, 3, "RECOVERED");
-    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name, "RECOVERED ");
+    EXPECT_STREQ(owner->state.XDS_block[owner->state.XDS_block_count].name.data(), "RECOVERED ");
 }

@@ -15,17 +15,17 @@ TEST(XdsBlocks, GrowsBeyondLegacyLimitAndPreservesIndependentMetadata) {
     Init_XDS_block(first);
     first.state.XDS_block[0].duration = 42;
     const std::string_view title = "Owned program metadata";
-    std::ranges::copy(title, first.state.XDS_block[0].name);
+    std::ranges::copy(title, first.state.XDS_block[0].name.begin());
     for (int i = 0; i < 2200; ++i) Add_XDS_block(first);
     EXPECT_EQ(first.state.XDS_block_count, 2200);
     EXPECT_EQ(first.state.frame[1].xds, 2200);
     EXPECT_EQ(first.state.XDS_block[2200].duration, 42);
-    EXPECT_STREQ(first.state.XDS_block[2200].name, "Owned program metadata");
+    EXPECT_STREQ(first.state.XDS_block[2200].name.data(), "Owned program metadata");
     EXPECT_EQ(first.state.XDS_block[1999].frame, 1);
     Init_XDS_block(second);
     EXPECT_EQ(second.state.XDS_block_count, 0);
     EXPECT_EQ(second.state.XDS_block[0].duration, 0);
-    EXPECT_STREQ(second.state.XDS_block[0].name, "");
+    EXPECT_STREQ(second.state.XDS_block[0].name.data(), "");
 }
 TEST(XdsBlocks, RejectsFrameOutsideRecordingWithoutAdvancingMetadata) {
     auto owner = std::make_unique<RecordingContext>();

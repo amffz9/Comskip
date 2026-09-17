@@ -1044,3 +1044,7 @@ than redefine completion around whichever subset currently passes tests.
 - Caption packet pairs now use `std::array<unsigned char, 2>` members, keeping
   their indexed decoder behavior while removing implicit C-array decay. The
   complete Windows suite passes **523/523**.
+
+- XDS titles and caption text now use fixed-size `std::array` character
+  storage; `.data()` and `.begin()` are explicit at C-string and algorithm
+  boundaries. The complete Windows suite passes **523/523**.

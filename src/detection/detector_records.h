@@ -91,7 +91,7 @@ struct cc_block_info {
 
 struct XDS_block_info {
     long frame;
-    char name[40];
+    std::array<char, 40> name{};
     int v_chip;
     int duration;
     int position;
@@ -103,7 +103,7 @@ struct cc_text_info {
     long start_frame;
     long end_frame;
     long text_len;
-    unsigned char text[256];
+    std::array<unsigned char, 256> text{};
 };
 
 struct ar_block_info {
