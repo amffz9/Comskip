@@ -697,3 +697,8 @@ than redefine completion around whichever subset currently passes tests.
 - Media input retries now use a structured loop instead of a `goto`, retaining
   the existing retry limit, delay, and owned FFmpeg diagnostic path. The
   complete Windows headless suite passes **514/514** after this change.
+
+- Optional live `.incommercial` output now handles an open failure with an
+  explicit conditional instead of a skip label, keeping the failure nonfatal
+  while making file ownership and the success path clear. The complete
+  Windows headless suite remains green at **514/514**.
