@@ -727,3 +727,8 @@ than redefine completion around whichever subset currently passes tests.
 - The settings parser now returns directly when argtable allocation fails;
   the existing RAII argtable owner still performs cleanup. The complete
   Windows headless suite remains green at **514/514**.
+
+- Aspect-ratio block normalization now repeats through an explicit changed-pass
+  loop when merges or undefined-ratio fixes mutate storage, replacing restart
+  labels while preserving the existing ordering. The complete Windows
+  headless suite remains green at **514/514**.
