@@ -10,6 +10,7 @@
 #include <format>
 #include <limits>
 #include <sstream>
+#include <optional>
 #include <vector>
 
 void WriteFrameScriptFiles(RecordingContext& context, bool use_reference) {
@@ -37,22 +38,22 @@ void WriteFrameScriptFiles(RecordingContext& context, bool use_reference) {
     };
     std::vector<VcfRange> vcf;
     std::vector<ScriptFrameRange> retained;
-    const auto append = [&](long previous, long start) {
-        if (previous < start) {
-            retained.push_back({position(previous + 1), position(start)});
-            if (start - previous > 5 && previous > 0)
-                vcf.push_back({position(previous - 1), position(start) - position(previous)});
+    const auto append = [&](std::optional<long> previous, long start) {
+        if (!previous || *previous < start) {
+            retained.push_back({position(previous ? *previous + 1 : 0), position(start)});
+            if (previous && start - *previous > 5 && *previous > 0)
+                vcf.push_back({position(*previous - 1), position(start) - position(*previous)});
         }
     };
-    long previous = -1;
+    std::optional<long> previous;
     for (int i = 0; i <= count; ++i) {
         const auto start = use_reference ? state.reffer[i].start_frame : state.commercial[i].start_frame;
         const auto end = use_reference ? state.reffer[i].end_frame : state.commercial[i].end_frame;
-        if (start < 0 || end < start || start <= previous || start >= state.frame_count || end > state.frame_count)
+        if (start < 0 || end < start || (previous && start <= *previous) || start >= state.frame_count || end > state.frame_count)
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_frame_script_commercial_range);
         append(previous, start); previous = end;
     }
-    if (count < 0 || previous < state.frame_count - 2) append(previous, state.frame_count - 2);
+    if (count < 0 || !previous || *previous < state.frame_count - 2) append(previous, state.frame_count - 2);
     const auto write = [&](const std::string& filename, auto serialize) {
         std::ostringstream contents; serialize(contents);
         write_output_file(filename, contents.str());
