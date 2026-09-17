@@ -6,19 +6,33 @@
 #include <cstdio>
 #include <exception>
 #include "diagnostic_render.h"
+#include "output/checked_file.h"
 
 namespace {
 int report_error(const std::exception& error, const RecordingContext* context) noexcept {
     try {
         const auto print=[&](const auto& translator) {
-            const auto reason=comskip::localization::render_exception(error,translator);
-            fputs(translator.format("diag_application_error",reason).c_str(),stderr);
+            const auto reason = comskip::localization::render_exception(error, translator);
+            const auto message = translator.format("diag_application_error", reason);
+            std::fputs(message.c_str(), stderr);
+            if (context && context->state.log_file) {
+                try {
+                    comskip::output::checked_fprintf(*context->state.log_file,
+                                                     context->state.logfilename,
+                                                     "%s", message.c_str());
+                    comskip::output::checked_flush(*context->state.log_file,
+                                                   context->state.logfilename);
+                } catch (const std::exception&) {
+                    // Preserve the original diagnostic and exit status when
+                    // the optional log destination is unavailable.
+                }
+            }
         };
         if(context) print(context->translator);
         else print(comskip::localization::Translator("en"));
     } catch(const std::exception&) {
         // Reporting failures must not terminate the application while unwinding.
-        std::fprintf(stderr,"Comskip: %s\n",error.what());
+        std::fprintf(stderr, "Comskip: %s\n", error.what());
     }
     if(const auto* provider=dynamic_cast<const comskip::diagnostics::DiagnosticProvider*>(&error)) {
         const auto code=provider->diagnostic().code;
