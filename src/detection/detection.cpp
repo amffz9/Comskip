@@ -738,12 +738,12 @@ bool BuildMasterCommList(RecordingContext& context)
                         j = context.state.frame[i].volume;
                 }
             }
-        }
         if (a > fallback_start_volume-100 && count > 7)
         {
             count = count - 7;
         }
             } while (a > fallback_start_volume-100 && count > 7);
+        }
         context.settings.max_silence = a+10;
         context.settings.max_volume = a+150;
     }

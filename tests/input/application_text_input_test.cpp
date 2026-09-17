@@ -8,6 +8,7 @@
 #include "platform/platform.h"
 #include <gtest/gtest.h>
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -104,6 +105,21 @@ TEST_F(ApplicationTextInput, CsvMalformedFilesRejectBeforeAnyObservationOrSettin
         EXPECT_EQ(context->settings.fps, 25);
         EXPECT_TRUE(std::filesystem::remove(directory / "input.csv"));
     }
+}
+
+TEST_F(ApplicationTextInput, ReopenCsvInputsOwnsFreshCsvAndCaptionFiles) {
+    write(directory / "input.csv", "frame,brightness\n");
+    write(directory / "input.data", "caption-data");
+
+    auto input = reopen_csv_inputs(*context);
+    ASSERT_TRUE(input);
+    char line[64]{};
+    ASSERT_NE(std::fgets(line, sizeof(line), input.get()), nullptr);
+    EXPECT_STREQ(line, "frame,brightness\n");
+    ASSERT_TRUE(context->state.dump_data_file);
+    char caption[64]{};
+    ASSERT_NE(std::fgets(caption, sizeof(caption), context->state.dump_data_file.get()), nullptr);
+    EXPECT_STREQ(caption, "caption-data");
 }
 TEST_F(ApplicationTextInput, MalformedCaptionCompanionRejectsBeforeCsvStatePublication) {
     context->state.frame_count = 77;

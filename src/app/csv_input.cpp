@@ -74,6 +74,19 @@ void PrintArgs(RecordingContext& context)
         printf("%zu\t%s\n", i, context.state.argument[i].c_str());
 }
 
+comskip::platform::FilePtr reopen_csv_inputs(RecordingContext& context)
+{
+    const auto csv_path = context.state.inbasename + ".csv";
+    auto input = comskip::platform::own_file(myfopen(csv_path.c_str(), "r"));
+    if (!input)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
+            comskip::diagnostics::Code::missing_csv_input);
+
+    const auto caption_path = context.state.inbasename + ".data";
+    context.state.dump_data_file.reset(myfopen(caption_path.c_str(), "rb"));
+    return input;
+}
+
 
 
 
@@ -465,6 +478,7 @@ again:
         if (ReviewResult(context))
         {
             LoadIniFile(context);
+            input = reopen_csv_inputs(context);
             goto again;
         }
         //		printf(" Press Enter to close debug window\n");
