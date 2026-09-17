@@ -16,11 +16,11 @@ void FillLogoBuffer(RecordingContext& context);
 bool SearchForLogoEdges(RecordingContext& context);
 double CheckStationLogoEdge(RecordingContext& context, std::span<const unsigned char> frame);
 void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame, int mask_number);
-int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temporary,
-                      unsigned char* test);
-void SetEdgeMaskArea(RecordingContext& context, unsigned char* temporary);
+int ClearEdgeMaskArea(RecordingContext& context, std::span<unsigned char> temporary,
+                      std::span<const unsigned char> test);
+void SetEdgeMaskArea(RecordingContext& context, std::span<const unsigned char> temporary);
 int CountEdgePixels(RecordingContext& context);
-void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int direction);
+void DumpEdgeMask(RecordingContext& context, std::span<const unsigned char> buffer, int direction);
 void DumpEdgeMasks(RecordingContext& context);
 void PrintLogoFrameGroups(RecordingContext& context);
 void PrintCCBlocks(RecordingContext& context);

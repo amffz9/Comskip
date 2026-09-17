@@ -1171,11 +1171,11 @@ bool SearchForLogoEdges(RecordingContext& context)
     }
 #endif
 
-    ClearEdgeMaskArea(context, context.state.thoriz_edgemask.data(), context.state.tvert_edgemask.data());
-    ClearEdgeMaskArea(context, context.state.tvert_edgemask.data(), context.state.thoriz_edgemask.data());
+    ClearEdgeMaskArea(context, context.state.thoriz_edgemask, context.state.tvert_edgemask);
+    ClearEdgeMaskArea(context, context.state.tvert_edgemask, context.state.thoriz_edgemask);
 
 
-    SetEdgeMaskArea(context, context.state.thoriz_edgemask.data());
+    SetEdgeMaskArea(context, context.state.thoriz_edgemask);
     tempMinX = context.state.tlogoMinX;
     tempMaxX = context.state.tlogoMaxX;
     tempMinY = context.state.tlogoMinY;
@@ -1184,7 +1184,7 @@ bool SearchForLogoEdges(RecordingContext& context)
     context.state.tlogoMaxX = context.state.videowidth - context.settings.edge_radius - context.settings.border;
     context.state.tlogoMinY = context.settings.edge_radius + context.settings.border;
     context.state.tlogoMaxY = context.state.height - context.settings.edge_radius - context.settings.border;
-    SetEdgeMaskArea(context, context.state.tvert_edgemask.data());
+    SetEdgeMaskArea(context, context.state.tvert_edgemask);
     if (tempMinX < context.state.tlogoMinX) context.state.tlogoMinX = tempMinX;
     if (tempMaxX > context.state.tlogoMaxX) context.state.tlogoMaxX = tempMaxX;
     if (tempMinY < context.state.tlogoMinY) context.state.tlogoMinY = tempMinY;
@@ -1365,10 +1365,13 @@ bool SearchForLogoEdges(RecordingContext& context)
 }
 
 
-int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned char* test)
+int ClearEdgeMaskArea(RecordingContext& context, std::span<unsigned char> temp,
+                      std::span<const unsigned char> test)
 {
     const auto scan = logo_scan(context);
-    if (!temp || !test) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_mask_cleanup_requires_both_pixel_buffers);
+    const auto required = static_cast<std::size_t>(context.state.width) * context.state.height;
+    if (temp.size() < required || test.size() < required)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_mask_cleanup_requires_both_pixel_buffers);
 
     int x;
     int y;
@@ -1430,10 +1433,12 @@ int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned c
     return(valid);
 }
 
-void SetEdgeMaskArea(RecordingContext& context, unsigned char* temp)
+void SetEdgeMaskArea(RecordingContext& context, std::span<const unsigned char> temp)
 {
     const auto scan = logo_scan(context);
-    if (!temp) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_mask_bounds_require_mask_pixels);
+    const auto required = static_cast<std::size_t>(context.state.width) * context.state.height;
+    if (temp.size() < required)
+        throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::logo_mask_bounds_require_mask_pixels);
 
     int x;
     int y;
@@ -1489,7 +1494,7 @@ int CountEdgePixels(RecordingContext& context)
     return (count);
 }
 
-void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int direction)
+void DumpEdgeMask(RecordingContext& context, std::span<const unsigned char> buffer, int direction)
 {
     int x;
     int y;

@@ -858,3 +858,6 @@ than redefine completion around whichever subset currently passes tests.
 
 - Logo edge detection and comparison now accept bounded read-only pixel spans,
   validating storage before indexing instead of relying on raw pointers.
+
+- Logo mask cleanup, bounds, and diagnostic dumping now use bounded spans for
+  their pixel buffers as well.
