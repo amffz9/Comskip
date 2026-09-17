@@ -123,7 +123,8 @@ void OutputbrightHistogram(RecordingContext& context)
         256,30,1,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
-    Debug(context,1,"Show Histogram - %.5f\n",report->divisor);
+    Debug(context, 1, "%s", context.translator.format("diagnostics_show_histogram",
+        std::format("{:.5f}", report->divisor)).c_str());
     for (const auto& row : report->rows)
         Debug(context,1,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
             static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
@@ -135,7 +136,8 @@ void OutputuniformHistogram(RecordingContext& context)
         30,30,uniform_scale,200,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
-    Debug(context,1,"Show Uniform - %.5f\n",report->divisor);
+    Debug(context, 1, "%s", context.translator.format("diagnostics_show_uniform",
+        std::format("{:.5f}", report->divisor)).c_str());
     for (const auto& row : report->rows)
         Debug(context,1,"%3lld - %6llu - %.5f %s\n",static_cast<long long>(row.label),
             static_cast<unsigned long long>(row.count),row.cumulative_fraction,row.stars.c_str());
@@ -145,7 +147,7 @@ void OutputHistogram(RecordingContext& context, int *histogram, int scale, char 
 {
     if (!histogram) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
-    Debug(context, 8, "Show %s Histogram\n", title);
+    Debug(context, 8, "%s", context.translator.format("diagnostics_show_histogram_title", title).c_str());
     const auto report=comskip::output::make_histogram_report<int>({histogram,256},truncate?255:256,
         256,scale,70,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
@@ -255,7 +257,7 @@ void OutputFrame(RecordingContext& context, int frame_number)
         comskip::platform::path_from_utf8(context.state.logfilename).replace_extension()) +
         std::to_string(frame_number) + ".frm";
 
-    Debug(context, 5, "Sending frame to file\n");
+    Debug(context, 5, "%s", context.translator.text("diagnostics_sending_frame"));
     auto file = comskip::platform::own_file(myfopen(path.c_str(), "w"));
     if (!file)
     {

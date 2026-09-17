@@ -832,3 +832,6 @@ than redefine completion around whichever subset currently passes tests.
 - FFmpeg search-path, score-threshold, and logo-histogram diagnostics now use
   committed English/Spanish catalog entries. The new localization regression
   passes **1/1**.
+
+- Histogram headings and frame-output status text now use the same catalog
+  boundary; the localization regression remains green.

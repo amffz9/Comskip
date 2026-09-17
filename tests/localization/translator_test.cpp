@@ -51,6 +51,13 @@ TEST(Translator, FormatsDiagnosticsSearchAndThresholdMessages) {
               "The 95.00 percentile of 120 frames is 0.75\n");
     EXPECT_EQ(spanish.format("diagnostics_logo_histogram", "12.50000"),
               "Histograma de logotipos - 12.50000\n");
+    EXPECT_EQ(english.format("diagnostics_show_histogram", "0.50000"),
+              "Show Histogram - 0.50000\n");
+    EXPECT_EQ(spanish.format("diagnostics_show_uniform", "0.25000"),
+              "Mostrar uniformidad - 0.25000\n");
+    EXPECT_EQ(english.format("diagnostics_show_histogram_title", "Brightness"),
+              "Show Brightness Histogram\n");
+    EXPECT_STREQ(spanish.text("diagnostics_sending_frame"), "Enviando fotograma al archivo\n");
 }
 TEST(Translator, LocalizesReviewHelpWithStableBindings) {
     const Translator english;
