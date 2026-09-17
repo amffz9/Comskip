@@ -91,11 +91,11 @@ void OpenOutputFiles(RecordingContext& context)
 
     if (context.settings.output_default)
     {
-        context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "w"));
+        context.state.out_file = comskip::platform::open_file_owned(context.state.out_filename, "w");
         if (!context.state.out_file.get())
         {
             sleep_for_ms(50L);
-            context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "w"));
+            context.state.out_file = comskip::platform::open_file_owned(context.state.out_filename, "w");
             if (!context.state.out_file.get())
             {
                 throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
@@ -111,7 +111,7 @@ void OpenOutputFiles(RecordingContext& context)
     if (context.settings.output_incommercial)
     {
         context.state.filename = std::string(context.state.workbasename) + ".incommercial";
-        context.state.incommercial_file.reset(comskip::platform::open_file(context.state.filename, "w"));
+        context.state.incommercial_file = comskip::platform::open_file_owned(context.state.filename, "w");
         if (!context.state.incommercial_file.get())
         {
             throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
@@ -127,7 +127,7 @@ void OpenOutputFiles(RecordingContext& context)
     if (context.settings.output_edl)
     {
         context.state.filename = std::string(context.state.outbasename) + ".edl";
-        context.state.edl_file.reset(comskip::platform::open_file(context.state.filename, "wb"));
+        context.state.edl_file = comskip::platform::open_file_owned(context.state.filename, "wb");
         if (!context.state.edl_file.get())
         {
             throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(
@@ -165,7 +165,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     }
     if (context.settings.output_default && prev < start /*&& !last */)
     {
-        context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "a+"));
+        context.state.out_file = comskip::platform::open_file_owned(context.state.out_filename, "a+");
         if (context.state.out_file.get())
         {
             comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", frame_number(context, context.settings.sage_framenumber_bug?s_start/2:s_start), frame_number(context, context.settings.sage_framenumber_bug?s_end/2:s_end));
@@ -174,7 +174,7 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
         else  		// If the file can't be opened for writting, wait half a second and try again
         {
             sleep_for_ms(50L);
-            context.state.out_file.reset(comskip::platform::open_file(context.state.out_filename, "a+"));
+            context.state.out_file = comskip::platform::open_file_owned(context.state.out_filename, "a+");
             if (context.state.out_file.get())
             {
                 comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", frame_number(context, context.settings.sage_framenumber_bug?s_start/2:s_start), frame_number(context, context.settings.sage_framenumber_bug?s_end/2:s_end));
