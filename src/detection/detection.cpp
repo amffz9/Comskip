@@ -513,7 +513,7 @@ bool BuildMasterCommList(RecordingContext& context)
 
     double	length;
     double	new_ar_ratio;
-    FILE*	logo_file = NULL;
+    comskip::platform::FilePtr logo_file;
     bool	foundCommercials = false;
     time_t	ltime;
 
@@ -1438,10 +1438,10 @@ again:
 
     if (context.settings.deleteLogoFile)
     {
-        logo_file = myfopen(context.state.logofilename.c_str(), "r");
+        logo_file.reset(myfopen(context.state.logofilename.c_str(), "r"));
         if(logo_file)
         {
-            fclose(logo_file);
+            logo_file.reset();
             myremove(context.state.logofilename.c_str());
         }
     }
