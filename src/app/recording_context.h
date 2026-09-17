@@ -357,7 +357,7 @@ struct RecordingState {
     int tracks_without_sound= 0;
     int frames_without_sound= 0;
     int frames_with_loud_sound= 0;
-    uint8_t ac3_packet[100000]{};
+    std::array<uint8_t, 100000> ac3_packet{};
     int ac3_packet_index= 0;
     int data_size{};
     int ac3_package_misalignment_count= 0;

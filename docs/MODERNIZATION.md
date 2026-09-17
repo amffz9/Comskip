@@ -976,3 +976,7 @@ than redefine completion around whichever subset currently passes tests.
   from the container type. FFmpeg-facing packet storage remains a C-compatible
   buffer only where the library API requires it. The complete Windows suite
   passes **523/523**.
+
+- AC-3 packet staging is also owned by `std::array`; `.data()` is used only at
+  FFmpeg and C-library boundaries, and capacity derives from the container.
+  The complete Windows suite passes **523/523**.

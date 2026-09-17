@@ -27,7 +27,7 @@ extern "C" {
 
 namespace {
 constexpr int audio_buffer_capacity = static_cast<int>(std::tuple_size_v<decltype(RecordingState::audio_buffer)>);
-constexpr int ac3_buffer_capacity = static_cast<int>(std::extent_v<decltype(RecordingState::ac3_packet)>);
+constexpr int ac3_buffer_capacity = static_cast<int>(std::tuple_size_v<decltype(RecordingState::ac3_packet)>);
 bool same_timestamp(double first, double second) {
     return std::fabs(first - second) < 0.001;
 }
@@ -296,8 +296,8 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
             return;
         }
         std::copy_n(pkt_temp.data, static_cast<std::size_t>(pkt_temp.size),
-            context.state.ac3_packet + context.state.ac3_packet_index);
-        pkt_temp.data = context.state.ac3_packet;
+            context.state.ac3_packet.data() + context.state.ac3_packet_index);
+            pkt_temp.data = context.state.ac3_packet.data();
         pkt_temp.size += context.state.ac3_packet_index;
         context.state.ac3_packet_index = pkt_temp.size;
         ps = 0;
@@ -328,7 +328,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
         else
         {
             // Retain the candidate frame, discarding bytes before its sync word.
-            memmove(context.state.ac3_packet, pkt_temp.data, pkt_temp.size);
+            memmove(context.state.ac3_packet.data(), pkt_temp.data, pkt_temp.size);
             context.state.ac3_packet_index = pkt_temp.size;
             return;
         }
@@ -469,7 +469,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
 
     if (context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         ps = 0;
-        rps = (pkt_temp.data - context.state.ac3_packet);
+        rps = (pkt_temp.data - context.state.ac3_packet.data());
         while (0 < context.state.ac3_packet_index - rps)
         {
             context.state.ac3_packet[ps] = context.state.ac3_packet[rps];
