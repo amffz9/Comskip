@@ -1052,3 +1052,19 @@ than redefine completion around whichever subset currently passes tests.
 - FFmpeg error-detail buffers in caption and subtitle adapters now use
   `std::array`, with explicit `.data()`/`.size()` calls at `av_strerror`.
   The complete Windows suite passes **523/523**.
+
+- Remaining active caption and logo scratch buffers now use `std::array`, with
+  explicit data pointers only at C-library boundaries. Caption dictionary,
+  packet diagnostics, XDS, and saved-logo regressions pass; the complete
+  Windows headless suite passes **523/523**.
+
+- Saved-logo and detection-output close paths now use the shared checked file
+  boundary with operation-specific diagnostics. Focused output, saved-logo,
+  and detection-warning tests pass **17/17**; the complete Windows headless
+  suite passes **523/523**.
+
+- Current-tip Windows SDL verification passes **531/531** with dummy video and
+  audio drivers. The configured Windows sanitizer run reaches all **523** tests;
+  **511** pass and **12** remain affected by the documented Clang exception-
+  unwinding/runtime limitation in B118. Linux verification still requires a
+  usable Linux runner; macOS remains deferred.
