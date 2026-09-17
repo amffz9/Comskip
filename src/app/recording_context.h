@@ -132,12 +132,12 @@ struct RecordingState {
     int brightness= 0;
     long sum_brightness=0;
     long sum_count{};
-    int uniformHistogram[256]{};
-    int brightHistogram[256]{};
-    int blackHistogram[256]{};
-    int volumeHistogram[256]{};
-    int silenceHistogram[256]{};
-    int logoHistogram[256]{};
+    std::array<int, 256> uniformHistogram{};
+    std::array<int, 256> brightHistogram{};
+    std::array<int, 256> blackHistogram{};
+    std::array<int, 256> volumeHistogram{};
+    std::array<int, 256> silenceHistogram{};
+    std::array<int, 256> logoHistogram{};
     int volumeScale= 10;
     int last_brightness= 0;
     int min_brightness_found{};
