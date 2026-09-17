@@ -148,7 +148,7 @@ void OutputHistogram(RecordingContext& context, std::span<const int> histogram, 
 {
     if (histogram.size() < 256) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
         comskip::diagnostics::Code::invalid_histogram_report);
-    Debug(context, 8, "%s", context.translator.format("diagnostics_show_histogram_title", title).c_str());
+        Debug(context, 8, context.translator.format("diagnostics_show_histogram_title", title));
     const auto report=comskip::output::make_histogram_report<int>(histogram,truncate?255:256,
         256,scale,70,context.state.framesprocessed>0 ? context.state.framesprocessed : 0);
     if (!report) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(
@@ -258,11 +258,11 @@ void OutputFrame(RecordingContext& context, int frame_number)
         comskip::platform::path_from_utf8(context.state.logfilename).replace_extension()) +
         std::to_string(frame_number) + ".frm";
 
-    Debug(context, 5, "%s", context.translator.text("diagnostics_sending_frame"));
+        Debug(context, 5, context.translator.text("diagnostics_sending_frame"));
     auto file = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
     if (!file)
     {
-        Debug(context, 1, "%s", context.translator.text("diagnostics_frame_open_failed"));
+        Debug(context, 1, context.translator.text("diagnostics_frame_open_failed"));
         return;
     }
 
@@ -348,7 +348,7 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
             entry.end_frame = FindFrameWithPts(context, interval.end_frame / context.settings.fps);
             if (context.settings.sage_framenumber_bug) entry.start_frame *= 2;
             if (entry.end_frame < entry.start_frame) {
-                Debug(context, 0, "%s", context.translator.text("diagnostics_reference_reversed"));
+                Debug(context, 0, context.translator.text("diagnostics_reference_reversed"));
                 entry.end_frame = entry.start_frame + 10;
             }
             if (context.settings.sage_framenumber_bug) entry.end_frame *= 2;
@@ -499,7 +499,7 @@ void OutputAspect(RecordingContext& context)
     auto output = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
     if (!output)
     {
-        Debug(context, 1, "%s", context.translator.text("diagnostics_aspect_open_failed"));
+        Debug(context, 1, context.translator.text("diagnostics_aspect_open_failed"));
         return;
     }
 
@@ -538,7 +538,7 @@ return;
     auto output = comskip::platform::own_file(comskip::platform::open_file(path, "w"));
     if (!output)
     {
-        Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
+        Debug(context, 1, context.translator.text("diagnostics_raw_open_failed"));
         return;
     }
     comskip::output::checked_fprintf(*output, path, "black,frame,brightness,cause,uniform,volume\n");

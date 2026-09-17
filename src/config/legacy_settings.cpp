@@ -280,7 +280,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
 
         // NULL entries were detected, some allocations must have failed
-        Debug(context, 0, "%s", translator.format("cli_insufficient_memory", context.state.progname).c_str());
+        Debug(context, 0, translator.format("cli_insufficient_memory", context.state.progname));
         return context.state.in_file.get();
     }
 
@@ -714,7 +714,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (cl_playnice->count)
     {
         context.state.play_nice = true;
-        Debug(context, 1, "%s", translator.text("cli_playnice"));
+        Debug(context, 1, translator.text("cli_playnice"));
     }
 
     if (cl_detectmethod->count)
@@ -750,12 +750,12 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 
     Debug(context, 9, "%s", translator.format("settings_input_files", context.state.mpegfilename,
         context.state.exefilename, context.state.logofilename, context.state.inifilename).c_str());
-    Debug(context, 1, "%s", translator.text("settings_detection_methods"));
+    Debug(context, 1, translator.text("settings_detection_methods"));
     i = 0;
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::black_frame))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_black", i).c_str());
+        Debug(context, 1, translator.format("settings_method_black", i));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::logo))
@@ -773,38 +773,38 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::scene_change))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_scene_change", i).c_str());
+        Debug(context, 1, translator.format("settings_method_scene_change", i));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::resolution_change))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_resolution_change", i).c_str());
+        Debug(context, 1, translator.format("settings_method_resolution_change", i));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::captions))
     {
         i++;
         context.state.processCC = true;
-        Debug(context, 1, "%s", translator.format("settings_method_closed_captions", i).c_str());
+        Debug(context, 1, translator.format("settings_method_closed_captions", i));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::aspect_ratio))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_aspect_ratio", i).c_str());
+        Debug(context, 1, translator.format("settings_method_aspect_ratio", i));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::silence))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_silence", i).c_str());
+        Debug(context, 1, translator.format("settings_method_silence", i));
     }
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::cutscene))
     {
         i++;
-        Debug(context, 1, "%s", translator.format("settings_method_cutscenes", i).c_str());
+        Debug(context, 1, translator.format("settings_method_cutscenes", i));
     }
 
 
@@ -820,15 +820,15 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         );
         if (context.state.play_nice)
         {
-            Debug(context, 1, "%s", translator.text("cli_running_slowly"));
+            Debug(context, 1, translator.text("cli_running_slowly"));
         }
         else
         {
-            Debug(context, 1, "%s", translator.text("cli_full_speed"));
+            Debug(context, 1, translator.text("cli_full_speed"));
         }
     }
 
-    Debug(context, 10, "%s", translator.text("settings_heading"));
+    Debug(context, 10, translator.text("settings_heading"));
     Debug(context, 10, "%s\n", context.state.ini_text.c_str());
     context.state.out_filename = std::string(context.state.outbasename) + ".txt";
 
@@ -838,7 +838,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         logo_file.reset(comskip::platform::open_file(context.state.logofilename, "r+"));
         if (logo_file)
         {
-            Debug(context, 1, "%s", translator.text("cli_logo_exists"));
+            Debug(context, 1, translator.text("cli_logo_exists"));
             logo_file.reset();
             LoadLogoMaskData(context);
         }

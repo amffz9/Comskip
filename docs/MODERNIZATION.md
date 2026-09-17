@@ -912,3 +912,6 @@ than redefine completion around whichever subset currently passes tests.
 - Runtime, decoder setup, recording input, timing, audio, playback, CSV, and
   analysis callsites now pass translated strings directly to the type-safe
   sink. The focused integration coverage passes **45/45**.
+
+- Legacy configuration and diagnostic output callsites now use the same direct
+  string-view sink. Focused configuration/output coverage passes **55/55**.
