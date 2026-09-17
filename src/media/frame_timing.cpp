@@ -1,6 +1,8 @@
 #include "exit_requested.h"
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
 #include "localization/diagnostic.h"
+#include <cmath>
 #include <format>
 #include <limits>
 
