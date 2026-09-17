@@ -14,6 +14,7 @@
 #include <format>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -36,21 +37,21 @@ void audio_debug(RecordingContext& context, int level, std::string_view key, Arg
 }
 }
 
-static int retreive_frame_volume(RecordingContext& context, double from_pts, double to_pts)
+static std::optional<int> retrieve_frame_volume(RecordingContext& context, double from_pts, double to_pts)
 {
     short *buffer;
-    int volume = -1;
+    int volume = 0;
     const auto& is = *context.state.video_owner;
     int i;
     double calculated_delay;
     const int sample_rate = is.audio_st->codecpar->sample_rate;
     if (sample_rate <= 0 || !std::isfinite(from_pts) || !std::isfinite(to_pts))
-        return -1;
+        return std::nullopt;
     const double sample_offset = (from_pts - context.state.base_apts) * sample_rate;
     const double sample_count = (to_pts - from_pts) * sample_rate;
     if (sample_offset < -0.5 || sample_offset > context.state.audio_samples
         || sample_count < 0 || sample_count > context.state.audio_samples)
-        return -1;
+        return std::nullopt;
     const int first_sample = static_cast<int>(std::llround(sample_offset));
     const int s_per_frame = static_cast<int>(std::llround(sample_count));
 
@@ -116,7 +117,6 @@ static int retreive_frame_volume(RecordingContext& context, double from_pts, dou
 void backfill_frame_volumes(RecordingContext& context)
 {
     int f;
-    int volume;
     double local_initial_pts = context.state.initial_pts;
     if (context.state.framenum < 3)
         return;
@@ -126,8 +126,10 @@ void backfill_frame_volumes(RecordingContext& context)
     while (get_frame_pts(context, f) + local_initial_pts > context.state.base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
     while (f < context.state.framenum-1 && (get_frame_pts(context, f+1) + local_initial_pts )<= context.state.top_apts && (context.state.top_apts - context.state.base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
-        volume = retreive_frame_volume(context, get_frame_pts(context, f) + local_initial_pts, get_frame_pts(context, f+1) + local_initial_pts);
-        if (volume > -1) set_frame_volume(context, f, volume);
+        if (const auto volume = retrieve_frame_volume(context,
+                get_frame_pts(context, f) + local_initial_pts,
+                get_frame_pts(context, f+1) + local_initial_pts))
+            set_frame_volume(context, f, *volume);
         f++;
     }
 }
