@@ -271,7 +271,8 @@ again:
                         context.state.videowidth = context.state.width = 1920;
                 }
                 else
-                    context.state.videowidth = context.state.width = (int) ((context.state.frame[i].maxY + context.state.frame[i].minY) * context.state.frame[i].ar_ratio );
+                    context.state.videowidth = context.state.width = static_cast<int>(
+                        (context.state.frame[i].maxY + context.state.frame[i].minY) * context.state.frame[i].ar_ratio);
             }
             context.state.frame[i].maxX = context.state.videowidth - 10;
             context.state.frame[i].minX = 10;
@@ -321,7 +322,8 @@ again:
                 if (context.state.frame[i].hasBright > 0 && context.state.min_hasBright > context.state.frame[i].hasBright * 720 * 480 / context.state.videowidth / context.state.height) context.state.min_hasBright = context.state.frame[i].hasBright * 720 * 480 / context.state.videowidth / context.state.height;
                 if (context.state.frame[i].dimCount > 0 && context.state.min_dimCount > context.state.frame[i].dimCount * 720 * 480 / context.state.videowidth / context.state.height) context.state.min_dimCount = context.state.frame[i].dimCount * 720 * 480 / context.state.videowidth / context.state.height;
 
-                if (context.state.frame[i].brightness <= context.settings.max_avg_brightness && context.state.frame[i].hasBright < context.settings.maxbright && context.state.frame[i].dimCount < (int)(.05 * context.state.videowidth * context.state.height))
+                if (context.state.frame[i].brightness <= context.settings.max_avg_brightness && context.state.frame[i].hasBright < context.settings.maxbright &&
+                    context.state.frame[i].dimCount < static_cast<int>(.05 * context.state.videowidth * context.state.height))
                     context.state.frame[i].isblack |= black_cause;
             }
             if (i>1) { // Uniform not calculated for frame 1
@@ -382,7 +384,8 @@ again:
 
         if (context.state.frame[i].isblack)
         {
-            InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume, (int)context.state.frame[i].isblack);
+                    InsertBlackFrame(context, i, context.state.frame[i].brightness, context.state.frame[i].uniform,
+                        context.state.frame[i].volume, static_cast<int>(context.state.frame[i].isblack));
 
             /*
                         j = i-volume_slip;
