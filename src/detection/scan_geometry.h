@@ -1,6 +1,4 @@
 #pragma once
-#define DEBUGFRAMES 80000
-
 #ifdef _WIN32
 #define GRAPH_P(X,Y,P) context.state.graph[3*(((context.state.oheight+30)-(Y))*context.state.owidth+(X))+P]
 #else

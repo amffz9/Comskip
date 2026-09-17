@@ -105,7 +105,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         context.state.HomeDir.assign(directory_utf8.begin(), directory_utf8.end());
 
         context.translator = comskip::localization::Translator::from_arguments(argc, argv);
-        fputs(context.translator.format("media_version", PACKAGE_STRING).c_str(), stderr);
+        fputs(context.translator.format("media_version", package_string).c_str(), stderr);
 
 #ifndef DONATOR
         fputs(context.translator.text("media_public_build"), stderr);

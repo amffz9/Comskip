@@ -670,7 +670,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), PACKAGE_STRING);
+                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), package_string);
                 fprintf(log_file.get(), "Loading comskip csv file - %s\n", in->filename[0]);
                 fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
                 fprintf(log_file.get(), "################################################################\n");
@@ -694,7 +694,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
             log_file.reset(myfopen(context.state.logfilename.c_str(), "w"));
             if (log_file) {
                 fprintf(log_file.get(), "################################################################\n");
-                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), PACKAGE_STRING);
+                fprintf(log_file.get(), "Generated using %s %s\n", comskip::build::distribution_variant.data(), package_string);
                 fprintf(log_file.get(), "Time at start of run:\n%s", ctime(&ltime));
                 fprintf(log_file.get(), "################################################################\n");
                 log_file.reset();

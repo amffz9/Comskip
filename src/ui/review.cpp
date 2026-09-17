@@ -407,7 +407,6 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             g = 0;
             gc = 0;
             xd = 0;
-//			v = max(frame_count, DEBUGFRAMES);
             if (context.state.framearray)
             {
                 xd = context.state.XDS_block_count-1;
