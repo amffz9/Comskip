@@ -14,8 +14,9 @@ double get_fps(RecordingContext& context)
 
 void set_fps(RecordingContext& context, double fp)
 {
+    if (!std::isfinite(fp) || fp <= 0.0) return;
 //    double old_fps = fps;
-    double new_fps = (double)1.0 / fp;
+    const double new_fps = 1.0 / fp;
 //    static int showed_fps=0;
  #ifdef notused
 

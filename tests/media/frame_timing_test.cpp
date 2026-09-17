@@ -53,3 +53,20 @@ TEST(FrameVolume, UpdatesValidFrameAndMatchingBlackObservation) {
     EXPECT_EQ(state.volumeHistogram[10], 1);
     EXPECT_EQ(state.silenceHistogram[100], 1);
 }
+
+TEST(FrameRate, IgnoresInvalidFramePeriods) {
+    auto context = std::make_unique<RecordingContext>();
+    context->settings.fps = 25.0;
+
+    set_fps(*context, 0.0);
+    EXPECT_DOUBLE_EQ(context->settings.fps, 25.0);
+
+    set_fps(*context, -1.0);
+    EXPECT_DOUBLE_EQ(context->settings.fps, 25.0);
+
+    set_fps(*context, std::numeric_limits<double>::quiet_NaN());
+    EXPECT_DOUBLE_EQ(context->settings.fps, 25.0);
+
+    set_fps(*context, std::numeric_limits<double>::infinity());
+    EXPECT_DOUBLE_EQ(context->settings.fps, 25.0);
+}
