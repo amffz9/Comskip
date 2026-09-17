@@ -850,80 +850,6 @@ void OutputTraining(RecordingContext& context)
         comskip::output::checked_close(context.state.training_file,"strict.csv");
     context.state.training_file=open_checked_file("comskip.csv","a+");
 
-#ifdef WRITEPATTERN
-    r = (reffer[0].start_frame/fps < 30.0 ? reffer_count: reffer_count+1);
-    if (reffer[0].start_frame/fps < 30.0)
-        s = reffer[0].end_frame;
-    else
-        s = 0;
-    fprintf(training_file, "\"%s\",%f,%d,", inbasename,  (reffer[reffer_count].start_frame - s)/fps, r);
-    for (i = 0; i < 40; i++)
-    {
-        if (i <= reffer_count)
-        {
-            if (i == 0)
-                e = 0;
-            else
-                e = reffer[i-1].end_frame;
-            if (i == reffer_count)
-                s = 0;
-            else
-                s = (reffer[i].end_frame - reffer[i].start_frame);
-            if (i > 0)
-                fprintf(training_file, "%f,%f,", (reffer[i].start_frame-e)/fps, s/fps);
-            else
-            {
-                if (reffer[i].start_frame/fps > 30.0)
-                    fprintf(training_file, "%f,%f, %f,%f,", 0.0, 0.0, (reffer[i].start_frame-e)/fps,s/fps);
-                else
-                    fprintf(training_file, "%f,%f,", (reffer[i].start_frame-e)/fps,s/fps);
-            }
-        }
-        else
-        {
-            fprintf(training_file, "%f,%f,", 0.0, 0.0);
-        }
-    }
-    fprintf(training_file, "0\n", inbasename);
-
-
-    r = (context.state.commercial[0].start_frame/fps < 30.0 ? context.state.commercial_count: context.state.commercial_count+1);
-    if (context.state.commercial[0].start_frame/fps < 30.0)
-        s = context.state.commercial[0].end_frame;
-    else
-        s = 0;
-    fprintf(training_file, "\"%s\",%f,%d,", inbasename,  (context.state.commercial[context.state.commercial_count].start_frame - s)/fps, r);
-    for (i = 0; i < 40; i++)
-    {
-        if (i <= context.state.commercial_count)
-        {
-            if (i == 0)
-                e = 0;
-            else
-                e = context.state.commercial[i-1].end_frame;
-            if (i == context.state.commercial_count)
-                s = 0;
-            else
-                s = (context.state.commercial[i].end_frame - context.state.commercial[i].start_frame);
-            if (i > 0)
-                fprintf(training_file, "%f,%f,", (context.state.commercial[i].start_frame-e)/fps, s/fps);
-            else
-            {
-                if (context.state.commercial[i].start_frame/fps > 30.0)
-                    fprintf(training_file, "%f,%f, %f,%f,", 0.0, 0.0, (context.state.commercial[i].start_frame-e)/fps,s/fps);
-                else
-                    fprintf(training_file, "%f,%f,", (context.state.commercial[i].start_frame-e)/fps,s/fps);
-            }
-        }
-        else
-        {
-            fprintf(training_file, "%f,%f,", 0.0, 0.0);
-        }
-    }
-    fprintf(training_file, "0\n", inbasename);
-
-#else
-
     comskip::output::checked_fprintf(*context.state.training_file,"comskip.csv", "block, cm,rf, score, length, start, end, fromend ar, logo, cause, less, more\n");
 
     for (i = 0; i < context.state.block_count; i++)
@@ -948,6 +874,5 @@ void OutputTraining(RecordingContext& context)
 
         }
     }
-#endif
     comskip::output::checked_close(context.state.training_file,"comskip.csv");
 }
