@@ -468,35 +468,31 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
 
 void OutputAspect(RecordingContext& context)
 {
-    int		i;
-//	long	j;
-    std::string array;
-    comskip::platform::FilePtr raw;
-
     if (!context.settings.output_aspect)
         return;
 
-    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".aspects"));
-    raw.reset(myfopen(array.c_str(), "w"));
-    if (!raw.get())
+    const auto path = comskip::platform::path_to_utf8(
+        comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".aspects"));
+    auto output = comskip::platform::own_file(myfopen(path.c_str(), "w"));
+    if (!output)
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_aspect_open_failed"));
         return;
     }
 
     // Print out ar cblock list
-    for (i = 0; i < context.state.ar_block_count; i++)
+    for (int index = 0; index < context.state.ar_block_count; ++index)
     {
-        fprintf(
-            raw.get(),
+        const auto& block = context.state.ar_block[index];
+        comskip::output::checked_fprintf(
+            *output, path,
             "%s %4dx%4d %.2f minX=%4d, minY=%4d, maxX=%4d, maxY=%4d\n",
-            dblSecondsToStrMinutes(context, F2T(context.state.ar_block[i].start)),
-            context.state.ar_block[i].width, context.state.ar_block[i].height,
-            context.state.ar_block[i].ar_ratio,
-            context.state.ar_block[i].minX, context.state.ar_block[i].minY, context.state.ar_block[i].maxX, context.state.ar_block[i].maxY
+            dblSecondsToStrMinutes(context, F2T(block.start)),
+            block.width, block.height, block.ar_ratio,
+            block.minX, block.minY, block.maxX, block.maxY
         );
     }
-    raw.reset();
+    comskip::output::checked_close(output, path);
 }
 
 
@@ -505,17 +501,10 @@ void OutputAspect(RecordingContext& context)
 
 void OutputBlackArray(RecordingContext& context)
 {
-    int		i;
-#ifdef FRAME_WITH_HISTOGRAM
-    int		k;
-#endif
-//	long	j;
-    std::string array;
-    comskip::platform::FilePtr raw;
-
 return;
 
-    array = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".black.csv"));
+    const auto path = comskip::platform::path_to_utf8(
+        comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".black.csv"));
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
 //		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
@@ -523,26 +512,26 @@ return;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
-    raw.reset(myfopen(array.c_str(), "w"));
-    if (!raw.get())
+    auto output = comskip::platform::own_file(myfopen(path.c_str(), "w"));
+    if (!output)
     {
         Debug(context, 1, "%s", context.translator.text("diagnostics_raw_open_failed"));
         return;
     }
-    fprintf(raw.get(), "black,frame,brightness,cause,uniform,volume\n");
-    for (i = 1; i < context.state.black_count; i++)
+    comskip::output::checked_fprintf(*output, path, "black,frame,brightness,cause,uniform,volume\n");
+    for (int index = 1; index < context.state.black_count; ++index)
     {
-        fprintf(raw.get(), "%i,%ld,%i,%i,%ld,%i\n",
-                    i,
-                    context.state.black[i].frame,
-                    context.state.black[i].brightness,
-                    context.state.black[i].cause,
-                    context.state.black[i].uniform,
-                    context.state.black[i].volume
+        comskip::output::checked_fprintf(*output, path, "%i,%ld,%i,%i,%ld,%i\n",
+                    index,
+                    context.state.black[index].frame,
+                    context.state.black[index].brightness,
+                    context.state.black[index].cause,
+                    context.state.black[index].uniform,
+                    context.state.black[index].volume
                    );
     }
 
-    raw.reset();
+    comskip::output::checked_close(output, path);
 }
 
 

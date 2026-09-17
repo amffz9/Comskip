@@ -102,6 +102,19 @@ TEST_F(DiagnosticOutput, AspectOutputOpenFailureIsLocalized) {
     OutputAspect(*context);
     EXPECT_EQ(read("log.txt"), "No se pudo abrir el archivo de salida de relaciones de aspecto.\n");
 }
+TEST_F(DiagnosticOutput, AspectOutputPreservesLayoutAndClosesDestination) {
+    context->settings.output_aspect = true;
+    context->settings.fps = 25.0;
+    context->state.ar_block.resize(1);
+    context->state.ar_block_count = 1;
+    context->state.ar_block[0] = {25, 50, 1.777, 0, 1080, 1920, 10, 1910, 20, 1060};
+
+    OutputAspect(*context);
+
+    EXPECT_EQ(read("log.aspects"), "0:00:01.00 1920x1080 1.78 minX=  10, minY=  20, maxX=1910, maxY=1060\n");
+    // A closed CRT stream can be removed on Windows as well as POSIX.
+    EXPECT_TRUE(std::filesystem::remove(directory / "log.aspects"));
+}
 TEST_F(DiagnosticOutput, FrameOutputPreservesLegacyDelimitedLayout) {
     std::array<unsigned char, 4> frame{0, 29, 30, 255};
     context->state.frame_ptr = frame.data();
