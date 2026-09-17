@@ -36,11 +36,11 @@ using namespace comskip::media;
 
 int stream_component_open(RecordingContext& context, VideoState *is, int stream_index)
 {
-    AVFormatContext *pFormatCtx = is->pFormatCtx.get();
-    AVCodecParameters *codecPar = NULL;
+    AVFormatContext* pFormatCtx = is->pFormatCtx.get();
+    AVCodecParameters* codecPar = nullptr;
     AVCodecContext *codecCtx;
     const AVCodec *codec;
-    const AVCodec *codec_hw = NULL;
+    const AVCodec* codec_hw = nullptr;
 
     if(!pFormatCtx || stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
     {
@@ -98,7 +98,7 @@ int stream_component_open(RecordingContext& context, VideoState *is, int stream_
         if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
     }
 
-    if (codec_hw != NULL && codec_hw != codec) {
+    if (codec_hw != nullptr && codec_hw != codec) {
         fputs(context.translator.format("media_using_codec", codec_hw->name, avcodec_get_name(codecPar->codec_id)).c_str(), stderr);
         codec = codec_hw;
     }
