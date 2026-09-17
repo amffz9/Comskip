@@ -753,3 +753,7 @@ than redefine completion around whichever subset currently passes tests.
 - Review plotting and pixel sampling now use explicit C++ conversions at the
   SDL rendering boundary. The complete Windows SDL suite remains green at
   **517/517**.
+
+- Block confidence, non-uniform causes, logo quality, and scene-rate arithmetic
+  now use explicit C++ conversions. The complete Windows headless suite
+  remains green at **515/515**.
