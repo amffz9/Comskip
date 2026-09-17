@@ -654,3 +654,10 @@ than redefine completion around whichever subset currently passes tests.
   drivers. These runs include generated-media, localization, subtitle,
   output, repeated-analysis, and resource-cleanup tests. Linux, sanitizer,
   and macOS execution remain separate verification work.
+
+- Platform compatibility no longer exposes the obsolete C-only boolean and
+  unqualified `min`/`max` helpers. Timing and startup logs use checked writes,
+  and startup time conversion uses thread-safe platform primitives. Focused
+  platform tests pass **3/3**; the complete Windows headless and SDL suites
+  pass **511/511** and **517/517**. Linux, sanitizer, and macOS execution
+  remain separate verification work.

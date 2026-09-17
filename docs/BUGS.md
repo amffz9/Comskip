@@ -42,6 +42,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B068–B070 | Fixed in the editor/geometry/codec stage; all 398 Windows headless and 402 SDL tests pass. |
 | B071 | Cross-version fixture corrected; Windows passes. Corrected Linux verification pending. |
 | B111 | Fixed in the current output-diagnostics stage; focused threshold-histogram bounds tests pass on Windows. |
+| B114 | Fixed in the checked-output/time-safety stage; focused platform, settings, timing, and complete Windows suites pass. |
 
 ## Issue evidence and verification
 
@@ -1428,3 +1429,18 @@ before calling FFmpeg seek APIs.
   clears the cached ordering instead of dereferencing its first element.
 - **Verification:** The focused large-block regression builds more than 2,000
   blocks, exercises `BuildPunish`, and checks that the longest block is first.
+
+### B114: Diagnostic logging ignored write failures and used shared time storage
+
+- **Evidence:** Timing and startup log records used unchecked `fprintf` calls,
+  while startup time selection dereferenced the result of `localtime`. A failed
+  write could silently truncate a diagnostic, and the shared C time buffers were
+  unsafe for concurrent callers.
+- **Impact:** Log consumers could receive incomplete output, and a failed or
+  concurrently accessed time conversion could produce invalid startup behavior.
+- **Status:** Fixed. Timing and startup records now use the checked output
+  boundary. Platform time conversion uses `localtime_s` on Windows and
+  `localtime_r` elsewhere, with a focused test for the value-owned result.
+- **Verification:** The platform time/file tests pass 3/3; focused settings,
+  diagnostic, and in-process tests pass 61/61; complete Windows headless and
+  SDL suites pass 511/511 and 517/517. Linux verification remains pending.
