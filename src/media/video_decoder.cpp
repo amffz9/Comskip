@@ -143,32 +143,32 @@ void list_codecs(const comskip::localization::Translator& translator)
         std::cout << '\n';
 }
 
-int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame         *pFrame , double pts)
+int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame& pFrame , double pts)
 {
     int res=0;
     int changed = 0;
 
-//	bitrate = pFrame->bit_rate;
-    if (pFrame->linesize[0] > max_width || pFrame->height > max_height || pFrame->linesize[0] < 100 || pFrame->height < 100)
+//	bitrate = pFrame.bit_rate;
+    if (pFrame.linesize[0] > max_width || pFrame.height > max_height || pFrame.linesize[0] < 100 || pFrame.height < 100)
     {
         Debug(context, 1, context.translator.format("media_invalid_frame",
-              pFrame->height, pFrame->width, pFrame->linesize[0]).c_str());
+              pFrame.height, pFrame.width, pFrame.linesize[0]).c_str());
         context.state.frame_ptr = nullptr;
         return(0);
     }
-    if (context.state.height != pFrame->height)
+    if (context.state.height != pFrame.height)
     {
-        context.state.height= pFrame->height;
+        context.state.height= pFrame.height;
         changed = 1;
     }
-    if (context.state.width != pFrame->linesize[0])
+    if (context.state.width != pFrame.linesize[0])
     {
-        context.state.width= pFrame->linesize[0];
+        context.state.width= pFrame.linesize[0];
         changed = 1;
     }
-    if (context.state.videowidth != pFrame->width)
+    if (context.state.videowidth != pFrame.width)
     {
-        context.state.videowidth= pFrame->width;
+        context.state.videowidth= pFrame.width;
         changed = 1;
     }
     context.state.ensure_pixel_buffers(comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) || context.state.logoInfoAvailable);
@@ -181,15 +181,15 @@ int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame   
         debug_message(context, 5, "media_format_changed", context.state.videowidth, context.state.height);
     }
     context.state.infopos = context.state.headerpos;
-    context.state.frame_ptr = pFrame->data[0];
+    context.state.frame_ptr = pFrame.data[0];
     if (context.state.frame_ptr == nullptr)
     {
         return(0);; // return; // comskip::request_exit(2);
     }
 
-    if (pFrame->pict_type == AV_PICTURE_TYPE_B)
+    if (pFrame.pict_type == AV_PICTURE_TYPE_B)
         context.state.pict_type = 'B';
-    else if (pFrame->pict_type == AV_PICTURE_TYPE_I)
+    else if (pFrame.pict_type == AV_PICTURE_TYPE_I)
         context.state.pict_type = 'I';
     else
         context.state.pict_type = 'P';
@@ -495,7 +495,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.pass = 0;
 //                    comskip::request_exit(1);
                 }
-                if (SubmitFrame (context, is.video_st, is.pFrame.get(), is.video_clock))
+                if (SubmitFrame (context, is.video_st, *is.pFrame, is.video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
@@ -522,7 +522,7 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     return comskip::media::VideoPacketOutcome::selftest_complete;
                 }
                 context.state.retries = 0;
-                if (SubmitFrame (context, is.video_st, is.pFrame.get(), is.video_clock))
+                if (SubmitFrame (context, is.video_st, *is.pFrame, is.video_clock))
                 {
                     return comskip::media::VideoPacketOutcome::analysis_complete;
                 }
