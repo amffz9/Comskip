@@ -45,6 +45,7 @@
 #endif
 
 #include <stdint.h>
+#include <ctime>
 #ifdef __cplusplus
 #include "portable_threads.h"
 #endif
@@ -62,3 +63,7 @@ void sleep_for_ms(long milliseconds);
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 void gettimeofday (struct timeval * tp, void * dummy);
 #endif
+
+namespace comskip::platform {
+bool local_time(std::time_t value, std::tm& result) noexcept;
+}

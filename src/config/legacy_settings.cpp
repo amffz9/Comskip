@@ -140,6 +140,7 @@ void LoadIniFile(RecordingContext& context, const comskip::localization::Transla
 FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const comskip::localization::Translator& translator)
 {
     const char* start_timestamp = nullptr;
+    bool has_local_time = false;
     comskip::platform::FilePtr logo_file;
     comskip::platform::FilePtr log_file;
     comskip::platform::FilePtr test_file;
@@ -147,7 +148,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 //	int					play_nice_start = -1;
 //	int					play_nice_end = -1;
     time_t				ltime;
-    struct tm*			now = NULL;
+    struct tm now{};
     int					mil_time;
     struct arg_lit*		cl_playnice				= arg_lit0("n", "playnice", translator.text("option_0"));
     struct arg_lit*		cl_output_zp_cutlist	= arg_lit0(NULL, "zpcut", translator.text("option_1"));
@@ -543,9 +544,9 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
 //	live_tv = true;
 
     time(&ltime);
-    now = localtime(&ltime);
+    has_local_time = comskip::platform::local_time(ltime, now);
     start_timestamp = ctime(&ltime);
-    mil_time = (now->tm_hour * 100) + now->tm_min;
+    mil_time = has_local_time ? (now.tm_hour * 100) + now.tm_min : 0;
     if ((context.settings.play_nice_start > -1) && (context.settings.play_nice_end > -1))
     {
         if (context.settings.play_nice_start > context.settings.play_nice_end)

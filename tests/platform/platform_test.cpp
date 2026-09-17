@@ -1,6 +1,7 @@
 #include "platform.h"
 #include <gtest/gtest.h>
 #include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <string>
 
@@ -34,4 +35,13 @@ TEST(PlatformFiles, RejectsNullPathsWithErrno) {
     EXPECT_EQ(errno, EINVAL);
     EXPECT_EQ(myremove(nullptr), -1);
     EXPECT_EQ(errno, EINVAL);
+}
+
+TEST(PlatformTime, ConvertsCurrentTimeWithoutUsingSharedStorage) {
+    std::tm local{};
+    ASSERT_TRUE(comskip::platform::local_time(std::time(nullptr), local));
+    EXPECT_GE(local.tm_year, 70);
+    EXPECT_LT(local.tm_mon, 12);
+    EXPECT_GE(local.tm_mday, 1);
+    EXPECT_LE(local.tm_mday, 31);
 }

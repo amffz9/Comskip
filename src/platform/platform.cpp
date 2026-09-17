@@ -78,6 +78,17 @@ void sleep_for_ms(long milliseconds)
         std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 
+namespace comskip::platform {
+bool local_time(std::time_t value, std::tm& result) noexcept
+{
+#if defined(_WIN32)
+    return ::localtime_s(&result, &value) == 0;
+#else
+    return ::localtime_r(&value, &result) != nullptr;
+#endif
+}
+}
+
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 void gettimeofday(struct timeval* time, void*)
 {
