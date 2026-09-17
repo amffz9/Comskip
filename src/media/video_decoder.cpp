@@ -50,6 +50,7 @@ using namespace comskip::media;
 #include <cstring>
 #include <filesystem>
 #include <format>
+#include <iostream>
 #include <string_view>
 #include <utility>
 #include "checked_format.h"
@@ -133,21 +134,20 @@ void list_codecs(const comskip::localization::Translator& translator)
         int i = 0;
 //        avcodec_register_all();
         p = av_codec_iterate(&iterator);
-        fputs(translator.text("media_decoders"), stdout);
-        printf("---------\n");
+        std::cout << translator.text("media_decoders") << "---------\n";
         while (p != nullptr) {
             if (av_codec_is_decoder(p)) {
-                printf("%s", p->name);
+                std::cout << p->name;
                 i += static_cast<int>(std::char_traits<char>::length(p->name));
                 if (i > 80) {
-                    printf("\n");
+                    std::cout << '\n';
                     i = 0;
                 } else
-                    printf(", ");
+                    std::cout << ", ";
             }
             p = av_codec_iterate(&iterator);
         }
-        printf("\n");
+        std::cout << '\n';
 }
 
 int SubmitFrame(RecordingContext& context, AVStream        *video_st, AVFrame         *pFrame , double pts)
