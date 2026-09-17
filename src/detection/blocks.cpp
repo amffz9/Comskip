@@ -36,13 +36,13 @@ char *CauseString(RecordingContext& context, int i)
         *c++ = '{';
     else
         *c++ = ' ';
-    *c++ = (i & C_SC		? 'F' : ' ');
-    *c++ = (i & C_AR		? 'A' : ' ');
-    *c++ = (i & C_EXCEEDS	? 'E' : ' ');
-    *c++ = (i & C_LOGO		? 'L' : (i & C_BRIGHT			? 'B': ' '));
-    *c++ = (i & C_COMBINED ? 'C' : ' ');
-    *c++ = (i & C_NONSTRICT? 'N' : ' ');
-    *c++ = (i & C_STRICT	? 'S' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::scene_change)		? 'F' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio)		? 'A' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::exceeds)	? 'E' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::logo)		? 'L' : (i & comskip::detection::cause_value(comskip::detection::BlockCause::bright)			? 'B': ' '));
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::combined) ? 'C' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::non_strict)? 'N' : ' ');
+    *c++ = (i & comskip::detection::cause_value(comskip::detection::BlockCause::strict)	? 'S' : ' ');
     *c++ = (i & C_c			? 'c' : (i & C_t			? 't': ' '));
     *c++ = (i & C_l			? 'l' : (i & C_v			? 'v': ' '));
     *c++ = (i & C_s			? 's' : ' ');
