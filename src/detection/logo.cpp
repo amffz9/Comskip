@@ -1,17 +1,40 @@
 #include "../localization/diagnostic.h"
 #include "exit_requested.h"
-#include "legacy_detection.h"
+#include "app/debug.h"
+#include "app/recording_context.h"
+#include "block_building.h"
+#include "config/legacy_settings.h"
+#include "detection_methods.h"
+#include "detector_runtime.h"
+#include "frame_timestamps.h"
 #include "image_geometry.h"
 #include "logo_sampling.h"
+#include "logo_detection.h"
 #include "logo_geometry.h"
 #include "logo_shrink.h"
 #include "saved_logo.h"
+#include "storage.h"
 #include "platform/file_resources.h"
+#include "platform/platform.h"
+#include <algorithm>
 #include <format>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace {
+constexpr int horizontal_edge_direction = 0;
+constexpr int vertical_edge_direction = 1;
+constexpr int diagonal_1_edge_direction = 2;
+constexpr int diagonal_2_edge_direction = 3;
+constexpr int maximum_saved_logo_width = 2000;
+constexpr int maximum_saved_logo_height = 1200;
+
+double frame_duration(RecordingContext& context, const long end_frame, const long start_frame) {
+    return get_frame_pts(context, static_cast<int>(end_frame)) -
+           get_frame_pts(context, static_cast<int>(start_frame));
+}
+
 comskip::detection::LogoScanGeometry logo_scan(const RecordingContext& context) {
     return comskip::detection::validate_logo_scan(context.state.videowidth,
         context.state.height, context.state.width,
@@ -30,11 +53,11 @@ void LogoDebug(RecordingContext& context, int level, const char* key, Args&&... 
 std::string logo_caption_type(RecordingContext& context, int type) {
     if (!context.state.processCC) return {};
     switch (type) {
-    case NONE: return context.translator.text("caption_type_none");
-    case ROLLUP: return context.translator.text("caption_type_rollup");
-    case PAINTON: return context.translator.text("caption_type_painton");
-    case POPON: return context.translator.text("caption_type_popon");
-    case COMMERCIAL: return context.translator.text("caption_type_commercial");
+    case comskip::detection::caption_type_value(comskip::detection::CaptionType::none): return context.translator.text("caption_type_none");
+    case comskip::detection::caption_type_value(comskip::detection::CaptionType::rollup): return context.translator.text("caption_type_rollup");
+    case comskip::detection::caption_type_value(comskip::detection::CaptionType::painton): return context.translator.text("caption_type_painton");
+    case comskip::detection::caption_type_value(comskip::detection::CaptionType::popon): return context.translator.text("caption_type_popon");
+    case comskip::detection::caption_type_value(comskip::detection::CaptionType::commercial): return context.translator.text("caption_type_commercial");
     default: return std::format("{}", type);
     }
 }
@@ -66,9 +89,9 @@ void PrintLogoFrameGroups(RecordingContext& context)
         LogoDebug(context, 2, "logo_block_row",
             std::format("{:6}", context.state.logo_block[i].start),
             std::format("{:6}", context.state.logo_block[i].end),
-            dblSecondsToStrMinutes(context, F2L(context.state.logo_block[i].end, context.state.logo_block[i].start)),
-            std::format("{:.1f}", F2L(context.state.logo_block[i].start, context.state.cblock[f].f_start)),
-            std::format("{:.1f}", F2L(context.state.cblock[t].f_end, context.state.logo_block[i].end)));
+            dblSecondsToStrMinutes(context, frame_duration(context, context.state.logo_block[i].end, context.state.logo_block[i].start)),
+            std::format("{:.1f}", frame_duration(context, context.state.logo_block[i].start, context.state.cblock[f].f_start)),
+            std::format("{:.1f}", frame_duration(context, context.state.cblock[t].f_end, context.state.logo_block[i].end)));
 
         count += context.state.logo_block[i].end - context.state.logo_block[i].start + 1;
 
@@ -77,8 +100,8 @@ void PrintLogoFrameGroups(RecordingContext& context)
     {
         f = context.state.logo_block[i].end;
         t = context.state.logo_block[i+1].start;
-        if (context.state.max_logo_gap < F2L(t,f))
-            context.state.max_logo_gap = F2L(t,f);
+        if (context.state.max_logo_gap < frame_duration(context, t,f))
+            context.state.max_logo_gap = frame_duration(context, t,f);
         f = FindBlock(context, context.state.logo_block[i].end);
         t = FindBlock(context, context.state.logo_block[i+1].start);
         for (l = f+1; l < t; l++)
@@ -91,15 +114,15 @@ void PrintLogoFrameGroups(RecordingContext& context)
     {
         f = FindBlock(context, context.state.logo_block[i].start);
         t = FindBlock(context, context.state.logo_block[i].end);
-        if (F2L(context.state.logo_block[i].end, context.state.logo_block[i].start) > context.state.max_nonlogo_block_length )
+        if (frame_duration(context, context.state.logo_block[i].end, context.state.logo_block[i].start) > context.state.max_nonlogo_block_length )
         {
-            cl = F2L(context.state.cblock[f].f_end, context.state.logo_block[i].start);
+            cl = frame_duration(context, context.state.cblock[f].f_end, context.state.logo_block[i].start);
             if (cl < context.state.cblock[f].length / 10 )
             {
                 if (cl > context.state.logo_overshoot )
                     context.state.logo_overshoot = cl;
             }
-            cl = F2L(context.state.logo_block[i].end, context.state.cblock[t].f_start);
+            cl = frame_duration(context, context.state.logo_block[i].end, context.state.cblock[t].f_start);
             if (cl < context.state.cblock[t].length / 10 )
             {
                 if (cl > context.state.logo_overshoot)
@@ -117,7 +140,7 @@ void PrintCCBlocks(RecordingContext& context)
 {
     int i, j;
     const auto duration = [&](int end, int start) {
-        return context.settings.fps > 0 ? F2L(end, start) : 0.0;
+        return context.settings.fps > 0 ? frame_duration(context, end, start) : 0.0;
     };
     LogoDebug(context, 2, "logo_combining_cc_blocks");
     for (i = context.state.cc_block_count - 1; i > 0; i--)
@@ -141,7 +164,7 @@ void PrintCCBlocks(RecordingContext& context)
 
     LogoDebug(context, 2, "logo_cc_detected_heading", std::format("{}", context.state.cc_block_count));
     if (context.state.cc_block.empty()) {
-        context.state.most_cc_type = NONE;
+        context.state.most_cc_type = comskip::detection::caption_type_value(comskip::detection::CaptionType::none);
         return;
     }
     LogoDebug(context, 2, "logo_cc_block_row", " 0",
@@ -175,10 +198,10 @@ void PrintCCBlocks(RecordingContext& context)
             std::format("{:6}", context.state.cc_count[type]), std::format("{:5.2f}", percentage),
             dblSecondsToStrMinutes(context, seconds));
     };
-    caption_sum(context.translator.text("logo_caption_popon"), POPON);
-    caption_sum(context.translator.text("logo_caption_rollup"), ROLLUP);
-    caption_sum(context.translator.text("logo_caption_painton"), PAINTON);
-    caption_sum(context.translator.text("logo_caption_none"), NONE);
+    caption_sum(context.translator.text("logo_caption_popon"), comskip::detection::caption_type_value(comskip::detection::CaptionType::popon));
+    caption_sum(context.translator.text("logo_caption_rollup"), comskip::detection::caption_type_value(comskip::detection::CaptionType::rollup));
+    caption_sum(context.translator.text("logo_caption_painton"), comskip::detection::caption_type_value(comskip::detection::CaptionType::painton));
+    caption_sum(context.translator.text("logo_caption_none"), comskip::detection::caption_type_value(comskip::detection::CaptionType::none));
     for (i = 0; i <= 4; i++)
     {
         if (context.state.cc_count[i] > context.state.cc_count[context.state.most_cc_type])
@@ -316,7 +339,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
     }
     for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
     {
-        for (x = max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
+        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
         {
             herePixel = frame_ptr[y * context.state.width + x];
             if (herePixel < min_br[y * context.state.width + x])
@@ -331,7 +354,7 @@ void EdgeDetect(RecordingContext& context, unsigned char* frame_ptr, int maskNum
     memset(vert_edges[maskNumber], 0, context.state.width * context.state.height);
     for (y = (logo_at_bottom ? context.state.height/2 : context.settings.edge_radius + (int)(context.state.height * borderIgnore)); y < (subtitles? context.state.height/2 : (context.state.height - context.settings.edge_radius - (int)(context.state.height * borderIgnore))); y++)
     {
-        for (x = max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
+        for (x = std::max(context.settings.edge_radius + (int)(context.state.width * borderIgnore), minX+AR_DIST); x < std::min((context.state.width - context.settings.edge_radius - (int)(context.state.width * borderIgnore)),maxX-AR_DIST); x++)
         {
             herePixel = frame_ptr[y * context.state.width + x];
             if ((abs(frame_ptr[y * context.state.width + (x - context.settings.edge_radius)] - herePixel) >= context.settings.edge_level_threshold) ||
@@ -517,9 +540,9 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     }
     else if (context.settings.aggressive_logo_rejection == 1)
     {
-        for (y = max(context.state.clogoMinY, scan.minimum_y); y <= min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.clogoMinY, scan.minimum_y); y <= std::min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.clogoMinX, scan.minimum_x); x <= min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.clogoMinX, scan.minimum_x); x <= std::min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
@@ -544,9 +567,9 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     }
     else if (context.settings.aggressive_logo_rejection == 2)
     {
-        for (y = max(context.state.clogoMinY, scan.minimum_y); y <= min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.clogoMinY, scan.minimum_y); y <= std::min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.clogoMinX, scan.minimum_x); x <= min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.clogoMinX, scan.minimum_x); x <= std::min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
@@ -571,9 +594,9 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     }
     else if (context.settings.aggressive_logo_rejection == 3)
     {
-        for (y = max(context.state.clogoMinY, scan.minimum_y); y <= min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.clogoMinY, scan.minimum_y); y <= std::min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.clogoMinX, scan.minimum_x); x <= min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.clogoMinX, scan.minimum_x); x <= std::min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
@@ -598,9 +621,9 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     }
     else if (context.settings.aggressive_logo_rejection == 4)
     {
-        for (y = max(context.state.clogoMinY, scan.minimum_y); y <= min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.clogoMinY, scan.minimum_y); y <= std::min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.clogoMinX, scan.minimum_x); x <= min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.clogoMinX, scan.minimum_x); x <= std::min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index] && testFrame[index] < 200)
@@ -624,9 +647,9 @@ double CheckStationLogoEdge(RecordingContext& context, unsigned char* testFrame)
     }
     else
     {
-        for (y = max(context.state.clogoMinY, scan.minimum_y); y <= min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.clogoMinY, scan.minimum_y); y <= std::min(context.state.clogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.clogoMinX, scan.minimum_x); x <= min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.clogoMinX, scan.minimum_x); x <= std::min(context.state.clogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.choriz_edgemask[index])
@@ -671,9 +694,9 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     context.state.currentGoodEdge = 0.0;
     if (context.settings.aggressive_logo_rejection == 1)
     {
-        for (y = max(context.state.tlogoMinY, scan.minimum_y); y <= min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.tlogoMinY, scan.minimum_y); y <= std::min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.tlogoMinX, scan.minimum_x); x <= min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.tlogoMinX, scan.minimum_x); x <= std::min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
@@ -698,9 +721,9 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     }
     else if (context.settings.aggressive_logo_rejection == 2)
     {
-        for (y = max(context.state.tlogoMinY, scan.minimum_y); y <= min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.tlogoMinY, scan.minimum_y); y <= std::min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.tlogoMinX, scan.minimum_x); x <= min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.tlogoMinX, scan.minimum_x); x <= std::min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
@@ -725,9 +748,9 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     }
     else if (context.settings.aggressive_logo_rejection == 3)
     {
-        for (y = max(context.state.tlogoMinY, scan.minimum_y); y <= min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.tlogoMinY, scan.minimum_y); y <= std::min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.tlogoMinX, scan.minimum_x); x <= min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.tlogoMinX, scan.minimum_x); x <= std::min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
@@ -752,9 +775,9 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     }
     else if (context.settings.aggressive_logo_rejection == 4)
     {
-        for (y = max(context.state.tlogoMinY, scan.minimum_y); y <= min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.tlogoMinY, scan.minimum_y); y <= std::min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.tlogoMinX, scan.minimum_x); x <= min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.tlogoMinX, scan.minimum_x); x <= std::min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index] && testFrame[index] < 200)
@@ -778,9 +801,9 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     }
     else
     {
-        for (y = max(context.state.tlogoMinY, scan.minimum_y); y <= min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
+        for (y = std::max(context.state.tlogoMinY, scan.minimum_y); y <= std::min(context.state.tlogoMaxY, scan.maximum_y); y += context.settings.edge_step)
         {
-            for (x = max(context.state.tlogoMinX, scan.minimum_x); x <= min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
+            for (x = std::max(context.state.tlogoMinX, scan.minimum_x); x <= std::min(context.state.tlogoMaxX, scan.maximum_x); x += context.settings.edge_step)
             {
                 index = y * context.state.width + x;
                 if (context.state.thoriz_edgemask[index])
@@ -887,7 +910,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                 }
                 LogoDebug(context, 3, "logo_block_end", std::format("{}", context.state.logo_block_count),
                     std::format("{}", context.state.logo_block[context.state.logo_block_count].end),
-                    dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].end,
+                    dblSecondsToStrMinutes(context, frame_duration(context, context.state.logo_block[context.state.logo_block_count].end,
                         context.state.logo_block[context.state.logo_block_count].start)));
                 context.state.logo_block_count++;
                 InitializeLogoBlockArray(context,  context.state.logo_block_count);
@@ -928,7 +951,7 @@ bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTe
                 else
                 {
                     LogoDebug(context, 3, "logo_block_start_after_gap",
-                        dblSecondsToStrMinutes(context, F2L(context.state.logo_block[context.state.logo_block_count].start, context.state.logo_block[context.state.logo_block_count - 1].end)),
+                        dblSecondsToStrMinutes(context, frame_duration(context, context.state.logo_block[context.state.logo_block_count].start, context.state.logo_block[context.state.logo_block_count - 1].end)),
                         std::format("{}", context.state.logo_block_count),
                         std::format("{}", context.state.logo_block[context.state.logo_block_count].start));
                 }
@@ -980,7 +1003,9 @@ void FillLogoBuffer(RecordingContext& context)
         if (context.state.logoFrameNum[i]  && context.state.logoFrameNum[i] < context.state.logoFrameNum[context.state.oldestLogoBuffer]) context.state.oldestLogoBuffer = i;
     }
 
-    i = min((unsigned int)context.state.logoFrameBufferSize, context.state.width * context.state.height * sizeof(context.state.frame_ptr[0]));
+    i = static_cast<int>(std::min(
+        static_cast<std::size_t>(context.state.logoFrameBufferSize),
+        static_cast<std::size_t>(context.state.width) * context.state.height * sizeof(context.state.frame_ptr[0])));
     memcpy(context.state.logoFrameBuffer[context.state.newestLogoBuffer].data(), context.state.frame_ptr, i);
 
 //	for (y = 0; y < height; y++) {
@@ -1087,9 +1112,9 @@ bool SearchForLogoEdges(RecordingContext& context)
     memset(context.state.thoriz_edgemask.data(), 0, context.state.width * context.state.height);
     memset(context.state.tvert_edgemask.data(), 0, context.state.width * context.state.height);
 //	minY = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore));
-//	if (framearray) minY = max(minY, frame[frame_count].minY);
+//	if (framearray) minY = std::max(minY, frame[frame_count].minY);
 //	maxY = (subtitles? height/2 : height - edge_radius - (int)(height * borderIgnore));
-//	if (framearray) maxY = min(maxY, frame[frame_count].maxY);
+//	if (framearray) maxY = std::min(maxY, frame[frame_count].maxY);
 
     for (const auto x : scan.columns)
     {
@@ -1278,7 +1303,7 @@ bool SearchForLogoEdges(RecordingContext& context)
     if (!context.state.logoInfoAvailable && context.settings.startOverAfterLogoInfoAvail && (context.state.framenum_real > (int)(context.settings.giveUpOnLogoSearch * context.settings.fps)))
     {
         Debug(context, 1, "%s", context.translator.format("detection_no_logo", context.state.framenum_real).c_str());
-        context.settings.commDetectMethod -= LOGO;
+        comskip::detection::disable_method(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo);
     }
     if (context.settings.added_recording > 0)
         context.settings.giveUpOnLogoSearch += context.settings.added_recording * 60;
@@ -1324,26 +1349,26 @@ int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned c
 
                 for (offset = context.settings.edge_step; offset < (int) (MAX_SEARCH_FRACTION * context.state.width); offset += context.settings.edge_step)
                 {
-                    iy = min(y+offset,context.state.height-1);
-                    for (ix= max(x-offset,0); ix <= min(x+offset, context.state.width-1); ix += context.settings.edge_step)
+                    iy = std::min(y+offset,context.state.height-1);
+                    for (ix= std::max(x-offset,0); ix <= std::min(x+offset, context.state.width-1); ix += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
 
-                    iy = max(y-offset,0);
-                    for (ix= max(x-offset,0); ix <= min(x+offset, context.state.width-1); ix += context.settings.edge_step)
+                    iy = std::max(y-offset,0);
+                    for (ix= std::max(x-offset,0); ix <= std::min(x+offset, context.state.width-1); ix += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
 
-                    ix = min(x+offset, context.state.width-1);
-                    for (iy= max(y-offset+context.settings.edge_step,0); iy <=  min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
+                    ix = std::min(x+offset, context.state.width-1);
+                    for (iy= std::max(y-offset+context.settings.edge_step,0); iy <=  std::min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
 
-                    ix = max(x-offset,0);
-                    for (iy= max(y-offset+context.settings.edge_step,0); iy <=  min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
+                    ix = std::max(x-offset,0);
+                    for (iy= std::max(y-offset+context.settings.edge_step,0); iy <=  std::min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
 //							goto found;
                             count++;
@@ -1403,9 +1428,9 @@ int CountEdgePixels(RecordingContext& context)
     int count = 0;
     int hcount = 0;
     int vcount = 0;
-    for (y = max(context.state.tlogoMinY, scan.minimum_y); y <= min(context.state.tlogoMaxY, scan.maximum_y); y++)
+    for (y = std::max(context.state.tlogoMinY, scan.minimum_y); y <= std::min(context.state.tlogoMaxY, scan.maximum_y); y++)
     {
-        for (x = max(context.state.tlogoMinX, scan.minimum_x); x <= min(context.state.tlogoMaxX, scan.maximum_x); x++)
+        for (x = std::max(context.state.tlogoMinX, scan.minimum_x); x <= std::min(context.state.tlogoMaxX, scan.maximum_x); x++)
         {
             if (context.state.thoriz_edgemask[y * context.state.width + x]) hcount++;
             if (context.state.tvert_edgemask[y * context.state.width + x]) vcount++;
@@ -1423,22 +1448,23 @@ void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int directio
 {
     int x;
     int y;
-    char outbuf[MAXWIDTH+1];
+    std::vector<char> outbuf(static_cast<std::size_t>(
+        std::max(0, context.state.clogoMaxX - context.state.clogoMinX + 1)) + 1);
     switch (direction)
     {
-    case HORIZ:
+    case horizontal_edge_direction:
         LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_horizontal"));
         break;
 
-    case VERT:
+    case vertical_edge_direction:
         LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_vertical"));
         break;
 
-    case DIAG1:
+    case diagonal_1_edge_direction:
         LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_diagonal_1"));
         break;
 
-    case DIAG2:
+    case diagonal_2_edge_direction:
         LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_diagonal_2"));
         break;
     }
@@ -1448,7 +1474,7 @@ void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int directio
         outbuf[x-context.state.clogoMinX] = '0'+ (x % 10);
     }
     outbuf[x-context.state.clogoMinX] = 0;
-    Debug(context, 1, "%s\n",outbuf);
+    Debug(context, 1, "%s\n",outbuf.data());
 
 
     Debug(context, 1, "\n");
@@ -1469,7 +1495,7 @@ void DumpEdgeMask(RecordingContext& context, unsigned char* buffer, int directio
             }
         }
         outbuf[x-context.state.clogoMinX] = 0;
-        Debug(context, 1, "%s\n",outbuf);
+        Debug(context, 1, "%s\n",outbuf.data());
 
     }
 }
@@ -1478,14 +1504,15 @@ void DumpEdgeMasks(RecordingContext& context)
 {
     int x;
     int y;
-    char outbuf[MAXWIDTH+1];
+    std::vector<char> outbuf(static_cast<std::size_t>(
+        std::max(0, context.state.clogoMaxX - context.state.clogoMinX + 1)) + 1);
 
     for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
     {
         outbuf[x-context.state.clogoMinX] = '0'+ (x % 10);
     }
     outbuf[x-context.state.clogoMinX] = 0;
-    Debug(context, 1, "%s\n",outbuf);
+    Debug(context, 1, "%s\n",outbuf.data());
 
     for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
     {
@@ -1510,7 +1537,7 @@ void DumpEdgeMasks(RecordingContext& context)
             }
         }
         outbuf[x-context.state.clogoMinX] = 0;
-        Debug(context, 1, "%s\n",outbuf);
+        Debug(context, 1, "%s\n",outbuf.data());
     }
 }
 
@@ -1650,7 +1677,7 @@ void LoadLogoMaskData(RecordingContext& context)
          context.state.clogoMinY, context.state.clogoMaxY},
         {context.settings.edge_radius, context.settings.edge_step, context.settings.border,
          context.settings.logo_at_side != 0, context.settings.logo_at_bottom != 0, context.settings.subtitles != 0},
-        MAXWIDTH, MAXHEIGHT);
+        maximum_saved_logo_width, maximum_saved_logo_height);
     auto* closing_logo=logo_file.release();
     if (std::fclose(closing_logo)!=0)
         throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
