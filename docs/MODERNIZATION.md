@@ -650,7 +650,7 @@ than redefine completion around whichever subset currently passes tests.
   remains deferred to the final implementation stage.
 
 - The current Windows branch passes the complete headless CTest target
-  **512/512** and the SDL/GUI target **517/517** with dummy video and audio
+  **513/513** and the SDL/GUI target **517/517** with dummy video and audio
   drivers. These runs include generated-media, localization, subtitle,
   output, repeated-analysis, and resource-cleanup tests. Linux, sanitizer,
   and macOS execution remain separate verification work.
@@ -659,10 +659,16 @@ than redefine completion around whichever subset currently passes tests.
   unqualified `min`/`max` helpers. Timing and startup logs use checked writes,
   and startup time conversion uses thread-safe platform primitives. Focused
   platform tests pass **3/3**; the complete Windows headless and SDL suites
-  pass **512/512** and **517/517**. Linux, sanitizer, and macOS execution
+  pass **513/513** and **517/517**. Linux, sanitizer, and macOS execution
   remain separate verification work.
 
 - Scene, logo, and AC3 buffers now use typed C++ algorithms for non-overlapping
   copies and clearing, and optional logo deletion uses RAII. Caption dictionary
   parsing normalizes CRLF entries with a regression test. The complete Windows
-  headless and SDL suites remain green at **512/512** and **517/517**.
+  headless and SDL suites remain green at **513/513** and **517/517**.
+
+- The obsolete `WRITEPATTERN` training branch was removed, leaving one checked
+  training serializer. Startup and footer timestamps now return owned strings
+  through `ctime_s`/`ctime_r`, with platform tests covering both conversion and
+  formatting. The complete Windows suites pass **513/513** headless and
+  **517/517** with SDL dummy drivers.

@@ -1444,7 +1444,7 @@ before calling FFmpeg seek APIs.
   `localtime_r` elsewhere, with a focused test for the value-owned result.
 - **Verification:** The platform time/file tests pass 3/3; focused settings,
   diagnostic, and in-process tests pass 61/61; complete Windows headless and
-  SDL suites pass 512/512 and 517/517. Linux verification remains pending.
+  SDL suites pass 513/513 and 517/517. Linux verification remains pending.
 
 ### B115: Windows caption dictionaries retain carriage returns
 
