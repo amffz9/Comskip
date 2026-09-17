@@ -252,10 +252,6 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     if (argc <= 1)
     {
 
-#ifdef COMSKIPGUI
-//			output_debugwindow = true;
-#endif
-
         if (comskip::ui::gui_executable(argv[0]))
             context.settings.output_debugwindow = true;
         if (context.settings.output_debugwindow)
@@ -590,10 +586,6 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
         context.state.output_console = false;
     }
 
-
-#ifdef COMSKIPGUI
-//		output_debugwindow = true;
-#endif
 
     if (comskip::ui::gui_executable(argv[0]))
         context.settings.output_debugwindow = true;
