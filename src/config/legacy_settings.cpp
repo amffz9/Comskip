@@ -36,7 +36,7 @@ namespace {
 using comskip::platform::path_from_utf8;
 using comskip::platform::path_to_utf8;
 using comskip::detection::DetectionMethod;
-void print_argument_errors(FILE* output, const struct arg_end& errors,
+void print_argument_errors(FILE& output, const struct arg_end& errors,
                            const comskip::localization::Translator& translator) {
     // Argtable remains responsible for parsing and validation. Its public error
     // records supply the untranslated option/value; catalogs supply UI text.
@@ -45,20 +45,20 @@ void print_argument_errors(FILE* output, const struct arg_end& errors,
         const std::string_view value = errors.argval[i] ? errors.argval[i] : "";
         if (header.flag & ARG_TERMINATOR) {
             switch (errors.error[i]) {
-            case ARG_ELIMIT: fputs(translator.text("cli_too_many_errors"), output); break;
-            case ARG_EMALLOC: fputs(translator.format("cli_insufficient_memory", "Comskip").c_str(), output); break;
-            case ARG_ENOMATCH: fputs(translator.format("cli_unexpected_argument", value).c_str(), output); break;
-            case ARG_EMISSARG: fputs(translator.format("cli_missing_value", value).c_str(), output); break;
-            case ARG_ELONGOPT: fputs(translator.format("cli_invalid_option", value).c_str(), output); break;
+            case ARG_ELIMIT: fputs(translator.text("cli_too_many_errors"), &output); break;
+            case ARG_EMALLOC: fputs(translator.format("cli_insufficient_memory", "Comskip").c_str(), &output); break;
+            case ARG_ENOMATCH: fputs(translator.format("cli_unexpected_argument", value).c_str(), &output); break;
+            case ARG_EMISSARG: fputs(translator.format("cli_missing_value", value).c_str(), &output); break;
+            case ARG_ELONGOPT: fputs(translator.format("cli_invalid_option", value).c_str(), &output); break;
             default:
                 fputs(translator.format("cli_invalid_option",
-                      std::string("-") + static_cast<char>(errors.error[i])).c_str(), output);
+                      std::string("-") + static_cast<char>(errors.error[i])).c_str(), &output);
             }
         } else {
             const std::string option = header.longopts ? std::string("--") + header.longopts :
                 header.shortopts ? std::string("-") + header.shortopts :
                 header.glossary ? header.glossary : "";
-            fputs(translator.format("cli_invalid_argument", option, value).c_str(), output);
+            fputs(translator.format("cli_invalid_argument", option, value).c_str(), &output);
         }
     }
 }
@@ -320,7 +320,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         fputs(translator.format("method_cutscenes", static_cast<int>(DetectionMethod::cutscene)).c_str(), stdout);
         fputs(translator.text("all_methods"), stdout);
         fputs(translator.text("errors"), stdout);
-        print_argument_errors(stdout, *end, translator);
+        print_argument_errors(*stdout, *end, translator);
         comskip::request_exit(2);
     }
 
