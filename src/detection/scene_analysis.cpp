@@ -375,7 +375,7 @@ void ScanBottom(RecordingContext& context, intptr_t arg)
     int     max_delta;
     int		hereBright;
     int		brightCount;
-    int     w = (int) arg;
+    static_cast<void>(arg);
     brightCount = 0;
     max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     delta = 0;
@@ -413,7 +413,7 @@ void ScanTop(RecordingContext& context, intptr_t arg)
     int     max_delta;
     int		hereBright;
     int		brightCount;
-    int     w = (int) arg;
+    static_cast<void>(arg);
 
     max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     brightCount = 0;
@@ -452,7 +452,7 @@ void ScanLeft(RecordingContext& context, intptr_t arg)
     int     max_delta;
     int		hereBright;
     int		brightCount;
-    int     w = (int) arg;
+    static_cast<void>(arg);
 
     max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     brightCount = 0;
@@ -491,7 +491,7 @@ void ScanRight(RecordingContext& context, intptr_t arg)
     int     max_delta;
     int		hereBright;
     int		brightCount;
-    int     w = (int) arg;
+    static_cast<void>(arg);
 
     max_delta =  std::min(context.state.videowidth, context.state.height)/2 - context.settings.border;
     brightCount = 0;

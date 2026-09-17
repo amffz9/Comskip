@@ -1380,11 +1380,12 @@ int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned c
             count = 0;
             if (temp[y * context.state.width + x] == 1)
             {
+                bool found = false;
                 if (test[y * context.state.width + x] == 1)
 //					goto found;
                     count++;
 
-                for (offset = context.settings.edge_step; offset < static_cast<int>(maximum_edge_search_fraction * context.state.width); offset += context.settings.edge_step)
+                for (offset = context.settings.edge_step; !found && offset < static_cast<int>(maximum_edge_search_fraction * context.state.width); offset += context.settings.edge_step)
                 {
                     iy = std::min(y+offset,context.state.height-1);
                     for (ix= std::max(x-offset,0); ix <= std::min(x+offset, context.state.width-1); ix += context.settings.edge_step)
@@ -1410,12 +1411,15 @@ int ClearEdgeMaskArea(RecordingContext& context, unsigned char* temp, unsigned c
 //							goto found;
                             count++;
                     if (count >= context.settings.edge_weight)
-                        goto found;
+                    {
+                        found = true;
+                        break;
+                    }
                 }
-                temp[y * context.state.width + x] = 0;
-                continue;
-found:
-                valid++;
+                if (found)
+                    ++valid;
+                else
+                    temp[y * context.state.width + x] = 0;
             }
         }
     }
