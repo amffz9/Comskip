@@ -15,12 +15,7 @@ extern "C" {
 
 namespace comskip::media {
 namespace {
-struct OutputDeleter {
-    void operator()(AVFormatContext* value) const noexcept {
-        if (value) { if (value->pb) avio_closep(&value->pb); avformat_free_context(value); }
-    }
-};
-using OutputPtr = std::unique_ptr<AVFormatContext, OutputDeleter>;
+using OutputPtr = OutputFormatPtr;
 std::string utf8(const std::filesystem::path& path) {
     auto value = path.u8string();
     return {reinterpret_cast<const char*>(value.data()), value.size()};

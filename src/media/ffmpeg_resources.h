@@ -33,6 +33,13 @@ struct PacketDeleter { void operator()(AVPacket* value) const noexcept { av_pack
 struct CodecDeleter { void operator()(AVCodecContext* value) const noexcept { avcodec_free_context(&value); } };
 struct CodecParametersDeleter { void operator()(AVCodecParameters* value) const noexcept { avcodec_parameters_free(&value); } };
 struct InputDeleter { void operator()(AVFormatContext* value) const noexcept { avformat_close_input(&value); } };
+struct OutputFormatDeleter {
+    void operator()(AVFormatContext* value) const noexcept {
+        if (!value) return;
+        if (value->pb) avio_closep(&value->pb);
+        avformat_free_context(value);
+    }
+};
 struct DictionaryDeleter { void operator()(AVDictionary* value) const noexcept { av_dict_free(&value); } };
 struct ScalerDeleter { void operator()(SwsContext* value) const noexcept { sws_freeContext(value); } };
 struct ResamplerDeleter { void operator()(SwrContext* value) const noexcept { swr_free(&value); } };
@@ -48,6 +55,7 @@ using PacketPtr = std::unique_ptr<AVPacket, PacketDeleter>;
 using CodecPtr = std::unique_ptr<AVCodecContext, CodecDeleter>;
 using CodecParametersPtr = std::unique_ptr<AVCodecParameters, CodecParametersDeleter>;
 using InputPtr = std::unique_ptr<AVFormatContext, InputDeleter>;
+using OutputFormatPtr = std::unique_ptr<AVFormatContext, OutputFormatDeleter>;
 using DictionaryPtr = std::unique_ptr<AVDictionary, DictionaryDeleter>;
 using ScalerPtr = std::unique_ptr<SwsContext, ScalerDeleter>;
 using ResamplerPtr = std::unique_ptr<SwrContext, ResamplerDeleter>;

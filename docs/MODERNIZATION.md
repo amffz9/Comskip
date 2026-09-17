@@ -835,3 +835,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Histogram headings and frame-output status text now use the same catalog
   boundary; the localization regression remains green.
+
+- Subtitle output now uses the shared `OutputFormatPtr` FFmpeg owner for
+  `AVFormatContext` and `AVIOContext` cleanup. Focused subtitle output tests
+  pass **7/7**.
