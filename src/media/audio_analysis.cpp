@@ -121,7 +121,7 @@ void backfill_frame_volumes(RecordingContext& context)
     if (context.state.framenum < 3)
         return;
     f = context.state.framenum-2;
-    if (fabs(local_initial_pts) > 200)
+    if (std::fabs(local_initial_pts) > 200)
         local_initial_pts = 0;
     while (get_frame_pts(context, f) + local_initial_pts > context.state.base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
@@ -186,7 +186,7 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
     // make a previously consumed video interval appear available again.
     const double timestamp_precision = std::max(
         av_q2d(is->audio_st->time_base), 1.0 / context.state.sound_to_frames_old_sample_rate);
-    if (context.state.audio_samples == 0 || fabs(context.state.top_apts - is->audio_clock) > timestamp_precision * 1.1)
+    if (context.state.audio_samples == 0 || std::fabs(context.state.top_apts - is->audio_clock) > timestamp_precision * 1.1)
         context.state.base_apts = is->audio_clock -
             static_cast<double>(context.state.audio_samples) / is->audio_st->codecpar->sample_rate;
         if (context.settings.ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
@@ -198,7 +198,7 @@ void sound_to_frames(RecordingContext& context, VideoState *is, const AVFrame& f
                         )
                         old_base_apts = context.state.base_apts; // Ignore AC3 packet jitter
             }
-    if (old_base_apts != 0.0 && (fabs(context.state.base_apts - old_base_apts)>0.01)) {
+    if (old_base_apts != 0.0 && (std::fabs(context.state.base_apts - old_base_apts)>0.01)) {
         audio_debug(context, 8, "media_audio_base_pts_jump",
                     std::format("{:6.5f}", old_base_apts),
                     std::format("{:6.5f}", context.state.base_apts),
@@ -356,8 +356,8 @@ void audio_packet_process(RecordingContext& context, VideoState *is, AVPacket *p
                         prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
             }
 
-        if ( context.state.initial_apts_set && is->audio_clock != 0.0 && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
-            if (context.state.do_audio_repair && fabs( is->audio_clock - prev_audio_clock) < 1) {
+        if ( context.state.initial_apts_set && is->audio_clock != 0.0 && std::fabs( is->audio_clock - prev_audio_clock) > 0.02) {
+            if (context.state.do_audio_repair && std::fabs( is->audio_clock - prev_audio_clock) < 1) {
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {

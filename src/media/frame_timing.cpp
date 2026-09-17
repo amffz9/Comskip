@@ -21,7 +21,7 @@ void set_fps(RecordingContext& context, double fp)
  #ifdef notused
 
     static int fps_correction_count = 0;
-    if (fabs(old_fps-new_fps) > 0.01 /* && showed_fps++ < 4 */ ) {
+    if (std::fabs(old_fps-new_fps) > 0.01 /* && showed_fps++ < 4 */ ) {
         if (fps_correction_count++ > 4 || old_fps == 1) {
             fps = new_fps;
             if (fps != old_fps)
@@ -29,17 +29,17 @@ void set_fps(RecordingContext& context, double fp)
             Debug(context, 1, "%s", context.translator.format("media_frame_rate_set", std::format("{:5.3f}", fps)).c_str());
             if (ticks > 1)
                 Debug(context, 1, "%s", context.translator.format("media_repeats_per_frame", ticks).c_str());
-            if ((fabs(fps - dfps) > 0.1)) {
+            if ((std::fabs(fps - dfps) > 0.1)) {
                 Debug(context, 1, "%s", context.translator.format("media_dfps", ticks, std::format("{:5.3f}", dfps)).c_str());
             }
-            if (fabs(fps - rfps) > 0.1) {
+            if (std::fabs(fps - rfps) > 0.1) {
                 Debug(context, 1, "%s", context.translator.format("media_rfps", ticks, std::format("{:5.3f}", rfps)).c_str());
             }
-            if (fabs(fps - afps) > 0.1) {
+            if (std::fabs(fps - afps) > 0.1) {
                 Debug(context, 1, "%s", context.translator.format("media_afps", ticks, std::format("{:5.3f}", afps)).c_str());
             }
 #endif
-            if ( new_fps > 9.0 && new_fps < 150 && fabs(new_fps - context.settings.fps) > 1. )
+            if ( new_fps > 9.0 && new_fps < 150 && std::fabs(new_fps - context.settings.fps) > 1. )
             {
                 context.settings.fps = new_fps;
                 Debug(context, 1, "%s", context.translator.format("media_frame_rate_set", std::format("{:5.3f}", context.settings.fps)).c_str());

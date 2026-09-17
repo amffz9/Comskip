@@ -531,8 +531,8 @@ bool BuildMasterCommList(RecordingContext& context)
 
 
     length = frame_duration(context, context.state.frame_count-1, 1);
-    if (fabs( length - (context.state.frame_count -1)/context.settings.fps) > 0.5) {
-        if (fabs(context.state.avg_fps - context.settings.fps)> 1)
+    if (std::fabs( length - (context.state.frame_count -1)/context.settings.fps) > 0.5) {
+        if (std::fabs(context.state.avg_fps - context.settings.fps)> 1)
             Debug(context, 1, "%s", context.translator.format("detection_framerate_warning",
                 std::format("{:6.3f}", context.state.avg_fps), std::format("{:6.3f}", context.settings.fps)).c_str());
         Debug(context, 1, "%s", context.translator.text("detection_timeline_warning"));
@@ -784,7 +784,7 @@ bool BuildMasterCommList(RecordingContext& context)
                 if (loadingCSV) {
                     prev_logo_threshold = logo_threshold-1.0;
                     FindLogoThreshold();
-                    if (fabs(logo_threshold - prev_logo_threshold) > 0.4) {
+                    if (std::fabs(logo_threshold - prev_logo_threshold) > 0.4) {
                         Debug(2,"Changed logo_threshold to %.2f, recalculating logo timeline\n", logo_threshold);
                         InitProcessLogoTest();
                         for (i = 1; i < frame_count; i++) {

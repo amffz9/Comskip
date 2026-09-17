@@ -190,7 +190,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                 if (context.state.video_owner->seek_req < 6 &&
                     (context.state.video_owner->seek_flags & AVSEEK_FLAG_BYTE) &&
                     context.state.video_owner->duration > 0 && byte_input_size && *byte_input_size > 0 &&
-                    fabs(packet_time - (context.state.video_owner->seek_pts - 2.5)) <
+                    std::fabs(packet_time - (context.state.video_owner->seek_pts - 2.5)) <
                         context.state.video_owner->duration / (10 * context.state.video_owner->seek_req))
                 {
                     context.state.video_owner->seek_pos +=
@@ -258,7 +258,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                             }
                             analysis_debug(context, 1, "analysis_selftest_reopen",
                                            context.state.selftest);
-                            context.state.selftest_target = fmax(context.state.selftest_target,0.5);
+                            context.state.selftest_target = std::fmax(context.state.selftest_target,0.5);
                             context.settings.live_tv = 1;
                             context.settings.live_tv_retries = 2;
 
@@ -351,7 +351,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             if (context.state.selftest == 1 && context.state.pass == 0 && context.state.video_owner->seek_req == 0 && context.state.framenum == 50) //Seek test
             {
                 if (context.state.video_owner->duration > 2) {
-                    context.state.selftest_target = fmin(450.0, context.state.video_owner->duration - 2);
+                    context.state.selftest_target = std::fmin(450.0, context.state.video_owner->duration - 2);
                 } else {
                     context.state.selftest_target = 1.0;
                 }

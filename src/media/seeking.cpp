@@ -77,7 +77,7 @@ void Set_seek(RecordingContext& context, VideoState *is, double pts)
             if (!fallback) failed();
             length=*fallback;
         }
-        const auto position=comskip::media::byte_seek_position(*size,length,fmax(0.0,pts-4.0));
+        const auto position=comskip::media::byte_seek_position(*size,length,std::fmax(0.0,pts-4.0));
         if (!position) failed();
         is->seek_pos=*position;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
@@ -193,7 +193,7 @@ void DecodeOnePicture(RecordingContext& context, FILE * f, double pts)
                 av_packet_unref(packet);
                 continue;
             }
-            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
+            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && std::fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
                 if (const auto size=comskip::media::input_size(is->pFormatCtx.get(), [](AVIOContext* input) {
                         return avio_size(input);
                     })) {

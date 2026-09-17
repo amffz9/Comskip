@@ -52,7 +52,7 @@ void CalculateCorrelation()
         min_weight = length;
         for (j = 0; j < block_count; j++) {
             if (i != j) {
-                distance = fabs(pivot - ((double)(cblock[j].f_start+cblock[j].f_end)/(2*frame_count)));
+                distance = std::fabs(pivot - ((double)(cblock[j].f_start+cblock[j].f_end)/(2*frame_count)));
                 weight = ((double)(cblock[j].f_end - cblock[j].f_start)/frame_count);
                 if (min_weight > weight)
                     min_weight = weight;
@@ -203,7 +203,7 @@ void WeighBlocks(RecordingContext& context)
     {
         if (comskip::detection::cut_cause(context.state.cblock[i].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio})  && comskip::detection::cut_cause(context.state.cblock[i+1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio})  &&
                 context.state.cblock[i+1].length < 3.0 &&
-                fabs(context.state.cblock[i].ar_ratio - context.state.cblock[i+2].ar_ratio) < context.settings.ar_delta
+                std::fabs(context.state.cblock[i].ar_ratio - context.state.cblock[i+2].ar_ratio) < context.settings.ar_delta
            )
         {
             scoring_debug(context, 2, "scoring_delete_short_same_ar", std::format("{}", i + 1),
