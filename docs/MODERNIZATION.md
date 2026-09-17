@@ -864,3 +864,7 @@ than redefine completion around whichever subset currently passes tests.
 
 - Localized debug helper message IDs now use `std::string_view` consistently,
   keeping catalog identifiers independent of null-terminated storage.
+
+- Commercial profile parsing now uses `std::string_view` for INI keys and
+  explicitly owns diagnostic arguments. Focused settings/profile tests pass
+  **4/4**, and the complete Windows headless suite passes **517/517**.
