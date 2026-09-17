@@ -65,9 +65,9 @@ void print_argument_errors(FILE* output, const struct arg_end& errors,
 char* intSecondsToStrMinutes(RecordingContext& context, int seconds)
 {
     int minutes, hours;
-    hours = (int)(seconds / 3600);
+    hours = static_cast<int>(seconds / 3600);
     seconds -= hours * 60 * 60;
-    minutes = (int)(seconds / 60);
+    minutes = static_cast<int>(seconds / 60);
     seconds -= minutes * 60;
     comskip::checked_format(context.state.tempString, "%i:%.2i:%.2i", hours, minutes, seconds);
     return (context.state.tempString);
@@ -76,11 +76,13 @@ char* intSecondsToStrMinutes(RecordingContext& context, int seconds)
 char* dblSecondsToStrMinutes(RecordingContext& context, double seconds)
 {
     int minutes, hours;
-    hours = (int)(seconds / 3600);
+    hours = static_cast<int>(seconds / 3600);
     seconds -= hours * 60 * 60;
-    minutes = (int)(seconds / 60);
+    minutes = static_cast<int>(seconds / 60);
     seconds -= minutes * 60;
-    comskip::checked_format(context.state.tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)((seconds - (int)(seconds))*100) );
+    const auto whole_seconds = static_cast<int>(seconds);
+    const auto hundredths = static_cast<int>((seconds - whole_seconds) * 100);
+    comskip::checked_format(context.state.tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, whole_seconds, hundredths);
 
     return (context.state.tempString);
 }
@@ -88,11 +90,14 @@ char* dblSecondsToStrMinutes(RecordingContext& context, double seconds)
 char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds)
 {
     int minutes, hours;
-    hours = (int)(seconds / 3600);
+    hours = static_cast<int>(seconds / 3600);
     seconds -= hours * 60 * 60;
-    minutes = (int)(seconds / 60);
+    minutes = static_cast<int>(seconds / 60);
     seconds -= minutes * 60;
-    comskip::checked_format(context.state.tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)(((int)((seconds - (int)(seconds))*100.0)) * context.settings.fps / 100.0));
+    const auto whole_seconds = static_cast<int>(seconds);
+    const auto hundredths = static_cast<int>((seconds - whole_seconds) * 100.0);
+    const auto frames = static_cast<int>(hundredths * context.settings.fps / 100.0);
+    comskip::checked_format(context.state.tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, whole_seconds, frames);
 
     return (context.state.tempString);
 }
