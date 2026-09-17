@@ -344,7 +344,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     else if (strcmp(in->extension[0], ".csv") == 0)
     {
         context.state.loadingCSV = true;
-        context.state.in_file.reset(myfopen(in->filename[0], "r"));
+        context.state.in_file.reset(comskip::platform::open_file(in->filename[0], "r"));
         fputs(translator.format("array_open", in->filename[0]).c_str(), stdout);
         if (!context.state.in_file.get())
         {
@@ -403,7 +403,7 @@ FILE* LoadSettings(RecordingContext& context, int argc, char ** argv, const coms
     {
         context.state.loadingTXT = true;
         context.settings.output_default = false;
-        context.state.in_file.reset(myfopen(in->filename[0], "r"));
+        context.state.in_file.reset(comskip::platform::open_file(in->filename[0], "r"));
         fputs(translator.format("review_open", in->filename[0]).c_str(), stdout);
         if (!context.state.in_file.get())
         {

@@ -179,7 +179,7 @@ int FindBlackThreshold(RecordingContext& context, double percentile)
             comskip::diagnostics::Code::invalid_histogram_report);
 
     if (context.settings.output_training) {
-        auto training = comskip::platform::own_file(myfopen("black.csv", "a+"));
+        auto training = comskip::platform::own_file(comskip::platform::open_file("black.csv", "a+"));
         if (training) {
             comskip::output::checked_fprintf(*training, "black.csv", "%s",
                 comskip::output::csv_field(context.state.inbasename).c_str());
@@ -223,7 +223,7 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
             comskip::diagnostics::Code::invalid_histogram_report);
 
     if (context.settings.output_training) {
-        auto training = comskip::platform::own_file(myfopen("uniform.csv", "a+"));
+        auto training = comskip::platform::own_file(comskip::platform::open_file("uniform.csv", "a+"));
         if (training) {
             comskip::output::checked_fprintf(*training, "uniform.csv", "%s",
                 comskip::output::csv_field(context.state.inbasename).c_str());
@@ -394,7 +394,7 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
     const auto commercials = intervals(context.state.commercial, context.state.commercial_count);
     const auto events = comskip::detection::compare_reference_intervals(references, commercials);
     const auto append_quality = [](const auto&... values) {
-        auto quality = comskip::platform::own_file(myfopen("quality.csv", "a+"));
+        auto quality = comskip::platform::own_file(comskip::platform::open_file("quality.csv", "a+"));
         if (!quality) return;
         comskip::output::checked_fprintf(*quality, "quality.csv",
                                          "%s, %6ld, %6.1f, %6.1f, %6.1f\n", values...);
