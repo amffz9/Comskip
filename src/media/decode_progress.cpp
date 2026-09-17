@@ -5,11 +5,11 @@
 #include <cstdio>
 #include <thread>
 
-double print_decode_progress(RecordingContext& context, int final) {
+double print_decode_progress(RecordingContext& context, comskip::media::DecodeProgressMode mode) {
     auto& progress = context.state.decode_progress;
     if (context.state.decoder_verbose || context.state.csStepping) return 0;
-    if (final < 0) { progress.reset(); return 0; }
-    if (final) {
+    if (mode == comskip::media::DecodeProgressMode::reset) { progress.reset(); return 0; }
+    if (mode == comskip::media::DecodeProgressMode::finalize) {
         const auto summary = progress.snapshot();
         fputs(context.translator.format("media_decoded_summary", summary.frames,
             std::format("{:.2f}", summary.elapsed.count()),

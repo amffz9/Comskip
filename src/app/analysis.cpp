@@ -402,7 +402,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             context.captions.reset();
         }
 
-        tfps = print_decode_progress (context, 1);
+        tfps = print_decode_progress (context, comskip::media::DecodeProgressMode::finalize);
 
         analysis_debug(context, 10, "analysis_parsed_frames", context.state.framenum,
                        context.state.sound_frame_counter, std::format("{:8.2f}", tfps));

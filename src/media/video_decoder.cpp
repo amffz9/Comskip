@@ -212,7 +212,7 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
     if (!context.state.reviewing)
     {
 
-        print_decode_progress (context, 0);
+        print_decode_progress (context, comskip::media::DecodeProgressMode::observe);
         res = DetectCommercials(context, static_cast<int>(context.state.framenum), pts);
         context.state.framenum++;
     if (context.state.selftest == 2 && context.state.pass == 0 && context.state.framenum > 20) //Reset input file

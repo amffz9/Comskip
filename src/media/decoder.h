@@ -10,12 +10,13 @@ struct AVPacket;
 namespace comskip::localization { class Translator; }
 
 namespace comskip::media { enum class StreamOpenResult { opened, unavailable }; }
+namespace comskip::media { enum class DecodeProgressMode { observe, finalize, reset }; }
 [[nodiscard]] comskip::media::StreamOpenResult stream_component_open(RecordingContext& context, VideoState& video, int stream_index);
 void file_open(RecordingContext& context);
 void file_close(RecordingContext& context);
 void DoSeekRequest(RecordingContext& context, VideoState& video);
 comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& context, VideoState& video, AVPacket* packet);
-double print_decode_progress(RecordingContext& context, int final);
+double print_decode_progress(RecordingContext& context, comskip::media::DecodeProgressMode mode);
 int SubmitFrame(RecordingContext& context, AVFrame& frame, double pts);
 void Set_seek(RecordingContext& context, VideoState& video, double pts);
 void DecodeOnePicture(RecordingContext& context, double pts);
