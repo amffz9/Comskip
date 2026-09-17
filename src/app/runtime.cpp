@@ -7,6 +7,7 @@
 #include "detection/initialization.h"
 #include "detection/interval_storage.h"
 #include "output/media_dump.h"
+#include "output/checked_file.h"
 #include "platform/platform.h"
 #include <algorithm>
 #include <cstddef>
@@ -74,7 +75,7 @@ void Debug(RecordingContext& context, int level, const char * fmt, ...)
     const auto log_file = comskip::platform::own_file(myfopen(context.state.logfilename.c_str(), "a+"));
     if (log_file)
     {
-        std::fwrite(message.data(), 1, message.size(), log_file.get());
+        comskip::output::checked_fprintf(*log_file, context.state.logfilename, message.c_str());
     }
 
 
