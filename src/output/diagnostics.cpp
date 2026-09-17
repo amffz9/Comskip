@@ -329,7 +329,7 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
     if (!raw) {
         if (!context.settings.output_live) return 0;
     } else {
-        comskip::input::FileStreamBuffer buffer(raw.get());
+        comskip::input::FileStreamBuffer buffer(*raw);
         std::istream source(&buffer);
         source.exceptions(std::ios::badbit);
         const auto document = comskip::input::read_reference_file(source);

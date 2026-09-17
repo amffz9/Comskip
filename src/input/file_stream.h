@@ -22,8 +22,6 @@ class FileStreamBuffer final : public std::streambuf {
         return traits_type::to_int_type(*gptr());
     }
 public:
-    explicit FileStreamBuffer(FILE* file) : file_(file) {
-        if (!file_) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_input_file);
-    }
+    explicit FileStreamBuffer(FILE& file) noexcept : file_(&file) {}
 };
 }

@@ -98,7 +98,7 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
     int cutscene_nonzero_count = 0, old_format = true, use_bright = 0;
     int i;
     if (!input) throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_csv_input);
-    comskip::input::FileStreamBuffer buffer(input.get());
+    comskip::input::FileStreamBuffer buffer(*input);
     std::istream source(&buffer);
     source.exceptions(std::ios::badbit);
     auto header = comskip::input::read_text_line(source);
@@ -147,7 +147,7 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
 
     std::vector<comskip::input::PersistedCaptionPacket> caption_packets;
     if (caption_file) {
-        comskip::input::FileStreamBuffer caption_buffer(caption_file);
+        comskip::input::FileStreamBuffer caption_buffer(*caption_file);
         std::istream caption_source(&caption_buffer);
         caption_source.exceptions(std::ios::badbit);
         while (true) {
