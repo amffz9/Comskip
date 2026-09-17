@@ -757,3 +757,7 @@ than redefine completion around whichever subset currently passes tests.
 - Block confidence, non-uniform causes, logo quality, and scene-rate arithmetic
   now use explicit C++ conversions. The complete Windows headless suite
   remains green at **515/515**.
+
+- Scene-analysis geometry, histogram, and cut-scene calculations now use
+  explicit C++ conversions. The complete Windows headless suite remains green
+  at **515/515**.
