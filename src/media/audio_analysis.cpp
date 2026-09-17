@@ -40,10 +40,10 @@ static int retreive_frame_volume(RecordingContext& context, double from_pts, dou
 {
     short *buffer;
     int volume = -1;
-    VideoState *is = context.state.video_owner.get();
+    const auto& is = *context.state.video_owner;
     int i;
     double calculated_delay;
-    const int sample_rate = is->audio_st->codecpar->sample_rate;
+    const int sample_rate = is.audio_st->codecpar->sample_rate;
     if (sample_rate <= 0 || !std::isfinite(from_pts) || !std::isfinite(to_pts))
         return -1;
     const double sample_offset = (from_pts - context.state.base_apts) * sample_rate;
@@ -71,7 +71,7 @@ static int retreive_frame_volume(RecordingContext& context, double from_pts, dou
             buffer++;
         }
         volume = volume/s_per_frame;
-        comskip::media::write_timing_row(context, "a  read", is->audio_clock, calculated_delay, to_pts, from_pts, volume, s_per_frame);
+        comskip::media::write_timing_row(context, "a  read", is.audio_clock, calculated_delay, to_pts, from_pts, volume, s_per_frame);
 
         const int consumed_samples = first_sample + s_per_frame;
         context.state.audio_samples -= consumed_samples;
@@ -107,7 +107,7 @@ static int retreive_frame_volume(RecordingContext& context, double from_pts, dou
         }
         context.state.base_apts += static_cast<double>(consumed_samples) / sample_rate;
         context.state.top_apts = context.state.base_apts + static_cast<double>(context.state.audio_samples) /
-            is->audio_st->codecpar->sample_rate;
+            is.audio_st->codecpar->sample_rate;
         context.state.sound_frame_counter++;
     }
     return(volume);
