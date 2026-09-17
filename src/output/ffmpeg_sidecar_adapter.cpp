@@ -6,6 +6,7 @@
 #include "recording_context.h"
 #include "platform/utf8_paths.h"
 #include <sstream>
+#include <optional>
 #include <vector>
 
 void WriteFfmpegSidecarFiles(RecordingContext& context, bool use_reference) {
@@ -18,11 +19,11 @@ void WriteFfmpegSidecarFiles(RecordingContext& context, bool use_reference) {
     std::vector<SidecarChapter> chapters;
     std::vector<SidecarShowSegment> segments;
     const auto time = [&](long frame) { return SidecarSeconds{get_frame_pts(context, frame)}; };
-    const auto append = [&](int index, long previous, long start, long end) {
-        if (previous != -1 && previous < start) {
-            chapters.push_back({time(previous + 1), time(start), SidecarSegmentKind::show});
-            segments.push_back({time(previous + 1), time(start), index});
-        } else if (previous == -1 && start > 5) {
+    const auto append = [&](int index, std::optional<long> previous, long start, long end) {
+        if (previous && *previous < start) {
+            chapters.push_back({time(*previous + 1), time(start), SidecarSegmentKind::show});
+            segments.push_back({time(*previous + 1), time(start), index});
+        } else if (!previous && start > 5) {
             chapters.push_back({SidecarSeconds{0}, time(start), SidecarSegmentKind::show});
             segments.push_back({SidecarSeconds{0}, time(start), index});
         }
@@ -30,16 +31,16 @@ void WriteFfmpegSidecarFiles(RecordingContext& context, bool use_reference) {
         if (end - metadata_start > 2)
             chapters.push_back({time(metadata_start), time(end), SidecarSegmentKind::commercial});
     };
-    long previous = -1;
+    std::optional<long> previous;
     for (int i = 0; i <= count; ++i) {
         const auto start = use_reference ? context.state.reffer[i].start_frame : context.state.commercial[i].start_frame;
         const auto end = use_reference ? context.state.reffer[i].end_frame : context.state.commercial[i].end_frame;
-        if (start < 0 || end < start || start <= previous || start >= context.state.frame_count || end > context.state.frame_count)
+        if (start < 0 || end < start || (previous && start <= *previous) || start >= context.state.frame_count || end > context.state.frame_count)
             throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::invalid_ffmpeg_sidecar_commercial_range);
         append(i, previous, start, end);
         previous = end;
     }
-    if (count < 0 || previous < context.state.frame_count - 2)
+    if (count < 0 || !previous || *previous < context.state.frame_count - 2)
         append(count + 1, previous, context.state.frame_count - 2, context.state.frame_count - 1);
     const auto write = [&](const char* extension, auto serializer, const auto& records) {
         std::ostringstream buffer;
