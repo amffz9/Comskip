@@ -10,6 +10,7 @@ enum class FrameCause : int {
     black = 1 << 4,
     aspect_ratio = 1 << 5,
     silence = 1 << 18,
+    forced = 1 << 27,
     cutscene = 1 << 28,
     resolution_change = 1 << 29,
 };

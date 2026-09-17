@@ -1,4 +1,5 @@
 #include "platform/utf8_paths.h"
+#include "platform/platform.h"
 #include "exit_requested.h"
 #include "media/decoder.h"
 #include "output/ffmpeg_sidecar_adapter.h"
@@ -6,7 +7,17 @@
 #include "output/player_export_adapter.h"
 #include "output/legacy_editor_adapter.h"
 #include "output/legacy_cutlist_adapter.h"
-#include "legacy_detection.h"
+#include "app/recording_context.h"
+#include "config/legacy_settings.h"
+#include "detection/block_building.h"
+#include "detection/block_scoring.h"
+#include "detection/detection_methods.h"
+#include "detection/frame_causes.h"
+#include "detection/frame_timestamps.h"
+#include "detection/logo_detection.h"
+#include "detection/scene_analysis.h"
+#include "output/cutlist_exports.h"
+#include "output/xml_output_adapter.h"
 #include "checked_format.h"
 #include "review_messages.h"
 #include "image_geometry.h"
@@ -19,6 +30,9 @@
 #include <type_traits>
 #include <vector>
 
+namespace {
+constexpr int maximum_time_flags = 2;
+}
 
 
 
@@ -187,7 +201,9 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             //			memcpy(&context.state.graph[context.state.owidth*context.state.oheight * 0], frame_ptr, context.state.owidth*context.state.oheight);
             //			memcpy(&context.state.graph[context.state.owidth*context.state.oheight * 1], frame_ptr, context.state.owidth*context.state.oheight);
             //			memcpy(&context.state.graph[context.state.owidth*context.state.oheight * 2], frame_ptr, context.state.owidth*context.state.oheight);
-            if (context.state.framearray && grf && ((context.settings.commDetectMethod & LOGO) || context.state.logoInfoAvailable ))
+            if (context.state.framearray && grf && (comskip::detection::method_enabled(
+                    context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)
+                || context.state.logoInfoAvailable ))
             {
                 if (context.settings.aggressive_logo_rejection)
                     s = context.settings.edge_radius/2;				// Cater of mask offset
@@ -289,7 +305,9 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                         plot(plot_count, 4, x, (int)(context.state.frame[i].logo_filter*50+50), 100, 0, (context.state.frame[i].logo_filter < 0.0 ?255:0) , (context.state.frame[i].logo_filter < 0.0 ?0:255), 0);
                         plot(plot_count, 5, x, (int)((context.state.frame[i].ar_ratio-0.5) * 100), 250, 0, 0, 0, 255);   // BLUE
 
-                        if (context.settings.commDetectMethod & CUTSCENE)
+                        if (comskip::detection::method_enabled(
+                                context.settings.commDetectMethod,
+                                comskip::detection::DetectionMethod::cutscene))
                         {
                             plot(plot_count, 3, x, (int)(context.state.frame[i].cutscenematch), 100, context.settings.cutscenedelta, 255, 0, 255);     // PURPLE
                         }
@@ -402,7 +420,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                 {
                     if (i <= context.state.frame_count)
                     {
-                        if ((context.state.frame[i].isblack & C_b) || (context.state.frame[i].isblack & C_r))
+                        if ((context.state.frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::black))
+                            || (context.state.frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::resolution_change)))
                         {
                             blackframe = true;
                             for (j = 0; j < context.state.block_count; j++)
@@ -411,7 +430,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                                     bothtrue = true;
                             }
                         }
-                        if (context.state.frame[i].isblack & C_u)
+                        if (context.state.frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform))
                         {
                             uniformframe = true;
                         }
@@ -419,10 +438,10 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                         if ((context.state.frame[i].volume < 50 || context.state.frame[i].volume < context.settings.max_silence) && silence < 2) silence = 2;
                         if (context.state.frame[i].volume < 9) silence = 3;
                         if (context.state.frame[i].volume < 9) silence = 3;
-                        if ((context.state.frame[i].isblack & C_v)) silence = 3;
+                        if ((context.state.frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::silence))) silence = 3;
                         if (context.state.frame[i].volume == 0) silence = 4;
-                        if ((context.state.frame[i].isblack & C_b) && context.state.frame[i].volume < context.settings.max_volume) bothtrue = true;
-                        if ((context.state.frame[i].isblack & C_r)) bothtrue = true;
+                        if ((context.state.frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::black)) && context.state.frame[i].volume < context.settings.max_volume) bothtrue = true;
+                        if ((context.state.frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::resolution_change))) bothtrue = true;
                         if (frm+1 == context.state.frame_count)  						// Show details of logo while scanning
                         {
                             if (context.state.frame[i].logo_present) haslogo = true;
@@ -510,7 +529,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             for (y = bartop + 15; y < bartop+20 ; y++)  		// Logo bar
             {
 
-                if (haslogo) gray_pixel(x,y, ((y - (bartop + 15) == g)?255:((context.settings.commDetectMethod & LOGO)? 0 : 128)));
+                if (haslogo) gray_pixel(x,y, ((y - (bartop + 15) == g) ? 255 : (comskip::detection::method_enabled(
+                    context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) ? 0 : 128)));
                 else gray_pixel(x,y, ((y - (bartop + 15) == g)?0:255));
 //				if (y - (bartop + 15) == g) context.state.graph[y * context.state.owidth + x] = 128;
             }
@@ -611,7 +631,7 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                                                 context.settings.non_uniformity, context.settings.max_avg_brightness);
         } else if (context.state.framearray) {
             const auto& analyzed = context.state.frame[frm];
-            const auto brightness_flag = analyzed.isblack & C_b ? "B" : " ";
+            const auto brightness_flag = analyzed.isblack & comskip::detection::cause_value(comskip::detection::FrameCause::black) ? "B" : " ";
             const auto silence_flag = analyzed.volume < context.settings.max_volume ? "S" : " ";
             const auto uniform_flag = analyzed.uniform < context.settings.non_uniformity ? "U" : " ";
             const auto aspect = std::format("{:.2f}", analyzed.ar_ratio);
@@ -732,7 +752,8 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
 void Recalc(RecordingContext& context)
 {
     BuildBlocks(context, true);
-    if (context.settings.commDetectMethod & LOGO)
+    if (comskip::detection::method_enabled(context.settings.commDetectMethod,
+                                            comskip::detection::DetectionMethod::logo))
     {
         PrintLogoFrameGroups(context);
     }
@@ -896,7 +917,7 @@ bool ReviewResult(RecordingContext& context)
                             context.state.cblock[i].score = 99.99;
                         else
                             context.state.cblock[i].score = 0.01;
-                        context.state.cblock[i].cause |= C_F;
+                        context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::FrameCause::forced);
                         context.state.oldfrm = -1;
                         BuildCommercial(context);
                         context.window.input().key = 'W';			// Trick to cause writing of the new commercial list
@@ -912,7 +933,7 @@ bool ReviewResult(RecordingContext& context)
                     if (i < context.state.block_count)
                     {
                         context.state.cblock[i].score = 99.99;
-                        context.state.cblock[i].cause |= C_F;
+                        context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::FrameCause::forced);
                         context.state.oldfrm = -1;
                         BuildCommercial(context);
                     }
@@ -937,7 +958,7 @@ bool ReviewResult(RecordingContext& context)
                     if (i < context.state.block_count)
                     {
                         context.state.cblock[i].score = 0.01;
-                        context.state.cblock[i].cause |= C_F;
+                        context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::FrameCause::forced);
                         context.state.oldfrm = -1;
                         BuildCommercial(context);
                     }
@@ -1056,7 +1077,7 @@ bool ReviewResult(RecordingContext& context)
             if (context.window.input().key == 116)  				// F5 key
             {
                 context.state.timeflag++;
-                if (context.state.timeflag > MAXTIMEFLAG)
+                if (context.state.timeflag > maximum_time_flags)
                     context.state.timeflag = 0;
                 context.state.oldfrm = -1;
             }

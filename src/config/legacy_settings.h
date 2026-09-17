@@ -10,3 +10,8 @@ void LoadIniFile(RecordingContext& context);
 void LoadIniFile(RecordingContext& context, const comskip::localization::Translator& translator);
 FILE* LoadSettings(RecordingContext& context, int argc, char** argv,
                    const comskip::localization::Translator& translator);
+
+// Formatting remains tied to the per-recording scratch buffer for compatibility.
+char* intSecondsToStrMinutes(RecordingContext& context, int seconds);
+char* dblSecondsToStrMinutes(RecordingContext& context, double seconds);
+char* dblSecondsToStrMinutesFrames(RecordingContext& context, double seconds);
