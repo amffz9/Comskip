@@ -1,4 +1,6 @@
-#include "legacy_detection.h"
+#include "app/recording_context.h"
+#include "detection/commercial_length.h"
+#include "output/cutlist_exports.h"
 
 bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance)
 {
