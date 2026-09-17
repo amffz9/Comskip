@@ -769,3 +769,7 @@ than redefine completion around whichever subset currently passes tests.
 - Review rendering coordinates, frame navigation, marker midpoint calculations,
   and playback timing now use explicit C++ conversions. The complete Windows
   SDL suite remains green at **517/517**.
+
+- Remaining active conversions in analysis, captions, live progress, scene
+  sampling, block reporting, and detection paths now use explicit C++ casts.
+  The complete Windows headless suite remains green at **515/515**.
