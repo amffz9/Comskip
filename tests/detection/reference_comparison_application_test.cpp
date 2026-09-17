@@ -63,6 +63,16 @@ TEST_F(ReferenceComparisonApplication, BothEmptyListsProduceZeroMetricsAndNoSynt
     EXPECT_TRUE(read("record.dif").empty());
     EXPECT_TRUE(context->state.reffer.empty());
 }
+TEST_F(ReferenceComparisonApplication, OptionalTrainingOutputFailureDoesNotSuppressDifferenceReport) {
+    context->settings.output_training = 2;
+    context->state.commercial_count = -1;
+    ASSERT_TRUE(std::filesystem::create_directory("quality.csv"));
+    reference("100 200\n");
+
+    EXPECT_EQ(InputReffer(*context, ".ref", 0), 400000);
+    EXPECT_TRUE(std::filesystem::is_directory("quality.csv"));
+    EXPECT_TRUE(read("record.dif").contains("Reference    100    200"));
+}
 TEST_F(ReferenceComparisonApplication, FullDetectedCapacityNeedsNoAdditionalSlotAndPreservesEveryInterval) {
     context->state.commercial.resize(100001);
     for (int index = 0; index < static_cast<int>(std::size(context->state.commercial)); ++index) {

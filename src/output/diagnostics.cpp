@@ -295,7 +295,6 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     comskip::platform::FilePtr raw;
     int frames = 0;
     char co,re;
-    comskip::platform::FilePtr raw2;
     if (!extension || std::string_view(extension).size() < 2)
         throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::missing_reference_filename_extension);
     comskip::detection::validate_intervals(context.state.commercial, context.state.commercial_count);
@@ -371,6 +370,13 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     const auto references = intervals(context.state.reffer, context.state.reffer_count);
     const auto commercials = intervals(context.state.commercial, context.state.commercial_count);
     const auto events = comskip::detection::compare_reference_intervals(references, commercials);
+    const auto append_quality = [](const auto&... values) {
+        auto quality = comskip::platform::own_file(myfopen("quality.csv", "a+"));
+        if (!quality) return;
+        comskip::output::checked_fprintf(*quality, "quality.csv",
+                                         "%s, %6ld, %6.1f, %6.1f, %6.1f\n", values...);
+        comskip::output::checked_close(quality, "quality.csv");
+    };
     for (const auto& event : events) {
         const auto start = static_cast<long>(event.interval.start_frame);
         const auto end = static_cast<long>(event.interval.end_frame);
@@ -378,22 +384,20 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
         if (event.kind == comskip::detection::ReferenceEventKind::reference_duration) {
             total += duration;
             if (context.settings.output_training > 1) {
-                raw2.reset(myfopen("quality.csv", "a+"));
-                if (raw2) fprintf(raw2.get(), "%s, %6ld, %6.1f, %6.1f, %6.1f\n", comskip::output::csv_field(context.state.inbasename).c_str(), start, 0.0, 0.0, duration);
+                append_quality(comskip::output::csv_field(context.state.inbasename).c_str(), start,
+                               0.0, 0.0, duration);
             }
         } else {
             const bool missed = event.kind == comskip::detection::ReferenceEventKind::false_negative;
             if (missed) fneg += duration; else fpos += duration;
             if (context.settings.output_training > 1) {
-                raw2.reset(myfopen("quality.csv", "a+"));
-                if (raw2) fprintf(raw2.get(), "%s, %6ld, %6.1f, %6.1f, %6.1f\n", comskip::output::csv_field(context.state.inbasename).c_str(), start, missed ? duration : 0.0, missed ? 0.0 : duration, 0.0);
+                append_quality(comskip::output::csv_field(context.state.inbasename).c_str(), start,
+                               missed ? duration : 0.0, missed ? 0.0 : duration, 0.0);
             }
         }
-        raw2.reset();
     }
-    if (context.settings.output_training) raw2.reset(myfopen("quality.csv", "a+"));
-    if (raw2) fprintf(raw2.get(), "%s, %6d, %6.1f, %6.1f, %6.1f\n", comskip::output::csv_field(context.state.inbasename).c_str(), -1, fneg, fpos, total);
-    raw2.reset();
+    if (context.settings.output_training)
+        append_quality(comskip::output::csv_field(context.state.inbasename).c_str(), -1L, fneg, fpos, total);
 //#else
     j = 0;
     i = 0;
@@ -402,13 +406,13 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
         k = min(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame);
         if ( context.state.commercial[j].end_frame < context.state.reffer[i].start_frame )
         {
-            fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
+            comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
 //			fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
             j++;
         }
         else if ( context.state.commercial[j].start_frame > context.state.reffer[i].end_frame )
         {
-            fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+            comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
 //			fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
             i++;
         }
@@ -417,7 +421,7 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
             if (labs(context.state.reffer[i].start_frame-context.state.commercial[j].start_frame) > 40 ||
                     labs(context.state.reffer[i].end_frame-context.state.commercial[j].end_frame) > 40 )
             {
-                fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, F2L(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame , context.state.reffer[i].end_frame));
+                comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, F2L(context.state.reffer[i].start_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame , context.state.reffer[i].end_frame));
             }
             /*
                         if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ) {
@@ -435,13 +439,13 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
     }
     while (j <= context.state.commercial_count)
     {
-        fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
+        comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame) , F2L(context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
 //		fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
         j++;
     }
     while (i <= context.state.reffer_count)
     {
-        fprintf(raw.get(), "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
+        comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame) , -F2L(context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
 //		fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
         i++;
     }
@@ -452,12 +456,12 @@ int InputReffer(RecordingContext& context, const char *extension, int setfps)
         re = CheckFramesForReffer(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail);
         if (co != re)
         {
-            fprintf(raw.get(), "Block %6d has mismatch %c%c with cause %s\n", i,co,re, CauseString(context, context.state.cblock[i].cause));
+            comskip::output::checked_fprintf(*raw, difference_name, "Block %6d has mismatch %c%c with cause %s\n", i,co,re, CauseString(context, context.state.cblock[i].cause));
         }
         context.state.cblock[i].reffer = re;
     }
 
-    raw.reset();
+    comskip::output::checked_close(raw, difference_name);
     return(frames);
 }
 

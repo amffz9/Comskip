@@ -1398,3 +1398,18 @@ before calling FFmpeg seek APIs.
   negative brightness/uniformity histograms, verifies the typed diagnostic,
   confirms no output files are created, and covers valid large-bin totals. All
   11 focused Windows tests pass.
+
+### B112: Reference-comparison reports ignore successful write and close failures
+
+- **Evidence:** `InputReffer` wrote `record.dif` and optional `quality.csv`
+  rows through unchecked `fprintf` calls, then released the file handles without
+  observing `fclose`. A full or failed destination could therefore report a
+  successful comparison while emitting a partial report.
+- **Impact:** Automated training and comparison consumers can receive silently
+  truncated data from a completed analysis.
+- **Status:** Fixed. The mandatory difference report now uses checked writes
+  and close ownership; optional training output keeps its legacy nonfatal open
+  policy, while successful opens use the same checked write/close boundary.
+- **Verification:** A focused reference-comparison regression blocks the
+  optional `quality.csv` destination and verifies that the difference report is
+  still written. Build and complete Windows-suite verification remain pending.
