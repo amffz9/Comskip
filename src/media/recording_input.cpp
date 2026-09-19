@@ -70,19 +70,19 @@ void file_open_impl(RecordingContext& context)
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
         if (!context.settings.hardware_decode) {
 //            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
-            av_dict_set_int(std::inout_ptr(context.state.myoptions), "gray", 1, 0);
+            av_dict_set_int(inout_ptr(context.state.myoptions), "gray", 1, 0);
         }
 #ifdef DONATOR
 //        if (thread_count == 1)
-                av_dict_set_int(std::inout_ptr(context.state.myoptions), "threads", context.settings.thread_count, 0);
+                av_dict_set_int(inout_ptr(context.state.myoptions), "threads", context.settings.thread_count, 0);
 //        else
 //            av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
 //           codecCtx->thread_count= thread_count;
 #else
-            av_dict_set_int(std::inout_ptr(context.state.myoptions), "threads", 1, 0);
+            av_dict_set_int(inout_ptr(context.state.myoptions), "threads", 1, 0);
 //            codecCtx->thread_count= 1;
 #endif
-        av_dict_set_int(std::inout_ptr(context.state.myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
+        av_dict_set_int(inout_ptr(context.state.myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
 
 
     }
@@ -96,9 +96,9 @@ void file_open_impl(RecordingContext& context)
         is.pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
         int open_status{};
-        while ((open_status = avformat_open_input(std::inout_ptr(is.pFormatCtx),
+        while ((open_status = avformat_open_input(inout_ptr(is.pFormatCtx),
                                                    is.filename.c_str(), nullptr,
-                                                   std::inout_ptr(context.state.myoptions))) < 0) {
+                                                   inout_ptr(context.state.myoptions))) < 0) {
             if (openretries++ >= context.settings.live_tv_retries) {
                 throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                     comskip::diagnostics::Code::cannot_open_recording_detail,

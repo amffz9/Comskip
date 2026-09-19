@@ -71,6 +71,31 @@ using InputPtr = std::unique_ptr<AVFormatContext, InputDeleter>;
 using OutputFormatPtr = std::unique_ptr<AVFormatContext, OutputFormatDeleter>;
 using DynamicOutputFormatPtr = std::unique_ptr<AVFormatContext, DynamicOutputFormatDeleter>;
 using DictionaryPtr = std::unique_ptr<AVDictionary, DictionaryDeleter>;
+
+// std::inout_ptr is C++23, but libstdc++ did not provide it until GCC 14.
+// Keep ownership around FFmpeg's pointer-to-pointer APIs on older toolchains.
+template<class SmartPointer>
+class InOutPtr {
+public:
+    using pointer = typename SmartPointer::pointer;
+
+    explicit InOutPtr(SmartPointer& owner) noexcept
+        : owner_(owner), pointer_(owner.release()) {}
+    InOutPtr(const InOutPtr&) = delete;
+    InOutPtr& operator=(const InOutPtr&) = delete;
+    ~InOutPtr() { owner_.reset(pointer_); }
+
+    operator pointer*() noexcept { return &pointer_; }
+
+private:
+    SmartPointer& owner_;
+    pointer pointer_;
+};
+
+template<class SmartPointer>
+InOutPtr<SmartPointer> inout_ptr(SmartPointer& owner) noexcept {
+    return InOutPtr<SmartPointer>(owner);
+}
 using BufferPtr = std::unique_ptr<unsigned char, BufferDeleter>;
 using ScalerPtr = std::unique_ptr<SwsContext, ScalerDeleter>;
 using ResamplerPtr = std::unique_ptr<SwrContext, ResamplerDeleter>;

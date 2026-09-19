@@ -164,9 +164,9 @@ comskip::media::StreamOpenResult stream_component_open(RecordingContext& context
     }
 
     codecCtx->lowres = std::min<int>(codec->max_lowres, context.settings.lowres);
-    if (!context.settings.hardware_decode) av_dict_set_int(std::inout_ptr(context.state.myoptions), "gray", 1, 0);
+    if (!context.settings.hardware_decode) av_dict_set_int(inout_ptr(context.state.myoptions), "gray", 1, 0);
 
-    if(!codec || (avcodec_open2(codecCtx, codec, std::inout_ptr(context.state.myoptions)) < 0))
+    if(!codec || (avcodec_open2(codecCtx, codec, inout_ptr(context.state.myoptions)) < 0))
     {
         fputs(context.translator.text("media_unsupported_codec"), stderr);
         return comskip::media::StreamOpenResult::unavailable;
@@ -228,4 +228,3 @@ comskip::media::StreamOpenResult stream_component_open(RecordingContext& context
 
     return comskip::media::StreamOpenResult::opened;
 }
-
