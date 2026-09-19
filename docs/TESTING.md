@@ -33,6 +33,41 @@ Test, and reuses vcpkg's binary cache on subsequent builds. The executable is
 `build/wsl-release/test-results.log`. Reduce parallelism on smaller machines.
 Set `VCPKG_ROOT` again in a new shell, or add the export to your shell profile.
 
+**GCC 15 and argtable2 2.13**
+
+GCC 15 defaults C compilation to C23. The argtable2 2.13 port pinned by this
+project includes a legacy `getopt.c` that is not C23-compatible and can fail
+with:
+
+```text
+error: too many arguments to function 'getenv'
+```
+
+This is an argtable2 build failure rather than a Comskip C++23 failure. On a
+GCC 15 host, use a custom vcpkg triplet that builds C sources as GNU C17, for
+example by adding the following to the triplet used for the manifest install:
+
+```cmake
+set(VCPKG_C_FLAGS "-std=gnu17")
+```
+
+Keep the rest of the triplet appropriate for the target platform. This is
+especially relevant to Alpine 3.24 builds, whose GCC selects C23 by default.
+Remove the workaround after the pinned argtable2 port is updated or patched to
+compile as C23.
+
+When a vcpkg port fails during CMake configuration, CMake may subsequently
+report that it is unable to find Ninja or that `CMAKE_CXX_COMPILER` is not set.
+Those are often follow-on messages rather than the cause. Inspect the first
+failed port's log under:
+
+```text
+buildtrees/<port>/install-*-out.log
+```
+
+Resolve the earliest compiler or port error there before troubleshooting the
+later CMake diagnostics.
+
 **Windows testing**
 
 Use the CMake test target instead of launching test executables individually:
