@@ -1,4 +1,39 @@
-# Windows testing
+# Testing
+
+**WSL/Linux with vcpkg**
+
+Keep the Linux source and build directories on WSL's Linux filesystem. Use a
+separate Linux vcpkg checkout and binary cache from any Windows installation.
+On Ubuntu, install the build prerequisites (and a C++23 compiler such as GCC 14):
+
+```sh
+sudo apt-get update
+sudo apt-get install -y build-essential g++-14 curl zip unzip tar cmake ninja-build pkg-config autoconf automake libtool nasm
+git clone https://github.com/microsoft/vcpkg.git "$HOME/Development/vcpkg"
+export VCPKG_ROOT="$HOME/Development/vcpkg"
+git -C "$VCPKG_ROOT" checkout 908da3a305a0a8028d9602ab241b433652b3df69
+"$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+```
+
+The checkout above matches `vcpkg.json` and CI. Skip the clone when vcpkg is
+already installed. From the Comskip source directory, configure a fresh build
+directory with the toolchain; do not reuse a cache configured without vcpkg:
+
+```sh
+VCPKG_MAX_CONCURRENCY=6 cmake -S . -B build/wsl-release -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+  -DCMAKE_CXX_COMPILER=g++-14 -DCMAKE_BUILD_TYPE=Release
+cmake --build build/wsl-release --parallel 6
+cmake --build build/wsl-release --target comskip-check
+```
+
+Configuration installs the manifest dependencies, including FFmpeg and Google
+Test, and reuses vcpkg's binary cache on subsequent builds. The executable is
+`build/wsl-release/comskip`; test results are in
+`build/wsl-release/test-results.log`. Reduce parallelism on smaller machines.
+Set `VCPKG_ROOT` again in a new shell, or add the export to your shell profile.
+
+**Windows testing**
 
 Use the CMake test target instead of launching test executables individually:
 
