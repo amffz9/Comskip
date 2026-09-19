@@ -122,13 +122,23 @@ TEST_F(CutsceneLoading, ActualIniLoadingAcceptsLongUnicodeCutscenePath) {
     directory = std::filesystem::path(L"\\\\?\\" + std::filesystem::absolute(directory).wstring());
 #endif
     auto deep = directory;
-    for (int index = 0; index < 12; ++index)
+    constexpr int path_segments =
+#ifdef __APPLE__
+        8;
+#else
+        12;
+#endif
+    for (int index = 0; index < path_segments; ++index)
         deep /= std::string(90, static_cast<char>('a' + index));
     deep /= std::filesystem::path(u8"Café 字幕");
     ASSERT_TRUE(std::filesystem::create_directories(deep));
     const auto scene = deep / std::filesystem::path(u8"Scène.cut");
     const auto name = comskip::platform::path_to_utf8(scene);
+#ifdef __APPLE__
+    ASSERT_GT(name.size(), 260u);
+#else
     ASSERT_GT(name.size(), 1024u);
+#endif
     {
         std::ofstream output(scene, std::ios::binary);
         ASSERT_TRUE(output);

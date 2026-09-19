@@ -34,11 +34,21 @@ TEST(InputFilename, LongNestedUnicodeMediaOpensAndDemuxesAllPacketsWithoutFixedB
         ~Cleanup() { std::error_code ignored; std::filesystem::remove_all(path, ignored); }
     } cleanup{native_root};
     auto nested = native_root;
-    for (int i = 0; i < 12; ++i) nested /= std::string(90, static_cast<char>('a' + i));
+    constexpr int path_segments =
+#ifdef __APPLE__
+        8;
+#else
+        12;
+#endif
+    for (int i = 0; i < path_segments; ++i) nested /= std::string(90, static_cast<char>('a' + i));
     ASSERT_TRUE(std::filesystem::create_directories(nested));
     const auto media = nested / std::filesystem::path(u8"Café 字幕.y4m");
     const auto name = utf8(media);
+#ifdef __APPLE__
+    ASSERT_GT(name.size(), 260);
+#else
     ASSERT_GT(name.size(), 1024);
+#endif
     {
         std::ofstream output(media, std::ios::binary);
         ASSERT_TRUE(output);

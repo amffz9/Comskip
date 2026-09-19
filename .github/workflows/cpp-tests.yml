@@ -20,6 +20,9 @@ jobs:
       BUILD_CONFIGURATION: ${{ matrix.sanitizers && 'Debug' || 'Release' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install Linux build prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes nasm
       - name: Set up vcpkg
         shell: bash
         run: |

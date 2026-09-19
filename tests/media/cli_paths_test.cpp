@@ -36,10 +36,20 @@ TEST(CliPaths, LongUnicodeInputSettingsAndOutputPathsProduceCompleteExports) {
     } cleanup{root};
     const auto deep = [&](const char* category) {
         auto path = root / category;
-        for (int i = 0; i < 12; ++i) path /= std::string(90, static_cast<char>('a' + i));
+        constexpr int path_segments =
+#ifdef __APPLE__
+            8;
+#else
+            12;
+#endif
+        for (int i = 0; i < path_segments; ++i) path /= std::string(90, static_cast<char>('a' + i));
         path /= std::filesystem::path(u8"Café 字幕");
         EXPECT_TRUE(std::filesystem::create_directories(path));
+#ifdef __APPLE__
+        EXPECT_GT(utf8(path).size(), 260u);
+#else
         EXPECT_GT(utf8(path).size(), 1024u);
+#endif
         return path;
     };
     const auto media = deep("input") / std::filesystem::path(u8"Épisode 字幕.y4m");
