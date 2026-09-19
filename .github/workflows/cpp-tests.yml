@@ -24,7 +24,7 @@ jobs:
         if: runner.os == 'Linux'
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          autoconf autoconf-archive automake libtool nasm
+          autoconf autoconf-archive automake libltdl-dev libtool nasm
       - name: Set up vcpkg
         shell: bash
         run: |
