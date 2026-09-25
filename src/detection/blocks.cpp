@@ -107,7 +107,6 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
 
     if (ratio == 0.0)
         return(0.0);
-#ifndef undef
     incommercial = 0;
     i = 0; // search for reason
     strict_count = 0;
@@ -217,7 +216,6 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
     }
 
 
-#endif
 
     i = 1;
     strict_count = 0;
@@ -747,7 +745,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     }
 
 
-#if 1
     //Combine blocks with less than minimum black between them
     for (i = context.state.block_count-1; i >= 1; i--)
     {
@@ -768,7 +765,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             comskip::detection::erase_blocks(context.state.cblock, context.state.block_count, i);
         }
     }
-#endif
     return (true);
 }
 
@@ -847,7 +843,6 @@ void CleanLogoBlocks(RecordingContext& context)
     int sum_brightness,v,b, sum_volume,s,sum_silence,sum_uniform;
     double sum_brightness2;
     int sum_delta;
-#if 1
     if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) /* || startOverAfterLogoInfoAvail==0 */ ) &&! context.state.reverseLogoLogic && context.settings.connect_blocks_with_logo)
     {
         //Combine blocks with both logo
@@ -871,7 +866,6 @@ void CleanLogoBlocks(RecordingContext& context)
             }
         }
     }
-#endif
 
     k = -1;
     //Checking cblock size ratio

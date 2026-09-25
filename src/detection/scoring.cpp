@@ -373,7 +373,6 @@ void WeighBlocks(RecordingContext& context)
                     cblock[i].strict = 0;
         */
 
-#if 1
         if (context.state.cblock[i].combined_count < max_combined_count)
         {
 //			Debug(3, "Attempting to combine cblock %i\n", i);
@@ -529,7 +528,6 @@ void WeighBlocks(RecordingContext& context)
                 breakforcombine = false;
             }
         }
-#endif
         // if logo detected in cblock, score = 10%
         if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
         {
@@ -675,29 +673,6 @@ void WeighBlocks(RecordingContext& context)
         }
 
 //		cblock[i].logo > 0.5 && F2L(cblock[i].f_end, cblock[i].f_start) > min_show_segment_length
-#if 0
-        // if length < min_show_segment_length, score = 150%
-        if (context.state.cblock[i].length < min_show_segment_length && context.state.cblock[i].logo < 0.2 ))
-        {
-            scoring_debug(context, 2, "scoring_shorter_than_minimum_show_segment", std::format("{}", i));
-            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-            context.state.cblock[i].score *= 1.5;
-            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-        }
-
-#endif
-#if 0
-        if (framearray && context.state.cblock[i].length < max_commercialbreak &&
-                    context.state.cblock[i].brightness < avg_brightness)
-        {
-            scoring_debug(context, 2, "scoring_short_low_brightness", std::format("{}", i));
-            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-            context.state.cblock[i].score *= dark_block_modifier;
-            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-        }
-#endif
         // if length > max_commercial_size * fps, score = 10%
         if (context.state.cblock[i].length > 2 * context.settings.min_show_segment_length)
         {
@@ -725,15 +700,6 @@ void WeighBlocks(RecordingContext& context)
         // Mod score based on scene change rate
         /*
                 if ( (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::scene_change)) && (cblock[i].schange_count > 2) && (cblock[i].length > 3)) {
-        #if 0
-                    schange_modifier = (cblock[i].schange_rate / avg_schange);
-                    schange_modifier = (schange_modifier > min_schange_modifier) ? schange_modifier : min_schange_modifier;
-                    schange_modifier = (schange_modifier < max_schange_modifier) ? schange_modifier : max_schange_modifier;
-                    Debug(3, "SC modifier - %.3f\tBlock %i score:\tBefore - %.2f\t", schange_modifier, i, cblock[i].score);
-                    cblock[i].score *= schange_modifier;
-                    cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
-                    Debug(3, "\tSC\tAfter - %.2f\n", cblock[i].score);
-        #else
                     schange_modifier = (cblock[i].schange_rate / avg_schange);
                     if (schange_modifier > 2.0 || schange_modifier < 0.5  ) {
                         schange_modifier = (schange_modifier > min_schange_modifier) ? schange_modifier : min_schange_modifier;
@@ -744,7 +710,6 @@ void WeighBlocks(RecordingContext& context)
                         Debug(3, "\tSC\tAfter - %.2f\n", cblock[i].score);
                         cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::scene_change);
                     }
-        #endif
 
                 }
         */

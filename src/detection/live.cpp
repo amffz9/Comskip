@@ -68,26 +68,13 @@ void BuildCommListAsYouGo(RecordingContext& context)
     double		added;
     bool		oldbreak;
     bool		useLogo;
-#ifdef OLD_LIVE_TV
-    int local_blacklevel;
-#endif
     std::vector<int> onTheFlyBlackFrame;
     int			onTheFlyBlackCount = 0;
 
     if (context.state.framenum_real - context.state.lastFrameCommCalculated <= 15 * context.settings.fps) return;
 
-#ifdef OLD_LIVE_TV
-    local_blacklevel = min_brightness_found + brightness_buffer;
-
-    if (local_blacklevel < max_avg_brightness)
-        local_blacklevel = max_avg_brightness;
-#endif
 
     if (context.state.black_count > 0
-#ifdef OLD_LIVE_TV
-        && (context.state.black[context.state.black_count-1].brightness <= local_blacklevel)
-         &&   (context.state.framenum_real > lastFrame)
-#endif
             /*(black[black_count-1].frame == framenum_real) &&*/
         )
     {
@@ -97,14 +84,8 @@ void BuildCommListAsYouGo(RecordingContext& context)
 
         onTheFlyBlackFrame.resize(static_cast<std::size_t>(context.state.black_count));
 
-#ifdef OLD_LIVE_TV
-        LiveDebug(context, 7, "live_building_black_frame_list", local_blacklevel);
-#endif
         for (i = 1; i < context.state.black_count; i++) // Skip first black frame
         {
-#ifdef OLD_LIVE_TV
-            if (context.state.black[i].brightness <= local_blacklevel)
-#else
             k = !comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::logo) &&
                 (context.state.black[i].cause & (black_cause | non_uniform_cause));
             if ((context.state.black[i].cause & silence_cause) || (context.state.black[i].cause & black_cause) || (context.state.black[i].cause & non_uniform_cause) )
@@ -137,7 +118,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
 //          if (frame[black[i].frame].currentGoodEdge < logo_threshold)
                 if (k)
 //            if (!frame[black[i].frame].logo_present)
-#endif
                 {
                     onTheFlyBlackFrame[onTheFlyBlackCount] = context.state.black[i].frame;
                     onTheFlyBlackCount++;
@@ -177,9 +157,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         {
 
                             candidates[commercials - 1].end = onTheFlyBlackFrame[x - 1];
-#ifdef ADAPT_LIVE_COMMERCIAL
-                            candidates[commercials - 1].end_index = x - 1;
-#endif
                             LiveDebug(context,
                                 10,
                                 "live_logo_detected_setting_commercial",
@@ -192,9 +169,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         else if (onTheFlyBlackFrame[x] > candidates[commercials - 1].end + context.settings.fps)
                         {
                             candidates[commercials - 1].end = onTheFlyBlackFrame[x];
-#ifdef ADAPT_LIVE_COMMERCIAL
-                            candidates[commercials - 1].end_index = x;
-#endif
                             LiveDebug(context,
                                 5,
                                 "live_candidate_extended",
@@ -304,50 +278,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
                 if ((len >= static_cast<int>(context.settings.min_commercialbreak) * context.settings.fps) &&
                     (len <= static_cast<int>(context.settings.max_commercialbreak) * context.settings.fps))
                 {
-#ifdef ADAPT_LIVE_COMMERCIAL
-                    // find the middle of the scene change, max 3 seconds.
-                    j = candidates[i].start_index;
-                    while ((j > 0) && ((onTheFlyBlackFrame[j] - onTheFlyBlackFrame[j - 1]) == 1))
-                    {
-
-                        // find beginning
-                        j--;
-                    }
-
-                    for (k = j; k < onTheFlyBlackCount; k++)
-                    {
-
-                        // find end
-                        if ((onTheFlyBlackFrame[k] - onTheFlyBlackFrame[j]) > static_cast<int>(3 * context.settings.fps))
-                        {
-                            break;
-                        }
-                    }
-
-                    x = j + static_cast<int>((k - j) / 2);
-                    candidates[i].start = onTheFlyBlackFrame[x];
-                    j = candidates[i].end_index;
-                    if (j < onTheFlyBlackCount-1)
-                    {
-                        while ((j < onTheFlyBlackCount) && ((onTheFlyBlackFrame[j + 1] - onTheFlyBlackFrame[j]) == 1))
-                        {
-                            // find end
-                            j++;
-                            if (j >= onTheFlyBlackCount-1) break;
-                        }
-                    }
-                    for (k = j; k > 0; k--)
-                    {
-
-                        // find start
-                        if (onTheFlyBlackFrame[j] - onTheFlyBlackFrame[k] > static_cast<int>(3 * context.settings.fps))
-                        {
-                            break;
-                        }
-                    }
-                    x = k + static_cast<int>((j - k) / 2);
-                    candidates[i].end = onTheFlyBlackFrame[x] - 1;
-#endif
                     LiveDebug(context, 2, "live_output_interval", i, candidates[i].start, candidates[i].end);
                     comskip::detection::append_interval(context.state.commercial, context.state.commercial_count, Legacy_commercial_entry{});
                     context.state.commercial[context.state.commercial_count].start_frame = candidates[i].start + context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;

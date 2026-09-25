@@ -631,10 +631,6 @@ bool CheckSceneHasChanged(RecordingContext& context)
         context.state.histogram[i] = context.state.own_histogram[0][i] + context.state.own_histogram[1][i] + context.state.own_histogram[2][i] + context.state.own_histogram[3][i];
     }
 
-#ifdef FRAME_WITH_HISTOGRAM
-    if (framearray) std::ranges::copy(context.state.histogram,
-                                      std::begin(context.state.frame[frame_count].histogram));
-#endif
     if (context.state.framearray) context.state.frame[context.state.frame_count].minY = context.state.minY;
     if (context.state.framearray) context.state.frame[context.state.frame_count].maxY = context.state.maxY;
     if (context.state.framearray) context.state.frame[context.state.frame_count].minX = context.state.minX;

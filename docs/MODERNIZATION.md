@@ -1095,3 +1095,11 @@ than redefine completion around whichever subset currently passes tests.
   its active rate-update rule. Twelve catalog entries that no source path could
   reach were removed from both locales. The complete Windows headless suite
   passes **524/524**.
+
+- Detection code no longer carries disabled `MULTI_EDGE_BUFFER`,
+  `MAXMIN_LOGO_SEARCH`, `OLD_LIVE_TV`, `ADAPT_LIVE_COMMERCIAL`,
+  `FRAME_WITH_HISTOGRAM`, `undef` or literal `#if 0` branches; `#if 1` wrappers
+  are reduced to their active code. The commented-out legacy edge counter and
+  `malloc`-based logo buffer reset are removed, together with three catalog
+  entries only those branches used. The AC3 staging copy uses `std::copy_n`
+  instead of `memmove`. The complete Windows headless suite passes **524/524**.

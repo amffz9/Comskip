@@ -315,7 +315,7 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
         else
         {
             // Retain the candidate frame, discarding bytes before its sync word.
-            memmove(context.state.ac3_packet.data(), pkt_temp.data, pkt_temp.size);
+            std::copy_n(pkt_temp.data, static_cast<std::size_t>(pkt_temp.size), context.state.ac3_packet.data());
             context.state.ac3_packet_index = pkt_temp.size;
             return;
         }

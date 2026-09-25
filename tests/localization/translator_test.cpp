@@ -112,10 +112,6 @@ TEST(Translator, FormatsScoringDiagnosticsInEnglishAndSpanish) {
               "Block 7 score:\tBefore - 1.25\t");
     EXPECT_EQ(spanish.format("scoring_score_before", "7", "1.25"),
               "Puntuación del bloque 7:\tAntes - 1.25\t");
-    EXPECT_EQ(english.format("scoring_shorter_than_minimum_show_segment", "7"),
-              "Block 7 is shorter then minimum show segment.\n");
-    EXPECT_EQ(spanish.format("scoring_short_low_brightness", "7"),
-              "El bloque 7 es corto pero tiene poco brillo.\n");
     EXPECT_EQ(english.format("scoring_combined_strict_length", "2", "4", "30.00", "0.125000"),
               "Combining blocks 2 through 4 results in strict standard commercial length of 30.00 with a tolerance of 0.125000.\n");
     EXPECT_EQ(spanish.format("scoring_ar_differs", "3", "1.33", "1.78"),

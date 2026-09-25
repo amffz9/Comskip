@@ -1139,16 +1139,11 @@ bool BuildMasterCommList(RecordingContext& context)
                                 if (schange_frame == 0)
                                     schange_frame = i;
 
-#if 1
                                 for (j=silence_start; j < i; j++)
                                 {
                                     context.state.frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
                                     InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,context.state.frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
                                 }
-#else
-                                context.state.frame[schange_frame].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
-                                InsertBlackFrame(schange_frame,context.state.frame[schange_frame].brightness,context.state.frame[schange_frame].uniform,context.state.frame[schange_frame].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
-#endif
                                 //for (j = silence_start /*i - min_silence /* * (int)fps */; j <= i; j++) {
                                 //	frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
                                 //	InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
@@ -1289,7 +1284,6 @@ bool BuildMasterCommList(RecordingContext& context)
                             goto again;
                         }
             */
-#if 1
             if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && 	context.state.ar_block[i - 1].ar_ratio != undefined_aspect_ratio &&
                     context.state.ar_block[i].ar_ratio > context.state.ar_block[i - 1].ar_ratio &&
                     CheckFrameForLogo(context, context.state.ar_block[i-1].end) &&
@@ -1314,7 +1308,6 @@ bool BuildMasterCommList(RecordingContext& context)
                 break;
             }
 //
-#endif
             if ( i == 1 && context.state.ar_block[i-1].ar_ratio == undefined_aspect_ratio)
             {
                 j = context.state.ar_block[i - 1].start;
