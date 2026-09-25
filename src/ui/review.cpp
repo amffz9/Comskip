@@ -1,5 +1,6 @@
 #include "platform/utf8_paths.h"
 #include "platform/platform.h"
+#include "decode_exit_policy.h"
 #include "exit_requested.h"
 #include "media/decoder.h"
 #include "output/ffmpeg_sidecar_adapter.h"
@@ -1140,8 +1141,8 @@ bool ReviewResult(RecordingContext& context)
         if (context.state.frame_count > 0 && review_file)
             if (curframe!= lastcurframe)
             {
-                DecodeOnePicture(context, context.state.framearray ?
-                    get_frame_pts(context, curframe) : static_cast<double>(curframe) / context.settings.fps);
+                comskip::apply_decode_exit_policy(DecodeOnePicture(context, context.state.framearray ?
+                    get_frame_pts(context, curframe) : static_cast<double>(curframe) / context.settings.fps));
                 lastcurframe = curframe;
             }
         OutputDebugWindow(context, (review_file ? true : false),curframe, grf, forceRefresh);

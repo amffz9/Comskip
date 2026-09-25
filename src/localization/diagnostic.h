@@ -294,6 +294,7 @@ enum class Code {
     invalid_reference_header,
     invalid_retained_xml_frame_position,
     invalid_scene_sampling_geometry,
+    invalid_scene_brightness,
     invalid_sign,
     invalid_xml_detector_block_count,
     invalid_xml_media_geometry,
@@ -634,6 +635,7 @@ constexpr std::string_view message_id(Code code) {
     case Code::invalid_reference_header: return "diag_invalid_reference_header";
     case Code::invalid_retained_xml_frame_position: return "diag_invalid_retained_xml_frame_position";
     case Code::invalid_scene_sampling_geometry: return "diag_invalid_scene_sampling_geometry";
+    case Code::invalid_scene_brightness: return "diag_invalid_scene_brightness";
     case Code::invalid_sign: return "diag_invalid_sign";
     case Code::invalid_xml_detector_block_count: return "diag_invalid_xml_detector_block_count";
     case Code::invalid_xml_media_geometry: return "diag_invalid_xml_media_geometry";

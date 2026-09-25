@@ -40,6 +40,7 @@
 #include "platform.h"
 #include "analysis_policy.h"
 #include "comskip.h"
+#include "decode_exit_policy.h"
 #include "exit_requested.h"
 #include <cmath>
 #include <filesystem>
@@ -295,9 +296,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                     // Frame-threaded decoders retain output until an explicit
                     // end-of-input packet. Drain it before finalizing detection.
                     if (context.state.video_owner->dec_ctx.get()) {
-                    const auto outcome=video_packet_process(context,*context.state.video_owner,nullptr);
-                        if (outcome==comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
-                        if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
+                        comskip::apply_decode_exit_policy(
+                            video_packet_process(context,*context.state.video_owner,nullptr));
                     }
                     backfill_frame_volumes(context);
                     break;
@@ -319,9 +319,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                packet->stream_index == *context.state.video_owner->videoStream)
             {
                 if (packet->size > 0 && packet->data != nullptr) {
-                    const auto outcome=video_packet_process(context,*context.state.video_owner,packet);
-                    if (outcome==comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
-                    if (outcome==comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
+                    comskip::apply_decode_exit_policy(
+                        video_packet_process(context,*context.state.video_owner,packet));
                 }
             }
             else if(context.state.video_owner->audioStream &&

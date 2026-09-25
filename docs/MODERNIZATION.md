@@ -1078,3 +1078,12 @@ than redefine completion around whichever subset currently passes tests.
   suite initially exposed the caption diagnostic indexing bug documented in
   B119; after the fix it passes **518/518** with AddressSanitizer and
   UndefinedBehaviorSanitizer enabled. macOS remains deferred.
+
+- Media and detection modules no longer request process exit. Frame
+  submission returns an explicit `FrameSubmission` outcome, review decoding
+  returns its terminal `VideoPacketOutcome`, and the analysis and review
+  callers apply one application-owned decode exit policy. Review decoding now
+  also clears its reviewing state on those terminal paths. Invalid scene
+  brightness throws a typed, cataloged `invalid_scene_brightness` diagnostic
+  instead of printing and exiting. A focused regression covers the self-test
+  reset outcome; the complete Windows headless suite passes **524/524**.

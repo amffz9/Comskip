@@ -1,4 +1,3 @@
-#include "exit_requested.h"
 #include "app/debug.h"
 #include "app/recording_context.h"
 #include "localization/diagnostic.h"

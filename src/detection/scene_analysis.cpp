@@ -1,5 +1,4 @@
 #include "../localization/diagnostic.h"
-#include "exit_requested.h"
 #include "app/debug.h"
 #include "app/recording_context.h"
 #include "detection/detection_methods.h"
@@ -20,6 +19,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <format>
+#include <string>
 #include <string_view>
 #include <span>
 #include <utility>
@@ -43,14 +43,14 @@ void SceneDebug(RecordingContext& context, int level, std::string_view key, Args
     Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 
-[[nodiscard]] std::size_t BrightnessIndex(RecordingContext& context, int brightness)
+[[nodiscard]] std::size_t BrightnessIndex(int brightness)
 {
     const auto index = comskip::detection::brightness_histogram_index(
         brightness, own_histogram_height);
     if (!index) {
-        std::fputs(context.translator.format("scene_invalid_brightness", brightness,
-                                             own_histogram_height).c_str(), stdout);
-        comskip::request_exit(1);
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(
+            comskip::diagnostics::Code::invalid_scene_brightness,
+            {std::to_string(brightness), std::to_string(own_histogram_height)});
     }
     return *index;
 }
@@ -393,7 +393,7 @@ void ScanBottom(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-            context.state.own_histogram[0][BrightnessIndex(context, hereBright)]++;
+            context.state.own_histogram[0][BrightnessIndex(hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -432,7 +432,7 @@ void ScanTop(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-            context.state.own_histogram[1][BrightnessIndex(context, hereBright)]++;
+            context.state.own_histogram[1][BrightnessIndex(hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -471,7 +471,7 @@ void ScanLeft(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-            context.state.own_histogram[2][BrightnessIndex(context, hereBright)]++;
+            context.state.own_histogram[2][BrightnessIndex(hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }
@@ -510,7 +510,7 @@ void ScanRight(RecordingContext& context, intptr_t arg)
             if (context.state.haslogo[i])
                 continue;
             hereBright = context.state.frame_ptr[i];
-            context.state.own_histogram[3][BrightnessIndex(context, hereBright)]++;
+            context.state.own_histogram[3][BrightnessIndex(hereBright)]++;
             if (hereBright > context.settings.test_brightness)
                 brightCount++;
         }

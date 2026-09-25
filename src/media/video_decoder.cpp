@@ -12,7 +12,7 @@
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"
 #include "output/media_dump.h"
-#include "exit_requested.h"
+#include <optional>
 #include "a53_caption_bridge.h"
 #include "video_decode_status.h"
 /*
@@ -144,8 +144,9 @@ void list_codecs(const comskip::localization::Translator& translator)
         std::cout << '\n';
 }
 
-int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
+comskip::media::FrameSubmission SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
 {
+    using comskip::media::FrameSubmission;
     int res=0;
     int changed = 0;
 
@@ -155,7 +156,7 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
         Debug(context, 1, context.translator.format("media_invalid_frame",
               pFrame.height, pFrame.width, pFrame.linesize[0]).c_str());
         context.state.frame_ptr = {};
-        return(0);
+        return FrameSubmission::continue_decoding;
     }
     if (context.state.height != pFrame.height)
     {
@@ -185,7 +186,7 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
     if (pFrame.data[0] == nullptr)
     {
         context.state.frame_ptr = {};
-        return(0);; // return; // comskip::request_exit(2);
+        return FrameSubmission::continue_decoding;
     }
     context.state.frame_ptr = std::span<unsigned char>{
         pFrame.data[0], comskip::detection::checked_image_size(context.state.width, context.state.height)};
@@ -209,7 +210,7 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
         else
            debug_message(context, 1, "media_selftest_reset_ok");
 
-        comskip::request_exit(1);
+        return FrameSubmission::selftest_complete;
     }
 
     if (!context.state.reviewing)
@@ -231,7 +232,20 @@ int SubmitFrame(RecordingContext& context, AVFrame& pFrame, double pts)
             context.state.video_owner->seek_pts = 0.0;
         }
     }
-    return (res);
+    return res ? FrameSubmission::analysis_complete : FrameSubmission::continue_decoding;
+}
+
+namespace {
+[[nodiscard]] std::optional<comskip::media::VideoPacketOutcome> submission_outcome(
+    comskip::media::FrameSubmission submission) noexcept
+{
+    switch (submission) {
+    case comskip::media::FrameSubmission::analysis_complete: return comskip::media::VideoPacketOutcome::analysis_complete;
+    case comskip::media::FrameSubmission::selftest_complete: return comskip::media::VideoPacketOutcome::selftest_complete;
+    case comskip::media::FrameSubmission::continue_decoding: break;
+    }
+    return std::nullopt;
+}
 }
 
 comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& context, VideoState& is,AVPacket *packet)
@@ -498,10 +512,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.pass = 0;
 //                    comskip::request_exit(1);
                 }
-                if (SubmitFrame (context, *is.pFrame, is.video_clock))
-                {
-                    return comskip::media::VideoPacketOutcome::analysis_complete;
-                }
+                if (const auto outcome = submission_outcome(SubmitFrame(context, *is.pFrame, is.video_clock)))
+                    return *outcome;
             }
         }
         else {
@@ -525,10 +537,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     return comskip::media::VideoPacketOutcome::selftest_complete;
                 }
                 context.state.retries = 0;
-                if (SubmitFrame (context, *is.pFrame, is.video_clock))
-                {
-                    return comskip::media::VideoPacketOutcome::analysis_complete;
-                }
+                if (const auto outcome = submission_outcome(SubmitFrame(context, *is.pFrame, is.video_clock)))
+                    return *outcome;
             } else {
                 if (std::fabs(is.seek_pts - is.video_clock) > 80 ) {
                     Debug(context, 1, context.translator.format("media_positioning_failed",

@@ -26,7 +26,6 @@
 #include "media/audio_analysis.h"
 #include "media/timing_diagnostics.h"
 #include "output/selftest_log.h"
-#include "exit_requested.h"
 #include "platform.h"
 #include "comskip.h"
 #include "ffmpeg_resources.h"
@@ -152,8 +151,9 @@ void DoSeekRequest(RecordingContext& context, VideoState& is)
     is.seek_no_flush = 0;
 }
 
-void DecodeOnePicture(RecordingContext& context, double pts)
+comskip::media::VideoPacketOutcome DecodeOnePicture(RecordingContext& context, double pts)
 {
+    auto result = comskip::media::VideoPacketOutcome::no_frame;
     auto packet_owner = make_packet();
     AVPacket *packet = packet_owner.get();
 //    int ret;
@@ -217,8 +217,11 @@ void DecodeOnePicture(RecordingContext& context, double pts)
  //           pass = 0;
             context.state.retries = 1; // once a frame has been decoded this will be set to zero
             const auto outcome=video_packet_process(context,is,packet);
-            if (outcome == comskip::media::VideoPacketOutcome::selftest_complete) comskip::request_exit(1);
-            if (outcome == comskip::media::VideoPacketOutcome::positioning_failure) comskip::request_exit(-1);
+            if (comskip::media::ends_decoding(outcome)) {
+                result = outcome;
+                av_packet_unref(packet);
+                break;
+            }
             if (outcome == comskip::media::VideoPacketOutcome::frame_decoded)
             {
 
@@ -257,6 +260,7 @@ void DecodeOnePicture(RecordingContext& context, double pts)
         av_packet_unref(packet);
     }
     context.state.reviewing = 0;
+    return result;
 }
 
 

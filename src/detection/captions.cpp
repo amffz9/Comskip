@@ -1,7 +1,6 @@
 #include "../localization/diagnostic.h"
 #include "app/debug.h"
 #include "app/recording_context.h"
-#include "exit_requested.h"
 #include "buffer_growth.h"
 #include "detection/detection_methods.h"
 #include "detection/detector_runtime.h"

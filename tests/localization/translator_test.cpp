@@ -378,8 +378,8 @@ TEST(Translator, FormatsSceneAnalysisDiagnosticsWithStableEnglishLayout) {
               "Frame     42 (1.250s) - Resolution change from 720 x 480 to 1920 x 1080 \n");
     EXPECT_EQ(spanish.format("scene_audio_channels", 42, " 2"),
               "Fotograma: 42 Canales:  2\n");
-    EXPECT_EQ(spanish.format("scene_invalid_brightness", 256, 256),
-              "Error: brillo actual no válido 256 >= 256");
+    EXPECT_EQ(spanish.format("diag_invalid_scene_brightness", 256, 256),
+              "Brillo de escena no válido 256 para 256 intervalos de histograma");
     EXPECT_EQ(spanish.format("scene_large_scene_change", "    42", "1.250", 12, 34),
               "Fotograma     42 (1.250s) - Fotograma negro por cambio grande de escena de 12, uniformidad 34\n");
 }

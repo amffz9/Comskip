@@ -3,7 +3,6 @@
 #include "platform/utf8_paths.h"
 #include "input/file_stream.h"
 #include "input/reference_file.h"
-#include "exit_requested.h"
 #include "app/debug.h"
 #include "app/recording_context.h"
 #include "config/legacy_settings.h"

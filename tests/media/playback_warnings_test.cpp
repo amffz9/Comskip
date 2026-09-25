@@ -104,7 +104,7 @@ TEST_F(PlaybackWarnings, InvalidDecodedFrameLogsSpanishAndDropsBorrowedPixels) {
     frame->linesize[0] = 160;
     unsigned char borrowed = 42;
     context->state.frame_ptr = std::span{&borrowed, 1};
-    EXPECT_EQ(SubmitFrame(*context, *frame, 0), 0);
+    EXPECT_EQ(SubmitFrame(*context, *frame, 0), comskip::media::FrameSubmission::continue_decoding);
     EXPECT_TRUE(context->state.frame_ptr.empty());
     EXPECT_EQ(context->state.frame_count, 0);
     EXPECT_EQ(log(), "Error: altura (99), anchura (160) o paso de fila (160) no válidos\n");
@@ -117,9 +117,21 @@ TEST_F(PlaybackWarnings, InvalidStrideUsesEnglishFallbackBeforeReadingPixels) {
     ASSERT_TRUE(frame);
     frame->width = frame->height = 160;
     frame->linesize[0] = 99;
-    EXPECT_EQ(SubmitFrame(*context, *frame, 0), 0);
+    EXPECT_EQ(SubmitFrame(*context, *frame, 0), comskip::media::FrameSubmission::continue_decoding);
     EXPECT_TRUE(context->state.frame_ptr.empty());
     EXPECT_EQ(log(), "Panic: illegal height (160), width (160) or frame period (99)\n");
+}
+TEST_F(PlaybackWarnings, SelfTestResetReturnsOutcomeInsteadOfUnwinding) {
+    auto frame = comskip::media::make_frame();
+    ASSERT_TRUE(frame);
+    frame->format = AV_PIX_FMT_GRAY8;
+    frame->width = frame->height = 128;
+    ASSERT_GE(av_frame_get_buffer(frame.get(), 0), 0);
+    context->state.selftest = 2;
+    context->state.pass = 1;
+    context->state.test_pts = 1.5;
+    EXPECT_EQ(SubmitFrame(*context, *frame, 1.5), comskip::media::FrameSubmission::selftest_complete);
+    EXPECT_EQ(context->state.framenum, 0);
 }
 TEST_F(PlaybackWarnings, ActualAudioOnlyFileReportsOwnedVideoFailureAndUnwinds) {
     context->translator = comskip::localization::Translator("es");

@@ -3,7 +3,6 @@
 #include "output/xml_cutlists.h"
 #include "output/plist_cutlist.h"
 #include "recording_context.h"
-#include "exit_requested.h"
 #include "platform/utf8_paths.h"
 
 #include <algorithm>
