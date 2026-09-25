@@ -1407,7 +1407,6 @@ bool BuildMasterCommList(RecordingContext& context)
     }
 
     if (context.settings.output_framearray) OutputFrameArray(context, false);
-    if (context.settings.output_framearray) OutputBlackArray(context);
 
     BuildBlocks(context, false);
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))

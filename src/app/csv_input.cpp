@@ -459,10 +459,8 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
     --context.state.frame_count;
     context.state.framenum_real = context.state.frame_count;
     context.state.framesprocessed = context.state.frame_count;
-    if (context.settings.output_live) {
-        OutputBlackArray(context);
+    if (context.settings.output_live)
         BuildCommListAsYouGo(context);
-    }
     BuildMasterCommList(context);
 
     if (context.settings.output_debugwindow)

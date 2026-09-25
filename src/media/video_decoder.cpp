@@ -81,52 +81,18 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
-//#define restrict
-//#include <libavcodec/ac3dec.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 #include <libswscale/swscale.h>
 }
 
-// int width, height;
-
-//#include "mpeg2convert.h"
-#include "comskip.h"
-#include "ffmpeg_resources.h"
-#include <memory>
-using namespace comskip::media;
-#include <algorithm>
-#include <limits>
-
- //AC3
-
-//int bitrate;
-
-//#define PTS_FRAME (double)(1.0 / get_fps())
-//#define PTS_FRAME (int) (90000 / get_fps())
-//#define SAMPLE_TO_FRAME 2.8125
-//#define SAMPLE_TO_FRAME (90000.0/(get_fps() * 1000.0))
-
-//#define BYTERATE	((int)(21400 * 25 / get_fps()))
-
-// The following two functions are undocumented and not included in any public header,
-// so we need to declare them ourselves
-//extern int  _fseeki64(FILE *, int64_t, int);
-//extern int64_t _ftelli64(FILE *);
-
-//test
-
-//extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
-
-//extern double fps;
 
 void list_codecs(const comskip::localization::Translator& translator)
 {
         const AVCodec* p;
         void* iterator = nullptr;
         int i = 0;
-//        avcodec_register_all();
         p = av_codec_iterate(&iterator);
         std::cout << translator.text("media_decoders") << "---------\n";
         while (p != nullptr) {
@@ -150,7 +116,6 @@ comskip::media::FrameSubmission SubmitFrame(RecordingContext& context, AVFrame& 
     int res=0;
     int changed = 0;
 
-//	bitrate = pFrame.bit_rate;
     if (pFrame.linesize[0] > max_width || pFrame.height > max_height || pFrame.linesize[0] < 100 || pFrame.height < 100)
     {
         Debug(context, 1, context.translator.format("media_invalid_frame",
@@ -254,10 +219,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
     int len1, frameFinished = 0;
     int repeat;
     double pts;
-//    double dts;
     double real_pts;
 
-//static double prev_frame_delay = 0.0;
 
     double calculated_delay;
 
@@ -268,7 +231,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
     }
     real_pts = 0.0;
     pts = 0;
-    //is.dec_ctx.get().thread_type
     if (!context.settings.hardware_decode) is.dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_send_packet(is.dec_ctx.get(), packet);
@@ -302,11 +264,8 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                : av_q2d(is.dec_ctx->time_base) * is.ticks_per_frame;
         }
 
-//        frame_delay = av_q2d(is.dec_ctx->time_base) * is.ticks_per_frame ;
         repeat = av_stream_get_parser(is.video_st) ? av_stream_get_parser(is.video_st)->repeat_pict: 4;
 
- //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
- //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         context.state.pev_best_effort_timestamp = context.state.best_effort_timestamp;
         if (context.state.use_cuvid)
             is.pFrame->best_effort_timestamp = is.pFrame->pts;
@@ -329,8 +288,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                     context.state.initial_pts = (context.state.best_effort_timestamp  - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0)) * av_q2d(is.video_st->time_base) - (frame_delay * context.state.framenum);
                     debug_message(context, 10, "media_initial_video_pts",
                                   std::format("{:10.3f}", context.state.initial_pts));
-//                    if (timeline_repair<2)
-//                        initial_pts = 0.0;
                 }
                 context.state.initial_pts_set++;
                 context.state.final_pts = 0;
@@ -341,7 +298,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             context.state.final_pts = context.state.best_effort_timestamp -  (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0);
         }
 
-//        dts =  av_q2d(is.video_st->time_base)* ( is.pFrame->pkt_dts - (is.video_st->start_time != AV_NOPTS_VALUE ? is.video_st->start_time : 0)) ;
 
         calculated_delay = real_pts - context.state.video_packet_process_prev_real_pts;
 
@@ -436,7 +392,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
         else
             context.state.do_audio_repair = 0;
 
-//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is.pFrame->interlaced_frame, is.dec_ctxpar->ticks_per_frame);
 
         // EOF-drained frames may have no timestamp. Residual repair offset is
         // relative to an actual PTS; adding it to zero would reset the clock.
@@ -463,7 +418,6 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
             context.state.video_packet_process_prev_strange_step = std::fabs(calculated_delay - frame_delay);
         }
 
-        // set_fps(calculated_delay, is.fps, repeat, av_q2d(is.video_st->r_frame_rate),  av_q2d(is.video_st->avg_frame_rate));
 
         if(pts != 0)
         {
@@ -498,19 +452,9 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                    }
                     else
                         debug_message(context, 1, "media_selftest_seek_ok");
-                    /*
-                    if (tries ==  0 && std::fabs(static_cast<double>(av_q2d(is.video_st->time_base)) *
-                                                  static_cast<double>(packet->pts - is.video_st->start_time - is.seek_pos)) > 2.0) {
-                                       is.seek_req=1;
-                                       is.seek_pos = 20.0 / av_q2d(is.video_st->time_base);
-                                       is.seek_flags = AVSEEK_FLAG_BYTE;
-                                       tries++;
-                                   } else
-                     */
                     context.state.selftest = 3;
                     context.settings.live_tv_retries = 1;
                     context.state.pass = 0;
-//                    comskip::request_exit(1);
                 }
                 if (const auto outcome = submission_outcome(SubmitFrame(context, *is.pFrame, is.video_clock)))
                     return *outcome;
@@ -559,13 +503,11 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
                         : comskip::media::VideoPacketOutcome::positioning_failure;
                 }
             }
-//            if (selftest == 4) comskip::request_exit(1);
         }
         /* update the video clock */
         is.video_clock += frame_delay;
         context.state.video_packet_process_prev_pts = pts;
         context.state.video_packet_process_prev_real_pts = real_pts;
-//        prev_frame_delay = frame_delay;
 
 #ifdef PROCESS_CC
         if (is.pFrame->nb_side_data) {
@@ -590,4 +532,3 @@ comskip::media::VideoPacketOutcome video_packet_process(RecordingContext& contex
     return comskip::media::video_packet_outcome(frameFinished != 0,false,false,false);
 }
 
-//extern int dxva2_init(AVCodecContext *s);

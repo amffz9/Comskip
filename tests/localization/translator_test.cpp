@@ -87,7 +87,6 @@ TEST(Translator, LocalizesMediaStartupFailuresAndResults) {
     const Translator english;
     const Translator spanish("es");
     EXPECT_EQ(english.format("media_version", "Comskip 0.83.1"), "Comskip 0.83.1, made using ffmpeg\n");
-    EXPECT_EQ(spanish.format("media_open_failed", "録画.ts"), "録画.ts: no se puede abrir el archivo\n");
     EXPECT_EQ(spanish.format("media_using_codec", "h264_qsv", "h264"), "Usando el códec h264_qsv en lugar de h264\n");
     EXPECT_STREQ(english.text("media_found_commercials"), "Commercials were found.\n");
     EXPECT_STREQ(spanish.text("media_found_commercials"), "Se encontraron anuncios.\n");
@@ -104,7 +103,6 @@ TEST(Translator, FormatsCliWarningsAndErrorsWithStableIdentifiers) {
               "Comskip: argumento no válido o ausente para --threads: \"bad\"\n");
     EXPECT_EQ(spanish.format("cli_throttle_schedule", "0600", "1200", "0900"),
               "\nComskip reduce la velocidad de 0600 a 1200.\nLa hora actual es 0900 ");
-    EXPECT_TRUE(std::string(spanish.text("cli_read_ini_failed")).contains("INI"));
 }
 
 TEST(Translator, FormatsScoringDiagnosticsInEnglishAndSpanish) {
@@ -346,8 +344,6 @@ TEST(Translator, FormatsFrameTimingAndRecordingInputDiagnostics) {
     const Translator english;
     const Translator spanish("es");
     EXPECT_EQ(english.format("media_frame_rate_set", "29.970"), "Frame Rate set to 29.970 f/s\n");
-    EXPECT_EQ(english.format("media_dfps", 2, "59.940"), "DFps[2]= 59.940 f/s\n");
-    EXPECT_EQ(spanish.format("media_repeats_per_frame", 2), "Repeticiones por fotograma = 2\n");
     EXPECT_STREQ(spanish.text("media_no_stream_frame_rate"),
                  "Advertencia: no hay frecuencia de fotogramas en el flujo; se deriva del códec\n");
 }

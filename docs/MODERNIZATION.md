@@ -1087,3 +1087,11 @@ than redefine completion around whichever subset currently passes tests.
   brightness throws a typed, cataloged `invalid_scene_brightness` diagnostic
   instead of printing and exiting. A focused regression covers the self-test
   reset outcome; the complete Windows headless suite passes **524/524**.
+
+- Obsolete media and output code is removed: duplicated decoder includes,
+  commented-out legacy statements, disabled `#ifdef undef`/`NOTDEF`/`notused`
+  branches, the empty `PROCESS_CC` block, and the unreachable
+  `OutputBlackArray` writer with its call sites. `set_fps` now contains only
+  its active rate-update rule. Twelve catalog entries that no source path could
+  reach were removed from both locales. The complete Windows headless suite
+  passes **524/524**.

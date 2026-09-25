@@ -62,7 +62,6 @@ static std::optional<int> retrieve_frame_volume(RecordingContext& context, doubl
         calculated_delay = 0.0;
 
 
- //       Debug(1,"fame=%d, =base=%6.3f, from=%6.3f, samples=%d, to=%6.3f, top==%6.3f\n", -1, base_apts, from_pts, s_per_frame, to_pts, top_apts);
         buffer = &context.state.audio_buffer[first_sample];
 
         volume = 0;
@@ -133,8 +132,6 @@ void backfill_frame_volumes(RecordingContext& context)
 }
 
 
-
-
 void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& frame)
 {
     const int s = frame.nb_samples;
@@ -170,7 +167,6 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
         audio_debug(context, 5, "media_audio_channels_switched",
                     std::format("{:6.5f}", context.state.base_apts),
                     context.state.sound_to_frames_old_c, c);
-//        InsertBlackFrame()
     }
     context.state.audio_channels = c;
     context.state.sound_to_frames_old_c = c;
@@ -243,20 +239,12 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
 }
 
 
-
-
-
-
-
-
-
 void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& pkt)
 {
     std::optional<unsigned int> prev_codec_id;
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
-//    AC3DecodeContext *s = is.audio_st->codecpar->priv_data;
     int      rps,ps;
     // A local view borrows this input payload; it never owns a buffer reference.
     AVPacket borrowed_audio{};
@@ -276,7 +264,6 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     if ( !context.settings.ALIGN_AC3_PACKETS && is.audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
         && (pkt_temp.size < 2 || pkt_temp.data[0] != 0x0b || pkt_temp.data[1] != 0x77))
     {
-//        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
         context.state.ac3_package_misalignment_count++;
     } else {
         context.state.ac3_package_misalignment_count = 0;
@@ -340,8 +327,6 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
     /*  Try to align on packet boundary as some demuxers don't do that, in particular dvr-ms */
 
 
-
-
     if (pkt.pts != AV_NOPTS_VALUE)
     {
         prev_audio_clock = is.audio_clock;
@@ -364,10 +349,6 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
                 audio_debug(context, 8, "media_audio_strange_pts_step",
                             std::format("{:6.5f}", (is.audio_clock - prev_audio_clock) + 0.0005),
                             std::format("{:6.5f}", 0.0), context.state.framenum);
-                if (context.state.do_audio_repair) {
-//                    apts_offset += is.audio_clock - prev_audio_clock ;
-//                    is.audio_clock = prev_audio_clock;
-                }
             }
         }
         if (!context.state.initial_apts_set) {
@@ -412,10 +393,8 @@ void audio_packet_process(RecordingContext& context, VideoState& is, AVPacket& p
         }
     }
 
-    //		fprintf(stderr, "sac = %f\n", is.audio_clock);
     while ((len1 = avcodec_receive_frame(is.audio_ctx.get(), is.frame.get())) != AVERROR(EAGAIN))
     {
- //       data_size = STORAGE_SIZE;
         got_frame = len1 >= 0;
 
         if (prev_codec_id && *prev_codec_id != is.audio_st->codecpar->codec_id)

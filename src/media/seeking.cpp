@@ -93,9 +93,7 @@ void DoSeekRequest(RecordingContext& context, VideoState& is)
 {
     int ret{};
     for (;;) {
-//           ret = avformat_seek_file(is.pFormatCtx.get(), *is.videoStream, INT64_MIN, is.seek_pos, INT64_MAX, is.seek_flags);
     ret = av_seek_frame(is.pFormatCtx.get(), *is.videoStream,  is.seek_pos,  is.seek_flags);
-//            ret = av_seek_frame(is.pFormatCtx.get(), -1,  is.seek_pos,  is.seek_flags);
     context.state.pev_best_effort_timestamp = 0;
     context.state.best_effort_timestamp = 0;
     is.video_clock = 0.0;
@@ -156,9 +154,7 @@ comskip::media::VideoPacketOutcome DecodeOnePicture(RecordingContext& context, d
     auto result = comskip::media::VideoPacketOutcome::no_frame;
     auto packet_owner = make_packet();
     AVPacket *packet = packet_owner.get();
-//    int ret;
 
-//    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
 
     file_open(context);
     auto& is = *context.state.video_owner;
@@ -170,7 +166,6 @@ comskip::media::VideoPacketOutcome DecodeOnePicture(RecordingContext& context, d
     context.state.best_effort_timestamp = 0;
     context.state.pts_offset = 0.0;
 
-//     Debug ( 5,  "Seek to %f\n", pts);
     context.state.frame_ptr = {};
 
     for(;;)
@@ -207,14 +202,6 @@ comskip::media::VideoPacketOutcome DecodeOnePicture(RecordingContext& context, d
 
         if(is.videoStream && packet->stream_index == *is.videoStream)
         {
-/*
-            if (packet->pts != AV_NOPTS_VALUE)
-                comp_pts = packet->pts;
-            pack_pts = comp_pts; // av_rescale_q(comp_pts, is.video_st->time_base, AV_TIME_BASE_Q);
-            pack_duration = packet->duration; //av_rescale_q(packet->duration, is.video_st->time_base, AV_TIME_BASE_Q);
-            comp_pts += packet->duration;
- */
- //           pass = 0;
             context.state.retries = 1; // once a frame has been decoded this will be set to zero
             const auto outcome=video_packet_process(context,is,packet);
             if (comskip::media::ends_decoding(outcome)) {
@@ -234,19 +221,6 @@ comskip::media::VideoPacketOutcome DecodeOnePicture(RecordingContext& context, d
                     av_packet_unref(packet);
                     break;
                 }
-/*
-                double frame_delay = av_q2d(is.dec_ctxpar->time_base)* is.dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
-                if (is.video_clock - is.seek_pts > -frame_delay / 2.0)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
-                if (is.video_clock + (pack_duration * av_q2d(is.video_st->time_base)) >= is.seek_pts)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
- */
             }
         }
         else if(is.audioStream && packet->stream_index == *is.audioStream)
@@ -262,8 +236,5 @@ comskip::media::VideoPacketOutcome DecodeOnePicture(RecordingContext& context, d
     context.state.reviewing = 0;
     return result;
 }
-
-
-
 
 

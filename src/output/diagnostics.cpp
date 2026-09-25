@@ -115,7 +115,6 @@ void OutputLogoHistogram(RecordingContext& context,
 }
 
 
-
 void OutputbrightHistogram(RecordingContext& context)
 {
     const auto report=comskip::output::make_histogram_report<int>(context.state.brightHistogram,
@@ -246,8 +245,6 @@ int FindUniformThreshold(RecordingContext& context, double percentile)
     while (tempCount < targetCount);
     if (i == 0)
         i = 1;
-//	while (uniformHistogram[i+1] < uniformHistogram[i])
-//		i++;
     return ((i+1)*uniform_scale);
 }
 
@@ -420,7 +417,6 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
     }
     if (context.settings.output_training)
         append_quality(comskip::output::csv_field(context.state.inbasename).c_str(), -1L, fneg, fpos, total);
-//#else
     j = 0;
     i = 0;
     while ( i <= context.state.reffer_count && j <= context.state.commercial_count )
@@ -429,13 +425,11 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
         if ( context.state.commercial[j].end_frame < context.state.reffer[i].start_frame )
         {
             comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame), comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
-//			fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
             j++;
         }
         else if ( context.state.commercial[j].start_frame > context.state.reffer[i].end_frame )
         {
             comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame), -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
-//			fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
             i++;
         }
         else
@@ -445,16 +439,6 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
             {
                 comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, comskip::detection::frame_duration(context, context.state.reffer[i].start_frame, context.state.commercial[j].start_frame), comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.reffer[i].end_frame));
             }
-            /*
-                        if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ) {
-                            fprintf(raw, "Found %5ld %5ld    Reference %5ld %5ld    ", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame);
-                            fprintf(raw, "starts at %5ld instead of %5ld\n", commercial[j].start_frame, reffer[i].start_frame);
-                        }
-                        if (abs(reffer[i].end_frame-commercial[j].end_frame) > 40 ) {
-                            fprintf(raw, "Found %5ld %5ld    Reference %5ld %5ld    ", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame);
-                            fprintf(raw, "ends   at %5ld instead of %5ld\n", commercial[j].end_frame, reffer[i].end_frame);
-                        }
-            */
             i++;
             j++;
         }
@@ -462,16 +446,13 @@ int InputReffer(RecordingContext& context, std::string_view extension, int setfp
     while (j <= context.state.commercial_count)
     {
         comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", context.state.commercial[j].start_frame, context.state.commercial[j].end_frame, 0L, 0L, comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame), comskip::detection::frame_duration(context, context.state.commercial[j].end_frame, context.state.commercial[j].start_frame));
-//		fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
         j++;
     }
     while (i <= context.state.reffer_count)
     {
         comskip::output::checked_fprintf(*raw, difference_name, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, context.state.reffer[i].start_frame, context.state.reffer[i].end_frame, -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame), -comskip::detection::frame_duration(context, context.state.reffer[i].end_frame, context.state.reffer[i].start_frame));
-//		fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
         i++;
     }
-//#endif
     for (i=0; i<context.state.block_count; i++)
     {
         co = CheckFramesForCommercial(context, context.state.cblock[i].f_start+context.state.cblock[i].b_head,context.state.cblock[i].f_end - context.state.cblock[i].b_tail);
@@ -516,46 +497,6 @@ void OutputAspect(RecordingContext& context)
     }
     comskip::output::checked_close(output, path);
 }
-
-
-
-
-
-void OutputBlackArray(RecordingContext& context)
-{
-return;
-
-    const auto path = comskip::platform::path_to_utf8(
-        comskip::platform::path_from_utf8(context.state.logfilename).replace_extension(".black.csv"));
-//	Debug(5, "Expanding logo blocks into frame array\n");
-//	for (i = 0; i < logo_block_count; i++) {
-//		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
-//			frame[j].logo_present = true;
-//		}
-//	}
-//	Debug(5, "Expanded logo blocks into frame array\n");
-    auto output = comskip::platform::open_file_owned(path, "w");
-    if (!output)
-    {
-        Debug(context, 1, context.translator.text("diagnostics_raw_open_failed"));
-        return;
-    }
-    comskip::output::checked_fprintf(*output, path, "black,frame,brightness,cause,uniform,volume\n");
-    for (int index = 1; index < context.state.black_count; ++index)
-    {
-        comskip::output::checked_fprintf(*output, path, "%i,%ld,%i,%i,%ld,%i\n",
-                    index,
-                    context.state.black[index].frame,
-                    context.state.black[index].brightness,
-                    context.state.black[index].cause,
-                    context.state.black[index].uniform,
-                    context.state.black[index].volume
-                   );
-    }
-
-    comskip::output::checked_close(output, path);
-}
-
 
 
 void OutputFrameArray(RecordingContext& context, bool screenOnly)

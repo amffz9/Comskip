@@ -122,8 +122,6 @@ void OpenOutputFiles(RecordingContext& context)
     }
 
 
-
-
     if (context.settings.output_edl)
     {
         context.state.filename = std::string(context.state.outbasename) + ".edl";
@@ -142,18 +140,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
     int count;
     double minutes = frame_time(context, context.state.frame_count)/60;
 
-/*
-    // Convert from frame array index to (timecode / fps) for external output
-    if (prev > 0)
-        prev = frame_number(context, prev);
-    if (start > 0 && start <= frame_count)
-        start = frame_number(context, start);
-    if (end > 0 && end <= frame_count)
-        end = frame_number(context, end);
-
-    start = std::max(start,0);
-    end = std::max(end,0);
-*/
 
     s_start = start;
     s_end = end;
@@ -187,7 +173,6 @@ void OutputCommercialBlock(RecordingContext& context, int i, long prev, long sta
             }
         }
     }
-    //CLOSEOUTFILE(context.state.out_file);
 
     if (context.state.edl_file.get() && prev < start /* &&!last */ && end - start > 2)
     {
@@ -300,44 +285,6 @@ bool OutputBlocks(RecordingContext& context)
 
     BuildCommercial(context);
 
-#ifdef undef
-    context.state.commercial_count = -1;
-    i = 0;
-    while (i < context.state.block_count)
-    {
-        if (context.state.cblock[i].score > threshold
-//			&&
-//			( cblock[i].score >= 100 ||
-//			!((commDetectMethod & LOGO) && cblock[i].logo > 0.5 && frame_duration(context, cblock[i].f_end, cblock[i].f_start) > (min_show_segment_length) ))
-           )
-        {
-            context.state.commercial_count++;
-            context.state.commercial[context.state.commercial_count].start_frame = context.state.cblock[i].f_start/*+ (cblock[i].bframe_count / 2)*/;
-            context.state.commercial[context.state.commercial_count].end_frame = context.state.cblock[i].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
-            context.state.commercial[context.state.commercial_count].length = frame_duration(context, context.state.commercial[context.state.commercial_count].end_frame,	context.state.commercial[context.state.commercial_count].start_frame);
-            context.state.commercial[context.state.commercial_count].start_block = i;
-            context.state.commercial[context.state.commercial_count].end_block = i;
-            context.state.cblock[i].iscommercial = true;
-            i++;
-            while (i < context.state.block_count && context.state.cblock[i].score > threshold
-//				&&
-//				( cblock[i].score >= 100 ||
-//				!((commDetectMethod & LOGO) && cblock[i].logo > 0.5 && frame_duration(context, cblock[i].f_end, cblock[i].f_start) >  (min_show_segment_length) ))
-                  )
-            {
-                context.state.commercial[context.state.commercial_count].end_frame = context.state.cblock[i].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
-                context.state.commercial[context.state.commercial_count].length = frame_duration(context, context.state.commercial[context.state.commercial_count].end_frame, context.state.commercial[context.state.commercial_count].start_frame);
-                context.state.commercial[context.state.commercial_count].end_block = i;
-                context.state.cblock[i].iscommercial = true;
-                i++;
-            }
-        }
-        else
-            context.state.cblock[i].iscommercial = false;
-        i++;
-    }
-#endif
-
 
     if (!(context.settings.disable_heuristics & (1 << (5 - 1))))
     {
@@ -408,10 +355,6 @@ bool OutputBlocks(RecordingContext& context)
         );
     }
 
-#if 1
-
-
-
 
     if (!(context.settings.disable_heuristics & (1 << (6 - 1))))
     {
@@ -437,110 +380,11 @@ bool OutputBlocks(RecordingContext& context)
                 deleted = true;
             }
         }
-#ifdef NOTDEF
-// keep first seconds
-        if (always_keep_first_seconds && context.state.commercial_count >= 0)
-        {
-            k = 0;
-            if ( frame_time(context, context.state.commercial[k].end_frame) < always_keep_first_seconds)
-            {
-                for (i = context.state.commercial[k].start_block; i <= context.state.commercial[k].end_block; i++)
-                {
-                    Debug(3, "H6 Deleting block %i because the first %d seconds should always be kept.\n",
-                          i, always_keep_first_seconds);
-                    context.state.cblock[i].score = 0;
-                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                    context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                }
-                comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
-                deleted = true;
-            }
-        }
-        if (always_keep_last_seconds && context.state.commercial_count >= 0)
-        {
-            k = context.state.commercial_count;
-            if (frame_duration(context, context.state.cblock[context.state.block_count-1].f_end, context.state.commercial[k].start_frame) < always_keep_last_seconds)
-            {
-                for (i = context.state.commercial[k].start_block; i <= context.state.commercial[k].end_block; i++)
-                {
-                    Debug(3, "H6 Deleting block %i because the last %d seconds should always be kept.\n",
-                          i, always_keep_last_seconds);
-                    context.state.cblock[i].score = 0;
-                    context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                    context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                }
-                comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, k);
-                deleted = true;
-            }
-        }
-#endif
 
-        /*
-                // Delete too short first commercial
-                k = 0;
-                if (commercial_count >= 0 && commercial[k].start_frame < fps &&
-                    commercial[k].length < min_commercial_break_at_start_or_end) {
-                    for (i = commercial[k].start_block; i <= commercial[k].end_block; i++) {
-                        Debug(3, "H6 Deleting block %i because it is part of a too short commercial at the start of the recording.\n",
-                            i);
-                        cblock[i].score = 0;
-                        cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                        cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                    }
-                    for (i = k; i < commercial_count; i++) {
-                        commercial[i] = commercial[i + 1];
-                    }
-                    commercial_count--;
-                    deleted = true;
-                }
-                // Delete too short last commercial
-                k = commercial_count;
-                if (commercial_count >= 0 && (cblock[block_count-1].f_end - commercial[k].end_frame) < fps &&
-                    commercial[k].length < min_commercial_break_at_start_or_end) {
-                    for (i = commercial[k].start_block; i <= commercial[k].end_block; i++) {
-                        Debug(3, "H6 Deleting block %i because it is part of a too short commercial at the end of the recording.\n",
-                            i);
-                        cblock[i].score = 0;
-                        cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                        cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                    }
-                    for (i = k; i < commercial_count; i++) {
-                        commercial[i] = commercial[i + 1];
-                    }
-                    commercial_count--;
-                    deleted = true;
-                }
-        */
-        /*
-            // Delete too short shows
-            for (k = commercial_count-1; k >= 0; k--) {
-                if ( commercial[k+1].start_frame - commercial[k].end_frame < min_show_segment_length / 2.5 * fps ||
-                     (commercial[k].end_frame > after_start &&
-                      commercial[k].end_frame < before_end &&
-                      commercial[k+1].start_frame - commercial[k].end_frame < min_show_segment_length  * fps)
-                    ) {
-                    for (i = commercial[k].end_block+1; i < commercial[k+1].start_block; i++) {
-                        cblock[i].score = 99.99;
-                        cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                        cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::history_6);
-                    }
-                    commercial[k].end_block = commercial[k+1].end_block;
-                    commercial[k].end_frame = commercial[k+1].end_frame;
-                    commercial[k].length = (commercial[k].end_frame - commercial[k].start_frame) / fps;
-
-                    for (i = k+1; i < commercial_count; i++) {
-                            commercial[i] = commercial[i + 1];
-                    }
-                    commercial_count--;
-                    deleted = true;
-                }
-            }
-        */
 
     }
     if (context.settings.delete_show_after_last_commercial &&
             context.state.commercial_count > -1 &&
-            //	( commercial[commercial_count].end_block == block_count - 2 || commercial[commercial_count].end_block == block_count - 3) &&
             ((context.settings.delete_show_after_last_commercial == 1 && context.state.cblock[context.state.commercial[context.state.commercial_count].start_block].f_end > context.state.before_end) ||
              (context.settings.delete_show_after_last_commercial > frame_duration(context, context.state.cblock[context.state.block_count-1].f_end, context.state.cblock[context.state.commercial[context.state.commercial_count].start_block].f_start)) )
 
@@ -562,7 +406,6 @@ bool OutputBlocks(RecordingContext& context)
             i++;
         }
     }
-
 
 
     if (context.settings.delete_show_before_first_commercial &&
@@ -623,12 +466,10 @@ bool OutputBlocks(RecordingContext& context)
     }
 
 
-
     if (deleted)
         Debug(context, 1, context.translator.text("cutlists_final_list"));
     else
         Debug(context, 1, context.translator.text("cutlists_no_change"));
-#endif
 
 
     // Apply padding
@@ -642,18 +483,15 @@ bool OutputBlocks(RecordingContext& context)
     }
 
 
-
     comlength = 0.;
     for (i = 0; i < context.state.commercial_count; i++)
     {
         comlength += context.state.commercial[i].length;
     }
-//	Debug(1, "Total commercial length found: %s\n",	dblSecondsToStrMinutes(comlength));
 
     prev = -1;
     for (i = 0; i <= context.state.commercial_count; i++)
     {
-//		if ((commercial[i].length >= min_commercialbreak) && (commercial[i].length <= max_commercialbreak))
         {
             foundCommercials = true;
             if (deleted)
@@ -710,8 +548,6 @@ bool OutputBlocks(RecordingContext& context)
     }
 
 
-
-
     if (context.settings.verbose)
     {
         Debug(context, 1, context.translator.format("cutlists_statistics",
@@ -739,25 +575,9 @@ bool OutputBlocks(RecordingContext& context)
             "  #     sbf  bs  be     fs     fe        ts        te       len     sc   scr cmb   ar                   cut    bri logo   vol sil   corr stdev   cc\n"
         );
 
-//		if (output_training) {
-//			fprintf(training_file, TRAINING_LAYOUT,
-//				"0", 0, 0, 0, 0,0,0, 0, 0, 0, 0);
-//		}
-
-
-
 
         for (i = 0; i < context.state.block_count; i++)
         {
-            /*
-                        cs[5] = (cblock[i].cause & 16 ? 'b' : ' ');
-                        cs[4] = (cblock[i].cause & 8  ? 'u' : ' ');
-                        cs[3] = (cblock[i].cause & 32 ? 'a' : ' ');
-                        cs[2] = (cblock[i].cause & 4  ? 's' : ' ');
-                        cs[1] = (cblock[i].cause & 1  ? 'l' : ' ');
-                        cs[0] = (cblock[i].cause & 2  ? 'c' : ' ');
-                        cs[6] = 0;
-            */
 
             Debug(context,
                 1,
@@ -774,7 +594,6 @@ bool OutputBlocks(RecordingContext& context)
                 get_frame_pts(context, context.state.cblock[i].f_end),
                 context.state.cblock[i].length,
                 context.state.cblock[i].score,
-//				cblock[i].schange_count,
                 context.state.cblock[i].schange_rate,
                 context.state.cblock[i].combined_count,
                 context.state.cblock[i].ar_ratio,
@@ -790,55 +609,32 @@ bool OutputBlocks(RecordingContext& context)
                 context.state.cblock[i].stdev,
                 CCTypeText(context, context.state.cblock[i].cc_type).c_str()
             );
-            if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo))
-            {
-//				if (CheckFramesForLogo(cblock[i].f_start, cblock[i].f_end)) {
-//					Debug(1, "\tLogo Present\n");
-//				} else {
-                Debug(context, 1, "\n");
-//				}
-            }
-            else
-            {
-                Debug(context, 1, "\n");
-            }
+            Debug(context, 1, "\n");
         }
 
         OutputAspect(context);
         OutputTraining(context);
 
 
-
-//		if (output_training) {
-//			fprintf(training_file, TRAINING_LAYOUT,
-//				"0", 0, 0, 100, 0,0,0, 0, 0, 0, 0);
-//		}
-
     }
 
-//	OutputDebugWindow(false,0);
     return (foundCommercials);
 }
 
 void OutputStrict(RecordingContext& context, double len, double delta, double tol)
 {
-//return;
     if (context.settings.output_training && !context.state.training_file.get())
     {
         context.state.training_file=open_checked_file("strict.csv","a+");
-//		fprintf(training_file, "// score, length, fraction, position,combined, ar error, logo, strict \n");
     }
     if (context.state.training_file.get())
         comskip::output::checked_fprintf(*context.state.training_file,"strict.csv","%+f,%+f,%+f,%s\n", len,delta, tol, comskip::output::csv_field(context.state.inbasename).c_str());
 }
 
 
-
-
 void OutputTraining(RecordingContext& context)
 {
     int i;
-//	return;
     if (!context.settings.output_training)
         return;
     if (context.state.training_file)

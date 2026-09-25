@@ -56,7 +56,6 @@ void file_open_impl(RecordingContext& context)
     if (!context.state.video_owner)
     {
         context.state.video_owner = std::make_unique<VideoState>();
-        // Register all formats and codecs
         context.state.av_log_level=AV_LOG_INFO;
 
 
@@ -67,20 +66,13 @@ void file_open_impl(RecordingContext& context)
         context.state.video_owner->subtitleStream.reset();
         context.state.video_owner->pFormatCtx.reset();
 
-//        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
         if (!context.settings.hardware_decode) {
-//            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
             av_dict_set_int(inout_ptr(context.state.myoptions), "gray", 1, 0);
         }
 #ifdef DONATOR
-//        if (thread_count == 1)
                 av_dict_set_int(inout_ptr(context.state.myoptions), "threads", context.settings.thread_count, 0);
-//        else
-//            av_dict_set(std::inout_ptr(myoptions), "threads", "auto", 0);
-//           codecCtx->thread_count= thread_count;
 #else
             av_dict_set_int(inout_ptr(context.state.myoptions), "threads", 1, 0);
-//            codecCtx->thread_count= 1;
 #endif
         av_dict_set_int(inout_ptr(context.state.myoptions), "refcounted_frames", 1, 0); // No need to keep multiple buffers
 
@@ -94,7 +86,6 @@ void file_open_impl(RecordingContext& context)
         is.pFormatCtx.reset(avformat_alloc_context());
         if (!is.pFormatCtx) throw std::bad_alloc();
         is.pFormatCtx->max_analyze_duration *= 4;
-//        pFormatCtx->probesize = 400000;
         int open_status{};
         while ((open_status = avformat_open_input(inout_ptr(is.pFormatCtx),
                                                    is.filename.c_str(), nullptr,
@@ -107,15 +98,6 @@ void file_open_impl(RecordingContext& context)
             sleep_for_ms(1000L);
         }
         is.seek_by_bytes = !!(is.pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is.pFormatCtx->iformat->name);
-// #if def _DEBUG
-//        if (is.duration < 5*60 && retries++ < live_tv_retries)
-//        {
-//            sleep_for_ms(4000L);
-//            goto again;
-//        }
-// #en dif
-//     is.pFormatCtx->max_analyze_duration = 320000000;
-//    is.pFormatCtx->thread_count= 2;
 
         // Retrieve stream information
         const int stream_info_status=avformat_find_stream_info(is.pFormatCtx.get(), 0L );
@@ -164,7 +146,6 @@ void file_open_impl(RecordingContext& context)
             is.fps = 1/(av_q2d(is.dec_ctx->time_base) * is.ticks_per_frame );
         }
         set_fps(context,  1.0 / is.fps);
-//        Debug(1, "Stream frame rate is %5.3f f/s\n", is.fps);
 
 
     }
@@ -205,14 +186,9 @@ void file_open_impl(RecordingContext& context)
 
 
                     is.seek_req = 0;
-//                    framenum = 0;
                     context.state.pts_offset = 0.0;
                     is.video_clock = 0.0;
                     is.audio_clock = 0.0;
-//                    sound_frame_counter = 0;
-//                    initial_pts = 0.0;
-//                    initial_pts_set = 0;
-//                    initial_apts_set = 0;
                     context.state.initial_apts = 0;
                     context.state.apts_offset = 0.0;
                     context.state.base_apts = 0.0;
@@ -220,9 +196,6 @@ void file_open_impl(RecordingContext& context)
                     context.state.apts = 0.0;
                     context.state.audio_buffer_size = 0;
                     context.state.audio_samples = 0;
-//                    close_data();
-#ifdef PROCESS_CC
-#endif
 
 }
 }
