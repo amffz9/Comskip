@@ -36,6 +36,8 @@ constexpr int silence_cause = cause_value(FrameCause::silence);
 template <typename... Args>
 void LiveDebug(RecordingContext& context, const int level, const char* const message_id, Args&&... args)
 {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     Debug(context, level, context.translator.format(message_id, std::forward<Args>(args)...));
 }
 }

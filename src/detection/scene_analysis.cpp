@@ -40,6 +40,8 @@ inline constexpr double aspect_ratio_trend = 0.8;
 template <typename... Args>
 void SceneDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 

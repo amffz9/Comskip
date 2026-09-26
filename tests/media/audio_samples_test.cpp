@@ -101,4 +101,14 @@ TEST(AudioSamplesValidation, RejectsMissingPlaneAndInvalidSampleRate) {
     EXPECT_THROW(comskip::media::normalize_audio(*frame), std::invalid_argument);
     frame->extended_data[1] = saved_plane;
 }
+TEST(AudioSamples, ReusedNormalizerMatchesOneShotConversionAcrossFormatChanges) {
+    comskip::media::AudioNormalizer normalizer;
+    for (const auto& frame : {make_frame(AV_SAMPLE_FMT_S16), make_frame(AV_SAMPLE_FMT_S16),
+                              make_frame(AV_SAMPLE_FMT_FLTP, 6), make_frame(AV_SAMPLE_FMT_S16)}) {
+        const auto reused = normalizer.normalize(*frame);
+        const auto one_shot = comskip::media::normalize_audio(*frame);
+        EXPECT_EQ(reused.sample_rate, one_shot.sample_rate);
+        EXPECT_EQ(reused.channels, one_shot.channels);
+    }
+}
 }

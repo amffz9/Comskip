@@ -33,6 +33,8 @@ bool same_timestamp(double first, double second) {
 }
 template<class... Args>
 void audio_debug(RecordingContext& context, int level, std::string_view key, Args&&... args) {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 }
@@ -137,7 +139,7 @@ void sound_to_frames(RecordingContext& context, VideoState& is, const AVFrame& f
     const int s = frame.nb_samples;
     const int c = frame.ch_layout.nb_channels;
     if (s <= 0 || c <= 0) return;
-    const auto samples = comskip::media::normalize_audio(frame);
+    const auto samples = is.audio_normalizer.normalize(frame);
 
     double old_base_apts;
 

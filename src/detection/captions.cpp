@@ -45,6 +45,8 @@ bool contains_case_insensitive(std::string_view text, std::string_view phrase)
 template <typename... Args>
 void CaptionDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 }

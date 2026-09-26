@@ -1,4 +1,5 @@
 #pragma once
+#include "audio_samples.h"
 #include "ffmpeg_resources.h"
 #include <optional>
 #include <string>
@@ -33,4 +34,5 @@ struct VideoState {
     double duration{};
     double fps{};
     comskip::media::ScalerPtr img_convert_ctx;
+    comskip::media::AudioNormalizer audio_normalizer;
 };

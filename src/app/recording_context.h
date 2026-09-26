@@ -26,10 +26,6 @@ struct RecordingState {
     int baseXDS= 0;
     std::array<std::array<int, 256>, 4> own_histogram{};
     int scan_step{};
-    std::vector<int> length_order;
-    bool length_sorted = false;
-    std::array<int, 10> min_val{};
-    std::array<int, 10> max_val{};
     std::array<int, 10> delta_val{};
     std::vector<std::string> argument;
     bool initialized= false;

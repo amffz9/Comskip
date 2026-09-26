@@ -3,6 +3,7 @@
 #include "ffmpeg_resources.h"
 
 extern "C" {
+#include <libavutil/channel_layout.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
 #include <libavutil/samplefmt.h>
@@ -12,6 +13,7 @@ extern "C" {
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace comskip::media {
 namespace {
@@ -23,7 +25,14 @@ void check(int result, comskip::diagnostics::Code operation) {
 }
 }
 
+AudioNormalizer::~AudioNormalizer() { av_channel_layout_uninit(&layout_); }
+
 PlanarAudio normalize_audio(const AVFrame& frame) {
+    AudioNormalizer normalizer;
+    return normalizer.normalize(frame);
+}
+
+PlanarAudio AudioNormalizer::normalize(const AVFrame& frame) {
     const auto format = static_cast<AVSampleFormat>(frame.format);
     if (frame.sample_rate <= 0 || frame.nb_samples < 0 ||
         !av_channel_layout_check(&frame.ch_layout) || av_get_bytes_per_sample(format) == 0) {
@@ -43,14 +52,25 @@ PlanarAudio normalize_audio(const AVFrame& frame) {
         input.push_back(frame.extended_data[channel]);
     }
 
-    SwrContext* raw_context = nullptr;
-    const int allocated = swr_alloc_set_opts2(&raw_context,
-        &frame.ch_layout, AV_SAMPLE_FMT_FLTP, frame.sample_rate,
-        &frame.ch_layout, format, frame.sample_rate, 0, nullptr);
-    ResamplerPtr context(raw_context);
-    check(allocated, comskip::diagnostics::Code::configure_audio_conversion_detail);
-    check(swr_init(context.get()), comskip::diagnostics::Code::initialize_audio_conversion_detail);
-    const int capacity = swr_get_out_samples(context.get(), frame.nb_samples);
+    if (!converter_ || format != format_ || frame.sample_rate != sample_rate_ ||
+        av_channel_layout_compare(&frame.ch_layout, &layout_) != 0) {
+        converter_.reset();
+        av_channel_layout_uninit(&layout_);
+        format_ = -1;
+        SwrContext* raw_context = nullptr;
+        const int allocated = swr_alloc_set_opts2(&raw_context,
+            &frame.ch_layout, AV_SAMPLE_FMT_FLTP, frame.sample_rate,
+            &frame.ch_layout, format, frame.sample_rate, 0, nullptr);
+        ResamplerPtr created(raw_context);
+        check(allocated, comskip::diagnostics::Code::configure_audio_conversion_detail);
+        check(swr_init(created.get()), comskip::diagnostics::Code::initialize_audio_conversion_detail);
+        check(av_channel_layout_copy(&layout_, &frame.ch_layout), comskip::diagnostics::Code::configure_audio_conversion_detail);
+        converter_ = std::move(created);
+        format_ = format;
+        sample_rate_ = frame.sample_rate;
+    }
+    SwrContext* const context = converter_.get();
+    const int capacity = swr_get_out_samples(context, frame.nb_samples);
     check(capacity, comskip::diagnostics::Code::size_audio_conversion_detail);
     std::vector<std::uint8_t*> output;
     output.reserve(result.channels.size());
@@ -58,8 +78,11 @@ PlanarAudio normalize_audio(const AVFrame& frame) {
         channel.resize(capacity);
         output.push_back(reinterpret_cast<std::uint8_t*>(channel.data()));
     }
-    const int count = swr_convert(context.get(), output.data(), capacity,
+    const int count = swr_convert(context, output.data(), capacity,
         input.data(), frame.nb_samples);
+    // A failed conversion may leave samples inside the converter; start the
+    // next frame with a new one.
+    if (count != frame.nb_samples) converter_.reset();
     check(count, comskip::diagnostics::Code::convert_audio_samples_detail);
     // With identical rates there is no resampling delay or pending sample tail.
     if (count != frame.nb_samples) throw comskip::diagnostics::DiagnosticError<std::runtime_error>(comskip::diagnostics::Code::audio_conversion_changed_sample_count);

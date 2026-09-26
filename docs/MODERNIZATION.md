@@ -1146,3 +1146,12 @@ than redefine completion around whichever subset currently passes tests.
   order, so results are unchanged: per-frame CSV, EDL and cut-list outputs are
   byte-identical on generated SD and HD recordings. SD analysis CPU time drops
   about 11%. The complete Windows headless suite passes **524/524**.
+
+- Follow-up review fixes: audio sample conversion reuses one recording-owned
+  converter while the format, rate and layout are unchanged; black-frame
+  insertion uses a binary search over the sorted list; debug helpers skip
+  translation above the verbosity level. `BuildPunish`, whose ranges were never
+  read, and the constant-condition reward block in `WeighBlocks` are removed
+  with their five catalog entries. Per-frame CSV, EDL and cut-list outputs stay
+  byte-identical on the generated SD and HD benchmarks; Windows passes
+  **530/530** headless and **538/538** SDL tests.

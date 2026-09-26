@@ -51,6 +51,8 @@ double frame_duration(RecordingContext& context, int end_frame, int start_frame)
 template <typename... Args>
 void DetectionDebug(RecordingContext& context, int level, std::string_view key, Args&&... args)
 {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     Debug(context, level, context.translator.format(key, std::forward<Args>(args)...));
 }
 }
@@ -426,13 +428,14 @@ void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int
 {
     int i;
 
-    i = 0;
-    while (i < context.state.black_count && context.state.black[i].frame != f)
-        i++;
-
-    if (i < context.state.black_count && context.state.black[i].frame == f)
+    // Black frames are kept sorted by frame, and frames usually arrive in
+    // order, so a binary search replaces the former scan from the start.
+    const auto first = context.state.black.begin();
+    const auto found = std::lower_bound(first, first + context.state.black_count, f,
+        [](const auto& entry, int frame) { return entry.frame < frame; });
+    if (found != first + context.state.black_count && found->frame == f)
     {
-        context.state.black[i].cause |= c;
+        found->cause |= c;
     }
     else
     {

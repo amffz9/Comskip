@@ -19,6 +19,8 @@ namespace {
 template<class... Args>
 void scoring_debug(RecordingContext& context, int level, std::string_view message_id, Args&&... args)
 {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
     Debug(context, level, message);
 }
@@ -34,53 +36,6 @@ bool WithinDivisibleTolerance(double test_number, double divisor, double toleran
 }
 
 // Match string ([*+]*[CS]+)*M([*+]*[CS]+)*
-
-void BuildPunish(RecordingContext& context)
-{
-    if (context.state.block_count <= 0) {
-        context.state.length_order.clear();
-        context.state.length_sorted = false;
-        return;
-    }
-
-    const auto block_count = static_cast<std::size_t>(context.state.block_count);
-    if (!context.state.length_sorted || context.state.length_order.size() != block_count) {
-        context.state.length_order.resize(block_count);
-        std::iota(context.state.length_order.begin(), context.state.length_order.end(), 0);
-        std::ranges::sort(context.state.length_order, std::greater<>{}, [&](const int index) {
-            return context.state.cblock[static_cast<std::size_t>(index)].length;
-        });
-        context.state.length_sorted = true;
-    }
-
-    context.state.max_val[0] = context.state.min_val[0] = context.state.cblock[context.state.length_order[0]].brightness;
-    context.state.max_val[1] = context.state.min_val[1] = context.state.cblock[context.state.length_order[0]].volume;
-    context.state.max_val[2] = context.state.min_val[2] = context.state.cblock[context.state.length_order[0]].silence;
-    context.state.max_val[3] = context.state.min_val[3] = context.state.cblock[context.state.length_order[0]].uniform;
-    context.state.max_val[4] = context.state.min_val[4] = context.state.cblock[context.state.length_order[0]].ar_ratio;
-    context.state.max_val[5] = context.state.min_val[5] = context.state.cblock[context.state.length_order[0]].schange_rate;
-    int l = 0;
-    const auto update_range = [](int& minimum, int& maximum, const auto value) {
-        if (minimum > value)
-            minimum = value;
-        if (maximum < value)
-            maximum = value;
-    };
-    for (std::size_t i = 0; i < block_count; ++i)
-    {
-        l += context.state.cblock[context.state.length_order[i]].length * context.settings.fps;
-        const auto& block = context.state.cblock[context.state.length_order[i]];
-        update_range(context.state.min_val[0], context.state.max_val[0], block.brightness);
-        update_range(context.state.min_val[1], context.state.max_val[1], block.volume);
-        update_range(context.state.min_val[2], context.state.max_val[2], block.silence);
-        update_range(context.state.min_val[3], context.state.max_val[3], block.uniform);
-        update_range(context.state.min_val[4], context.state.max_val[4], block.ar_ratio);
-        update_range(context.state.min_val[5], context.state.max_val[5], block.schange_rate);
-        if (l > context.state.cblock[context.state.block_count - 1].f_end* 70 / 100)
-            break;
-    }
-
-}
 
 void WeighBlocks(RecordingContext& context)
 {
@@ -394,113 +349,56 @@ void WeighBlocks(RecordingContext& context)
                 context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
             }
         }
-        BuildPunish(context);
-        if (true)
+        if ((context.settings.punish & 1) && context.state.cblock[i].brightness > context.state.avg_brightness * context.settings.punish_threshold)
         {
-            if ((context.settings.punish & 1) && context.state.cblock[i].brightness > context.state.avg_brightness * context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_much_brighter", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.punish_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_brightness);
-                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_brightness);
-            }
-            if ((context.settings.punish & 2) && context.state.cblock[i].uniform > context.state.avg_uniform * context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_less_uniform", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.punish_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_uniformity);
-                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_uniformity);
-            }
-            if ((context.settings.punish & 4) && context.state.cblock[i].volume > context.state.avg_volume * context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_much_louder", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.punish_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_length);
-                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_length);
-            }
-
-            if ((context.settings.punish & 8) && context.state.cblock[i].silence > context.state.avg_silence * context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_less_silence", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.punish_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
-                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
-            }
-            if ((context.settings.punish & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate > context.state.avg_schange * context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_more_scene_change", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.punish_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
-                context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
-            }
+            scoring_debug(context, 2, "scoring_much_brighter", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].score *= context.settings.punish_modifier;
+            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_brightness);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_brightness);
         }
-        if (false)
+        if ((context.settings.punish & 2) && context.state.cblock[i].uniform > context.state.avg_uniform * context.settings.punish_threshold)
         {
-            if ((context.settings.reward & 1) && context.state.cblock[i].brightness < context.state.avg_brightness / context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_much_darker", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.reward_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-            }
-            if ((context.settings.reward & 2) && context.state.cblock[i].uniform < context.state.avg_uniform / context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_more_uniform", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.reward_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-            }
-            if ((context.settings.reward & 4) && context.state.cblock[i].volume < context.state.avg_volume / context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_much_quieter", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.reward_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-            }
-            if ((context.settings.reward & 8) && context.state.cblock[i].silence < context.state.avg_silence / context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_more_silence", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.reward_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-            }
-            if ((context.settings.reward & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate < context.state.avg_schange / context.settings.punish_threshold)
-            {
-                scoring_debug(context, 2, "scoring_less_scene_change", std::format("{}", i));
-                scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].score *= context.settings.reward_modifier;
-                context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
-                scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
-                context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-                context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::bright);
-            }
+            scoring_debug(context, 2, "scoring_less_uniform", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].score *= context.settings.punish_modifier;
+            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_uniformity);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_uniformity);
+        }
+        if ((context.settings.punish & 4) && context.state.cblock[i].volume > context.state.avg_volume * context.settings.punish_threshold)
+        {
+            scoring_debug(context, 2, "scoring_much_louder", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].score *= context.settings.punish_modifier;
+            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_length);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_length);
+        }
+
+        if ((context.settings.punish & 8) && context.state.cblock[i].silence > context.state.avg_silence * context.settings.punish_threshold)
+        {
+            scoring_debug(context, 2, "scoring_less_silence", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].score *= context.settings.punish_modifier;
+            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
+        }
+        if ((context.settings.punish & 16) && context.state.cblock[i].schange_count > 2 && context.state.cblock[i].schange_rate > context.state.avg_schange * context.settings.punish_threshold)
+        {
+            scoring_debug(context, 2, "scoring_more_scene_change", std::format("{}", i));
+            scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].score *= context.settings.punish_modifier;
+            context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
+            scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
+            context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
+            context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::above_scene_change);
         }
 
         // if length > max_commercial_size * fps, score = 10%

@@ -71,6 +71,8 @@ constexpr double timeline_comparison_epsilon = 0.001;
 template <typename... Args>
 void debug_message(RecordingContext& context, const int level, const std::string_view message_id, Args&&... args)
 {
+    // Debug discards messages above the verbosity level; skip translating them.
+    if (context.settings.verbose < level) return;
     const auto message = context.translator.format(message_id, std::forward<Args>(args)...);
     Debug(context, level, message);
 }
