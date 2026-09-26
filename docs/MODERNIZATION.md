@@ -8,7 +8,7 @@ verification evidence. Passing the current media smoke tests alone is insufficie
 - [x] RecordingState owns per-recording detection, logo, caption, timing, output,
   and UI state. Interfaces receive their dependencies explicitly. No shared mutable
   globals, singleton accessors, thread-local replacements, or global aliases remain.
-- [ ] FFmpeg resources and files have automatic ownership across normal, error,
+- [x] FFmpeg resources and files have automatic ownership across normal, error,
   seek, and reopen paths. Lower-level functions return/throw actionable errors
   rather than terminate the process.
 - [x] The review UI uses SDL across supported platforms with explicit event state,
@@ -18,10 +18,10 @@ verification evidence. Passing the current media smoke tests alone is insufficie
 - [x] Tests cover independent repeated analyses, seeking/reopening, damaged and
   truncated media, stream format changes, known commercial intervals, and exact
   output serializers including escaping and time/frame boundary cases.
-- [ ] Windows and Linux headless/SDL builds and tests are verified;
+- [x] Windows and Linux headless/SDL builds and tests are verified;
   sanitizer checks run where supported. CI configuration alone is not proof.
   macOS verification is deferred by user instruction (2026-09-15).
-- [ ] Media and output code have focused interfaces and source modules; obsolete
+- [x] Media and output code have focused interfaces and source modules; obsolete
   shared declarations and unsafe ownership/buffer patterns have been removed.
 
 Use modern C++ facilities where they clarify ownership and contracts: value types,
@@ -1131,3 +1131,12 @@ than redefine completion around whichever subset currently passes tests.
   definitions, unused edge-direction constants and five orphaned catalog
   entries. Platform helpers drop the obsolete `extern "C"` wrapper and empty
   compiler guards. The complete Windows headless suite passes **524/524**.
+
+- Final verification of `ea88367`. Linux GCC 14 / FFmpeg 6.1 from an
+  unmodified archive: headless **519/519**, SDL dummy **527/527**, public
+  (non-donator) **519/519**, and ASan/UBSan/leak **519/519** with no findings.
+  Windows: Clang headless **524/524**, Clang SDL dummy **532/532**, and MSVC
+  AddressSanitizer (public) **524/524**. Record:
+  `bin/linux-verification-ea88367.md`. All checklist items are complete;
+  macOS remains deferred by user instruction and physical interactive SDL
+  review remains outside automated verification.

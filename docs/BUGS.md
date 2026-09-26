@@ -35,12 +35,12 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B046, B048, B049, B050, B052, B053, B054 | Fixed at `62664db`; all 319 Windows headless and SDL tests pass. Its unmodified snapshot passes all 315 Linux headless, SDL, and address/undefined/leak sanitizer tests. |
 | B047, B055, B056 | Fixed in the font/settings stage; all 326 Windows headless and 329 SDL tests pass, including a relocated executable, long Unicode configured cutscene path, and duration overflow rejection before settings publication. |
 | B057, B058 | Fixed in the script/diagnostic stage; all 347 Windows headless and 351 SDL tests pass, including actual early-cut joins and later-frame bright-pixel classification. |
-| B051 | Open: review/caption/subtitle and argument/format/pixel/runtime reasons are cataloged; other application/helper reasons remain. |
+| B051 | Fixed at `ea88367`: every application and helper failure reason is a typed, cataloged diagnostic; the only untranslated reasons are the localization layer's own internal failures, which cannot use the catalogs they report on. The literal-message inventory is **0**. |
 | B059–B063 | Fixed in the logo/player/application stage; all 368 Windows headless and 372 SDL tests pass. Linux proof of this stage remains separate. |
 | B064–B066 | Fixed in the diagnostic/progress stage; all 379 Windows headless and 383 SDL tests pass and the public-speed application builds. |
 | B067 | Fixed at `66d45a8`; actual Linux SDL invalid-font CLI and relocated-font tests pass. One separate fixture issue B071 prevents its full suite from passing. |
 | B068–B070 | Fixed in the editor/geometry/codec stage; all 398 Windows headless and 402 SDL tests pass. |
-| B071 | Cross-version fixture corrected; Windows passes. Corrected Linux verification pending. |
+| B071 | Fixed; the corrected regression passes on Windows FFmpeg 8 and within all 519 Linux FFmpeg 6.1 tests at `ea88367`. |
 | B110, B118 | Clang-runtime limitation, not an application defect. The affected unwind paths pass the complete MSVC AddressSanitizer suite (**524/524**), which is now the supported Windows sanitizer configuration; the Clang Windows ASan runtime still aborts on them. |
 | B111 | Fixed in the current output-diagnostics stage; focused threshold-histogram bounds tests pass on Windows. |
 | B120 | Fixed in the MSVC sanitizer stage; the public-build `media_formats` automatic reduced-resolution case passes under MSVC AddressSanitizer. |
