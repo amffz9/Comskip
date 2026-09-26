@@ -112,10 +112,22 @@ supported entry point because it supplies copied runtime DLLs and captures the
 failure in `test-results.log` instead of relying on interactive Windows error
 dialogs.
 
-The current Windows Clang ASan runtime still aborts with `0xc0000005` in a
-small set of expected-failure/unwind paths before Comskip can construct its
-typed diagnostic. This is tracked as B110 in `docs/BUGS.md`; it is a runtime
-limitation, not a reason to disable sanitizer reporting or hide failures.
+The Windows Clang ASan runtime aborts with `0xc0000005` while unwinding C++
+exceptions in a small set of expected-failure paths (B110/B118 in
+`docs/BUGS.md`). Use the MSVC AddressSanitizer configuration for Windows
+sanitizer verification; it handles those unwind paths and runs the complete
+suite. Configure and run it from a Visual Studio x64 developer environment so
+the MSVC ASan runtime DLL is on `PATH`:
+
+```powershell
+$vcvars = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+$env:ASAN_OPTIONS = "abort_on_error=1:halt_on_error=1:log_path=asan"
+cmd /c "`"$vcvars`" && cmake -S . -B bin/build-msvc-asan -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DCMAKE_PREFIX_PATH=F:/Development/vcpkg/installed/x64-windows -DCOMSKIP_ENABLE_SANITIZERS=ON -DCOMSKIP_BUILD_GUI=OFF -DCOMSKIP_DONATOR=OFF && cmake --build bin/build-msvc-asan --target comskip-check -j 4"
+```
+
+`log_path` must be relative: an absolute Windows path's drive colon ends the
+`ASAN_OPTIONS` value early. This configuration also exercises the public
+(non-donator) build and MSVC portability (`/utf-8` sources, catalog embedding).
 
 The Windows CMake setup copies the vcpkg GoogleTest runtime DLLs beside the
 tests. This prevents the missing-`gtest_main.dll` loader dialog that occurs

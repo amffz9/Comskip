@@ -139,19 +139,17 @@ comskip::media::StreamOpenResult stream_component_open(RecordingContext& context
             Debug(context, 0, context.translator.text("media_public_h264_speed"));
 #endif
         }
-        else
+        else if (context.settings.lowres == 10)
         {
-#ifdef DONATOR
-            int w;
-            if (context.settings.lowres == 10) {
-                w = codecCtx->width;
-                context.settings.lowres = 0;
-                while (w > 600) {
-                    w = w >> 1;
-                    context.settings.lowres++;
-                }
+            // Automatic reduction halves the decoded width until it is at most
+            // 600 pixels. Both builds accept explicit levels, so the automatic
+            // level must not fall through to the codec's maximum reduction.
+            int w = codecCtx->width;
+            context.settings.lowres = 0;
+            while (w > 600) {
+                w = w >> 1;
+                context.settings.lowres++;
             }
-#endif
         }
 
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {

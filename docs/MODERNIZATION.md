@@ -1113,3 +1113,14 @@ than redefine completion around whichever subset currently passes tests.
   reports its storage invariant through the typed
   `invalid_completed_detection_block_count` diagnostic. Windows passes
   **524/524** headless and **532/532** SDL tests.
+
+- Windows sanitizer verification now uses an MSVC AddressSanitizer
+  configuration (`/fsanitize=address /Zi`), which unwinds the typed-diagnostic
+  and exit-request paths that abort under the Clang Windows ASan runtime
+  (B110/B118). Making the tree MSVC-clean required compiling sources as UTF-8
+  and embedding localization catalogs as byte arrays instead of raw string
+  literals, which exceeded MSVC's literal limits. The first test run of a
+  public (non-donator) configuration exposed B120, automatic reduced
+  resolution decoding at the codec maximum, now fixed. MSVC AddressSanitizer
+  passes **524/524**; Clang headless and SDL pass **524/524** and **532/532**,
+  and the Clang public application builds. Recipe: `docs/TESTING.md`.

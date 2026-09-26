@@ -1,6 +1,10 @@
 #pragma once
 #include <string_view>
 namespace comskip::localization {
-inline constexpr std::string_view english_catalog = R"COMSKIP(@COMSKIP_ENGLISH_CATALOG@)COMSKIP";
-inline constexpr std::string_view spanish_catalog = R"COMSKIP(@COMSKIP_SPANISH_CATALOG@)COMSKIP";
+namespace detail {
+inline constexpr char english_catalog_bytes[] = {@COMSKIP_ENGLISH_CATALOG_BYTES@};
+inline constexpr char spanish_catalog_bytes[] = {@COMSKIP_SPANISH_CATALOG_BYTES@};
+}
+inline constexpr std::string_view english_catalog{detail::english_catalog_bytes, sizeof(detail::english_catalog_bytes)};
+inline constexpr std::string_view spanish_catalog{detail::spanish_catalog_bytes, sizeof(detail::spanish_catalog_bytes)};
 }

@@ -41,7 +41,9 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B067 | Fixed at `66d45a8`; actual Linux SDL invalid-font CLI and relocated-font tests pass. One separate fixture issue B071 prevents its full suite from passing. |
 | B068–B070 | Fixed in the editor/geometry/codec stage; all 398 Windows headless and 402 SDL tests pass. |
 | B071 | Cross-version fixture corrected; Windows passes. Corrected Linux verification pending. |
+| B110, B118 | Clang-runtime limitation, not an application defect. The affected unwind paths pass the complete MSVC AddressSanitizer suite (**524/524**), which is now the supported Windows sanitizer configuration; the Clang Windows ASan runtime still aborts on them. |
 | B111 | Fixed in the current output-diagnostics stage; focused threshold-histogram bounds tests pass on Windows. |
+| B120 | Fixed in the MSVC sanitizer stage; the public-build `media_formats` automatic reduced-resolution case passes under MSVC AddressSanitizer. |
 | B114 | Fixed in the checked-output/time-safety stage; focused platform, settings, timing, and complete Windows suites pass. |
 | B115 | Fixed in the caption portability stage; the CRLF dictionary regression and complete Windows suites pass. |
 
@@ -1375,11 +1377,13 @@ before calling FFmpeg seek APIs.
 - **Impact:** The Windows sanitizer suite cannot currently validate this
   failure-unwind path. Normal Windows headless and SDL configurations continue
   to pass it.
-- **Status:** Open. The issue is narrowed to Comskip's configured
+- **Status:** Clang runtime limitation. The issue is narrowed to Comskip's configured
   `file_open_impl` failure path, most likely dictionary/options or
   `std::inout_ptr` ownership interaction with the uninstrumented vcpkg FFmpeg
   libraries. The fixture, Unicode conversion and generic FFmpeg failure path
-  are excluded.
+  are excluded. MSVC AddressSanitizer passes the same paths within the complete
+  **524/524** Windows sanitizer suite; use that configuration for Windows
+  sanitizer verification (see `docs/TESTING.md`).
 - **Verification needed:** Isolate the options and ownership calls against an
   instrumented FFmpeg build or a compatible Windows sanitizer runtime, then add
   a clean sanitizer regression without suppressions.
@@ -1497,11 +1501,13 @@ before calling FFmpeg seek APIs.
 - **Impact:** Sanitizer cannot validate several intentional error and recovery
   paths, including CLI, input-recovery, and repeated-analysis cases. The
   failures occur before the test can inspect the expected diagnostic.
-- **Status:** Open. This appears to be an interaction between the Windows
+- **Status:** Clang runtime limitation. This appears to be an interaction between the Windows
   Clang sanitizer runtime and C++ exception unwinding, separate from the
   application diagnostics. Keep the noninteractive `ASAN_OPTIONS`/`UBSAN_OPTIONS`
   recipe and preserve the generated sanitizer logs for a future runtime or
-  instrumented-FFmpeg investigation.
+  instrumented-FFmpeg investigation. MSVC AddressSanitizer passes the same
+  paths within the complete **524/524** Windows sanitizer suite; use that
+  configuration for Windows sanitizer verification (see `docs/TESTING.md`).
 
 ### B119: Caption block diagnostics indexed before the first block
 
@@ -1516,3 +1522,20 @@ before calling FFmpeg seek APIs.
   each line.
 - **Verification:** The focused sanitizer regression passes, and the complete
   Linux GCC sanitizer suite passes **518/518** after the fix.
+
+### B120: Public builds decode automatic reduced resolution at the codec maximum
+
+- **Evidence:** In a non-donator build, `lowres=10` skipped the automatic
+  width-based selection because it was compiled only for donator builds. The
+  value then reached `std::min(codec->max_lowres, lowres)`, decoding a 640x480
+  MPEG-2 stream at 80x60. `SubmitFrame` rejects frames narrower than 100
+  pixels, so analysis decoded no frames and wrote no outputs. The first run of
+  `media_formats` in a public configuration (MSVC AddressSanitizer) exposed it;
+  earlier public builds were compiled but not tested.
+- **Impact:** Users of public builds who selected automatic reduced resolution
+  received no analysis for standard-definition MPEG-2 recordings.
+- **Status:** Fixed. Automatic selection now applies in both builds; explicit
+  levels were already accepted by both.
+- **Verification:** The MSVC AddressSanitizer public configuration passes all
+  **524** tests, including the automatic reduced-resolution case; Clang
+  headless and SDL donator configurations pass **524/524** and **532/532**.
