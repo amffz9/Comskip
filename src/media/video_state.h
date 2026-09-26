@@ -26,6 +26,9 @@ struct VideoState {
     comskip::media::FramePtr pFrame;
     std::string filename;
     int quit{};
+    // True while live mode reads a local recording that is still growing.
+    // End of input then means the writer stopped, not a place to reopen.
+    bool follows_growing_input{};
     comskip::media::FramePtr frame;
     double duration{};
     double fps{};

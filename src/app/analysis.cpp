@@ -243,7 +243,10 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                         }
                     }
 
-                    if ((context.settings.live_tv && context.state.retries < context.settings.live_tv_retries))
+                    // A followed recording reports end of input only after it
+                    // stopped growing for the whole live timeout.
+                    if (context.settings.live_tv && !context.state.video_owner->follows_growing_input &&
+                        context.state.retries < context.settings.live_tv_retries)
                     {
                         double frame_delay = av_q2d(context.state.video_owner->dec_ctx->time_base) * context.state.video_owner->ticks_per_frame;
                         if (context.state.retries == 0)

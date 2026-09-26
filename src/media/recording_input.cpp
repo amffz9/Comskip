@@ -38,6 +38,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include "live_input.h"
 #include <memory>
 #include <string>
 using namespace comskip::media;
@@ -86,10 +87,20 @@ void file_open_impl(RecordingContext& context)
         is.pFormatCtx.reset(avformat_alloc_context());
         if (!is.pFormatCtx) throw std::bad_alloc();
         is.pFormatCtx->max_analyze_duration *= 4;
+        is.follows_growing_input = context.settings.live_tv && comskip::media::follows_growing_file(is.filename);
+        // Reopening and seeking a growing transport stream can land far from the
+        // resume point, so live mode keeps one handle and waits for appended data.
+        DictionaryPtr follow_options;
+        if (is.follows_growing_input) {
+            av_dict_set_int(inout_ptr(follow_options), "follow", 1, 0);
+            av_dict_set_int(inout_ptr(follow_options), "rw_timeout",
+                            comskip::media::growing_file_timeout_us(context.settings.live_tv_retries), 0);
+        }
         int open_status{};
         while ((open_status = avformat_open_input(inout_ptr(is.pFormatCtx),
                                                    is.filename.c_str(), nullptr,
-                                                   inout_ptr(context.state.myoptions))) < 0) {
+                                                   is.follows_growing_input ? inout_ptr(follow_options)
+                                                                            : inout_ptr(context.state.myoptions))) < 0) {
             if (openretries++ >= context.settings.live_tv_retries) {
                 throw comskip::diagnostics::DiagnosticError<std::runtime_error>(
                     comskip::diagnostics::Code::cannot_open_recording_detail,
