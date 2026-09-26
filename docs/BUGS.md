@@ -1601,4 +1601,10 @@ before calling FFmpeg seek APIs.
   padding is covered as a legacy contract by `live_xml_export_test.cpp`.
 - **Impact:** With nonzero padding, live and final output disagree. The TV
   application uses `padding=0`.
-- **Status:** Open pending a decision on the live output compatibility contract.
+- **Status:** Fixed. Live and final cut lists share `PadCommercialInterval`,
+  which pads in seconds, clamps to the available recording and drops empty
+  intervals; live text, EDL and `.live` output reuse the final frame numbering
+  and EDL writer, and live XML receives the padded range. With two seconds of
+  padding, the last live EDL before the final pass is within half a second of
+  post-processing (cut-point choice, not units); the live XML regression now
+  expects the same padded interval as the recording list.

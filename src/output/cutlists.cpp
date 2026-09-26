@@ -23,6 +23,7 @@
 #include "diagnostics.h"
 #include <algorithm>
 #include <format>
+#include <optional>
 #include <sstream>
 #include <string_view>
 #include <vector>
@@ -258,35 +259,60 @@ void BuildCommercial(RecordingContext& context)
 
 
 // Padding and removal settings are unrestricted, so an interval can extend
-// outside the recording or shrink past zero length: clamp it to the recording,
-// and drop it when nothing remains.
+// outside the recording or shrink past zero length. Both the final and live
+// cut lists pad in seconds, clamp to the recording, and drop an empty result.
+std::optional<Legacy_commercial_entry> PadCommercialInterval(RecordingContext& context,
+                                                             Legacy_commercial_entry interval,
+                                                             long last_frame)
+{
+    interval.start_frame += context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
+    interval.end_frame -= context.settings.padding*context.settings.fps - context.settings.remove_after*context.settings.fps;
+    interval.length += -2*context.settings.padding + context.settings.remove_before + context.settings.remove_after;
+    bool clamped = false;
+    if (interval.start_frame < 0)
+    {
+        interval.start_frame = 0;
+        clamped = true;
+    }
+    if (interval.end_frame > last_frame)
+    {
+        interval.end_frame = last_frame;
+        clamped = true;
+    }
+    if (interval.end_frame <= interval.start_frame)
+        return std::nullopt;
+    if (clamped)
+        interval.length = frame_duration(context, interval.end_frame, interval.start_frame);
+    return interval;
+}
+
 void ApplyCommercialPadding(RecordingContext& context)
 {
     for (int i = context.state.commercial_count; i >= 0; i--)
     {
-        auto& interval = context.state.commercial[i];
-        interval.start_frame += context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
-        interval.end_frame -= context.settings.padding*context.settings.fps - context.settings.remove_after*context.settings.fps;
-        interval.length += -2*context.settings.padding + context.settings.remove_before + context.settings.remove_after;
-        bool clamped = false;
-        if (interval.start_frame < 0)
-        {
-            interval.start_frame = 0;
-            clamped = true;
-        }
-        if (interval.end_frame > context.state.frame_count)
-        {
-            interval.end_frame = context.state.frame_count;
-            clamped = true;
-        }
-        if (interval.end_frame <= interval.start_frame)
-        {
+        if (const auto padded = PadCommercialInterval(context, context.state.commercial[i], context.state.frame_count))
+            context.state.commercial[i] = *padded;
+        else
             comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, i);
-            continue;
-        }
-        if (clamped)
-            interval.length = frame_duration(context, static_cast<int>(interval.end_frame), static_cast<int>(interval.start_frame));
     }
+}
+
+// Live detection publishes each padded interval with the same frame numbering
+// and EDL writer as the final cut list.
+void WriteLiveCommercialRecords(RecordingContext& context, const Legacy_commercial_entry& interval)
+{
+    const long start = interval.start_frame;
+    const long end = interval.end_frame;
+    if (context.state.out_file.get())
+        comskip::output::checked_fprintf(*context.state.out_file, context.state.out_filename, "%li\t%li\n",
+                                         frame_number(context, start), frame_number(context, end));
+    if (end - start <= 2) return;
+    if (context.state.edl_file.get())
+        append_edl_record(context, *context.state.edl_file, start < 5 ? 0 : start, end,
+                          comskip::output::EdlVariant::standard, std::string(context.state.outbasename) + ".edl");
+    if (context.state.live_file.get())
+        append_edl_record(context, *context.state.live_file, start < 5 ? 0 : start, end,
+                          comskip::output::EdlVariant::standard, std::string(context.state.outbasename) + ".live");
 }
 
 bool OutputBlocks(RecordingContext& context)

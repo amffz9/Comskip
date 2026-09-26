@@ -4,8 +4,10 @@
 #include "checked_format.h"
 #include "detection/detection_methods.h"
 #include "detection/frame_causes.h"
+#include "detection/frame_timestamps.h"
 #include "detection/logo_detection.h"
 #include "detection/storage.h"
+#include "output/cutlist_exports.h"
 #include "output/live_xml.h"
 #include "output/checked_file.h"
 #include "platform/platform.h"
@@ -275,25 +277,22 @@ void BuildCommListAsYouGo(RecordingContext& context)
                     (len <= static_cast<int>(context.settings.max_commercialbreak) * context.settings.fps))
                 {
                     LiveDebug(context, 2, "live_output_interval", i, candidates[i].start, candidates[i].end);
-                    comskip::detection::append_interval(context.state.commercial, context.state.commercial_count, Legacy_commercial_entry{});
-                    context.state.commercial[context.state.commercial_count].start_frame = candidates[i].start + context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
-                    context.state.commercial[context.state.commercial_count].end_frame = candidates[i].end - context.settings.padding*context.settings.fps + context.settings.remove_after*context.settings.fps;
-                    context.state.commercial[context.state.commercial_count].length = candidates[i].end-2*context.settings.padding - candidates[i].start + context.settings.remove_before + context.settings.remove_after;
+                    const auto padded = PadCommercialInterval(context, Legacy_commercial_entry{
+                        candidates[i].start, candidates[i].end, 0, 0,
+                        get_frame_pts(context, static_cast<int>(candidates[i].end)) -
+                            get_frame_pts(context, static_cast<int>(candidates[i].start))},
+                        context.state.framenum_real);
+                    if (!padded) continue;
+                    comskip::detection::append_interval(context.state.commercial, context.state.commercial_count, *padded);
 
                     if (context.settings.output_live) {
-                        const auto& interval = context.state.commercial.back();
                         comskip::detection::append_interval(context.state.reffer, context.state.reffer_count,
-                            Legacy_reffer_entry{interval.start_frame, interval.end_frame});
+                            Legacy_reffer_entry{padded->start_frame, padded->end_frame});
                     }
 
-                    if (context.state.out_file.get())
-                        comskip::output::checked_fprintf(*context.state.out_file,context.state.out_filename,"%li\t%li\n", candidates[i].start + context.settings.padding, candidates[i].end - context.settings.padding);
-                    if (context.state.edl_file.get())
-                        comskip::output::checked_fprintf(*context.state.edl_file,std::string(context.state.outbasename)+".edl","%.2f\t%.2f\t%d\n", static_cast<double>(std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps , static_cast<double>(std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps, context.settings.edl_skip_field );
-                    if (context.state.live_file.get())
-                        comskip::output::checked_fprintf(*context.state.live_file,std::string(context.state.outbasename)+".live","%.2f\t%.2f\t%d\n", static_cast<double>(std::max<long>(candidates[i].start + context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps , static_cast<double>(std::max<long>(candidates[i].end - context.settings.padding - context.settings.edl_offset, 0L)) / context.settings.fps, context.settings.edl_skip_field );
+                    WriteLiveCommercialRecords(context, *padded);
                     if (context.settings.output_dvrmstb)
-                        dvrmstb_intervals.push_back({candidates[i].start, candidates[i].end});
+                        dvrmstb_intervals.push_back({padded->start_frame, padded->end_frame});
                 }
             }
             if (context.state.out_file) comskip::output::checked_flush(*context.state.out_file,context.state.out_filename);
@@ -304,8 +303,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
             comskip::output::checked_close(context.state.live_file,std::string(context.state.outbasename)+".live");
             if (context.settings.output_dvrmstb) {
                 std::ostringstream serialized;
-                comskip::output::write_live_dvrmstb(serialized, dvrmstb_intervals,
-                                                   context.settings.fps, context.settings.padding);
+                comskip::output::write_live_dvrmstb(serialized, dvrmstb_intervals, context.settings.fps);
                 auto path = std::filesystem::path(std::u8string_view(
                     reinterpret_cast<const char8_t*>(context.state.outbasename.c_str())));
                 path += ".xml";

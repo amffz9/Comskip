@@ -48,17 +48,17 @@ protected:
         if (!directory.empty()) { std::error_code ignored; std::filesystem::remove_all(directory, ignored); }
     }
 };
-TEST_F(LiveXmlExport, RealLiveDetectorWritesCompleteXmlWithLegacyFramePadding) {
+TEST_F(LiveXmlExport, RealLiveDetectorWritesXmlWithTheSamePaddingAsTheRecordingList) {
     BuildCommListAsYouGo(*context);
     pugi::xml_document document;
     ASSERT_TRUE(document.load_file((directory / "録画 & result.xml").c_str()));
     ASSERT_EQ(document.select_nodes("/root/commercial").size(), 1u);
-    EXPECT_STREQ(document.child("root").child("commercial").attribute("start").value(), "4.080000");
-    EXPECT_STREQ(document.child("root").child("commercial").attribute("end").value(), "33.920000");
+    // Two seconds of padding at 25 fps moves each boundary inward by 50 frames.
+    EXPECT_STREQ(document.child("root").child("commercial").attribute("start").value(), "6.000000");
+    EXPECT_STREQ(document.child("root").child("commercial").attribute("end").value(), "32.000000");
     EXPECT_EQ(context->state.commercial_count, 0);
-    // The recording list separately uses padding in seconds; XML retains its
-    // existing frame-padding contract rather than adopting this list's values.
     EXPECT_EQ(context->state.commercial[0].start_frame, 150);
+    EXPECT_EQ(context->state.commercial[0].end_frame, 800);
 }
 TEST_F(LiveXmlExport, FailedCreationReportsFilenameAndClosesTemporaryResources) {
     context->settings.output_default = true;
