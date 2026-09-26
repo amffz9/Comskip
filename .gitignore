@@ -41,3 +41,6 @@ comskip.c.save-failed
 # Python test artifacts
 __pycache__/
 *.pyc
+
+# ACE tools code index
+/.ace-index.db*
