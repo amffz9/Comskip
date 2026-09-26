@@ -1103,3 +1103,13 @@ than redefine completion around whichever subset currently passes tests.
   `malloc`-based logo buffer reset are removed, together with three catalog
   entries only those branches used. The AC3 staging copy uses `std::copy_n`
   instead of `memmove`. The complete Windows headless suite passes **524/524**.
+
+- Commented-out legacy statements are removed from the detection, analysis,
+  CSV replay, runtime, settings and review sources (about 1,100 lines),
+  including disabled SEH remnants, obsolete `goto` fallbacks and inline
+  condition fragments. Constructs left empty by that removal were deleted when
+  their conditions had no side effects; one strict-length evaluation kept for
+  its training output is now an explicit discarded call. `BuildCommercial`
+  reports its storage invariant through the typed
+  `invalid_completed_detection_block_count` diagnostic. Windows passes
+  **524/524** headless and **532/532** SDL tests.

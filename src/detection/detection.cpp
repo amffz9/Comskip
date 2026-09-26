@@ -68,18 +68,13 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
         return(0);
     if (!context.state.initialized)
         InitComSkip(context);
-//	frame_count++;
     context.state.frame_count = context.state.framenum_real = context.state.framenum+1;
-
-//Debug(1, "Frame info f=%d, framenum=%d, framenum_real=%d, frame_count=%d\n",f, framenum, framenum_real, frame_count, max_frame_count);
 
     context.state.avg_fps = 1.0/ (pts / context.state.frame_count);
 
     if (context.state.framenum_real < 0) return 0;
     if (context.state.play_nice) sleep_for_ms(context.settings.play_nice_sleep);
     if (context.state.framearray) InitializeFrameArray(context, context.state.framenum_real);
-//	curvolume = RetreiveVolume(framenum_real);
-    //curvolume = RetreiveVolume(frame_count);
 
     if (pts < 0.0)
         pts = 0.0;
@@ -87,13 +82,10 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
     context.state.frame[context.state.frame_count].pict_type = context.state.pict_type;
     if (context.state.frame_count == 1)
         context.state.frame[0].pts = pts;
-//    curvolume = retreive_frame_volume(get_frame_pts(frame_count-1), get_frame_pts(frame_count));
     context.state.frame[context.state.frame_count].volume = -1;
     backfill_frame_volumes(context);
     context.state.curvolume = context.state.frame[context.state.frame_count].volume;
 
-//	if (frame_count != framenum_real)
-//		Debug(0, "Inconsistent frame numbers\n");
     if (context.state.framearray)
     {
         context.state.frame[context.state.frame_count].volume = context.state.curvolume;
@@ -144,35 +136,16 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
                         return 1;
                     }
                 }
-                if (context.state.logoInfoAvailable)
-                {
-//				logoTrendCounter = num_logo_buffers;
-//				lastLogoTest = true;
-//				curLogoTest = true;
-
-                    //				logoTrendStartFrame = logoFrameNum[oldestLogoBuffer];
-//				curLogoTest = true;
-//				lastRealLogoChange = logoFrameNum[oldestLogoBuffer];
-//				if (num_logo_buffers >= minHitsForTrend) {
-//					hindsightLogoState = true;
-//				} else {
-//					hindsightLogoState = false;
-//				}
-                }
             }
         }
         if (context.state.logoInfoAvailable)
         {
-//			EdgeCount(frame_ptr);
-//			curLogoTest = logoBuffersFull;
                     context.state.currentGoodEdge = CheckStationLogoEdge(context,
                         context.state.frame_ptr.first(static_cast<std::size_t>(context.state.width) * context.state.height));
             context.state.curLogoTest = (context.state.currentGoodEdge > context.settings.logo_threshold);
             context.state.lastLogoTest = ProcessLogoTest(context, context.state.frame_count, context.state.curLogoTest, false);
             if (!context.state.lastLogoTest && !context.settings.startOverAfterLogoInfoAvail && context.state.logoBuffersFull)   // Lost logo
             {
-//				logoInfoAvailable = false;
-//				secondLogoSearch = true;
                 context.state.logoBuffersFull = false;
                 InitLogoBuffers(context);
                 context.state.newestLogoBuffer.reset();
@@ -197,9 +170,6 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
         }
     }
 
-//	EdgeCount(frame_ptr);
-//	currentGoodEdge = ((double) edge_count) / 750;
-
     if (context.state.logoInfoAvailable && context.state.framearray) {
       context.state.frame[context.state.frame_count].logo_present = context.state.lastLogoTest;
     } else if (context.state.framearray) {
@@ -211,9 +181,6 @@ int DetectCommercials(RecordingContext& context, int f, double pts)
 
     if (context.state.frame_count == 1 || ((context.state.frame_count & context.state.subsample_video) == 0))
         OutputDebugWindow(context, true,context.state.frame_count,true, false);
-//	key = 0;
-//	while (key==0)
-//		vo_wait();
 
     context.state.framesprocessed++;
     context.state.scr += 1;
@@ -459,8 +426,6 @@ void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int
 {
     int i;
 
-    //		if ((black_count==0 || black[black_count-1].frame < logo_block[logo_block_count-1].end )) {
-
     i = 0;
     while (i < context.state.black_count && context.state.black[i].frame != f)
         i++;
@@ -473,8 +438,6 @@ void InsertBlackFrame(RecordingContext& context, int f, int b, int u, int v, int
     {
         InitializeBlackArray(context, context.state.black_count);
 
-
-        //	InitializeBlackArray(black_count);
         context.state.black_count++;
         i = context.state.black_count-2;
         while (i >= 0 && context.state.black[i].frame > f)
@@ -527,11 +490,6 @@ bool BuildMasterCommList(RecordingContext& context)
     }
     DetectionDebug(context, 7, "detection_scan_finished");
 
-
-//    if (fabs(avg_fps - fps)> 0.01)
-//        Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\n", avg_fps, fps);
-
-
     length = frame_duration(context, context.state.frame_count-1, 1);
     if (std::fabs( length - (context.state.frame_count -1)/context.settings.fps) > 0.5) {
         if (std::fabs(context.state.avg_fps - context.settings.fps)> 1)
@@ -574,7 +532,6 @@ bool BuildMasterCommList(RecordingContext& context)
     context.state.logoPercentage = static_cast<double>(context.state.frames_with_logo) /
         static_cast<double>(context.state.framenum_real);
 
-//	if (max_volume == 0)
     {
 
         volume_delta = volume_delta_initial;
@@ -597,7 +554,6 @@ bool BuildMasterCommList(RecordingContext& context)
                 k = 1;
                 while (i-k - volume_plateau_size > 1 &&
                         (abs(context.state.frame[i-k].volume - context.state.frame[i].volume) < volume_delta
-                         //|| frame[i-k].volume < 50
                         ))
                 {
                     k++;
@@ -610,7 +566,6 @@ bool BuildMasterCommList(RecordingContext& context)
                 a = 1;
                 while (i+a +volume_plateau_size < context.state.frame_count &&
                         (abs(context.state.frame[i+a].volume - context.state.frame[i].volume) < volume_delta
-                         //|| frame[i+a].volume < 50
                         ))
                 {
                     a++;
@@ -634,15 +589,11 @@ bool BuildMasterCommList(RecordingContext& context)
                              context.state.frame[i+a+volume_plateau_size-1].volume +
                              context.state.frame[i+a+volume_plateau_size].volume) / 5;
                     if ( p_vol > context.state.frame[i].volume + 220 || n_vol > context.state.frame[i].volume + 220 )
-                        //if ( abs(frame[i-k-2].volume - frame[i].volume) > VOLUME_DELTA*2 ||
-                        //	abs(frame[i+a+2].volume - frame[i].volume) > VOLUME_DELTA*2)
                     {
                         DetectionDebug(context, 8, "detection_volume_plateau", std::format("{}", i),
                             std::format("{}", k + a), std::format("{}", context.state.frame[i].volume),
                             std::format("{}", static_cast<int>(frame_duration(context, i, j))));
                         j = i;
-//						for (j = i-k; j < i + a; j++)
-//							frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
 
                         if (const auto bucket=comskip::detection::volume_histogram_bucket(
                                 context.state.frame[i].volume,platauHistogram.size())) {
@@ -693,18 +644,6 @@ bool BuildMasterCommList(RecordingContext& context)
         context.settings.max_volume = mv;
         context.settings.max_silence = ms;
     }
-    /*
-        if (max_silence < min_volume + 30)
-            max_silence = min_volume + 30;
-
-        if (max_volume < 100) {
-            if ( max_volume < min_volume + 30)
-                max_volume = min_volume + 30;
-        }
-        else
-        if (max_volume < min_volume + 100)
-            max_volume = min_volume + 100;
-    */
     if (context.settings.max_volume == 0)
     {
 
@@ -765,15 +704,6 @@ bool BuildMasterCommList(RecordingContext& context)
             }
 
         }
-        /*
-
-                max_volume = 1000;
-                for (k = black_count - 1; k >= 0; k--) {
-                    if (black[k].volume >= 0 && black[k].volume <  max_volume)
-                        max_volume = black[k].volume;
-                }
-                max_volume *= 4;
-         */
         DetectionDebug(context, 1, "detection_setting_max_volume",
             std::format("{}", context.settings.max_volume));
     }
@@ -782,44 +712,11 @@ bool BuildMasterCommList(RecordingContext& context)
     {
         // close out last logo cblock if one is open
         ProcessLogoTest(context, context.state.frame_count, false, true);
-        /*
-                if (loadingCSV) {
-                    prev_logo_threshold = logo_threshold-1.0;
-                    FindLogoThreshold();
-                    if (std::fabs(logo_threshold - prev_logo_threshold) > 0.4) {
-                        Debug(2,"Changed logo_threshold to %.2f, recalculating logo timeline\n", logo_threshold);
-                        InitProcessLogoTest();
-                        for (i = 1; i < frame_count; i++) {
-                            curLogoTest = (frame[i].currentGoodEdge > logo_threshold);
-                            lastLogoTest = ProcessLogoTest(i, curLogoTest);
-                            frame[i].logo_present = lastLogoTest;
-                            if (lastLogoTest) frames_with_logo++;
-                        }
-                        logoPercentage = static_cast<double>(frames_with_logo) /
-                            static_cast<double>(framenum_real);
-                    }
-                    else
-                        logo_threshold = prev_logo_threshold;
-
-                }
-        */
 
         if (context.state.logo_quality == 0.0)
             FindLogoThreshold(context);
 
         // Clean up logo blocks
-        /*
-                for (i = logo_block_count-2; i >= 0; i--) {
-                    if (frame_duration(context, logo_block[i+1].start, logo_block[i].end) < min_commercial_size + (2*shrink_logo)) {
-                        Debug(1, "Logo cblock %d and %d combined because gap (%i s) too short with previous\n", i, i+1, static_cast<int>(frame_duration(context, logo_block[i+1].start, logo_block[i].end) ));
-                        logo_block[i+1].start = logo_block[i].start;
-                        for (t = i; t+1 < logo_block_count; t++) {
-                            logo_block[t] = logo_block[t+1];
-                        }
-                        logo_block_count--;
-                    }
-                }
-        */
         for (i = context.state.logo_block_count-1; i >= 0; i--)
         {
             if (frame_duration(context, context.state.logo_block[i].end, context.state.logo_block[i].start) < context.settings.min_commercial_size - 2*context.settings.shrink_logo)
@@ -865,8 +762,6 @@ bool BuildMasterCommList(RecordingContext& context)
                     rsc = 255;
                     while (context.state.frame[j].volume >= context.settings.max_volume && j < t)
                     {
-//						if (rsc > frame[j].schange_percent)
-//							rsc = frame[j].schange_percent;
                         j++;
                     }
                     if (j == t )
@@ -919,8 +814,6 @@ bool BuildMasterCommList(RecordingContext& context)
                         cp = cpf;
                     }
                     j = t; // Only search once
-//					cp = j;
-//					j=t;
                 }
                 if (cp != 0)
                 {
@@ -965,8 +858,6 @@ bool BuildMasterCommList(RecordingContext& context)
                     rsc = 255;
                     while (context.state.frame[j].volume >= context.settings.max_volume && j > t) // Search low volume
                     {
-//						if (rsc > frame[j].schange_percent)
-//							rsc = frame[j].schange_percent;
                         j--;
                     }
                     if (j == t )
@@ -1020,8 +911,6 @@ bool BuildMasterCommList(RecordingContext& context)
                         cp = cpf;
                     }
                     j = t; // Only search once
-//					cp = j;
-//					j=t;
                 }
                 if (cp != 0)
                 {
@@ -1033,10 +922,6 @@ bool BuildMasterCommList(RecordingContext& context)
                 }
             }
         }
-//		if (logoPercentage > .15 && logoPercentage < .32 ) {
-//			reverseLogoLogic = true;
-//			logoPercentage = 1 - logoPercentage;
-//		}
         if (context.state.logoPercentage < context.settings.logo_fraction - 0.05 || context.state.logoPercentage > context.settings.logo_percentile)
         {
             Debug(context, 1, context.translator.format("detection_logo_disabled",
@@ -1110,7 +995,7 @@ bool BuildMasterCommList(RecordingContext& context)
                 }
                 else
                 {
-                    if (silence_count > context.settings.min_silence /* * (int)fps */ && silence_count < 5 * context.settings.fps)
+                    if (silence_count > context.settings.min_silence && silence_count < 5 * context.settings.fps)
                     {
 
                         if ( very_low_volume_count > static_cast<int>(silence_count * 0.7) ||  schange_found || context.state.frame[i].schange_percent < context.state.schange_threshold)
@@ -1119,14 +1004,12 @@ bool BuildMasterCommList(RecordingContext& context)
                             summed_volume1 = 0;
                             for (j = std::max(silence_start - silence_check, 1); j < silence_start; j++)
                             {
-//							if (summed_volume1 < frame[j].volume)
                                 summed_volume1 += context.state.frame[j].volume;
                             }
                             summed_volume1 /= std::min(silence_check, silence_start + 1);
                             summed_volume2 = 0;
                             for (j = i; j < std::min<long>(i + silence_check, context.state.frame_count); j++)
                             {
-//							if (summed_volume2 < frame[j].volume)
                                 summed_volume2 += context.state.frame[j].volume;
                             }
                             summed_volume2 /= std::min<long>(silence_check, context.state.frame_count - i + 1);
@@ -1144,10 +1027,6 @@ bool BuildMasterCommList(RecordingContext& context)
                                     context.state.frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
                                     InsertBlackFrame(context, j,context.state.frame[j].brightness,context.state.frame[j].uniform,context.state.frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
                                 }
-                                //for (j = silence_start /*i - min_silence /* * (int)fps */; j <= i; j++) {
-                                //	frame[j].isblack |= comskip::detection::cause_value(comskip::detection::FrameCause::silence);
-                                //	InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,frame[j].volume, comskip::detection::cause_value(comskip::detection::FrameCause::silence));
-                                //}
                             }
                         }
                     }
@@ -1266,24 +1145,6 @@ bool BuildMasterCommList(RecordingContext& context)
                 break;
             }
 
-            /*
-                        if (ar_block[i].ar_ratio == undefined_aspect_ratio && length < 5*(int)fps) {
-                            ar_block[i - 1].end = ar_block[i].end;
-                            ar_block_count--;
-                            Debug(
-                                6,
-                                "Deleting AR cblock %i because it is too short\n",
-                                i,
-                                dblSecondsToStrMinutes(length / fps)
-                            );
-                            for (j = i; j < ar_block_count; j++) {
-                                ar_block[j].start = ar_block[j + 1].start;
-                                ar_block[j].end = ar_block[j + 1].end;
-                                ar_block[j].ar_ratio = ar_block[j + 1].ar_ratio;
-                            }
-                            goto again;
-                        }
-            */
             if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && 	context.state.ar_block[i - 1].ar_ratio != undefined_aspect_ratio &&
                     context.state.ar_block[i].ar_ratio > context.state.ar_block[i - 1].ar_ratio &&
                     CheckFrameForLogo(context, context.state.ar_block[i-1].end) &&
@@ -1307,7 +1168,6 @@ bool BuildMasterCommList(RecordingContext& context)
                 changed = true;
                 break;
             }
-//
             if ( i == 1 && context.state.ar_block[i-1].ar_ratio == undefined_aspect_ratio)
             {
                 j = context.state.ar_block[i - 1].start;
@@ -1444,6 +1304,5 @@ bool BuildMasterCommList(RecordingContext& context)
         }
     }
 
-//	free(frame);
     return (foundCommercials);
 }

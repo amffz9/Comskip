@@ -147,8 +147,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
     comskip::platform::FilePtr log_file;
     comskip::platform::FilePtr test_file;
     int					i = 0;
-//	int					play_nice_start = -1;
-//	int					play_nice_end = -1;
     time_t				ltime;
     struct tm now{};
     int					mil_time;
@@ -162,7 +160,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
     struct arg_lit*		cl_output_training		= arg_lit0(NULL, "quality", translator.text("option_7"));
     struct arg_lit*		cl_output_plist	= arg_lit0(NULL, "plist", translator.text("option_8"));
     struct arg_int*		cl_detectmethod			= arg_intn("d", "detectmethod", NULL, 0, 1, translator.text("option_9"));
-//	struct arg_int*		cl_pid					= arg_intn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
     struct arg_str*		cl_pid					= arg_strn("p", "pid", NULL, 0, 1, translator.text("option_10"));
     struct arg_int*		cl_dump					= arg_intn("u", "dump", NULL, 0, 1, translator.text("option_11"));
     struct arg_lit*		cl_ts					= arg_lit0("t", "ts", translator.text("option_12"));
@@ -262,10 +259,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         if (context.settings.output_debugwindow)
         {
 // This is a trick to ask for a input filename when no argument has been given.
-//				while (mpegfilename[0] == 0)
-//					ReviewResult();
-//				argc++;
-//				strcpy(argument[1], mpegfilename);
         }
     }
 
@@ -332,8 +325,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
         context.state.inbasename = path_to_utf8(path_from_utf8(in->filename[0]).replace_extension());
         context.state.shortbasename = path_to_utf8(path_from_utf8(context.state.inbasename).filename());
-
- //       comskip::checked_format(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
 
         context.state.inifilename = path_to_utf8(path_from_utf8(context.state.inbasename).parent_path() / "comskip.ini");
     }
@@ -453,7 +444,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
         context.state.shortbasename = path_to_utf8(path_from_utf8(context.state.inbasename).filename());
         context.state.inifilename = path_to_utf8(path_from_utf8(context.state.inbasename).parent_path() / "comskip.ini");
-//		comskip::checked_format(mpegfilename, "%s.mpg", inbasename);
     }
     else
     {
@@ -540,10 +530,7 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
 
 
 
-    //	if (!loadingTXT)
     LoadIniFile(context, translator);
-
-//	live_tv = true;
 
     time(&ltime);
     has_local_time = comskip::platform::local_time(ltime, now);
@@ -761,11 +748,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
             context.settings.giveUpOnLogoSearch));
     }
 
-    if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::cutscene))
-    {
-//		commDetectMethod &= ~SCENE_CHANGE;
-    }
-
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, DetectionMethod::scene_change))
     {
         i++;
@@ -883,11 +865,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         }
     }
 
-//	max_commercialbreak *= fps;
-//	min_commercialbreak *= fps;
-//	max_commercial_size *= fps;
-//	min_commercial_size *= fps;
-
     if (context.state.loadingTXT)
     {
         context.state.frame_count = InputReffer(context, ".txt", true);
@@ -900,7 +877,6 @@ void LoadSettings(RecordingContext& context, int argc, char ** argv, const comsk
         fputs(translator.text("close_window"), stdout);
         context.settings.output_debugwindow = true;
         ReviewResult(context);
-//		in_file = NULL;
     }
 
     if (!context.state.loadingTXT && (context.settings.output_srt || context.settings.output_smi))

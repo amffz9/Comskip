@@ -33,100 +33,7 @@ bool WithinDivisibleTolerance(double test_number, double divisor, double toleran
     return ((remainder >= 0) && (remainder <= (2 * tolerance)));
 }
 
-/*
-void CalculateCorrelation()
-{
-    int i,j;
-    double position;
-    double length;
-    double min_weight;
-    double pivot;
-    double correlation;
-    double distance;
-    double weight;
-
-    for (i = 0; i < block_count; i++) {
-        pivot = ((double)(cblock[i].f_start+cblock[i].f_end)/(2*frame_count));
-        length = ((double)(cblock[i].f_end - cblock[i].f_start)/frame_count);
-        correlation = 0;
-        min_weight = length;
-        for (j = 0; j < block_count; j++) {
-            if (i != j) {
-                distance = std::fabs(pivot - ((double)(cblock[j].f_start+cblock[j].f_end)/(2*frame_count)));
-                weight = ((double)(cblock[j].f_end - cblock[j].f_start)/frame_count);
-                if (min_weight > weight)
-                    min_weight = weight;
-                correlation += (1 / (distance * distance) ) / (weight );
-            }
-        }
-        cblock[i].correlation = correlation / length * (min_weight*min_weight*min_weight);
-    }
-
-}
-
-void CalculateFit()
-{
-    int i,j;
-    int start;
-    double position;
-    double length;
-    double min_weight;
-    double pivot;
-    double correlation;
-    double prev_correlation = 0;
-    double distance;
-    double weight;
-
-    for (i = 0; i < block_count; i++) {
-        start = cblock[i].f_start;
-        correlation = 0;
-        j = i+1;
-        if (F2L(cblock[i].f_end, cblock[i].f_start) < max_commercial_size && j < block_count) {
-            while ( F2L(cblock[j].f_end, cblock[j].f_start) < max_commercial_size && j < block_count - 1 && F2L(cblock[j].f_end, start)  < max_commercialbreak)
-                j++;
-            if ( F2L(cblock[j].f_start, start) > min_commercialbreak ) {
-                correlation = j - i;
-            }
-        }
-        if (correlation > prev_correlation)
-            prev_correlation = correlation;
-        cblock[i].correlation = prev_correlation;
-        prev_correlation -= 1;
-    }
-}
-
-*/
-
 // Match string ([*+]*[CS]+)*M([*+]*[CS]+)*
-
-
-
-/*
-int MatchBlocks(int k, char *t)
-{
-    int match = false;
-    char after[80];
-    int i;
-    int j;
-
-    i = 0;
-    while (t[i] != 0 && t[i] != 'M')
-        i++;
-    if (t[i] == 0)
-        return(0);
-    j = 0;
-    while (t[i+j+1] != 0)
-        after[j] = t[i+j+1];
-        j++;
-}
-*/
-
-
-
-
-
-
-
 
 void BuildPunish(RecordingContext& context)
 {
@@ -186,15 +93,12 @@ void WeighBlocks(RecordingContext& context)
     double	tolerance;
     double  wscore = 0.0;
     double  lscore = 0.0;
-    //bool	end_deleted = false;
-    //bool	start_deleted = false;
     double	max_score = 99.99;
     int		max_combined_count = 25;
     bool	breakforcombine = false;
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::aspect_ratio))
     {
-//		showAvgAR = AverageARForBlock(1, framesprocessed);
         SetARofBlocks(context);
     }
 
@@ -246,9 +150,6 @@ void WeighBlocks(RecordingContext& context)
             context.state.cblock[i].logo = 0;
     }
 
-//	CalculateCorrelation();
-//	CalculateFit();
-
     CleanLogoBlocks(context);		// Can join blocks, so recalculate logo
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::scene_change))
@@ -279,24 +180,16 @@ void WeighBlocks(RecordingContext& context)
     else if (context.settings.score_percentile < 0.5)
         context.settings.score_percentile = 0.71;
 
-//	if ((commDetectMethod & LOGO) && logoPercentage > logo_fraction && logoPercentage < logo_percentile && logo_present_modifier != 1.0)
-//		excessive_length_modifier = 1;		// TESTING!!!!!!!!!!!!!!!!!!
-
     scoring_debug(context, 5, "scoring_heading");
 
 
 
     for (i = 0; i < context.state.block_count; i++)
     {
-        if (i == 0 || true /*(cblock[i-1].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}))) || cut_on_ar_change == 2 || 	(!(commDetectMethod & BLACK_FRAME) && (cblock[j].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence})))  */)
+        if (i == 0 || true )
         {
             j = i;
             combined_length = context.state.cblock[i].length;
-//			while (j < block_count && ((cblock[j].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio})) && (cut_on_ar_change == 1)  && !	(!(commDetectMethod & BLACK_FRAME) && (cblock[j].cause & comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence})))  ) ) {
-//				j++;
-//				combined_length += cblock[j].length;
-//			}
-//expand:
             k = j;
             if (i > 0 && ((comskip::detection::cut_cause(context.state.cblock[i-1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black})) || (comskip::detection::cut_cause(context.state.cblock[i-1].cause) == comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}))))
                 combined_length -= context.state.cblock[i].b_head / context.settings.fps / 4 ;
@@ -314,7 +207,6 @@ void WeighBlocks(RecordingContext& context)
                     scoring_debug(context, 2, "scoring_strict_standard_length", std::format("{}", j));
                     scoring_debug(context, 3, "scoring_score_before", std::format("{}", j), std::format("{:.2f}", context.state.cblock[j].score));
                     context.state.cblock[j].score *= context.settings.length_strict_modifier;
-//					cblock[j].score *= length_strict_modifier;
                     scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[j].score));
                     context.state.cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::strict);
                     context.state.cblock[j].more |= comskip::detection::cause_value(comskip::detection::BlockCause::strict);
@@ -345,53 +237,15 @@ void WeighBlocks(RecordingContext& context)
                 }
             }
             j = k;
-//			if (j+1 < block_count && cblock[i].strict == 0 && cblock[j+1].length < 5.0) {
-//				j++;
-//				combined_length += cblock[j].length;
-//				goto expand;
-//			}
         }
-        /*
-                tolerance = (cblock[i].bframe_count + cblock[i + 1].bframe_count + 6) / fps;
-                if (IsStandardCommercialLength(cblock[i].length, tolerance, true)) {
-                    cblock[i].strict = 2;
-                    Debug(2, "Block %i has strict standard length for a commercial.\n", i);
-                    Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
-                    cblock[i].score *= length_strict_modifier;
-                    cblock[i].score *= length_strict_modifier;
-                    Debug(3, "After - %.2f\n", cblock[i].score);
-                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::strict);
-                } else if (IsStandardCommercialLength(cblock[i].length, tolerance, false)) {
-                    cblock[i].strict = 1;
-                    Debug(2, "Block %i has non-strict standard length for a commercial.\n", i);
-                    Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
-                    cblock[i].score *= length_nonstrict_modifier;
-                    cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
-                    Debug(3, "After - %.2f\n", cblock[i].score);
-                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::non_strict);
-                } else
-                    cblock[i].strict = 0;
-        */
 
         if (context.state.cblock[i].combined_count < max_combined_count)
         {
-//			Debug(3, "Attempting to combine cblock %i\n", i);
             combined_length = context.state.cblock[i].length;
             for (j = 1; j < context.state.block_count - i; j++)
             {
-                if (IsStandardCommercialLength(context, context.state.cblock[i + j].length - (context.state.cblock[i+j].b_head + context.state.cblock[i + j + 1].b_head) / context.settings.fps,
-                                               (context.state.cblock[i+j].bframe_count + context.state.cblock[i + j + 1].bframe_count + 2) / context.settings.fps, true))
-                {
-                    /*					Debug(
-                                            3,
-                                            "Not attempting to forward combine blocks %i to %i because cblock %i is strict commercial.\n",
-                                            i,
-                                            i + j,
-                                            i + j
-                                        );
-                    */
-//					break;
-                }
+                // Evaluated for its optional strict-length training output.
+                (void)IsStandardCommercialLength(context, context.state.cblock[i + j].length - (context.state.cblock[i+j].b_head + context.state.cblock[i + j + 1].b_head) / context.settings.fps, (context.state.cblock[i+j].bframe_count + context.state.cblock[i + j + 1].bframe_count + 2) / context.settings.fps, true);
                 if ((context.state.cblock[i + j].combined_count > max_combined_count) || (context.state.cblock[i].combined_count > max_combined_count))
                 {
                     scoring_debug(context, 3, "scoring_forward_combine_limit",
@@ -405,7 +259,6 @@ void WeighBlocks(RecordingContext& context)
                 combined_length += context.state.cblock[i + j].length;
                 if (combined_length > (context.settings.max_commercial_size) + tolerance)
                 {
-//					Debug(2, "Not trying to combine blocks %i thru %i due to excessive length - %f\n", i, i + j, combined_length);
                     break;
                 }
                 else
@@ -449,7 +302,6 @@ void WeighBlocks(RecordingContext& context)
 
             if (breakforcombine)
             {
-//				Debug(3, "Block %i Break for forward combined limit\n", i);
                 breakforcombine = false;
             }
 
@@ -458,14 +310,6 @@ void WeighBlocks(RecordingContext& context)
             {
                 if (IsStandardCommercialLength(context, context.state.cblock[i - j].length - (context.state.cblock[i-j].b_head + context.state.cblock[i - j + 1].b_head)/context.settings.fps, (context.state.cblock[i-j].bframe_count + context.state.cblock[i - j + 1].bframe_count + 2) / context.settings.fps, true))
                 {
-                    /*					Debug(
-                                            3,
-                                            "Not attempting to forward combine blocks %i to %i because cblock %i is strict commercial.\n",
-                                            i - j,
-                                            i,
-                                            i - j
-                                        );
-                    */
                     break;
                 }
                 if ((context.state.cblock[i - j].combined_count > max_combined_count) || (context.state.cblock[i].combined_count > max_combined_count))
@@ -481,7 +325,6 @@ void WeighBlocks(RecordingContext& context)
                 combined_length += context.state.cblock[i - j].length;
                 if (combined_length >= context.settings.max_commercial_size)
                 {
-//					Debug(2, "Not trying to backward combine blocks %i thru %i due to excessive length - %f\n", i - j, i, combined_length);
                     break;
                 }
                 else
@@ -524,7 +367,6 @@ void WeighBlocks(RecordingContext& context)
 
             if (breakforcombine)
             {
-//				Debug(3, "Block %i Break for backward combined limit\n", i);
                 breakforcombine = false;
             }
         }
@@ -536,23 +378,12 @@ void WeighBlocks(RecordingContext& context)
                 scoring_debug(context, 2, "scoring_block_has_logo", std::format("{}", i));
                 scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].score *= context.settings.logo_present_modifier;
-//				cblock[i].score *= (logo_present_modifier*cblock[i].logo) + (1-cblock[i].logo);
                 context.state.cblock[i].score = (context.state.cblock[i].score > max_score) ? max_score : context.state.cblock[i].score;
                 scoring_debug(context, 3, "scoring_score_after", std::format("{:.2f}", context.state.cblock[i].score));
                 context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
                 context.state.cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
             }
-            /*			else if (cblock[i].logo > 0.10) {
-                            Debug(2, "Block %i has logo.\n", i);
-                            Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
-                            cblock[i].score *= logo_present_modifier;
-            //				cblock[i].score *= (logo_present_modifier*cblock[i].logo) + (1-cblock[i].logo);
-                            cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
-                            Debug(3, "After - %.2f\n", cblock[i].score);
-                            cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
-                            cblock[i].less |= comskip::detection::cause_value(comskip::detection::BlockCause::logo);
-                        }
-            */			else if (context.settings.punish_no_logo && context.state.cblock[i].logo < context.settings.logo_percentage_threshold && context.state.logoPercentage > context.settings.logo_fraction)
+            else if (context.settings.punish_no_logo && context.state.cblock[i].logo < context.settings.logo_percentage_threshold && context.state.logoPercentage > context.settings.logo_fraction)
             {
                 scoring_debug(context, 2, "scoring_block_has_no_logo", std::format("{}", i));
                 scoring_debug(context, 3, "scoring_score_before", std::format("{}", i), std::format("{:.2f}", context.state.cblock[i].score));
@@ -672,7 +503,6 @@ void WeighBlocks(RecordingContext& context)
             }
         }
 
-//		cblock[i].logo > 0.5 && F2L(cblock[i].f_end, cblock[i].f_start) > min_show_segment_length
         // if length > max_commercial_size * fps, score = 10%
         if (context.state.cblock[i].length > 2 * context.settings.min_show_segment_length)
         {
@@ -698,21 +528,6 @@ void WeighBlocks(RecordingContext& context)
             }
 
         // Mod score based on scene change rate
-        /*
-                if ( (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::scene_change)) && (cblock[i].schange_count > 2) && (cblock[i].length > 3)) {
-                    schange_modifier = (cblock[i].schange_rate / avg_schange);
-                    if (schange_modifier > 2.0 || schange_modifier < 0.5  ) {
-                        schange_modifier = (schange_modifier > min_schange_modifier) ? schange_modifier : min_schange_modifier;
-                        schange_modifier = (schange_modifier < max_schange_modifier) ? schange_modifier : max_schange_modifier;
-                        Debug(3, "SC modifier - %.3f\tBlock %i score:\tBefore - %.2f\t", schange_modifier, i, cblock[i].score);
-                        cblock[i].score *= schange_modifier;
-                        cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
-                        Debug(3, "\tSC\tAfter - %.2f\n", cblock[i].score);
-                        cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::scene_change);
-                    }
-
-                }
-        */
         // Mod score based on CC type
         if (context.state.processCC)
         {
@@ -760,12 +575,9 @@ void WeighBlocks(RecordingContext& context)
         }
 
         // Mod score based on AR
-//		if (commDetectMethod & AR) {
         context.state.cblock[i].ar_ratio = AverageARForBlock(context, context.state.cblock[i].f_start, context.state.cblock[i].f_end);
         if ((context.state.dominant_ar - context.state.cblock[i].ar_ratio >= context.settings.ar_delta ||
                 context.state.dominant_ar - context.state.cblock[i].ar_ratio <= - context.settings.ar_delta)
-//				cblock[i].length < min_show_segment_length
-//				&& (cblock[i].length > 5.0 || cblock[i].ar_ratio - ar_delta < dominant_ar)
                )
         {
             scoring_debug(context, 2, "scoring_ar_differs", std::format("{}", i),
@@ -776,7 +588,6 @@ void WeighBlocks(RecordingContext& context)
             context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio);
             context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::aspect_ratio);
         }
-        //		}
 
                 context.state.cblock[i].audio_channels = AverageACForBlock(context, context.state.cblock[i].f_start, context.state.cblock[i].f_end);
         if (context.state.dominant_ac != context.state.cblock[i].audio_channels)
@@ -804,11 +615,6 @@ void WeighBlocks(RecordingContext& context)
             scoring_debug(context, 4, "scoring_dictionary_failed");
         }
     }
-    for (i = 0; i < context.state.block_count; i++)
-    {
-//		OutputStrict(cblock[i].length, (double) cblock[i].strict, 0.0);
-    }
-
 
     if (!(context.settings.disable_heuristics & (1 << (2 - 1))))
     {
@@ -887,7 +693,7 @@ void WeighBlocks(RecordingContext& context)
                 }
                 wscore /= combined_length;
                 lscore /= combined_length;
-                if (//lscore < 0.36 &&
+                if (
                     ((combined_length < context.settings.min_show_segment_length / 2.0 && wscore > 0.9) ||
                      (combined_length < context.settings.min_show_segment_length / 3.0 && wscore > 0.3) ) &&
                     context.state.cblock[j].score > 1.4 &&
@@ -924,7 +730,7 @@ void WeighBlocks(RecordingContext& context)
                 }
                 wscore /= combined_length;
                 lscore /= combined_length;
-                if (//lscore < 0.36 &&
+                if (
                     ((combined_length < context.settings.min_show_segment_length / 4.0 && wscore > 0.9) ||
                      (combined_length < context.settings.min_show_segment_length / 6 && wscore > 0.3) ) &&
                     context.state.cblock[j].score > 1.1 &&
@@ -946,90 +752,6 @@ void WeighBlocks(RecordingContext& context)
         }
 
     }
-
-
-    /*
-    for (i = 0; i < block_count-2; i++) {
-        if (cblock[i].score < 0.9 && cblock[i+1].score == 1.0 && cblock[i+1].length < min_show_segment_length/2 && cblock[i+2].score > 1.5) {
-            cblock[i+1].score *= 1.5;
-            Debug(3, "Discarding cblock %i because short and on edge between commercial and show.\n",
-                    i+1);
-        }
-        if (cblock[i].score > 1.5 && cblock[i+1].score == 1.0 && cblock[i+1].length < min_show_segment_length/2 && cblock[i+2].score < 0.9) {
-            cblock[i+1].score *= 1.5;
-            Debug(3, "Discarding cblock %i because short and on edge between commercial and show.\n",
-                    i+1);
-        }
-    }
-    */
-
-    /*
-        if (delete_show_before_or_after_current && logoPercentage == 0) {
-            i = 0;
-            while (i < block_count-1 && cblock[i].score < 1.0 && cblock[i].f_end < before_end) {
-                j = i+1;
-                cl = 0.0;
-                while (cblock[j].score > 1.05 && cl + cblock[j].length < min_commercialbreak && j < block_count-1) {
-                    cl += cblock[j].length;
-                    j++;
-                }
-                if (cblock[j].score < 1.0) {
-                    cblock[i].score = 99.99;
-                    Debug(3, "Discarding cblock %i because separated from cblock %i with small non show gap.\n",
-                        i, j);
-                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    start_deleted = true;
-                    break;
-                }
-                i++;
-            }
-            if (! start_deleted) {
-                j = 0;
-                i = 0;
-                if (cblock[j].score < 1.0) {
-                    cblock[i].score = 99.99;
-                    Debug(3, "Discarding cblock %i because of being first block.\n",
-                        i, j);
-                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    start_deleted = true;
-                }
-            }
-            i = block_count-1;
-            while (i > 0 && cblock[i].score < 1.05 && cblock[i].f_start > before_end) {
-                j = i-1;
-                cl = 0;
-                while (cblock[j].score > 1.05 && cl + cblock[j].length < min_commercialbreak && j >0) {
-                    cl += cblock[j].length;
-                    j--;
-                }
-                if (cblock[j].score < 1.0) {
-                    cblock[i].score = 99.99;
-                    Debug(3, "Discarding cblock %i because seprated from cblock %i with small non show gap.\n",
-                        i, j);
-                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    end_deleted = true;
-                    break;
-                }
-                i++;
-            }
-
-            if (! end_deleted) {
-                i = block_count-1;
-                j = block_count-1;
-                if (cblock[j].score < 1.05) {
-                    cblock[i].score = 99.99;
-                    Debug(3, "Discarding cblock %i because being last block.\n",
-                        i, j);
-                    cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    end_deleted = true;
-                }
-            }
-        }
-    */
 
     if (!(context.settings.disable_heuristics & (1 << (8- 1))))
     {
@@ -1068,21 +790,6 @@ void WeighBlocks(RecordingContext& context)
             (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)) && context.settings.connect_blocks_with_logo &&
             !context.state.reverseLogoLogic && context.state.logoPercentage > context.settings.logo_fraction - 0.05 && context.state.logo_block_count < 40)
     {
-        /*
-                for (i = 0; i < block_count-1; i++) {
-                    if (cblock[i].score < 1.0 && cblock[i].logo > 0.2 && cblock[i+1].score < 1.0 && cblock[i+1].logo > 0.2 ) {
-                        if (cblock[i].f_end < after_start) {
-                            cblock[i].score = 99.99;
-                            Debug(3, "Discarding cblock %i because cblock %i has also logo.\n",
-                                i, i+1);
-                        } else if (cblock[i+1].f_start > before_end) {
-                            cblock[i+1].score = 99.99;
-                            Debug(3, "Discarding cblock %i because cblock %i has also logo.\n",
-                                i+1, i);
-                        }
-                    }
-                }
-            */
         if (!(context.settings.disable_heuristics & (1 << (7 - 1))))
         {
             i = 0;
@@ -1106,7 +813,6 @@ void WeighBlocks(RecordingContext& context)
                         std::format("{}", static_cast<int>(context.state.cblock[i].length)), std::format("{}", j));
                     context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
                     context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
-                    //start_deleted = true;
                     break;
                 }
                 i++;
@@ -1133,38 +839,11 @@ void WeighBlocks(RecordingContext& context)
                         std::format("{}", static_cast<int>(context.state.cblock[i].length)), std::format("{}", j));
                     context.state.cblock[i].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
                     context.state.cblock[i].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_7);
-                    //end_deleted = true;
                     break;
                 }
                 i++;
             }
         }
-        /*
-                for (i = 0; i < block_count-1; i++) {
-                    if (cblock[i].score < 1.0
-
-        //				&& cblock[i+1].score > 1.05 && cblock[i+1].length < 10 && cblock[i+2].score < 1.0 && cblock[i+2].logo > 0.2
-                        ) {
-                        j = i+1;
-                        cl = 0;
-                        while (cblock[j].score > 1.05 && cl + cblock[j].length < min_commercialbreak && j < block_count-1) {
-                            cl += cblock[j].length;
-                            j++;
-                        }
-                        if (cblock[j].score < 1.0) {
-                            if (cblock[j].f_start < after_start) {
-                                cblock[i].score = 99.99;
-                                Debug(3, "Discarding cblock %i because cblock %i has also logo and small non logo gap.\n",
-                                    i, j);
-                            } else if (cblock[i].f_end > before_end) {
-                                cblock[j].score = 99.99;
-                                Debug(3, "Discarding cblock %i because cblock %i has also logo and small non logo gap.\n",
-                                    j, i);
-                            }
-                        }
-                    }
-                }
-        */
         if (!(context.settings.disable_heuristics & (1 << (3 - 1))))
         {
             for (i = 0; i < context.state.block_count-1; i++)
@@ -1191,7 +870,6 @@ void WeighBlocks(RecordingContext& context)
             }
 
         }
-//	if (!(disable_heuristics & (1 << (3 - 1)))) {
         for (i = 1; i < context.state.block_count-1; i++)
         {
             if (context.state.logoPercentage > context.settings.logo_fraction &&
@@ -1211,7 +889,6 @@ void WeighBlocks(RecordingContext& context)
             }
         }
 
-//	}
     }
     if (!(context.settings.disable_heuristics & (1 << (4 - 1))))
     {
@@ -1279,60 +956,5 @@ void WeighBlocks(RecordingContext& context)
 
 
 
-    if (!(context.settings.disable_heuristics & (1 << (2 - 1))))
-    {
-        /*		i = 0;
-                cl = 0;
-                while (cblock[i].score < 1.05 && cl + cblock[i].length < min_commercialbreak && i < block_count-1) {
-                    k += cblock[i].length;
-                    i++;
-                }
-                if (i < block_count-1 && cblock[i].score > 1.05 && cl < min_commercialbreak) {
-                    for (j = 0; j < i; j++) {
-                        cblock[j].score = 99.99;
-                        Debug(3, "H2 Discarding cblock %i because too short and before commercial.\n",
-                            j);
-                        cblock[j].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                        cblock[j].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_2);
-                    }
-                }
-        */
-    }
-    /*
-
-        if (!(disable_heuristics & (1 << (1 - 1)))) {
-
-        for (i = 0; i < block_count-2; i++) {
-            if (cblock[i].score < 1.05 && cblock[i+1].score > 1.05 && cblock[i+2].score < 1.05 &&
-                cblock[i+1].length > min_show_segment_length && logoPercentage < 0.7) {
-                j = i + 2;
-                for (k = i+1; k < j; k++) {
-                        cblock[k].score = 0.05;
-                        Debug(3, "H1 Included cblock %i because too long and between two show blocks.\n",
-                            k);
-                        cblock[k].cause |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
-                        cblock[k].more |= comskip::detection::cause_value(comskip::detection::BlockCause::history_1);
-                }
-
-            }
-        }
-        }
-    */
 }
-/*
-    for (i = 0; i < block_count-2; i++) {
-        if (cblock[i].score < 0.9 && cblock[i+1].score > 1.0 && cblock[i+2].score > 1.5 &&
-            !(cblock[i].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio}))) ) {
-            cblock[i+1].score = 0.5;
-            Debug(3, "Eroded cblock %i because vague cut reason and on edge between commercial and show.\n",
-                    i+1);
-        }
-        if (cblock[i].score > 1.5 && cblock[i+1].score > 1.0 && cblock[i+2].score < 0.9 &&
-            !(cblock[i+1].cause & (comskip::detection::frame_cause_mask({comskip::detection::FrameCause::black}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::non_uniform}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::silence}) | comskip::detection::frame_cause_mask({comskip::detection::FrameCause::aspect_ratio}))) ) {
-            cblock[i+1].score = 0.5;
-            Debug(3, "Eroded cblock %i because vague cut reason and on edge between commercial and show.\n",
-                    i+1);
-        }
-    }
-*/
 

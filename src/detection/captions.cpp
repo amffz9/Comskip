@@ -265,7 +265,6 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                 }
                 else if (type == 0x02)
                 {
-//					Debug(10, "XDS[%i]: Program Length\n", XDSbuf[2] & 0x38, XDSbuf[2] & 0x4f ,  XDSbuf[3] & 0x4f,  XDSbuf[3] & 0xb0);
                     xds_debug("caption_xds_program_length", frame,
                         std::format("{}", context.state.AddXDS_XDSbuf[3] & 0x3f),
                         std::format("{}", context.state.AddXDS_XDSbuf[2] & 0x3f),
@@ -283,30 +282,6 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                         context.state.XDS_block[context.state.XDS_block_count].position = (context.state.AddXDS_XDSbuf[5] << 8) + context.state.AddXDS_XDSbuf[4];
                     }
 
-
-                    /*
-                    01155         uint length_min  = xds_buf[2] & 0x3f;
-                    01156         uint length_hour = xds_buf[3] & 0x3f;
-                    01157         uint length_elapsed_min  = 0;
-                    01158         uint length_elapsed_hour = 0;
-                    01159         uint length_elapsed_secs = 0;
-                    01160         if (xds_buf.size() > 6)
-                    01161         {
-                    01162             length_elapsed_min  = xds_buf[4] & 0x3f;
-                    01163             length_elapsed_hour = xds_buf[5] & 0x3f;
-                    01164         }
-                    01165         if (xds_buf.size() > 8 && xds_buf[7] == 0x40)
-                    01166             length_elapsed_secs = xds_buf[6] & 0x3f;
-                    01167
-                    01168         QString msg = QString("Program Length %1:%2%3 "
-                    01169                               "Time in Show %4:%5%6.%7%8")
-                    01170             .arg(length_hour).arg(length_min / 10).arg(length_min % 10)
-                    01171             .arg(length_elapsed_hour)
-                    01172             .arg(length_elapsed_min / 10).arg(length_elapsed_min % 10)
-                    01173             .arg(length_elapsed_secs / 10).arg(length_elapsed_secs % 10);
-                    01174
-                    */
-
                 }
                 else if (type == 0x03)
                 {
@@ -321,7 +296,6 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                     }
                     xds_debug("caption_xds_program_name", frame,
                         reinterpret_cast<const char*>(context.state.AddXDS_XDSbuf.data() + 2));
-//		XDS_block[XDS_block_count].name[0] = 0;
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x04)
                 {
@@ -340,8 +314,6 @@ void AddXDS(RecordingContext& context, unsigned char hi, unsigned char lo)
                         Add_XDS_block(context);
                         context.state.XDS_block[context.state.XDS_block_count].v_chip = (context.state.AddXDS_XDSbuf[2] << 8) + context.state.AddXDS_XDSbuf[3];
                     }
-
-//							XDS_block[XDS_block_count].v_chip = 0;
 
                 }
                 else if (context.state.AddXDS_XDSbuf[1] == 0x86)
@@ -532,29 +504,16 @@ void AddCC(RecordingContext& context, int i)
 
 
     current_frame++;
-    /*
-        if ((cc.cc1[0] != 0x14 && cc.cc1[0] < 0x20)) {
-            cc.cc1[0] = ' ';
-            cc.cc1[1] = 0;
-        }
-    */
 
 
     hi = context.state.cc.cc1[0];
     lo = context.state.cc.cc1[1];
-
-
-//	if (hi == ' ' && lo == 'B')
-//		hi = hi;
-
 
     if (hi>=0x18 && hi<=0x1f)
         hi=hi-8;
     switch (hi)
     {
     case 0x10:
-//      if (lo>=0x40 && lo<=0x5f)
-//          handle_pac (hi,lo,wb);
         break;
     case 0x11:
         if (lo>=0x20 && lo<=0x2f)
@@ -562,17 +521,13 @@ void AddCC(RecordingContext& context, int i)
             context.state.cc.cc1[0] = 0x20;
             context.state.cc.cc1[1] = 0x00;
         }
-//          handle_text_attr (hi,lo,wb);
         if (lo>=0x30 && lo<=0x3f)
         {
             context.state.cc.cc1[0] = 0x20;
             context.state.cc.cc1[1] = 0x00;
-//	wrote_to_screen=1;
-//          handle_double (hi,lo,wb);
         }
         if (lo>=0x40 && lo<=0x7f)
         {
-//          handle_pac (hi,lo,wb);
             context.state.cc.cc1[0] = 0x20;
             context.state.cc.cc1[1] = 0x00;
         }
@@ -583,30 +538,14 @@ void AddCC(RecordingContext& context, int i)
         {
             context.state.cc.cc1[0] = 0x20;
             context.state.cc.cc1[1] = 0x00;
-//          handle_extended (hi,lo,wb);
-//			wrote_to_screen=1;
         }
-//        if (lo>=0x40 && lo<=0x7f)
-//          handle_pac (hi,lo,wb);
         break;
     case 0x14:
     case 0x15:
-//        if (lo>=0x20 && lo<=0x2f)
-//          handle_command (hi,lo,wb);
-//        if (lo>=0x40 && lo<=0x7f)
-//          handle_pac (hi,lo,wb);
         break;
     case 0x16:
-//        if (lo>=0x40 && lo<=0x7f)
-//          handle_pac (hi,lo,wb);
         break;
     case 0x17:
-//        if (lo>=0x21 && lo<=0x22)
-//           handle_command (hi,lo,wb);
-//        if (lo>=0x2e && lo<=0x2f)
-//            handle_text_attr (hi,lo,wb);
-//        if (lo>=0x40 && lo<=0x7f)
-//            handle_pac (hi,lo,wb);
         break;
     }
 
@@ -683,23 +622,15 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x21:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tBackSpace\n", current_frame);
             break;
 
         case 0x22:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tAlarm Off\n", current_frame);
             break;
 
         case 0x23:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tAlarm On\n", current_frame);
             break;
 
         case 0x24:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tDelete to end of row\n", current_frame);
             break;
 
         case 0x25:
@@ -742,8 +673,6 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x28:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tFlash On\n", current_frame);
             break;
 
         case 0x29:
@@ -760,13 +689,9 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x2A:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tText Restart\n", current_frame);
             break;
 
         case 0x2B:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tResume Text Display\n", current_frame);
             break;
 
         case 0x2C:
@@ -783,8 +708,6 @@ void AddCC(RecordingContext& context, int i)
             break;
 
         case 0x2D:
-            // Debug(11, "Frame - %6i Control Code
-            // Found:\tCarriage Return\n", current_frame);
             if (context.state.cc_text[context.state.cc_text_count].text_len > 200)
             {
                 context.state.cc_text[context.state.cc_text_count].end_frame = current_frame - 1;
@@ -804,8 +727,6 @@ void AddCC(RecordingContext& context, int i)
             CaptionDebug(context, 11, "caption_control_erase_nondisplayed",
                 std::format("{:6}", current_frame));
 
-            // cc_text_count++;
-            // InitializeCCTextArray(cc_text_count);
             context.state.cc_in_memory = false;
             break;
 
@@ -866,7 +787,6 @@ void ProcessCCData(RecordingContext& context)
     int				i;
     int proceed = 0;
     int is_CC = 0;
-    //int is_dish = 0;
     int is_GA = 0;
     int cctype = 0;
     int offset;
@@ -1021,14 +941,12 @@ void ProcessCCData(RecordingContext& context)
                 AddCC(context, i/2);
             }
             context.state.prevccDataLen = 0;
-//			offset += 6;
             cctype = context.state.ccData[offset++] & 0x7f;
             cctype = context.state.ccData[offset++] & 0x7f;
             cctype = context.state.ccData[offset++] & 0x7f;
             cctype = context.state.ccData[offset++] & 0x7f;
             cctype = context.state.ccData[offset++] & 0x7f;
             cctype = context.state.ccData[offset++] & 0x7f;
-//
             cctype = context.state.ccData[offset++];
             offset++;
             context.state.prevccDataLen = 0;
@@ -1051,7 +969,6 @@ void ProcessCCData(RecordingContext& context)
             offset += 3;
         }
         packetCount = cctype / 2;
-        //is_dish = 1;
     }
 
     if (proceed)
@@ -1086,29 +1003,15 @@ void ProcessCCData(RecordingContext& context)
                     continue;
 
                 cctype = (context.state.ccData[(i * 3) + offset] & 3);
-//				cc.cc1[0] = CheckOddParity(ccData[(i * 3) + offset + 1]) ? ccData[(i * 3) + offset + 1] & 0x7f : 0x00;
-//				cc.cc1[1] = CheckOddParity(ccData[(i * 3) + offset + 2]) ? ccData[(i * 3) + offset + 2] & 0x7f : 0x00;
                 context.state.cc.cc1[0] = context.state.ccData[(i * 3) + offset + 1] & 0x7f;
                 context.state.cc.cc1[1] = context.state.ccData[(i * 3) + offset + 2] & 0x7f;
 
-                /*
-                if (cctype == 0)
-                    cctype = cctype;
-                */
                 if (cctype == 1)
                     AddXDS(context, context.state.ccData[(i * 3) + offset + 1], context.state.ccData[(i * 3) + offset + 2]);
-                /*
-                if (cctype == 2)
-                    cctype = cctype;
-                if (cctype == 3)
-                    cctype = cctype;
-                */
                 if (cctype != 0 && cctype != 1 )
                     continue;
-                if ( cctype == 0 /* || cctype == 1 */ )
+                if ( cctype == 0 )
                 {
-//					cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
-//					cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
                     AddCC(context, i);
 
                 }
@@ -1118,20 +1021,6 @@ void ProcessCCData(RecordingContext& context)
                     context.state.cc.cc1[1] = 0;
                 }
             }
-            /*
-                        if (is_dish) {
-
-                            if (cctype == 2 || cctype == 4) {
-                                cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
-                                cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
-                                offset = offset - 1;
-                                AddCC(i);
-
-                            } else
-                                continue;
-
-                        }
-            */
         }
     }
 }
@@ -1218,7 +1107,6 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
             {
                 if ((context.state.cc_block[i - 1].type == caption_painton) && (context.state.cc_block[i].type == caption_popon))
                 {
- //                   type = caption_commercial;
                     break;
                 }
             }
@@ -1230,7 +1118,6 @@ int DetermineCCTypeForBlock(RecordingContext& context, long start, long end)
                         (comskip::detection::frame_duration(context, context.state.cc_block[i - 1].end_frame, context.state.cc_block[i - 1].start_frame) <= 1.5) &&
                         (context.state.cc_block[i].type == caption_popon))
                 {
- //                   type = caption_commercial;
                     break;
                 }
             }

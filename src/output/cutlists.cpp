@@ -232,7 +232,8 @@ void BuildCommercial(RecordingContext& context)
 {
     if (context.state.block_count < 0 || context.state.block_count > std::numeric_limits<int>::max() ||
         static_cast<std::size_t>(context.state.block_count) + 1 != context.state.cblock.size())
-        throw std::out_of_range("Commercial producer count exceeds owned detection blocks");
+        throw comskip::diagnostics::DiagnosticError<std::out_of_range>(
+            comskip::diagnostics::Code::invalid_completed_detection_block_count);
     std::vector<Legacy_commercial_entry> intervals;
     int last = -1;
     for (int i = 0; i < context.state.block_count; ++i)

@@ -77,7 +77,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
     };
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
-//	frm++;
     if (!forceRefresh && context.state.oldfrm && *context.state.oldfrm == frm &&
         context.state.review_source_width == context.state.videowidth && context.state.review_source_height == context.state.height)
         return;
@@ -87,9 +86,9 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
 
         if (!context.window.is_open() || context.state.review_source_width != context.state.videowidth || context.state.review_source_height != context.state.height)
         {
-            if (context.state.width == 0 /*|| (loadingCSV && !showVideo) */)
+            if (context.state.width == 0)
                 context.state.videowidth = context.state.width = 800; // MAXWIDTH;
-            if (context.state.height == 0 /*||  (loadingCSV && !showVideo) */)
+            if (context.state.height == 0)
                 context.state.height = 600-barh; // MAXHEIGHT-30;
             if (context.settings.edge_step == 0) {
                 context.settings.edge_step = 1;
@@ -136,7 +135,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
             context.state.review_source_height = context.state.height;
 
         }
-//		bartop = context.state.oheight;
         if (frm >= context.state.frame_count)
             frm = context.state.frame_count-1;
         if (frm < 1)
@@ -151,7 +149,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
         if ( frm > v + context.state.zstart - v / 10) context.state.zstart = frm - v + v / 10;
 
         if (context.state.zstart + v > context.state.frame_count) context.state.zstart = context.state.frame_count - v;
-//		if ( frm > v + zstart) zstart = frm - v;
 
         w = ((frm - context.state.zstart)* context.state.owidth / v);
 
@@ -163,45 +160,14 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                 context.state.frame_ptr.first(comskip::detection::checked_image_size(context.state.width, context.state.height)),
                 context.state.width, context.state.videowidth, context.state.height);
             std::ranges::fill(context.state.graph, 0);
-            /*
-                        for (x = 0; x < border; x++) {
-                            for (y = 0; y < context.state.oheight; y++) {
-                                gray_pixel(x,y+barh, 0);
-                                gray_pixel(context.state.owidth - 1 - x,y+barh, 0);
-                            }
-                        }
-            */
             for (x = 0+context.settings.border; x < context.state.owidth-context.settings.border; x++)
             {
-//				for (y = 0; y < border; y++) {
-//					gray_pixel(x,y+barh, 0);
-//					gray_pixel(x,context.state.oheight - 1 - (y+barh), 0);
-//				}
                 for (y = 0+context.settings.border; y < context.state.oheight-context.settings.border; y++)
                 {
                     if (x*context.state.divider < context.state.width && y*context.state.divider < context.state.height)
                         gray_pixel(x, y + barh, luma.scaled_sample(x, y, context.state.divider) >> (grf ? 1 : 0));
-//					gray_pixel(x,y+barh, min_br[(y*context.state.divider)*context.state.width+(x*context.state.divider)]);		//MAXMIN Logo search
-
-//					gray_pixel(x,y+barh, vert_edges[(y*context.state.divider)*context.state.width+(x*context.state.divider)]);	//Edge detect
-
-//					gray_pixel(x,y+barh, (ver_edgecount[(y*context.state.divider)*context.state.width+(x*context.state.divider)]* 4));		// Edge count
-                    /*
-                                        gray_pixel(x,y+barh, (abs((frame_ptr[(y*context.state.divider)*context.state.width+(x*context.state.divider)] +
-                                                                  frame_ptr[(y*context.state.divider)*context.state.width+((x+1)*context.state.divider)])/2
-                                                                  -
-                                                                  (frame_ptr[(y*context.state.divider)*context.state.width+((x+2)*context.state.divider)]+
-                                                                  frame_ptr[(y*context.state.divider)*context.state.width+((x+3)*context.state.divider)])/2
-                                                            ) > edge_level_threshold ? 200 : 0));
-                    */
-                    //					context.state.graph[((context.state.oheight - y)*context.state.owidth+x)*3+0] = frame_ptr[y*context.state.owidth+x];
-                    //					context.state.graph[((context.state.oheight - y)*context.state.owidth+x)*3+1] = frame_ptr[y*context.state.owidth+x];
-                    //					context.state.graph[((context.state.oheight - y)*context.state.owidth+x)*3+2] = frame_ptr[y*context.state.owidth+x];
                 }
             }
-            //			memcpy(&context.state.graph[context.state.owidth*context.state.oheight * 0], frame_ptr, context.state.owidth*context.state.oheight);
-            //			memcpy(&context.state.graph[context.state.owidth*context.state.oheight * 1], frame_ptr, context.state.owidth*context.state.oheight);
-            //			memcpy(&context.state.graph[context.state.owidth*context.state.oheight * 2], frame_ptr, context.state.owidth*context.state.oheight);
             if (context.state.framearray && grf && (comskip::detection::method_enabled(
                     context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo)
                 || context.state.logoInfoAvailable ))
@@ -210,8 +176,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                     s = context.settings.edge_radius/2;				// Cater of mask offset
                 else
                     s = 0;
-//				w = 0;
-//				v = 0;
                 if (context.state.logoInfoAvailable)  	// Show logo mask
                 {
                     if (context.state.frame[frm].currentGoodEdge > context.settings.logo_threshold)
@@ -248,7 +212,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                                 }
                                 if (r > 255) r = 255;
                                 if (g > 255) g = 255;
-                                //if (r > 128 || g >  128)
                                     set_pixel(static_cast<int>(x/context.state.divider), static_cast<int>(y/context.state.divider)+barh,r,g,0);
 
 }
@@ -328,7 +291,6 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
                 if (n > 0)
                 {
                     a /= n;
-//						f /= n;
                     b /= n;
                     s /= n;
                     c /= n;
@@ -342,19 +304,12 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
 
         if (!context.state.frame_ptr.empty() && context.state.framearray)
         {
-//			for (x=0; x < context.state.owidth; x++) { // Edge counter indicator
-//				context.state.graph[2* context.state.owidth + x] = (x < edge_count /8 ? 255 : 0);
-//			}
-
             x = context.state.frame[frm].maxX/context.state.divider;
             if (x == 0) x = context.state.owidth;
             for (i=context.state.frame[frm].minX/context.state.divider; i < x; i++)  				// AR lines
             {
                 set_pixel(i, static_cast<int>(context.state.frame[frm].minY/context.state.divider)+barh, 0,0,255);
                 set_pixel(i, static_cast<int>(context.state.frame[frm].maxY/context.state.divider+barh), 0,0,255);
-
-//				context.state.graph[context.state.frame[frm].minY* context.state.owidth + i] = 255;
-//				context.state.graph[context.state.frame[frm].maxY* context.state.owidth + i] = 255;
             }
             for (i=(context.state.frame[frm].minY/context.state.divider); i < (context.state.frame[frm].maxY/context.state.divider); i++)  				// AR lines
             {
@@ -364,7 +319,7 @@ void OutputDebugWindow(RecordingContext& context, bool showVideo, int frm, int g
 
 
         }
-        if (context.state.framearray /* && commDetectMethod & LOGO */ )
+        if (context.state.framearray)
         {
 for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoMaxX/context.state.divider; x++)  		// Logo box X
             {
@@ -389,15 +344,6 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
             }
         }
 
-        /*
-                std::ranges::fill(context.state.graph, 20);
-                for (i=0; i<context.state.oheight/2;i++) {
-                    context.state.graph[(i*(context.state.owidth+0))*3] = 255;
-                    context.state.graph[(i*(context.state.owidth+0))*3+1] = 0;
-                    context.state.graph[(i*(context.state.owidth+0))*3+2] = 0;
-                }
-        */
-//		if (0)	// disable debug bar
         for (x=0 ; x < context.state.owidth; x++)  				// debug bar
         {
             blackframe = false;
@@ -455,7 +401,6 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                                 haslogo=true;
                             }
                         }
-//					if (context.state.frame[i].currentGoodEdge > logo_threshold) haslogo = true;
                         a = static_cast<int>((context.state.frame[i].ar_ratio - 0.5 - 0.1)*6);		// Position of AR line
                         g += static_cast<int>(context.state.frame[i].currentGoodEdge * 5);
                         gc++;
@@ -513,7 +458,6 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                 else
                 {
                     set_pixel(x,y,c,c,c);
-//					gray_pixel(x,y, c);
                 }
             g = 5; // Disable goodEdge context.state.graph
             for (i = 0; i < context.state.block_count; i++)
@@ -532,7 +476,6 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
                 if (haslogo) gray_pixel(x,y, ((y - (bartop + 15) == g) ? 255 : (comskip::detection::method_enabled(
                     context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) ? 0 : 128)));
                 else gray_pixel(x,y, ((y - (bartop + 15) == g)?0:255));
-//				if (y - (bartop + 15) == g) context.state.graph[y * context.state.owidth + x] = 128;
             }
 
             cb = 255;
@@ -608,7 +551,6 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
         }
         context.window.draw(std::span{context.state.graph}.first(static_cast<std::size_t>(context.state.owidth) * (context.state.oheight + barh) * 3));
 
-        //		sprintf(t, "%8i %8i %1s %1s", frm, framenum_infer, (context.state.frame[frm].isblack?"B":" "), (context.state.frame[frm].volume<context.settings.max_volume?"S":" "));
         b = 0;
         for (i = 0; i < context.state.block_count; i++)
         {
@@ -703,9 +645,9 @@ for (x = context.state.tlogoMinX/context.state.divider; x < context.state.tlogoM
         //	Enable for single stepping trough the video
         if (!context.window.is_open() || context.state.review_source_width != context.state.videowidth || context.state.review_source_height != context.state.height)
         {
-            if (context.state.width == 0 /*|| (loadingCSV && !showVideo) */)
+            if (context.state.width == 0)
                 context.state.videowidth = context.state.width = 800; // MAXWIDTH;
-            if (context.state.height == 0 /*||  (loadingCSV && !showVideo) */)
+            if (context.state.height == 0)
                 context.state.height = 600-barh; // MAXHEIGHT-30;
 
             if (context.state.height > 600 || context.state.width > 800)
@@ -872,7 +814,6 @@ bool ReviewResult(RecordingContext& context)
                     curframe += 10;
                     i = 0;
                     while (i < context.state.block_count && curframe > context.state.cblock[i].f_end) i++;
-                    //					if (i > 0)
                     curframe = context.state.cblock[i].f_end+5;
                     curframe -= 10;
                 }
@@ -892,7 +833,6 @@ bool ReviewResult(RecordingContext& context)
                     curframe -= 10;
                     i = context.state.block_count-1;
                     while (i > 0 && curframe < context.state.cblock[i].f_start) i--;
-                    //					if (i > 0)
                     curframe = context.state.cblock[i].f_start-5;
                     curframe += 10;
                 }
@@ -1011,9 +951,7 @@ bool ReviewResult(RecordingContext& context)
             {
                 if (context.state.zfactor < 256 && context.state.frame_count / context.state.zfactor > context.state.owidth)
                 {
-//						i = (curframe - zstart) * zfactor * context.state.owidth/ frame_count;
                     context.state.zfactor = context.state.zfactor << 1;
-//						zstart = i * frame_count / context.state.owidth / zfactor;
                     context.state.zstart = (curframe + context.state.zstart) / 2;
                     context.state.oldfrm.reset();
                 }
@@ -1022,9 +960,7 @@ bool ReviewResult(RecordingContext& context)
             {
                 if (context.state.zfactor > 1)
                 {
-//						i = (curframe - zstart) * zfactor * context.state.owidth/ frame_count;
                     context.state.zfactor = context.state.zfactor >> 1;
-//						zstart = i * frame_count / context.state.owidth / zfactor;
                     context.state.zstart = context.state.zstart - (curframe - context.state.zstart);
                     if (context.state.zstart < 0)
                         context.state.zstart = 0;

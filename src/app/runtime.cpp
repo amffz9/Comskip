@@ -141,7 +141,6 @@ void InitComSkip(RecordingContext& context)
         }
     }
 
-//	if (commDetectMethod & BLACK_FRAME) {
     if(!context.state.initialized)
     {
         context.state.max_black_count = 500;
@@ -153,10 +152,6 @@ void InitComSkip(RecordingContext& context)
         Debug(context, 0, context.translator.text("runtime_allocate_black_array_failed"));
         comskip::request_exit(11);
     }
-//	} else {
-//		Debug(1, "ERROR: ComSkip cannot run without black frames.\n");
-//		comskip::request_exit(100);
-//	}
 
     if (comskip::detection::method_enabled(context.settings.commDetectMethod,
                                             comskip::detection::DetectionMethod::logo))
@@ -173,9 +168,7 @@ void InitComSkip(RecordingContext& context)
             comskip::request_exit(13);
         }
 
-//		if (!logoInfoAvailable) {
         InitLogoBuffers(context);
-//		}
         std::ranges::fill(context.state.max_br, 0);
         std::ranges::fill(context.state.min_br, 255);
     }
@@ -248,7 +241,6 @@ void InitComSkip(RecordingContext& context)
         }
     }
 
-//	if (commDetectMethod & AR) {
     if(!context.state.initialized)
     {
         context.state.max_ar_block_count = 100;
@@ -268,7 +260,6 @@ void InitComSkip(RecordingContext& context)
         Debug(context, 0, context.translator.text("runtime_allocate_audio_blocks_failed"));
         comskip::request_exit(31);
     }
-//	}
 
     context.state.cc.cc1[0] = 0;
     context.state.cc.cc1[1] = 0;
@@ -302,11 +293,9 @@ void InitComSkip(RecordingContext& context)
     comskip::detection::reset_intervals(context.state.commercial, context.state.commercial_count);
 
     context.state.logoTrendCounter = 0;
-//	audio_framenum = 0;
     context.state.cc_block_count = 0;
     context.state.cc_text_count = 0;
     context.state.logo_block_count = 0;
-//	pts = 0;
     context.state.ascr=context.state.scr=0;
     InitScanLines(context);
     InitHasLogo(context);

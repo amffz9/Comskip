@@ -250,10 +250,6 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
             else
                 context.state.frame[i].isblack = 0;
         }
-        else
-        {
-//			frame[i].isblack &= black_cause;
-        }
 
         if (context.state.frame[i].brightness > 0)
         {
@@ -293,8 +289,6 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
         }
         if (i == 1)
         {
-//			if (frame[i].maxX == 0)
-//				videowidth = width = (int) ((frame[i].maxY - frame[i].minY) * frame[i].ar_ratio );
             ProcessARInfoInit(context, context.state.frame[i].minY, context.state.frame[i].maxY, context.state.frame[i].minX, context.state.frame[i].maxX);
             ProcessACInfoInit(context, context.state.frame[i].audio_channels);
         }
@@ -306,27 +300,11 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
         context.state.frame[i].ar_ratio = context.state.last_ar_ratio;
 
 
-        if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::resolution_change))
-        {
-            /* not reliable!!!!!!!!!!!!!!!!!!!!!
-                        frame[i].isblack &= ~resolution_change_cause;
-                        videowidth = width = frame[i].minX + frame[i].maxX;
-                        height = frame[i].minY + frame[i].maxY;
-
-                        if ((old_width != 0 && abs(width-old_width) > 50) || (old_height != 0 && abs(height - old_height) > 50)) {
-                            frame[i].isblack |= resolution_change_cause;
-                        }
-                        old_width = width;
-                        old_height = height;
-            */
-        }
-        else
+        if (!comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::resolution_change))
             context.state.frame[i].isblack &= ~resolution_change_cause;
 
         if (comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::black_frame))
         {
-            // if (frame[i].brightness <= max_avg_brightness && (non_uniformity == 0 || frame[i].uniform < non_uniformity)/* && frame[i].volume < max_volume */ && !(frame[i].isblack & black_cause))
-            //    frame[i].isblack |= black_cause;
             if ((context.state.frame[i].isblack & black_cause) && context.state.frame[i].brightness > context.settings.max_avg_brightness)
                 context.state.frame[i].isblack &= ~black_cause;
 
@@ -342,7 +320,7 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
             }
             if (i>1) { // Uniform not calculated for frame 1
                 context.state.frame[i].isblack &= ~non_uniform_cause;
-                if (!(context.state.frame[i].isblack & black_cause) && context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
+                if (!(context.state.frame[i].isblack & black_cause) && context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250)
                     context.state.frame[i].isblack |= non_uniform_cause;
             }
         }
@@ -400,18 +378,6 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
         {
                     InsertBlackFrame(context, i, context.state.frame[i].brightness, context.state.frame[i].uniform,
                         context.state.frame[i].volume, static_cast<int>(context.state.frame[i].isblack));
-
-            /*
-                        j = i-volume_slip;
-                        if (j < 0) j = 0;
-                        k = i+volume_slip;
-                        if (k>frame_count) k = frame_count;
-                        for (x=j; x<k; x++)
-                            if (frame[x].volume >= 0)
-                                if (black[black_count].volume > frame[x].volume)
-                                    black[black_count].volume = frame[x].volume;
-            //			if (black[black_count].volume < max_volume) frame[i].volume = 1;
-            */
         }
 
         if ((context.state.frame[i].schange_percent < 20) && i > 1 && context.state.black_count > 0 && (context.state.black[context.state.black_count - 1].frame != i))
@@ -441,12 +407,6 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
             context.state.frame[i].logo_present = lastLogoTest;
         }
         if (lastLogoTest) context.state.frames_with_logo++;
-
-//		if (live_tv && !frame[i].isblack) {
-//			BuildCommListAsYouGo();
-//		}
-//        DetectCredits(i);
-
     }
     if (context.captions) {
         context.captions->finish(std::chrono::duration_cast<comskip::media::CaptionTimestamp>(
@@ -480,8 +440,6 @@ void ProcessCSV(RecordingContext& context, comskip::platform::FilePtr input)
             input = reopen_csv_inputs(context);
             return ProcessCSV(context, std::move(input));
         }
-        //		printf(" Press Enter to close debug window\n");
-//		gets(HomeDir);
     }
     comskip::request_exit(0);
 }

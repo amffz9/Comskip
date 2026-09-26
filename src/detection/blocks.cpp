@@ -200,19 +200,6 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
             }
         }
 
-        /*
-
-            if (negative_count > 1 && reason == comskip::detection::cause_value(comskip::detection::FrameCause::silence))
-            {
-                Debug(1, "Too mutch Silence Frames, disabling silence detection\n");
-                commDetectMethod &= ~SILENCE;
-            }
-            if (negative_count > 1 && reason == comskip::detection::cause_value(comskip::detection::FrameCause::scene_change))
-            {
-                Debug(1, "Too mutch Scene Change, disabling Scene Change detection\n");
-                commDetectMethod &= ~SCENE_CHANGE;
-            }
-        */
     }
 
 
@@ -244,7 +231,6 @@ double ValidateBlackFrames(RecordingContext& context, long reason, double ratio,
                 count++;
                 if (IsStandardCommercialLength(context, length, frame_time(context, i) - frame_time(context, j)  + 0.8 , false))
                 {
-//				if (length > max_commercial_size) {
                     strict_count++;
                 }
             }
@@ -303,7 +289,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     int prev_head = 0;
 
     long b_start, b_end, b_counted;
-//	char *t = "";
 
     comskip::detection::reset_blocks(context.state.cblock, context.state.block_count);
 
@@ -311,9 +296,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     InitializeBlockArray(context, 0);
 
     // If there are no black frames, nothing can be done
-//	if (!black_count && !ar_block_count) return (false);
-
-//	OutputHistogram(volumeHistogram, volumeScale, "Volume", true);
 
     if (!recalc)
     {
@@ -326,7 +308,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                         std::format("{}", black_threshold));
         }
         if ((context.settings.intelligent_brightness && context.settings.non_uniformity > 0)
-//			|| 	(commDetectMethod & BLACK_FRAME && non_uniformity == 0) // Diabled
            )
         {
             OutputuniformHistogram (context);
@@ -339,7 +320,7 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
                 for (i = 1; i < context.state.frame_count; i++)
                 {
                     context.state.frame[i].isblack &= ~comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform);
-                    if (/*!(frame[i].isblack & comskip::detection::cause_value(comskip::detection::FrameCause::black)) && */ context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
+                    if (context.settings.non_uniformity > 0 && context.state.frame[i].uniform < context.settings.non_uniformity && context.state.frame[i].brightness < 250 )
                         InsertBlackFrame(context, i,context.state.frame[i].brightness,context.state.frame[i].uniform,context.state.frame[i].volume,
                                          static_cast<int>(comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform)));
                 }
@@ -449,10 +430,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
             if ((context.state.black[k].cause & comskip::detection::cause_value(comskip::detection::FrameCause::cutscene)) != 0)
                 continue;
             if (context.state.black[k].volume >  context.settings.max_volume
-//				&&
-//				( black[k].frame > 10 && (int)frame[black[k].frame-2].brightness < (int)frame[black[k].frame].brightness + 50 &&
-//				 black[k].frame < frame_count - 10 && (int)frame[black[k].frame+2].brightness < (int) frame[black[k].frame].brightness + 50 )
-//			   || black[k].volume >  max_volume * 1.5
                )
             {
 
@@ -532,26 +509,16 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     {
         if (context.state.logoPercentage > context.settings.logo_fraction && context.state.logoPercentage < context.settings.logo_percentile)
             context.settings.cut_on_ar_change = 1;
-//		else
-//			ar_wrong_modifier=1;
-    }
-
-    if (context.settings.cut_on_ar_change==1)
-    {
-//		if (logoPercentage < logo_fraction || logoPercentage > logo_percentile)
-//			cut_on_ar_change = 2;
     }
 
     if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && context.settings.cut_on_ar_change ) || context.settings.cut_on_ar_change >= 2)
     {
-//	if (cut_on_ar_change ) {
         for (i = 0; i < context.state.ar_block_count; i++)
         {
             if ((context.settings.cut_on_ar_change == 1 || context.state.ar_block[i].volume < context.settings.max_volume) &&
                     context.state.ar_block[i].ar_ratio != undefined_aspect_ratio && context.state.ar_block[i+1].ar_ratio != undefined_aspect_ratio)
             {
                 a = context.state.ar_block[i].end;
-//					if (a > 20 * fps)
                 InsertBlackFrame(context, a,context.state.frame[a].brightness,context.state.frame[a].uniform,context.state.frame[a].volume, comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio));
             }
         }
@@ -570,10 +537,8 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
     if (ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::black), 3.0, false) < 1 / 3.0)
         BlocksDebug(context, 8, "blocks_black_frame_cutting_too_low");
 
-    if (context.settings.validate_scenechange /* || (logoPercentage < logo_fraction || logoPercentage > logo_percentile) */)
+    if (context.settings.validate_scenechange)
         ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::scene_change), ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.5), true);
-
-    //	ValidateBlackFrames(comskip::detection::cause_value(comskip::detection::FrameCause::caption), 3.0, true);
 
     if (context.settings.validate_uniform)
         ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::non_uniform), ((context.state.logoPercentage < context.settings.logo_fraction || context.state.logoPercentage > context.settings.logo_percentile) ? 1.2 : 3.0), true);
@@ -586,22 +551,9 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
         {
             if (context.state.frame[i].volume < context.settings.max_volume) k++;
         }
-        /*
-                if (k * 100 / frame_count > 25) {
-                    Debug(8, "Too mutch Silence Frames (%d%%), disabling silence detection\n", k * 100 / frame_count);
-
-                    ValidateBlackFrames(comskip::detection::cause_value(comskip::detection::FrameCause::silence), 1.0, true);
-                    commDetectMethod &= ~SILENCE;
-                    validate_silence = 0;
-                } else
-        */		if (context.settings.validate_silence)
+    if (context.settings.validate_silence)
             ValidateBlackFrames(context, comskip::detection::cause_value(comskip::detection::FrameCause::silence), 3.0, true);
     }
-
-//		if (logoPercentage < logo_fraction)
-//	if (cut_on_ar_change == 2)
-//		ValidateBlackFrames(comskip::detection::cause_value(comskip::detection::FrameCause::aspect_ratio), 3.0, true);
-
 
     BlocksDebug(context, 8, "blocks_black_frame_list_heading", context.state.black_count);
     for (k = 0; k < context.state.black_count; k++)
@@ -615,24 +567,12 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
     // add black frame at end to enable usage of last cblock
     InsertBlackFrame(context, context.state.framesprocessed,0,0,0,comskip::detection::cause_value(comskip::detection::FrameCause::black));
-    /*
-        InitializeBlackArray(black_count);
-        black[black_count].frame = framesprocessed;
-        black[black_count].brightness = 0;
-        black[black_count].uniform = 0;
-        black[black_count].volume = 0;
-        black[black_count].cause = 0;
-        black_count++;
-    */
     //Create blocks
 
 
 
     i = 0;
     j = 0;
-//	if (((commDetectMethod & LOGO) && cut_on_ar_change ) || cut_on_ar_change == 2)
-//		a = 0;
-//	else
     a = context.state.ar_block_count;			// Don't cut on AR when logo disabled
     cause = 0;
     context.state.block_count = 0;
@@ -641,11 +581,6 @@ bool BuildBlocks(RecordingContext& context, bool recalc)
 
     while(i < context.state.black_count || a < context.state.ar_block_count)
     {
-        if (!comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) && i < context.state.black_count && (context.state.black[i].cause & (comskip::detection::cause_value(comskip::detection::FrameCause::scene_change) | comskip::detection::cause_value(comskip::detection::FrameCause::logo))))
-        {
-//			i++; // Skip logo cuts and brighness cuts when not enough logo detected
-//			goto again;
-        }
         cause = 0;
         b_start = context.state.black[i].frame;
         cause |= context.state.black[i].cause;
@@ -796,38 +731,6 @@ void FindLogoThreshold(RecordingContext& context)
         BlocksDebug(context, 8, "blocks_logo_quality",
                     std::format("{:.5f}", context.state.logo_quality));
 
-        /*
-                j = 0;
-                for (i = 0; i < buckets/2; i++) {
-                    j += logoHistogram[i];
-                }
-                k = 0;
-                for (i = buckets/2; i < buckets; i++) {
-                    k += logoHistogram[i];
-                }
-                if (k < j * 1.3) {
-                    logo_quality = 0.9;
-                } else {
-                    k = logoHistogram[0];
-                    for (i = 0; i < buckets; i++) {
-                        if (logoHistogram[k] < logoHistogram[i]) {
-                            k = i;
-                        }
-                    }
-                    if (k < buckets * 2 / 3) {
-                        logo_quality = 0.9;
-                    } else {
-                        i = 0;
-                        j = logoHistogram[0];
-                        for (i = buckets/2; i < k; i++) {
-                            if (j * 10 / 8 >= logoHistogram[i]) {
-                                j = logoHistogram[i];
-                                logo_quality = (static_cast<double>(i) + 0.5) / buckets;
-                            }
-                        }
-                    }
-                }
-        */
     }
     if (context.settings.logo_threshold == 0)
     {
@@ -839,11 +742,10 @@ void CleanLogoBlocks(RecordingContext& context)
 {
     if (context.state.block_count == 0) return;
     int i,k,n;
-//	double stdev;
     int sum_brightness,v,b, sum_volume,s,sum_silence,sum_uniform;
     double sum_brightness2;
     int sum_delta;
-    if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) /* || startOverAfterLogoInfoAvail==0 */ ) &&! context.state.reverseLogoLogic && context.settings.connect_blocks_with_logo)
+    if ((comskip::detection::method_enabled(context.settings.commDetectMethod, comskip::detection::DetectionMethod::logo) ) &&! context.state.reverseLogoLogic && context.settings.connect_blocks_with_logo)
     {
         //Combine blocks with both logo
         for (i = context.state.block_count-1; i >= 1; i--)
@@ -869,21 +771,6 @@ void CleanLogoBlocks(RecordingContext& context)
 
     k = -1;
     //Checking cblock size ratio
-    /*
-        for (i = 0; i < block_count; i++) {
-
-            if (comskip::detection::frame_duration(context, cblock[i].f_end, cblock[i].f_start) > static_cast<int>(min_show_segment_length) )
-            {
-                if (k != -1 && i > k+1)
-                {
-                    a = cblock[k].f_end - cblock[k].f_start;
-                    j = cblock[i].f_start - cblock[k].f_end;
-                    Debug(1, "Long/Short cblock ratio for cblock %i till %i is %i percent\n",k, i-1 , static_cast<int>(100 * a)/(a+j));
-                }
-                k = i;
-            }
-        }
-    */
     context.state.avg_brightness = 0;
     context.state.avg_volume = 0;
     context.state.maxi_volume = 0;
@@ -903,7 +790,6 @@ void CleanLogoBlocks(RecordingContext& context)
             for (k = context.state.cblock[i].f_start+1; k < context.state.cblock[i].f_end; k++)
             {
 
-//				b = frame[k].brightness;
                 b = abs(context.state.frame[k].brightness - context.state.frame[k-1].brightness);
                 v = context.state.frame[k].volume;
                 if (context.state.maxi_volume < v)
@@ -932,7 +818,6 @@ void CleanLogoBlocks(RecordingContext& context)
             context.state.cblock[i].schange_rate = 0.0;
 
         context.state.cblock[i].stdev =
-//			sqrt( (n*sum_brightness2 - sum_brightness*sum_brightness)/ (n * (n-1)));
             100* sum_delta / n;
         context.state.avg_brightness += sum_brightness * 1000;
         context.state.avg_volume += sum_volume;
@@ -948,8 +833,6 @@ void CleanLogoBlocks(RecordingContext& context)
         context.state.avg_uniform /= n;
         context.state.avg_schange /= n;
     }
-//	Debug(1, "Average brightness is %i\n",avg_brightness);
-//	Debug(1, "Average volume is %i\n",avg_volume);
 
 }
 

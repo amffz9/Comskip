@@ -84,12 +84,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 
 
 #ifndef _DEBUG
-//	__tr y
     {
-        //      raise_ exception();
 #endif
-
-//		output_debugwindow = 1;
 
         if (comskip::ui::gui_executable(argv[0]))
             context.settings.output_debugwindow = 1;
@@ -112,21 +108,11 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
 
 #ifdef _WIN32
 #ifdef HAVE_IO_H
-//		_setmode (_fileno (stdin), O_BINARY);
-//		_setmode (_fileno (stdout), O_BINARY);
 #endif
 #endif
 
-
-
-//
 // Wait until recording is complete...
-//
 
-//        av_log_set_level(AV_LOG_WARNING);
-//        av_log_set_flags(AV_LOG_SKIP_REPEATED);
-//
-//        av_log_set_level(AV_LOG_WARNING);
         LoadSettings(context, argc, argv, context.translator);
 
         file_open(context);
@@ -143,8 +129,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
         }
 
         av_log_set_level(AV_LOG_INFO);
-//        av_log_set_flags(AV_LOG_SKIP_REPEATED);
-//
 
         // main decode loop
         for(;;)
@@ -205,13 +189,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                                    packet->pos, last_packet_pts, packet->pts);
                 context.state.video_owner->seek_req = 0;
             }
-            /*
-                    if (ret < 0 && is->seek_req && !is->seek_by_bytes) {
-                        is->seek_by_bytes = 1;
-                        Set_seek(is, is->seek_pts, is->duration);
-                        goto again;
-                    }
-            */
             context.state.video_owner->seek_req = 0;
 
 
@@ -266,15 +243,13 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                         }
                     }
 
-                    if ((context.settings.live_tv && context.state.retries < context.settings.live_tv_retries) /* || (selftest == 3 && retries == 0) */)
+                    if ((context.settings.live_tv && context.state.retries < context.settings.live_tv_retries))
                     {
                         double frame_delay = av_q2d(context.state.video_owner->dec_ctx->time_base) * context.state.video_owner->ticks_per_frame;
-//                    uint64_t retry_target;
                         if (context.state.retries == 0)
                         {
                             if (context.state.selftest == 3)
                                 retry_target = context.state.selftest_target;
-//                        retry_target = avio_tell(is->pFormatCtx->pb);
                             else
                                 retry_target = context.state.video_owner->video_clock + frame_delay;
                         }
@@ -341,10 +316,6 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                     packet->pts, packet->duration,
                     std::chrono::duration_cast<comskip::media::CaptionTimestamp>(std::chrono::duration<double>(video_origin)));
             }
-            else
-            {
-
-            }
             av_packet_unref(packet);
             const auto video_clock = context.state.video_owner->video_clock;
             if (stalled_packets.observe(video_clock != old_clock))
@@ -363,7 +334,7 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             }
         }
 
-        if (context.state.selftest == 1 && context.state.pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
+        if (context.state.selftest == 1 && context.state.pass == 1)
         {
             if (context.state.video_owner->video_clock < context.state.selftest_target - 0.08 || context.state.video_owner->video_clock > context.state.selftest_target + 0.08)
             {
@@ -377,17 +348,8 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
             } else
                 Debug(context, 1, context.translator.text("analysis_selftest_seek_ok"));
 
-            /*
-                            if (tries ==  0 && fabs(av_q2d(is->video_st->time_base) * static_cast<double>(packet->pts - is->video_st->start_time - is->seek_pos)) > 2.0) {
-                               is->seek_req=1;
-                               is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
-                               is->seek_flags = AVSEEK_FLAG_BYTE;
-                               tries++;
-                           } else
-             */
             context.state.selftest = 3;
             context.state.pass = 0;
-            //comskip::request_exit(1);
         }
 
 
@@ -443,18 +405,11 @@ int comskip_main (RecordingContext& context, int argc, char ** argv)
                     sleep_for_ms(100L);
                 }
 #endif
-                //		printf(" Press Enter to close debug window\n");
-                //		gets(HomeDir);
             }
         }
 
 #ifndef _DEBUG
     }
-//	__exc ept(filter()) /* Stage 3 */
-//	{
-//      printf("Exception raised, terminating\n");/* Stage 5 of terminating exception */
-//		exit(result);
-//	}
 #endif
 
 #ifdef _WIN32

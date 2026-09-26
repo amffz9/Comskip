@@ -75,7 +75,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
 
 
     if (context.state.black_count > 0
-            /*(black[black_count-1].frame == framenum_real) &&*/
         )
     {
 
@@ -115,9 +114,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         }
                     }
                 }
-//          if (frame[black[i].frame].currentGoodEdge < logo_threshold)
                 if (k)
-//            if (!frame[black[i].frame].logo_present)
                 {
                     onTheFlyBlackFrame[onTheFlyBlackCount] = context.state.black[i].frame;
                     onTheFlyBlackCount++;
@@ -239,7 +236,6 @@ void BuildCommListAsYouGo(RecordingContext& context)
                         throw comskip::diagnostics::DiagnosticError<std::ios_base::failure>(comskip::diagnostics::Code::output_open,{context.state.out_filename});
                     }
                 }
-//				fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %4i\n-------------------\n",frame_count-1, (int)(fps*100));
             }
             if (context.settings.output_edl)
             {

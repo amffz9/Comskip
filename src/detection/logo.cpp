@@ -288,8 +288,6 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
 
     int				x;
     int				y;
-    //	unsigned char	temp[MAXWIDTH * MAXHEIGHT];
-//	memset(for (i = 0; i <= (width * height); i++) temp[i] = 0;
     context.state.hedge_count = 0;
     context.state.vedge_count = 0;
     if (context.settings.aggressive_logo_rejection==1)
@@ -343,7 +341,6 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
                     context.state.ver_edgecount[y * context.state.width + x] = 0;
             }
         }
-//	printf("%6d %6d\n", hedge_count, vedge_count);
     }
     else if (context.settings.aggressive_logo_rejection==3)
     {
@@ -376,7 +373,7 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
         for (const auto x : scan.columns)
         {
             for (const auto y : scan.rows) {
-                if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
+                if ((frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
                     if (edge_tests.horizontal0(frame_ptr,x,y))
                     {
@@ -388,7 +385,7 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
                     else if (frame_ptr[y * context.state.width + x] < 200)
                         context.state.hor_edgecount[y * context.state.width + x] = 0;
                 }
-                if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
+                if ((frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
                 {
                     if (edge_tests.vertical0(frame_ptr,x,y))
                     {
@@ -408,7 +405,7 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
         for (const auto x : scan.columns)
         {
             for (const auto y : scan.rows) {
-                if ((/*frame_ptr[y * width + x - edge_radius] > 50 && */ frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( /*frame_ptr[y * width + x + edge_radius] > 50 && */ frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
+                if ((frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
                     if (edge_tests.horizontal0(frame_ptr,x,y))
                     {
@@ -420,7 +417,7 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
                     else
                         context.state.hor_edgecount[y * context.state.width + x] = 0;
                 }
-                if ((/*frame_ptr[(y- edge_radius) * width + x ] > 50 && */ frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( /*frame_ptr[(y+ edge_radius) * width + x ] > 50 && */ frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
+                if ((frame_ptr[(y- context.settings.edge_radius) * context.state.width + x ] < 200) || ( frame_ptr[(y+ context.settings.edge_radius) * context.state.width + x ] < 200) )
                 {
                     if (edge_tests.vertical0(frame_ptr,x,y))
                     {
@@ -927,12 +924,6 @@ void FillLogoBuffer(RecordingContext& context)
     std::copy_n(context.state.frame_ptr.begin(), i,
         context.state.logoFrameBuffer[*context.state.newestLogoBuffer].begin());
 
-//	for (y = 0; y < height; y++) {
-//		for (x = 0; x < width; x++) {
-//			logoFrameBuffer[newestLogoBuffer][y * width + x] = frame_ptr[y * width + x];
-//		}
-//	}
-
     EdgeDetect(context, context.state.logoFrameBuffer[*context.state.newestLogoBuffer], *context.state.newestLogoBuffer);
     if ((!context.state.logoBuffersFull) && (*context.state.newestLogoBuffer == context.settings.num_logo_buffers - 1)) context.state.logoBuffersFull = true;
 }
@@ -965,16 +956,10 @@ bool SearchForLogoEdges(RecordingContext& context)
     context.state.tlogoMaxY = context.state.height - context.settings.edge_radius - context.settings.border;
     std::ranges::fill(context.state.thoriz_edgemask, 0);
     std::ranges::fill(context.state.tvert_edgemask, 0);
-//	minY = (logo_at_bottom ? height/2 : edge_radius + (int)(height * borderIgnore));
-//	if (framearray) minY = std::max(minY, frame[frame_count].minY);
-//	maxY = (subtitles? height/2 : height - edge_radius - (int)(height * borderIgnore));
-//	if (framearray) maxY = std::min(maxY, frame[frame_count].maxY);
 
     for (const auto x : scan.columns)
     {
         for (const auto y : scan.rows) {
-//	for (y = minY; y < maxY; y++) {
-//		for (x = edge_radius + (int)(width * borderIgnore); x < videowidth - edge_radius + (int)(width * borderIgnore); x++) {
             if (context.state.hor_edgecount[y * context.state.width + x] >= context.settings.num_logo_buffers * 0.95 )
             {
                 context.state.thoriz_edgemask[y * context.state.width + x] = 1;
@@ -1008,23 +993,8 @@ bool SearchForLogoEdges(RecordingContext& context)
     logoPercentageOfScreen = static_cast<double>((context.state.tlogoMaxY - context.state.tlogoMinY) *
         (context.state.tlogoMaxX - context.state.tlogoMinX)) /
         static_cast<double>(context.state.height * context.state.width);
-    if (logoPercentageOfScreen > context.settings.logo_max_percentage_of_screen)
-    {
-//			Debug(
-//				3,
-//				"Reducing logo search area!\tPercentage of screen - %.2f%% TOO BIG.\n",
-//				logoPercentageOfScreen * 100
-//			);
-
-//        if (tempMinX > tlogoMinX+50) tlogoMinX = tempMinX;
-//        if (tempMaxX < tlogoMaxX-50) tlogoMaxX = tempMaxX;
-//        if (tempMinY > tlogoMinY+50) tlogoMinY = tempMinY;
-//        if (tempMaxY < tlogoMaxY-50) tlogoMaxY = tempMaxY;
-    }
 
     i = CountEdgePixels(context);
-//printf("Edges=%d\n",i);
-//	if (i > 350/(lowres+1)/(edge_step)) {
     if ( i > 150 * scale /context.settings.edge_step)
     {
         logoPercentageOfScreen = static_cast<double>((context.state.tlogoMaxY - context.state.tlogoMinY) *
@@ -1034,14 +1004,12 @@ bool SearchForLogoEdges(RecordingContext& context)
         {
             LogoDebug(context, 3, "logo_edge_too_big", std::format("{}", i),
                 std::format("{:.2f}", logoPercentageOfScreen * 100));
-//			logoInfoAvailable = false;
         }
         else
         {
             LogoDebug(context, 3, "logo_edge_check", std::format("{}", i),
                 std::format("{:.2f}", logoPercentageOfScreen * 100),
                 std::format("{}", context.state.doublCheckLogoCount));
-//			logoInfoAvailable = true;
             logoFound = true;
         }
     }
@@ -1096,7 +1064,6 @@ bool SearchForLogoEdges(RecordingContext& context)
             }
             if (LogoIsThere)
             {
-//				Debug(7, "Logo present in frame %i.\n", logoFrameNum[i]);
                 sum++;
             }
             else
@@ -1124,17 +1091,6 @@ bool SearchForLogoEdges(RecordingContext& context)
 
         context.state.logo_block[context.state.logo_block_count].start = last_non_logo_frame+1;
         DumpEdgeMasks(context);
-//		DumpEdgeMask(choriz_edgemask, HORIZ);
-//		DumpEdgeMask(cvert_edgemask, VERT);
-//		for (i = 0; i < num_logo_buffers; i++) {
-//			free(logoFrameBuffer[i]);
-//		}
-//		free(horiz_count);
-//		horiz_count = NULL;
-//		free(vert_count);
-//		vert_count = NULL;
-//		free(logoFrameBuffer);
-//		logoFrameBuffer = NULL;
         InitScanLines(context);
         InitHasLogo(context);
 
@@ -1142,7 +1098,6 @@ bool SearchForLogoEdges(RecordingContext& context)
     }
     else
     {
-//		logoInfoAvailable = false; //xxxxxxx
         context.state.currentGoodEdge = 0.0;
     }
 
@@ -1193,7 +1148,6 @@ int ClearEdgeMaskArea(RecordingContext& context, std::span<unsigned char> temp,
             {
                 bool found = false;
                 if (test[y * context.state.width + x] == 1)
-//					goto found;
                     count++;
 
                 for (offset = context.settings.edge_step; !found && offset < static_cast<int>(maximum_edge_search_fraction * context.state.width); offset += context.settings.edge_step)
@@ -1201,25 +1155,21 @@ int ClearEdgeMaskArea(RecordingContext& context, std::span<unsigned char> temp,
                     iy = std::min(y+offset,context.state.height-1);
                     for (ix= std::max(x-offset,0); ix <= std::min(x+offset, context.state.width-1); ix += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
-//							goto found;
                             count++;
 
                     iy = std::max(y-offset,0);
                     for (ix= std::max(x-offset,0); ix <= std::min(x+offset, context.state.width-1); ix += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
-//							goto found;
                             count++;
 
                     ix = std::min(x+offset, context.state.width-1);
                     for (iy= std::max(y-offset+context.settings.edge_step,0); iy <=  std::min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
-//							goto found;
                             count++;
 
                     ix = std::max(x-offset,0);
                     for (iy= std::max(y-offset+context.settings.edge_step,0); iy <=  std::min(y+offset-context.settings.edge_step,context.state.height-1); iy += context.settings.edge_step)
                         if (test[iy * context.state.width + ix] == 1)
-//							goto found;
                             count++;
                     if (count >= context.settings.edge_weight)
                     {
@@ -1251,10 +1201,8 @@ void SetEdgeMaskArea(RecordingContext& context, std::span<const unsigned char> t
     context.state.tlogoMinY = context.state.height - 1;
     context.state.tlogoMaxY = 0;
     for (const auto x : scan.columns)
-//    for (y = (logo_at_bottom ? height/2 : border + edge_radius); y < (subtitles? height/2 : height - border - edge_radius); y++)
     {
         for (const auto y : scan.rows)
-//        for (x = border+edge_radius; x < videowidth - border - edge_radius; x++)
         {
             if (temp[y * context.state.width + x] == 1)
             {
@@ -1291,10 +1239,6 @@ int CountEdgePixels(RecordingContext& context)
         }
     }
     count = hcount + vcount;
-//    if (count>0)
-//        Debug(1, "\nFrame[%d] edgecount=%d",framenum_real, count);
-//	printf("%6d %6d\n",hcount, vcount);
-    //if ((hcount < 50 * scale / edge_step) || (vcount < 50 * scale /edge_step )) count = 0;
     return (count);
 }
 
@@ -1533,8 +1477,6 @@ void LoadLogoMaskData(RecordingContext& context)
     context.state.isSecondPass = true;
     if (!context.state.loadingCSV)
     {
-//		DumpEdgeMask(choriz_edgemask, HORIZ);
-//		DumpEdgeMask(cvert_edgemask, VERT);
         DumpEdgeMasks(context);
     }
     std::ranges::fill(data, 0);
