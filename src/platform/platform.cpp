@@ -114,12 +114,3 @@ std::string time_string(std::time_t value)
 }
 }
 
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-void gettimeofday(struct timeval* time, void*)
-{
-    const auto elapsed = std::chrono::system_clock::now().time_since_epoch();
-    const auto seconds = std::chrono::floor<std::chrono::seconds>(elapsed);
-    time->tv_sec = static_cast<long>(seconds.count());
-    time->tv_usec = static_cast<long>(std::chrono::duration_cast<std::chrono::microseconds>(elapsed - seconds).count());
-}
-#endif

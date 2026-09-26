@@ -12,6 +12,5 @@ void LoadSettings(RecordingContext& context, int argc, char** argv,
     const comskip::localization::Translator& translator);
 
 // Time formatting returns owned values so callers can safely retain results.
-std::string intSecondsToStrMinutes(int seconds);
 std::string dblSecondsToStrMinutes(double seconds);
 std::string dblSecondsToStrMinutesFrames(double seconds, double fps);

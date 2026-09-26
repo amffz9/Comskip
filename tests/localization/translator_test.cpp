@@ -162,8 +162,6 @@ TEST(Translator, FormatsLogoDiagnosticsWithStableWidthsAndPercentages) {
               "Edge count - 401\tPercentage of screen - 12.50% TOO BIG, CAN'T BE A LOGO.\n");
     EXPECT_EQ(spanish.format("logo_found_bounds", "25", "1", "2", "3", "4"),
               "Logotipo encontrado en el fotograma 25\tlogoMinX=1\tlogoMaxX=2\tlogoMinY=3\tlogoMaxY=4\n");
-    EXPECT_EQ(spanish.format("logo_mask_heading", spanish.text("logo_mask_diagonal_1")),
-              "\nMáscara de logotipo diagonal 1 \n     ");
 }
 TEST(Translator, FormatsLogoSearchAndCutpointDiagnostics) {
     const Translator english;

@@ -1124,3 +1124,10 @@ than redefine completion around whichever subset currently passes tests.
   resolution decoding at the codec maximum, now fixed. MSVC AddressSanitizer
   passes **524/524**; Clang headless and SDL pass **524/524** and **532/532**,
   and the Clang public application builds. Recipe: `docs/TESTING.md`.
+
+- Shared declarations no longer advertise functions without callers:
+  `intSecondsToStrMinutes`, `LengthWithinTolerance`, `InitProcessLogoTest`,
+  `DumpEdgeMask` and the Windows `gettimeofday` shim are removed with their
+  definitions, unused edge-direction constants and five orphaned catalog
+  entries. Platform helpers drop the obsolete `extern "C"` wrapper and empty
+  compiler guards. The complete Windows headless suite passes **524/524**.

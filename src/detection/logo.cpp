@@ -27,10 +27,6 @@
 #include <vector>
 
 namespace {
-constexpr int horizontal_edge_direction = 0;
-constexpr int vertical_edge_direction = 1;
-constexpr int diagonal_1_edge_direction = 2;
-constexpr int diagonal_2_edge_direction = 3;
 constexpr int maximum_saved_logo_width = 2000;
 constexpr int maximum_saved_logo_height = 1200;
 constexpr int aspect_ratio_exclusion_distance = 20;
@@ -753,16 +749,6 @@ double DoubleCheckStationLogoEdge(RecordingContext& context, unsigned char* test
     return static_cast<double>(goodEdges) / static_cast<double>(testEdges);
 }
 
-void InitProcessLogoTest(RecordingContext& context)
-{
-    context.state.logo_block_count = 0;
-    context.state.logoTrendCounter = 0;
-    context.state.frames_with_logo = 0;
-    context.state.lastLogoTest = false;
-    context.state.curLogoTest = false;
-}
-
-
 bool ProcessLogoTest(RecordingContext& context, int framenum_real, int curLogoTest, int close)
 {
     const auto shrink = comskip::detection::logo_shrink(context.settings.shrink_logo,
@@ -1240,62 +1226,6 @@ int CountEdgePixels(RecordingContext& context)
     }
     count = hcount + vcount;
     return (count);
-}
-
-void DumpEdgeMask(RecordingContext& context, std::span<const unsigned char> buffer, int direction)
-{
-    int x;
-    int y;
-    std::vector<char> outbuf(static_cast<std::size_t>(
-        std::max(0, context.state.clogoMaxX - context.state.clogoMinX + 1)) + 1);
-    switch (direction)
-    {
-    case horizontal_edge_direction:
-        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_horizontal"));
-        break;
-
-    case vertical_edge_direction:
-        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_vertical"));
-        break;
-
-    case diagonal_1_edge_direction:
-        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_diagonal_1"));
-        break;
-
-    case diagonal_2_edge_direction:
-        LogoDebug(context, 1, "logo_mask_heading", context.translator.text("logo_mask_diagonal_2"));
-        break;
-    }
-
-    for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-    {
-        outbuf[x-context.state.clogoMinX] = '0'+ (x % 10);
-    }
-    outbuf[x-context.state.clogoMinX] = 0;
-    Debug(context, 1, "%s\n",outbuf.data());
-
-
-    Debug(context, 1, "\n");
-    for (y = context.state.clogoMinY; y <= context.state.clogoMaxY; y++)
-    {
-        Debug(context, 1, "%3d: ", y);
-        for (x = context.state.clogoMinX; x <= context.state.clogoMaxX; x++)
-        {
-            switch (buffer[y * context.state.width + x])
-            {
-            case 0:
-                outbuf[x-context.state.clogoMinX] = ' ';
-                break;
-
-            case 1:
-                outbuf[x-context.state.clogoMinX] = '*';
-                break;
-            }
-        }
-        outbuf[x-context.state.clogoMinX] = 0;
-        Debug(context, 1, "%s\n",outbuf.data());
-
-    }
 }
 
 void DumpEdgeMasks(RecordingContext& context)

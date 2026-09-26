@@ -2,11 +2,6 @@
 #include "detection/commercial_length.h"
 #include "output/cutlist_exports.h"
 
-bool LengthWithinTolerance(RecordingContext& context, double test_length, double expected_length, double tolerance)
-{
-    return commercial_length_within_tolerance(test_length, expected_length, tolerance, context.settings.fps);
-}
-
 bool IsStandardCommercialLength(RecordingContext& context, double length, double tolerance, bool strict)
 {
     CommercialLengthPolicy policy = { context.settings.fps, context.settings.div5_tolerance, context.settings.min_show_segment_length };

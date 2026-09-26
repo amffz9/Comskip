@@ -10,7 +10,6 @@ void LoadLogoMaskData(RecordingContext& context);
 void SaveLogoMaskData(RecordingContext& context);
 void InitLogoBuffers(RecordingContext& context);
 void ResetLogoBuffers(RecordingContext& context);
-void InitProcessLogoTest(RecordingContext& context);
 bool ProcessLogoTest(RecordingContext& context, int frame, int logo_test, int close);
 void FillLogoBuffer(RecordingContext& context);
 bool SearchForLogoEdges(RecordingContext& context);
@@ -20,7 +19,6 @@ int ClearEdgeMaskArea(RecordingContext& context, std::span<unsigned char> tempor
                       std::span<const unsigned char> test);
 void SetEdgeMaskArea(RecordingContext& context, std::span<const unsigned char> temporary);
 int CountEdgePixels(RecordingContext& context);
-void DumpEdgeMask(RecordingContext& context, std::span<const unsigned char> buffer, int direction);
 void DumpEdgeMasks(RecordingContext& context);
 void PrintLogoFrameGroups(RecordingContext& context);
 void PrintCCBlocks(RecordingContext& context);

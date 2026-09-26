@@ -52,19 +52,10 @@
 #include "portable_threads.h"
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 FILE* myfopen(const char* filename, const char* mode);
 int myremove(const char * f);
 void sleep_for_ms(long milliseconds);
-#ifdef __cplusplus
-}
-#endif
 
-#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-void gettimeofday (struct timeval * tp, void * dummy);
-#endif
 
 namespace comskip::platform {
 // C++ callers can pass bounded text without manufacturing a temporary C string.

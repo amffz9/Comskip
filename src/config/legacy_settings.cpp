@@ -64,16 +64,6 @@ void print_argument_errors(FILE& output, const struct arg_end& errors,
 }
 }
 
-std::string intSecondsToStrMinutes(int seconds)
-{
-    int minutes, hours;
-    hours = static_cast<int>(seconds / 3600);
-    seconds -= hours * 60 * 60;
-    minutes = static_cast<int>(seconds / 60);
-    seconds -= minutes * 60;
-    return std::format("{}:{:02}:{:02}", hours, minutes, seconds);
-}
-
 std::string dblSecondsToStrMinutes(double seconds)
 {
     int minutes, hours;
