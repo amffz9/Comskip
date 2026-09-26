@@ -1140,3 +1140,9 @@ than redefine completion around whichever subset currently passes tests.
   `bin/linux-verification-ea88367.md`. All checklist items are complete;
   macOS remains deferred by user instruction and physical interactive SDL
   review remains outside automated verification.
+
+- Logo edge detection, mask construction, mask cleanup and mask bounds now
+  traverse frames row-major. Their per-pixel work is independent of visit
+  order, so results are unchanged: per-frame CSV, EDL and cut-list outputs are
+  byte-identical on generated SD and HD recordings. SD analysis CPU time drops
+  about 11%. The complete Windows headless suite passes **524/524**.

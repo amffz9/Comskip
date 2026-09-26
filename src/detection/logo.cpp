@@ -288,9 +288,9 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
     context.state.vedge_count = 0;
     if (context.settings.aggressive_logo_rejection==1)
     {
-        for (const auto x : scan.columns)
+        for (const auto y : scan.rows)
         {
-            for (const auto y : scan.rows) {
+            for (const auto x : scan.columns) {
                 if (edge_tests.horizontal1(frame_ptr,x,y))
                 {
                     if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
@@ -314,9 +314,9 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
     }
     else if (context.settings.aggressive_logo_rejection==2)
     {
-        for (const auto x : scan.columns)
+        for (const auto y : scan.rows)
         {
-            for (const auto y : scan.rows) {
+            for (const auto x : scan.columns) {
                 if (edge_tests.horizontal2(frame_ptr,x,y))
                 {
                     if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
@@ -340,9 +340,9 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
     }
     else if (context.settings.aggressive_logo_rejection==3)
     {
-        for (const auto x : scan.columns)
+        for (const auto y : scan.rows)
         {
-            for (const auto y : scan.rows) {
+            for (const auto x : scan.columns) {
                 if (edge_tests.horizontal3(frame_ptr,x,y))
                 {
                     if (context.state.hor_edgecount[y * context.state.width + x] < context.settings.num_logo_buffers)
@@ -366,9 +366,9 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
     }
     else if (context.settings.aggressive_logo_rejection==4)
     {
-        for (const auto x : scan.columns)
+        for (const auto y : scan.rows)
         {
-            for (const auto y : scan.rows) {
+            for (const auto x : scan.columns) {
                 if ((frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
                     if (edge_tests.horizontal0(frame_ptr,x,y))
@@ -398,9 +398,9 @@ void EdgeDetect(RecordingContext& context, std::span<const unsigned char> frame,
     }
     else
     {
-        for (const auto x : scan.columns)
+        for (const auto y : scan.rows)
         {
-            for (const auto y : scan.rows) {
+            for (const auto x : scan.columns) {
                 if ((frame_ptr[y * context.state.width + x - context.settings.edge_radius] < 200) || ( frame_ptr[y * context.state.width + x + context.settings.edge_radius] < 200) )
                 {
                     if (edge_tests.horizontal0(frame_ptr,x,y))
@@ -943,9 +943,9 @@ bool SearchForLogoEdges(RecordingContext& context)
     std::ranges::fill(context.state.thoriz_edgemask, 0);
     std::ranges::fill(context.state.tvert_edgemask, 0);
 
-    for (const auto x : scan.columns)
+    for (const auto y : scan.rows)
     {
-        for (const auto y : scan.rows) {
+        for (const auto x : scan.columns) {
             if (context.state.hor_edgecount[y * context.state.width + x] >= context.settings.num_logo_buffers * 0.95 )
             {
                 context.state.thoriz_edgemask[y * context.state.width + x] = 1;
@@ -1125,9 +1125,9 @@ int ClearEdgeMaskArea(RecordingContext& context, std::span<unsigned char> temp,
     int offset;
     int ix,iy;
 
-    for (const auto x : scan.columns)
+    for (const auto y : scan.rows)
     {
-        for (const auto y : scan.rows)
+        for (const auto x : scan.columns)
         {
             count = 0;
             if (temp[y * context.state.width + x] == 1)
@@ -1186,9 +1186,9 @@ void SetEdgeMaskArea(RecordingContext& context, std::span<const unsigned char> t
     context.state.tlogoMaxX = 0;
     context.state.tlogoMinY = context.state.height - 1;
     context.state.tlogoMaxY = 0;
-    for (const auto x : scan.columns)
+    for (const auto y : scan.rows)
     {
-        for (const auto y : scan.rows)
+        for (const auto x : scan.columns)
         {
             if (temp[y * context.state.width + x] == 1)
             {
