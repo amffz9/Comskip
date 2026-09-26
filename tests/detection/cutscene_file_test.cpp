@@ -4,6 +4,13 @@
 
 using namespace comskip::detection;
 
+TEST(CutsceneFile, DumpsOnlyTheSelectedFrame) {
+    EXPECT_TRUE(comskip::detection::records_cutscene_frame(120, 120));
+    EXPECT_FALSE(comskip::detection::records_cutscene_frame(120, 119));
+    EXPECT_FALSE(comskip::detection::records_cutscene_frame(120, 121));
+    EXPECT_FALSE(comskip::detection::records_cutscene_frame(0, 0));
+    EXPECT_FALSE(comskip::detection::records_cutscene_frame(0, 5));
+}
 TEST(CutsceneFile, EncodesSignedBrightnessAsPortableLittleEndian) {
     const CutsceneRecord record{-2, {0x11, 0x80, 0xff}};
     const auto bytes = encode_cutscene(record);

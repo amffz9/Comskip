@@ -3,6 +3,7 @@
 #include "detection_methods.h"
 #include "detector_runtime.h"
 #include "frame_causes.h"
+#include "interval_storage.h"
 #include "output/cutlist_exports.h"
 #include "input/reference_file.h"
 #include <gtest/gtest.h>
@@ -46,6 +47,36 @@ TEST(CommercialStorage, ActualBlockProducerPreservesMoreThanOneHundredThousandRu
     EXPECT_EQ(context->state.commercial_count, -1);
 }
 
+TEST(CommercialPadding, IntervalsShorterThanBothPaddingsAreDroppedAndOthersKeepTheirBounds) {
+    auto context = std::make_unique<RecordingContext>();
+    context->settings.fps = 25;
+    context->settings.padding = 2;
+    context->state.frame_count = 1000;
+    for (const auto [start, end] : {std::pair{10L, 400L}, {500L, 560L}, {700L, 1000L}})
+        comskip::detection::append_interval(context->state.commercial, context->state.commercial_count,
+            Legacy_commercial_entry{start, end, 0, 0, (end - start) / 25.0});
+    ApplyCommercialPadding(*context);
+    ASSERT_EQ(context->state.commercial_count, 1);
+    EXPECT_EQ(context->state.commercial[0].start_frame, 60);
+    EXPECT_EQ(context->state.commercial[0].end_frame, 350);
+    EXPECT_DOUBLE_EQ(context->state.commercial[0].length, 390 / 25.0 - 4);
+    EXPECT_EQ(context->state.commercial[1].start_frame, 750);
+    EXPECT_EQ(context->state.commercial[1].end_frame, 950);
+}
+TEST(CommercialPadding, RemovalBeyondTheRecordingClampsAndRecomputesLength) {
+    auto context = std::make_unique<RecordingContext>();
+    context->settings.fps = 25;
+    context->settings.remove_before = 5;
+    context->settings.remove_after = 5;
+    context->state.frame_count = 1000;
+    comskip::detection::append_interval(context->state.commercial, context->state.commercial_count,
+        Legacy_commercial_entry{50, 950, 0, 0, 900 / 25.0});
+    ApplyCommercialPadding(*context);
+    ASSERT_EQ(context->state.commercial_count, 0);
+    EXPECT_EQ(context->state.commercial[0].start_frame, 0);
+    EXPECT_EQ(context->state.commercial[0].end_frame, 1000);
+    EXPECT_DOUBLE_EQ(context->state.commercial[0].length, 1000 / 25.0);
+}
 TEST(CommercialStorage, ReferenceParserDefaultAcceptsMoreThanFormerCapacity) {
     std::stringstream source;
     source << "FILE PROCESSING COMPLETE 400004 FRAMES AT 2500\n-------------------\n";

@@ -675,7 +675,7 @@ bool CheckSceneHasChanged(RecordingContext& context)
     if (context.state.min_dimCount > dimCount * scale)
         context.state.min_dimCount = dimCount * scale;
 
-    if (context.settings.cutsceneno != 0 || context.state.frame_count == context.settings.cutsceneno)
+    if (comskip::detection::records_cutscene_frame(context.settings.cutsceneno, context.state.frame_count))
         RecordCutScene(context, context.state.frame_count, context.state.brightness);
 
 

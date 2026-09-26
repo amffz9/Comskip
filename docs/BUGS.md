@@ -1539,3 +1539,66 @@ before calling FFmpeg seek APIs.
 - **Verification:** The MSVC AddressSanitizer public configuration passes all
   **524** tests, including the automatic reduced-resolution case; Clang
   headless and SDL donator configurations pass **524/524** and **532/532**.
+
+### B121: Live mode aborts after a mispositioned reopen of a growing recording
+
+- **Evidence:** Live mode closed a growing transport stream at every end of
+  input, slept four seconds, reopened it and seeked back to the resume point.
+  In a replay of a generated 939-second MPEG-2 recording written at eight times
+  real time, the reopen targeting 331.7 s landed at 231.7 s. The 80-second
+  positioning guard requested exit status -1, so the final pass never ran:
+  live mode published one partial break and missed the second, while
+  post-processing of the same file found both. The same defect exists in the
+  original Comskip.
+- **Impact:** Live detection could stop partway through a recording and skip
+  final processing; each reopen also re-probed the input.
+- **Status:** Fixed. Live mode keeps one handle on a local recording and uses
+  FFmpeg's `follow` file option, with `rw_timeout` preserving the legacy
+  retry budget (four seconds per `live_tv_retries`) as the end-of-recording
+  signal. Pipes and network inputs keep the previous behavior.
+- **Verification:** Before the fix, replay live mode on three generated
+  recordings found 5/7 breaks and exited -1 once; after it, live cut lists
+  match post-processing on all three and no reopen occurs. A new growing-file
+  test requires identical live and post cut lists without reopening; three
+  unit tests cover input classification and the timeout budget.
+
+### B122: The cutscene dump rewrites every frame instead of the selected one
+
+- **Evidence:** `CheckSceneHasChanged` recorded a cutscene when
+  `cutsceneno != 0 || frame_count == cutsceneno`, which is true for every frame
+  once a dump frame is configured. `--dump` documents one selected frame. The
+  condition is inherited from the original Comskip.
+- **Impact:** The dump file was truncated and rewritten on every frame and
+  finally held the last frame, not the requested one.
+- **Status:** Fixed with a named `records_cutscene_frame` check requiring both
+  conditions; a unit test covers the selected, neighboring and disabled cases.
+
+### B123: Padding can reverse or displace commercial intervals
+
+- **Evidence:** Final cut-list padding moved both endpoints inward, clamped
+  only an end beyond the recording, and never checked `start <= end`. Padding,
+  `remove_before` and `remove_after` are unrestricted settings.
+- **Impact:** A commercial shorter than twice the padding became reversed,
+  which the player exporters reject as an invalid interval, failing the export;
+  removal beyond the recording start produced negative frames.
+- **Status:** Fixed. `ApplyCommercialPadding` clamps intervals to the
+  recording, recomputes a clamped interval's length from its final endpoints,
+  and drops intervals with nothing left. Two tests cover dropped, padded and
+  clamped intervals.
+
+### B124: The reported commercial total omits the last commercial
+
+- **Evidence:** The debug total summed `i < commercial_count`, while
+  `commercial_count` is the last valid index; a single commercial reported zero.
+- **Status:** Fixed; the total includes every published interval.
+
+### B125: Live output applies padding in inconsistent units
+
+- **Evidence:** Live mode stores padded intervals using `padding * fps`, but its
+  text, EDL and `.live` output add `padding` directly to frame numbers and
+  ignore `remove_before`/`remove_after`; its stored length subtracts seconds
+  from a frame count. Post-processing uses seconds throughout. Live XML frame
+  padding is covered as a legacy contract by `live_xml_export_test.cpp`.
+- **Impact:** With nonzero padding, live and final output disagree. The TV
+  application uses `padding=0`.
+- **Status:** Open pending a decision on the live output compatibility contract.

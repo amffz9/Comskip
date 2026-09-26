@@ -9,6 +9,12 @@
 namespace comskip::detection {
 inline constexpr std::size_t maximum_cutscene_pixels = 400u * 300u;
 
+// The configured cutscene frame is dumped once; zero disables dumping.
+[[nodiscard]] constexpr bool records_cutscene_frame(int selected_frame, int frame) noexcept
+{
+    return selected_frame != 0 && frame == selected_frame;
+}
+
 struct CutsceneRecord {
     std::int32_t brightness{};
     std::vector<std::uint8_t> pixels;

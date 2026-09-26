@@ -4,6 +4,7 @@ struct RecordingContext;
 
 // Export detected intervals through the requested cutlist formats.
 bool OutputBlocks(RecordingContext &context);
+void ApplyCommercialPadding(RecordingContext &context);
 void OutputTraining(RecordingContext &context);
 void OutputStrict(RecordingContext &context, double len, double delta,
                   double tol);

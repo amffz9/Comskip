@@ -257,6 +257,38 @@ void BuildCommercial(RecordingContext& context)
 }
 
 
+// Padding and removal settings are unrestricted, so an interval can extend
+// outside the recording or shrink past zero length: clamp it to the recording,
+// and drop it when nothing remains.
+void ApplyCommercialPadding(RecordingContext& context)
+{
+    for (int i = context.state.commercial_count; i >= 0; i--)
+    {
+        auto& interval = context.state.commercial[i];
+        interval.start_frame += context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
+        interval.end_frame -= context.settings.padding*context.settings.fps - context.settings.remove_after*context.settings.fps;
+        interval.length += -2*context.settings.padding + context.settings.remove_before + context.settings.remove_after;
+        bool clamped = false;
+        if (interval.start_frame < 0)
+        {
+            interval.start_frame = 0;
+            clamped = true;
+        }
+        if (interval.end_frame > context.state.frame_count)
+        {
+            interval.end_frame = context.state.frame_count;
+            clamped = true;
+        }
+        if (interval.end_frame <= interval.start_frame)
+        {
+            comskip::detection::erase_interval(context.state.commercial, context.state.commercial_count, i);
+            continue;
+        }
+        if (clamped)
+            interval.length = frame_duration(context, static_cast<int>(interval.end_frame), static_cast<int>(interval.start_frame));
+    }
+}
+
 bool OutputBlocks(RecordingContext& context)
 {
     int		i,k;
@@ -473,19 +505,10 @@ bool OutputBlocks(RecordingContext& context)
         Debug(context, 1, context.translator.text("cutlists_no_change"));
 
 
-    // Apply padding
-    for (i = 0; i <= context.state.commercial_count; i++)
-    {
-        context.state.commercial[i].start_frame += context.settings.padding*context.settings.fps - context.settings.remove_before*context.settings.fps;
-        context.state.commercial[i].end_frame -= context.settings.padding*context.settings.fps - context.settings.remove_after*context.settings.fps;
-        if (context.state.commercial[i].end_frame > context.state.frame_count)
-            context.state.commercial[i].end_frame = context.state.frame_count;
-        context.state.commercial[i].length += -2*context.settings.padding + context.settings.remove_before + context.settings.remove_after;
-    }
-
+    ApplyCommercialPadding(context);
 
     comlength = 0.;
-    for (i = 0; i < context.state.commercial_count; i++)
+    for (i = 0; i <= context.state.commercial_count; i++)
     {
         comlength += context.state.commercial[i].length;
     }
