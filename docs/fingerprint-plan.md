@@ -75,8 +75,9 @@ logo say is programme is added, and an ad needs recurrence.
   at least 3 s long, the copies at least 20 s apart).
 - **Standard length**: 10, 15, 20, 30, 45, 60, 90 or 120 s, within 1 s.
 - **Library entry**: a stretch of audio that repeats, kept as a unit, with a
-  status: `candidate`, `ad`, `in-programme ad`, or `programme` (a known
-  programme repeat, such as a sting or bumper, kept so it is never promoted).
+  status: `candidate`, `ad`, `in-programme ad`, `intro`, `credits`, or
+  `programme` (a known programme repeat, such as a sting or bumper, kept so it
+  is never promoted).
 - **Airing**: one place in one recording where an entry occurs.
 - **Match**: an airing found while processing a code stream. Its *agreed
   part* is where the codes have actually agreed; its *projected part* is the
@@ -85,7 +86,13 @@ logo say is programme is added, and an ad needs recurrence.
   airing is within the last 8 weeks (U2).
 - **Mark kind**: `ad` (part of a break; skippable), `in-programme ad` (ad audio
   over programme, such as the 31 s Google split-screen in g5; shown, never
-  auto-skipped), `sponsor` (reserved, Q6).
+  auto-skipped), `intro` (a series' opening theme), `credits` (a series' end
+  credits), `sponsor` (reserved, Q6). Only `ad` is in the skip list; every
+  other kind goes in the separate list older players ignore (U4).
+- **Near the start / near the end**: an airing is near the start when it
+  begins within the first 10 min of its programme window, and near the end
+  when it ends within the last 5 min of the window (or within 2 min after it,
+  for shows that overrun). The programme window comes from the guide.
 - **Mark state**: `provisional` (may still move or vanish) or `settled`.
 - **Labelled set**: every recording in `tests/labels` with a `.labels.csv`.
   Today four football games (g5, g4, faaea10a, 77483aca); step L1 adds two
@@ -174,7 +181,10 @@ MarkClients:       read MarkStore through the marks API
 ## Out of scope
 
 - Deleting or cutting video. Marks only drive skipping.
-- Intro and credits markers for series (a later use of the same Library).
+- Comskip's own `remove_before`, `remove_after` and its unused credits
+  detector. Intro and credits marks come only from the Library (step T4b).
+- "Previously on" recaps: their audio rarely repeats, so they are not marked
+  unless other evidence catches them.
 - Visual fingerprints.
 - The windowed live mode of roadmap stage 5. LiveMatcher uses Comskip's live
   Evidence as it is.
@@ -461,7 +471,7 @@ time and adds `captureId`.
                "state": "settled", "basis": "both" } ] }
 ```
 
-`kind` is `ad` or `in-programme ad`; `state` is `provisional` or `settled`;
+`kind` is `ad`, `in-programme ad`, `intro` or `credits`; `state` is `provisional` or `settled`;
 `basis` is `fingerprint`, `comskip` or `both`. Marks are sorted by start;
 `ad` marks never overlap. A MarksFile whose `evidenceRevision` is lower than
 one MarkStore already applied is ignored.
@@ -538,6 +548,14 @@ Types used below:
       into the shared part and the rest, each its own entry.
     - Promotion rules, over all of an entry's airings, where "logo seen" comes
       from each airing's own recording:
+      - `intro` or `credits` (checked first, U4): airings in at least two
+        recordings with the same series key, and in every such airing near the
+        start (`intro`) or near the end (`credits`). This holds with or
+        without a logo, seams or a standard length, so a theme bounded by
+        black frames never becomes an `ad`. An airing of the same entry in a
+        different series key elsewhere (a theme used in a promo) doesn't
+        change this status. Rule applied after T4b is on; before that, such
+        entries are `programme` as below.
       - `ad`, across shows: airings in at least two series keys or two
         channels; no airing has a logo seen in it; and either a standard
         length, or seams within 1 s at both ends in at least one airing.
@@ -560,7 +578,8 @@ Types used below:
     - Ensures: entries with status `ad` or `in-programme ad` whose last airing
       is within 8 weeks of `now`, at most 20 MB; the most recently aired first
       if over.
-- Invariants: a `programme` entry is never `ad`; every airing belongs to a
+- Invariants: a `programme`, `intro` or `credits` entry is never `ad`; every
+  airing belongs to a
   stored stream; an `ad` entry meets one of the two `ad` rules.
 
 | Given | When | Then |
@@ -571,6 +590,9 @@ Types used below:
 | two CBS NFL games share a 9 s stretch without seams | findRepeats | stays `candidate` |
 | a 31 s repeat across two series, logo seen throughout | findRepeats | `in-programme ad` |
 | a 30 s entry; a later airing agrees only for its first 15 s | findRepeats | entry split into a 15 s and a 15 s entry |
+| three episodes of one drama share 40 s of audio starting 2-4 min into each | findRepeats | `intro` (the cold opens before it stay unmarked) |
+| three episodes share 30 s ending 1 min before each programme end, seams at both ends, no logo | findRepeats | `credits`, not `ad` |
+| a series' theme appears once mid-episode and near the start in two others | findRepeats | not `intro` (not near the start in every airing); stays `candidate` or `programme` |
 | repeat only between two Plex files (no Evidence) in different series | findRepeats | `candidate` until an airing with Evidence shows no logo |
 | an `ad` last aired 10 weeks ago | liveIndex | not included |
 | that ad found again by a pass today | liveIndex at next refresh | included |
@@ -624,6 +646,14 @@ Types used below:
          mark with basis `comskip`, as today.
       6. `ad` marks never overlap; an `in-programme ad` inside an `ad` mark is
          dropped.
+      7. Each `intro` or `credits` match becomes a mark of that kind over its
+         agreed part only (never a projected part). It is never joined into a
+         break and never closes or extends one. A cold open before an intro
+         is programme and gets no mark. Credits are often squeezed or overlaid
+         by network promos, so the audio may agree for only part of the
+         credits: the mark covers only that part, and any promo audio over it
+         that matches an `ad` entry becomes an `ad` mark as usual (an `ad`
+         overlapping `credits` wins; the `credits` mark is cut around it).
     - State: in final mode every mark is `settled`. In live mode an `ad` mark
       whose every part is agreed (not projected) and whose end is before
       `now` is `settled`. Projected parts, joins, extensions and basis-
@@ -729,8 +759,9 @@ Types used below:
 ### PART: MarkClients (TV app)
 
 - Ensures: `ad` marks look and skip as today; auto-skip skips only `settled`
-  `ad` marks; `in-programme ad` marks come in a separate list and are shown
-  with their own shading, never auto-skipped; a client that predates kinds
+  `ad` marks; `in-programme ad`, `intro` and `credits` marks come in a
+  separate list and are shown with their own shading, never auto-skipped (a
+  "skip intro" button is a later client choice); a client that predates kinds
   never receives a non-`ad` mark in the list it skips from.
 
 ## Steps
@@ -743,7 +774,9 @@ Types used below:
   cuts and reports `in-programme ad` marks separately. Check: the README's
   Comskip-107 table is reproduced.
 - **L1. Label two dramas** from the Plex library, one CBS and one NBC, made by
-  the agent from contact sheets and spot-checked by the user. Score
+  the agent from contact sheets and spot-checked by the user, with `intro` and
+  `credits` rows as well as ads. `score_labels.py` treats `intro` and
+  `credits` like `sponsor` (neither ad nor programme cut). Score
   Comskip-107 on them and add the rows to the README. Check: both scored.
 - **F2. EvidenceExport in Comskip.** Check: identical EDLs with the key on and
   off on the labelled set and `bin/perf` fixtures; the file is whole at every
@@ -787,6 +820,13 @@ Types used below:
   time. Check: store size and entry counts logged; recording during backfill
   shows no input backpressure; Harness rerun on the labelled set with the
   seeded library (measurement plan).
+- **T4b. Intro and credits marks** (U4). Turn on the Library's `intro` and
+  `credits` rule and Combiner rule 7 (code in F4, off until here), and carry
+  the two kinds in the non-`ad` list. Uses the backfilled drama library, so it
+  runs after T4's Plex seed. Check: on the two L1 dramas with the drama
+  library, intro and credits marks within 2 s of the labelled rows, no `ad`
+  mark lost against the run without the rule, Must-not-get-worse 1 unchanged;
+  older players show no new skippable marks.
 - **T5. Live fingerprinting.** AudioFeeder's encoder audio output per
   generation, `live`, live Evidence handoff, provisional and settled marks.
   Check: Must-not-get-worse 2 and 3 on the NAS with the most concurrent
