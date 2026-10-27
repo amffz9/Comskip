@@ -768,9 +768,9 @@ Types used below:
 
 "F" steps are in this repo, "T" steps in the TV app, "L" steps are labelling.
 
-- **F1. Labels and scoring for kinds.** Move `tools/fingerprint/repeats.py`
-  into `bin/perf`. Add label kind `in-programme ad` (scored as neither) and
-  label the g5 Google split-screen. `score_labels.py` scores only `ad` marks as
+- **F1. Labels and scoring for kinds.** Keep `tools/fingerprint/repeats.py`
+  where it is (`bin/` is not tracked). Add label kind `in-programme ad` (scored
+  as neither) and label the Google split-screen, which is in g4 (4233-4263). `score_labels.py` scores only `ad` marks as
   cuts and reports `in-programme ad` marks separately. Check: the README's
   Comskip-107 table is reproduced.
 - **L1. Label two dramas** from the Plex library, one CBS and one NBC, made by
