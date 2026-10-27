@@ -556,7 +556,8 @@ bool CheckSceneHasChanged(RecordingContext& context)
     context.state.maxY = context.state.height - context.settings.border;
     context.state.minX = context.settings.border;
     context.state.maxX = context.state.videowidth - context.settings.border;
-    step = sampling.step;
+    // A positive scan_step overrides the width-based sampling step.
+    step = context.settings.scan_step > 0 ? context.settings.scan_step : sampling.step;
     context.state.scan_step = step;
 
     if (context.settings.edge_step == 0)

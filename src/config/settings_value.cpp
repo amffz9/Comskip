@@ -70,6 +70,8 @@ Settings load_settings(const Ini& ini, Settings base) {
             if ((key == "thread_count" || key == "num_logo_buffers" ||
                  key == "fps" || key == "edge_radius" || key == "edge_step" || key == "review_font_size") && target <= 0)
                 throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_positive, {std::string(key)});
+            if (key == "scan_step" && target < 0)
+                throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::setting_nonnegative, {std::string(key)});
             if (key == "border" && target < 0)
                 throw comskip::diagnostics::DiagnosticError<std::invalid_argument>(comskip::diagnostics::Code::border_must_be_nonnegative);
             if ((key == "max_brightness" || key == "test_brightness") &&

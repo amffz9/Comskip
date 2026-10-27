@@ -128,6 +128,7 @@ inline constexpr auto setting_fields = std::tuple{
         SettingField<int>{"edge_radius", &Settings::edge_radius},
         SettingField<int>{"edge_weight", &Settings::edge_weight},
         SettingField<int>{"edge_step", &Settings::edge_step},
+        SettingField<int>{"scan_step", &Settings::scan_step},
         SettingField<int>{"review_font_size", &Settings::review_font_size},
         SettingField<int>{"num_logo_buffers", &Settings::num_logo_buffers},
         SettingField<int>{"shrink_logo_tail", &Settings::shrink_logo_tail},

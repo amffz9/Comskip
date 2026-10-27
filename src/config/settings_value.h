@@ -99,6 +99,7 @@ struct Settings {
     int edge_radius{};
     int edge_weight{};
     int edge_step{};
+    int scan_step{};
     int num_logo_buffers{};
     bool useExistingLogoFile{};
     bool startOverAfterLogoInfoAvail{};
