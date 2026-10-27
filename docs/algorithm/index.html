@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Comskip Decides</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a broadcast-engineering handbook. Fixed contents rail on the left,
+   one reading column on the right; the overview opens with a to-scale
+   timeline of a recording, the one visual flourish. */
+:root {
+  --paper: #f5f6f8;
+  --sheet: #ffffff;
+  --ink: #16191f;
+  --muted: #5a6170;
+  --rule: #d9dde4;
+  --panel: #eceff3;
+  --accent: #c8322a;        /* tally light: on air */
+  --accent-soft: #f6dedc;
+  --show: #2f6db5;          /* programme content */
+  --show-soft: #dde8f6;
+  --ad: #b9770e;            /* commercial content */
+  --ad-soft: #f6ead3;
+  --quirk: #7a4bb0;
+  --quirk-soft: #ece3f6;
+  --font-display: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Literata", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.25rem;
+  --step-2: 1.6rem;
+  --step-3: 2.2rem;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #101318; --sheet: #161a21; --ink: #e6e8ec; --muted: #9aa2b1; --rule: #2b313b;
+    --panel: #1d222b; --accent: #ef5a50; --accent-soft: #3a1d1b; --show: #6ea5e8; --show-soft: #1b2a3e;
+    --ad: #e3a43c; --ad-soft: #3a2c14; --quirk: #b48be6; --quirk-soft: #2b2140; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #101318; --sheet: #161a21; --ink: #e6e8ec; --muted: #9aa2b1; --rule: #2b313b;
+  --panel: #1d222b; --accent: #ef5a50; --accent-soft: #3a1d1b; --show: #6ea5e8; --show-soft: #1b2a3e;
+  --ad: #e3a43c; --ad-soft: #3a2c14; --quirk: #b48be6; --quirk-soft: #2b2140; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 1rem; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: var(--step-0); line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+.shell {
+  display: grid; grid-template-columns: 17rem minmax(0, 1fr); min-height: 100vh;
+}
+nav.rail {
+  position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; height: 100vh; overflow-y: auto;
+  padding-block: 2rem; padding-left: max(1.25rem, env(safe-area-inset-left, 0px)); padding-right: 1.25rem;
+  border-right: 1px solid var(--rule); background: var(--sheet);
+  font-family: var(--font-display);
+}
+.brand { display: flex; align-items: center; gap: .6rem; margin-bottom: 1.75rem; }
+.tally { width: .7rem; height: .7rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); flex: none; }
+.brand b { font-size: 1.05rem; letter-spacing: .01em; }
+.brand small { display: block; color: var(--muted); font-weight: 500; font-size: .8rem; }
+nav.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; counter-reset: stage; }
+nav.rail a {
+  display: grid; grid-template-columns: 1.6rem 1fr; align-items: baseline; gap: .2rem;
+  padding: .45rem .6rem; border-radius: .4rem; color: var(--ink); text-decoration: none; font-weight: 500; font-size: .98rem;
+}
+nav.rail a .n { font-family: var(--font-mono); font-size: .78rem; color: var(--muted); }
+nav.rail a:hover { background: var(--panel); }
+nav.rail a[aria-current="page"] { background: var(--accent-soft); color: var(--ink); }
+nav.rail a[aria-current="page"] .n { color: var(--accent); }
+nav.rail .group { margin: 1.1rem 0 .35rem .6rem; font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.railnote { margin-top: 1.75rem; padding: 0 .6rem; font-family: var(--font-body); font-size: .82rem; color: var(--muted); line-height: 1.5; }
+
+main {
+  min-width: 0; padding-block: 2.5rem 5rem;
+  padding-left: max(16px, 3rem); padding-right: max(16px, env(safe-area-inset-right, 0px), 3rem);
+}
+article { max-width: var(--measure); margin: 0 auto; }
+article.wide { max-width: 82ch; }
+.eyebrow { font-family: var(--font-display); font-weight: 600; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 .5rem; }
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: var(--step-3); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: var(--step-2); font-weight: 700; margin-top: 2.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+h3 { font-size: var(--step-1); font-weight: 600; margin-top: 2rem; }
+h4 { font-size: 1.02rem; font-weight: 600; margin-top: 1.5rem; }
+p, ul, ol, table, figure, .card, dl { margin: .9rem 0 0; }
+.lede { font-size: 1.2rem; line-height: 1.55; color: var(--ink); margin-top: 1rem; }
+.lede + p { margin-top: 1.1rem; }
+ul, ol { padding-left: 1.3rem; }
+li + li { margin-top: .3rem; }
+li > ul, li > ol { margin-top: .3rem; }
+a { color: var(--show); text-underline-offset: .15em; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: .2rem; }
+strong { font-weight: 600; }
+code, kbd, .k {
+  font-family: var(--font-mono); font-size: .84em; background: var(--panel); padding: .08em .35em; border-radius: .25rem; white-space: nowrap;
+}
+.num { font-family: var(--font-mono); font-size: .9em; font-variant-numeric: tabular-nums; }
+.math { font-family: var(--font-mono); font-size: .9rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: .4rem; padding: .7rem .9rem; overflow-x: auto; white-space: pre; line-height: 1.55; }
+.tablewrap { overflow-x: auto; margin-top: .9rem; }
+.tablewrap table { margin-top: 0; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; line-height: 1.45; background: var(--sheet); }
+th, td { text-align: left; vertical-align: top; padding: .5rem .65rem; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--font-display); font-weight: 600; font-size: .82rem; letter-spacing: .03em; color: var(--muted); background: var(--panel); }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: .55rem; padding: 1rem 1.1rem; }
+.card > :first-child { margin-top: 0; }
+.why, .quirk, .idea, .tv {
+  border-left: 3px solid; padding: .6rem .9rem; border-radius: 0 .4rem .4rem 0; margin-top: 1rem;
+}
+.why { border-color: var(--show); background: var(--show-soft); }
+.quirk { border-color: var(--quirk); background: var(--quirk-soft); }
+.idea { border-color: var(--ad); background: var(--ad-soft); }
+.tv { border-color: var(--accent); background: var(--accent-soft); }
+.why > :first-child, .quirk > :first-child, .idea > :first-child, .tv > :first-child { margin-top: 0; }
+.tag { font-family: var(--font-display); font-weight: 600; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; display: block; margin-bottom: .2rem; }
+.why .tag { color: var(--show); } .quirk .tag { color: var(--quirk); } .idea .tag { color: var(--ad); } .tv .tag { color: var(--accent); }
+.inferred { font-style: italic; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; font-family: var(--font-display); font-size: .85rem; color: var(--muted); margin-top: .9rem; }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.legend i { width: .75rem; height: .75rem; border-radius: .2rem; display: inline-block; }
+.pipeline { list-style: none; padding: 0; display: grid; gap: .6rem; counter-reset: p; }
+.pipeline li { counter-increment: p; display: grid; grid-template-columns: 2.2rem minmax(0,1fr); gap: .75rem; align-items: start; background: var(--sheet); border: 1px solid var(--rule); border-radius: .55rem; padding: .8rem .9rem; margin: 0; }
+.pipeline li::before { content: counter(p); font-family: var(--font-mono); font-weight: 600; color: var(--accent); font-size: 1.1rem; line-height: 1.5; }
+.pipeline li b { font-family: var(--font-display); }
+.pipeline li p { margin: .2rem 0 0; color: var(--muted); font-size: .95rem; }
+.pipeline li a { font-family: var(--font-display); font-size: .88rem; }
+figure { margin-left: 0; margin-right: 0; }
+figure.timeline { background: var(--sheet); border: 1px solid var(--rule); border-radius: .6rem; padding: 1rem; overflow-x: auto; }
+figure.timeline svg { display: block; min-width: 640px; width: 100%; height: auto; }
+figcaption { font-size: .88rem; color: var(--muted); margin-top: .6rem; }
+.pager { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); font-family: var(--font-display); }
+.pager a { text-decoration: none; display: grid; gap: .1rem; }
+.pager small { color: var(--muted); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+.pager .next { text-align: right; margin-left: auto; }
+dl.gloss { display: grid; grid-template-columns: minmax(8rem, 13rem) minmax(0, 1fr); gap: .5rem 1rem; }
+dl.gloss dt { font-family: var(--font-display); font-weight: 600; }
+dl.gloss dd { margin: 0; }
+.meta { font-family: var(--font-display); font-size: .85rem; color: var(--muted); margin-top: .6rem; }
+.page[hidden] { display: none !important; }
+.menu-btn { display: none; }
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  nav.rail {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; height: auto; max-height: 100vh;
+    padding-block: .75rem; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-right: 0; border-bottom: 1px solid var(--rule);
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--sheet); }
+  .brand { margin-bottom: 0; justify-content: space-between; }
+  .menu-btn {
+    display: inline-flex; font-family: var(--font-display); font-weight: 600; font-size: .9rem; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: .4rem; padding: .35rem .7rem; cursor: pointer;
+  }
+  nav.rail .navlist { display: none; margin-top: .75rem; }
+  nav.rail.open .navlist { display: block; }
+  .railnote { display: none; }
+  main { padding-block: 1.5rem 4rem; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1 { font-size: 1.85rem; }
+  dl.gloss { grid-template-columns: minmax(0, 1fr); gap: .15rem; }
+  dl.gloss dd { margin-bottom: .6rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page:not([hidden]) { animation: fade .18s ease-out; }
+  @keyframes fade { from { opacity: .6; } to { opacity: 1; } }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="rail" id="rail" aria-label="Contents">
+  <div class="brand">
+    <span style="display:flex;align-items:center;gap:.6rem"><span class="tally" aria-hidden="true"></span><span><b>How Comskip Decides</b><small>The detection method, stage by stage</small></span></span>
+    <button class="menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="navlist">Contents</button>
+  </div>
+  <div class="navlist" id="navlist">
+    <ol>
+      <li><a href="#overview" data-nav="overview"><span class="n">0</span>Overview</a></li>
+    </ol>
+    <p class="group">The pipeline</p>
+    <ol>
+      <li><a href="#recording" data-nav="recording"><span class="n">1</span>Reading the recording</a></li>
+      <li><a href="#picture" data-nav="picture"><span class="n">2</span>Measuring each picture</a></li>
+      <li><a href="#logo" data-nav="logo"><span class="n">3</span>The station logo</a></li>
+      <li><a href="#blocks" data-nav="blocks"><span class="n">4</span>Cut points and blocks</a></li>
+      <li><a href="#scoring" data-nav="scoring"><span class="n">5</span>Scoring and breaks</a></li>
+    </ol>
+    <p class="group">Around it</p>
+    <ol>
+      <li><a href="#live" data-nav="live"><span class="n">L</span>Live mode</a></li>
+      <li><a href="#evidence" data-nav="evidence"><span class="n">E</span>Other evidence and settings</a></li>
+      <li><a href="#improvements" data-nav="improvements"><span class="n">→</span>Improvements</a></li>
+      <li><a href="#glossary" data-nav="glossary"><span class="n">A</span>Glossary</a></li>
+    </ol>
+    <p class="railnote">Describes the ffmpeg8-compat branch at commit 66d5717 plus the <code>scan_step</code> setting, October 2026. Default values are from the built-in defaults; the TV app's differences are called out in red.</p>
+  </div>
+</nav>
+<main id="main">
+<section class="page" data-page="overview">
+<article class="wide">
+<p class="eyebrow">Overview</p>
+<h1>How Comskip decides what is a commercial</h1>
+<p class="lede">Comskip never recognises a commercial directly. It looks for the seams where broadcasters splice commercials in (a few black frames, a moment of silence, a change of picture shape) and cuts the recording at every seam. Then it judges each piece by evidence that is easy to measure: is the station logo there, and does the piece last exactly 15, 30 or 60 seconds?</p>
+<p>These pages describe that method stage by stage, in enough detail to build a simple version of it, without any programming. Each stage page says what the stage does, the exact rules and default values, why it works that way, where it behaves oddly, and how it could be improved.</p>
+
+<figure class="timeline">
+<svg viewBox="0 0 1020 236" role="img" aria-labelledby="tl-t tl-d" xmlns="http://www.w3.org/2000/svg">
+<title id="tl-t">An example recording, from evidence to cut list</title>
+<desc id="tl-d">A 60-minute recording with three commercial breaks. Black-frame cut candidates cluster inside the breaks, the logo is visible between them, blocks without the logo and with 30-second lengths score high, and the final cut list marks the three breaks.</desc>
+<g font-size="11" style="font-family:var(--font-mono);fill:var(--muted)">
+<line x1="118.0" y1="30" x2="118.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="118.0" y="22" text-anchor="middle">0 min</text>
+<line x1="265.0" y1="30" x2="265.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="265.0" y="22" text-anchor="middle">10 min</text>
+<line x1="412.0" y1="30" x2="412.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="412.0" y="22" text-anchor="middle">20 min</text>
+<line x1="559.0" y1="30" x2="559.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="559.0" y="22" text-anchor="middle">30 min</text>
+<line x1="706.0" y1="30" x2="706.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="706.0" y="22" text-anchor="middle">40 min</text>
+<line x1="853.0" y1="30" x2="853.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="853.0" y="22" text-anchor="middle">50 min</text>
+<line x1="1000.0" y1="30" x2="1000.0" y2="214" stroke-width="1" style="stroke:var(--rule)"/>
+<text x="1000.0" y="22" text-anchor="middle">60 min</text>
+</g>
+<text x="0" y="74" font-size="12.5" font-weight="600" style="font-family:var(--font-display);fill:var(--ink)">Cut candidates</text>
+<text x="0" y="114" font-size="12.5" font-weight="600" style="font-family:var(--font-display);fill:var(--ink)">Logo visible</text>
+<text x="0" y="154" font-size="12.5" font-weight="600" style="font-family:var(--font-display);fill:var(--ink)">Block scores</text>
+<text x="0" y="204" font-size="12.5" font-weight="600" style="font-family:var(--font-display);fill:var(--ink)">Cut list</text>
+<line x1="223.8" y1="59" x2="223.8" y2="81" stroke-width="1.6" style="stroke:var(--muted)"/>
+<line x1="294.4" y1="59" x2="294.4" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="301.8" y1="59" x2="301.8" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="309.1" y1="59" x2="309.1" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="316.4" y1="59" x2="316.4" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="323.8" y1="59" x2="323.8" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="331.1" y1="59" x2="331.1" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="338.5" y1="59" x2="338.5" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="514.9" y1="59" x2="514.9" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="522.2" y1="59" x2="522.2" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="529.6" y1="59" x2="529.6" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="537.0" y1="59" x2="537.0" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="544.3" y1="59" x2="544.3" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="551.6" y1="59" x2="551.6" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="559.0" y1="59" x2="559.0" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="566.4" y1="59" x2="566.4" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="642.8" y1="59" x2="642.8" y2="81" stroke-width="1.6" style="stroke:var(--muted)"/>
+<line x1="750.1" y1="59" x2="750.1" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="757.5" y1="59" x2="757.5" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="764.8" y1="59" x2="764.8" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="772.1" y1="59" x2="772.1" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="779.5" y1="59" x2="779.5" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="786.9" y1="59" x2="786.9" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<line x1="794.2" y1="59" x2="794.2" y2="81" stroke-width="1.6" style="stroke:var(--ink)"/>
+<rect x="123.9" y="103" width="164.6" height="14" rx="3" style="fill:var(--show)"/>
+<rect x="344.4" y="103" width="164.6" height="14" rx="3" style="fill:var(--show)"/>
+<rect x="572.2" y="103" width="172.0" height="14" rx="3" style="fill:var(--show)"/>
+<rect x="800.1" y="103" width="199.9" height="14" rx="3" style="fill:var(--show)"/>
+<rect x="118.0" y="141" width="176.4" height="18" stroke-width="1" style="fill:var(--show-soft);stroke:var(--sheet)"/>
+<rect x="294.4" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="301.8" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="309.1" y="141" width="7.3" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="316.4" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="323.8" y="141" width="7.3" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="331.1" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="338.5" y="141" width="176.4" height="18" stroke-width="1" style="fill:var(--show-soft);stroke:var(--sheet)"/>
+<rect x="514.9" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="522.2" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="529.6" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="537.0" y="141" width="7.3" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="544.3" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="551.6" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="559.0" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="566.4" y="141" width="183.8" height="18" stroke-width="1" style="fill:var(--show-soft);stroke:var(--sheet)"/>
+<rect x="750.1" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="757.5" y="141" width="7.3" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="764.8" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="772.1" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="779.5" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="786.9" y="141" width="7.4" height="18" stroke-width="1" style="fill:var(--ad);stroke:var(--sheet)"/>
+<rect x="794.2" y="141" width="205.8" height="18" stroke-width="1" style="fill:var(--show-soft);stroke:var(--sheet)"/>
+<text x="206.2" y="154" text-anchor="middle" font-size="11" style="font-family:var(--font-mono);fill:var(--show)">×0.01 → show</text>
+<text x="426.7" y="154" text-anchor="middle" font-size="11" style="font-family:var(--font-mono);fill:var(--show)">×0.01 → show</text>
+<text x="658.2" y="154" text-anchor="middle" font-size="11" style="font-family:var(--font-mono);fill:var(--show)">×0.01 → show</text>
+<text x="897.1" y="154" text-anchor="middle" font-size="11" style="font-family:var(--font-mono);fill:var(--show)">×0.01 → show</text>
+<text x="316.4" y="177" text-anchor="middle" font-size="10.5" style="font-family:var(--font-mono);fill:var(--ad)">30 s, no logo: 6+</text>
+<text x="540.6" y="177" text-anchor="middle" font-size="10.5" style="font-family:var(--font-mono);fill:var(--ad)">30 s, no logo: 6+</text>
+<text x="772.2" y="177" text-anchor="middle" font-size="10.5" style="font-family:var(--font-mono);fill:var(--ad)">30 s, no logo: 6+</text>
+<rect x="294.4" y="192" width="44.1" height="16" rx="3" style="fill:var(--accent)"/>
+<rect x="514.9" y="192" width="51.5" height="16" rx="3" style="fill:var(--accent)"/>
+<rect x="750.1" y="192" width="44.1" height="16" rx="3" style="fill:var(--accent)"/>
+<line x1="118" y1="200" x2="1000" y2="200" stroke-width="2" stroke-dasharray="2 4" style="stroke:var(--rule)"/>
+<rect x="294.4" y="192" width="44.1" height="16" rx="3" style="fill:var(--accent)"/>
+<rect x="514.9" y="192" width="51.5" height="16" rx="3" style="fill:var(--accent)"/>
+<rect x="750.1" y="192" width="44.1" height="16" rx="3" style="fill:var(--accent)"/>
+</svg>
+<figcaption>An illustrative 60-minute recording, drawn to scale. Black-frame candidates cluster at the seams inside each break, and two stray ones fall inside the programme. The logo is visible between breaks. Blocks covered by the logo are multiplied by 0.01. Logo-free 30-second blocks are multiplied by 3 for their length and 2 for the missing logo. Blocks above 1.05 become the three breaks in the cut list.</figcaption>
+<div class="legend"><span><i style="background:var(--show)"></i>logo visible</span><span><i style="background:var(--show-soft)"></i>programme block</span><span><i style="background:var(--ad)"></i>commercial block</span><span><i style="background:var(--accent)"></i>break in the cut list</span></div>
+</figure>
+
+<h2>The five stages</h2>
+<ol class="pipeline">
+  <li><div><b>Read the recording</b><p>Decode the video once, keep only brightness, give every frame a time, and measure the loudness of the audio under each frame.</p><a href="#recording">Reading the recording</a></div></li>
+  <li><div><b>Measure each picture</b><p>Build a brightness histogram per frame. From it: average brightness, flatness, similarity to the previous frame, and black bars. Flag black and flat frames as cut candidates.</p><a href="#picture">Measuring each picture</a></div></li>
+  <li><div><b>Learn and track the station logo</b><p>Find edges in the corners that stay put for 48 seconds, check once a second whether they are there, and smooth that into logo stretches.</p><a href="#logo">The station logo</a></div></li>
+  <li><div><b>Cut the recording into blocks</b><p>Add silence and format-change candidates, drop the doubtful ones, group what is left into cuts, and split the recording at every cut.</p><a href="#blocks">Cut points and blocks</a></div></li>
+  <li><div><b>Score blocks and build breaks</b><p>Start every block at 1.0, multiply by evidence (length, logo, shape, captions), call anything above 1.05 a commercial, join neighbours into breaks, and apply the break-length rules.</p><a href="#scoring">Scoring and breaks</a></div></li>
+</ol>
+<p>Stages 1 to 3 run on every frame as the recording is read. Stages 4 and 5 run once at the end. <a href="#live">Live mode</a> adds a much simpler running estimate while a recording is still growing.</p>
+
+<h2>The evidence at a glance</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>Evidence</th><th>What it shows</th><th>How it is used</th><th>Weight</th><th>TV app</th></tr></thead>
+  <tbody>
+    <tr><td>Black frames</td><td>A seam between programme and commercial</td><td>Cut point</td><td>Main source of cuts</td><td>on</td></tr>
+    <tr><td>Flat frames</td><td>A blank card or slate</td><td>Cut point</td><td>Secondary</td><td>on</td></tr>
+    <tr><td>Silence</td><td>A seam in the audio</td><td>Cut point</td><td>Secondary</td><td><strong>off</strong></td></tr>
+    <tr><td>Scene change</td><td>A hard edit</td><td>Cut point, only in quiet audio</td><td>Weak</td><td><strong>off</strong> (also off by default)</td></tr>
+    <tr><td>Station logo</td><td>Programme content</td><td>Score × 0.01 when seen, × 2 when missing</td><td>Strongest</td><td>on</td></tr>
+    <tr><td>Exact length</td><td>Commercials are sold in fixed durations</td><td>Score × 3 for 10–90 s, more for runs that add up</td><td>Strong</td><td>on</td></tr>
+    <tr><td>Aspect ratio</td><td>A different picture shape from the programme</td><td>Cut point and score × 2</td><td>Medium</td><td>on</td></tr>
+    <tr><td>Audio channels</td><td>Stereo commercials in a 5.1 programme</td><td>Cut point, no score effect by default</td><td>Weak</td><td>on</td></tr>
+    <tr><td>Closed captions</td><td>A different caption style from the programme</td><td>Score × 0.75 to × 8</td><td>Medium</td><td><strong>off</strong></td></tr>
+  </tbody>
+</table></div>
+
+<h2>A simple version in twelve steps</h2>
+<p>This is the core of the method with the default values. It leaves out the refinements described on the stage pages, but it is a working commercial detector.</p>
+<ol>
+  <li>Decode the video. For each frame keep its time in seconds and its brightness picture (0 to 255).</li>
+  <li>For each frame, compute the audio volume: the average absolute sample value of the sound that plays during that frame.</li>
+  <li>For each frame, make a 256-bin histogram of brightness over every pixel inside a 10-pixel border.</li>
+  <li>Call a frame <strong>black</strong> if its average brightness is 19 or less and almost no pixels are brighter than 60.</li>
+  <li>Learn the <strong>logo</strong>: in the four corners, mark pixels where a brightness step of 5 or more to a pixel 2 away is present in 48 one-second samples in a row. Keep marks that have both horizontal and vertical edges nearby.</li>
+  <li>Each second, compute the share of logo marks whose edge is present. Above 0.8, the logo is visible. A stretch starts after 10 visible seconds in a row and ends at the first invisible one. Trim 5 seconds from each end.</li>
+  <li>Keep black frames that have a quiet frame (volume 500 or less) within 40 frames. Group the survivors that are less than a second apart. Each group is a cut, placed at its middle.</li>
+  <li>Split the recording at every cut. Each piece is a block with a score of 1.0.</li>
+  <li>Multiply a block's score by 3 if its length is within half a second of 10, 15, 20, 25, 30, 45, 60 or 90 seconds. Also multiply by 1 + 1 ÷ <em>n</em> every run of <em>n</em> neighbouring blocks whose total is such a length.</li>
+  <li>If the logo is visible in more than a quarter of the block, multiply by 0.01; otherwise multiply by 2. If the block is longer than 120 seconds, multiply by 0.01.</li>
+  <li>Blocks scoring above 1.05 are commercials. Join neighbouring commercial blocks into breaks.</li>
+  <li>Delete breaks shorter than 20 seconds or longer than 600 seconds. Write the remaining breaks as start and end times.</li>
+</ol>
+
+<h2>Why it is built this way</h2>
+<div class="why"><span class="tag">Design</span>
+<ul>
+  <li><strong>Seams before content.</strong> Telling a commercial from a programme by what it shows is hard. Finding where something was spliced in is easy, and broadcasters mark splices with black frames and silence. <span class="inferred">Inferred: the premise of the whole program.</span></li>
+  <li><strong>Cheap, robust measurements.</strong> Brightness histograms and logo edges survive poor reception, compression and odd resolutions, and they were affordable on the standard-definition recordings and slow computers Comskip was written for.</li>
+  <li><strong>Evidence multiplies.</strong> Each clue acts like odds, so one strong clue (the logo) decides and weak clues break ties.</li>
+  <li><strong>Hand-tuned, and tunable.</strong> Almost every number is a setting. The values were tuned on real recordings over many years, which is why the defaults work across many channels and also why some rules only make sense historically.</li>
+</ul>
+</div>
+
+<h2>Where it struggles</h2>
+<ul>
+  <li><strong>Channels without black frames.</strong> When breaks are not separated by black, few cuts are found and whole breaks are missed. The TV app relies almost entirely on black frames.</li>
+  <li><strong>A misleading logo.</strong> If the logo stays on during a break, or drops out during the programme, the ×0.01 factor decides wrongly with great confidence.</li>
+  <li><strong>Live sports.</strong> The logo or score panel is on nearly all the time, breaks are irregular, and play contains many short black cuts.</li>
+  <li><strong>Rough live results.</strong> The running estimate uses only cut points and the logo. The full method runs once at the end.</li>
+</ul>
+<p>On two labelled recordings, one run found 6 of 12 breaks. The other found all 23 but also cut 206 seconds of programme. The <a href="#improvements">improvements page</a> collects what could be done about that, ordered by value.</p>
+
+<h2>How to read the stage pages</h2>
+<div class="why"><span class="tag">Why</span><p>The reasons behind a rule. Reasons stated in the original source or settings are given plainly. Reasons worked out from the behaviour are marked as inferred.</p></div>
+<div class="quirk"><span class="tag">Quirk</span><p>Behaviour that looks accidental or surprising, with its effect. A re-implementation may copy these to match Comskip exactly, or leave them out.</p></div>
+<div class="idea"><span class="tag">Idea</span><p>A possible improvement, with its expected benefit and risk.</p></div>
+<div class="tv"><span class="tag">TV app</span><p>Where your TV app's settings or setup change the picture.</p></div>
+
+<nav class="pager" aria-label="Pages"><span></span><a class="next" href="#recording"><small>Start</small>Reading the recording</a></nav>
+</article>
+</section>
+<section class="page" data-page="recording" hidden>
+<article>
+<p class="eyebrow">Stage 1 · the run</p>
+<h1>Reading the recording</h1>
+<p class="lede">This stage turns a recording into a numbered list of frames. Each frame gets a time in seconds, a brightness picture for the detectors, and an audio loudness value. It also runs the job as a whole: decode once (twice for the opening if a logo is found), optionally follow a file that is still being recorded, and start the analysis after the last frame.</p>
+
+<h2>What comes in, what goes out</h2>
+<ul>
+  <li><strong>In:</strong> one recording (a file, a pipe or a network stream). Comskip uses the main video stream, the main audio stream, and caption data carried in the video.</li>
+  <li><strong>Out, per frame</strong> (numbered from 1): time in seconds, a brightness picture, a volume (or "unknown"), the audio channel count, and later the logo flag.</li>
+  <li><strong>Out, for the whole recording:</strong> histograms of volume, a minimum volume level, and silence cut points found at the end.</li>
+</ul>
+
+<h2>Opening the input</h2>
+<ol>
+  <li>Settings are applied in order: built-in defaults, then the settings file, then the command line. The last value for a key wins.</li>
+  <li>In live mode (<code>live_tv</code> = 1) a local file is opened in <strong>follow</strong> mode: reading waits for new data instead of stopping at the current end. The recording counts as finished once the file has not grown for <code>live_tv_retries</code> × 4 seconds (6 → 24 s by default; the TV app uses 12 → 48 s).</li>
+  <li>A recording without video fails. A recording without audio is still processed, with every volume unknown.</li>
+  <li>The frame rate comes from the stream. A new value is only accepted between 9 and 150 fps, and only if it differs from the current one by more than 1 fps.</li>
+  <li>Only the brightness (grey) part of the picture is ever used, so the decoder is asked for greyscale. 10-bit pictures are reduced to 8-bit.</li>
+</ol>
+
+<h2>Giving every frame a time</h2>
+<p>Comskip times frames from their timestamps, not by counting frames, because broadcasts drop frames and jump.</p>
+<ul>
+  <li><strong>Start at zero.</strong> Time = timestamp − the video stream's start time − an initial offset chosen from the first three frames so that frame 1 sits at about 0 s.</li>
+  <li><strong>Smooth jitter</strong> (<code>timeline_repair</code> = 1). A correction absorbs small timestamp wobbles: whenever the step between two frames differs from one frame period by less than 1 s, the difference is added to the correction. The correction shrinks to 90% of itself on every frame, so the clock drifts back to the true timestamps.</li>
+  <li><strong>Fill gaps.</strong> A frame with no timestamp gets the previous time plus one period. Negative times become 0.</li>
+  <li><strong>Correct odd rates.</strong> In the first 500 frames, five frame steps in a row that match a known pattern force the rate: steps of 1/30 or 2/30 s give 29.97 fps, steps of 0.04 s give 25 fps, and alternating 0.050/0.033 s steps (film converted to 30 frames) give 23.98 fps.</li>
+</ul>
+<p>Two different numbers come out of this. Each frame's own time is used when writing cut lists. The single frame rate is used wherever a rule says "N seconds", which becomes N × fps frames.</p>
+
+<h2>Turning audio into a volume per frame</h2>
+<ol>
+  <li><strong>Downmix.</strong> For each audio sample, average the channels to one value. Scale 16-bit sources by 32768 and all others (AAC, AC-3, floating point) by 64000, then clip to the 16-bit range.</li>
+  <li><strong>Window.</strong> The volume of frame <em>f</em> is the average absolute sample value over the audio that plays between frame <em>f</em> and frame <em>f</em>+1. A frame is only handled once at least 0.2 s of audio is buffered past it, so the newest two frames never have a volume yet.</li>
+  <li><strong>Clean up.</strong> Values above 20000 are treated as broken and stored as unknown. Frames with brightness of 5 or less never store a volume.</li>
+  <li><strong>Small clock jumps</strong> in the audio (between 0.02 and 1 s) are ignored and the predicted time is kept.</li>
+</ol>
+<div class="quirk"><span class="tag">Quirk</span><p>Video time is measured from the video stream's start and audio time from the audio stream's start. If the two streams start at different times, every volume is shifted by that difference. Float audio is also scaled about twice as loud as 16-bit audio while the silence thresholds stay the same, so silence is judged more strictly for AAC and AC-3.</p></div>
+
+<h2>What happens on each frame</h2>
+<ol>
+  <li>Frames smaller than 100 pixels on a side, or larger than 8000 × 4800, are dropped and not counted.</li>
+  <li>The frame's time is stored, its volume is set to unknown, and volumes are filled in for earlier frames whose audio has now arrived.</li>
+  <li>The picture is measured: see <a href="#picture">measuring each picture</a>.</li>
+  <li>Once per second (every <span class="num">floor(fps × 1)</span> frames) the logo stage either collects the frame for its search or tests it: see <a href="#logo">the station logo</a>.</li>
+  <li>In live mode, the incremental cut list may be updated: see <a href="#live">live mode</a>.</li>
+</ol>
+
+<h2>The rewind</h2>
+<p>With <code>two_pass_logo</code> = 1 (the default), the moment a logo is first found Comskip saves it, throws away everything it has measured, and starts again from frame 1 with the logo already known. The earliest this can happen is about 50 seconds in, because the logo search needs 50 one-second samples.</p>
+<ul>
+  <li><strong>Kept:</strong> the logo, the time offset, the frame rate.</li>
+  <li><strong>Redone:</strong> everything else. Brightness, black-frame and scene values change for the opening section because logo pixels are now left out of the picture scan.</li>
+  <li><strong>Again, once:</strong> if after the rewind the logo is missing for more than 1.2 × <code>max_commercialbreak</code> (720 s) and has been visible in under half the frames so far, Comskip forgets it, searches again, and rewinds a second time if it finds a new one.</li>
+</ul>
+<div class="why"><span class="tag">Why</span><p>Without the rewind, the opening minute would have no logo information and its black-frame tests would include the logo's bright pixels. The second search exists for recordings where the channel or programme changes. The source comment reads: "First logo found but no logo found after first commercial block so search new logo".</p></div>
+<div class="tv"><span class="tag">On a pipe</span><p>The rewind assumes the input can be read again from the start. A pipe from another process cannot be. Comskip reopens the input, which for a pipe simply continues from the current position, so the opening section is never re-analysed. The <a href="#improvements">improvements page</a> describes rescoring the opening from kept logo evidence instead.</p></div>
+
+<h2>End of the run</h2>
+<p>After the last frame, the remaining volumes are filled in. Then the silence evidence is gathered, because only now are all volumes known:</p>
+<ol>
+  <li><strong>Minimum volume</strong> = (first volume-histogram bucket of width 10 with more than 10 frames − 1) × 10.</li>
+  <li><strong>Automatic silence level.</strong> This is only used when <code>max_volume</code> = 0, and the default is 500, so it is normally just logged. It finds quiet plateaus (a local minimum of 300 or less, steady within ±10 for more than 6 frames, with sound more than 220 louder just before or after) and takes the level that 60% of plateaus fall under.</li>
+  <li><strong>Silence cut points</strong> (only with <code>detect_method</code> bit 64; see <a href="#blocks">cut points and blocks</a> for the exact rules).</li>
+  <li>An end marker is added at the last frame, and the block, scoring and output stages run.</li>
+</ol>
+
+<h2>Quirks</h2>
+<div class="quirk"><span class="tag">Quirks that affect results</span>
+<ul>
+  <li><strong>Silence is only found at the end.</strong> A per-frame silence check exists but always sees "unknown", so <strong>live mode never sees silence cut points</strong>.</li>
+  <li><strong>Unknown counts as silent.</strong> The end-of-run rule turns every frame with volume below 6 into a silence cut point, and unknown is stored as −1. Very dark frames, broken loud frames, and every frame of a recording without audio all become silence cut points when the silence method is on.</li>
+  <li><strong>The logo search never gives up.</strong> Each failed attempt pushes <code>give_up_logo_search</code> later by <code>added_recording</code> × 60 s (840 s), so on a channel without a logo the search runs for the whole recording.</li>
+  <li><strong>Frames skipped</strong> with <code>skip_b_frames</code> = 1 disappear from the numbering, so every "seconds × fps" rule shifts.</li>
+  <li><code>ms_audio_delay</code> and <code>max_repair_size</code> are read and never used.</li>
+</ul>
+</div>
+
+<h2>Improvements</h2>
+<div class="idea"><span class="tag">Ideas</span>
+<ol>
+  <li><strong>Align audio and video on one clock.</strong> Correct silence placement on recordings whose streams start at different times.</li>
+  <li><strong>One volume scale for every audio format,</strong> so a threshold means the same thing for AAC and MPEG audio. Needs retuning.</li>
+  <li><strong>Treat unknown as unknown,</strong> not silent, and store volumes for dark frames. Fewer false cut points.</li>
+  <li><strong>Find silence as you go,</strong> a couple of frames behind the video, so live mode can use it.</li>
+  <li><strong>Rescore the opening instead of decoding it twice.</strong> Keep one-second logo evidence for the opening and recompute logo presence when the logo is found. Saves a second decode and works on pipes. Black-frame values for the opening would still include logo pixels.</li>
+  <li><strong>Make the give-up limit real,</strong> to stop wasting CPU on channels without a logo.</li>
+  <li><strong>Detect the frame rate from the median step</strong> over the first seconds, instead of five exact matches in a row.</li>
+</ol>
+</div>
+
+<nav class="pager" aria-label="Pages"><a href="#overview"><small>Previous</small>Overview</a><a class="next" href="#picture"><small>Next</small>Measuring each picture</a></nav>
+</article>
+</section>
+<section class="page" data-page="picture" hidden>
+<article>
+<p class="eyebrow">Stage 2 · every frame</p>
+<h1>Measuring each picture</h1>
+<p class="lede">Comskip looks only at brightness. From one pass over each picture it builds a brightness histogram, and from that histogram it reads everything else: how dark the frame is, how flat it is, how different it is from the previous frame, and where any black bars sit. Frames that look like a hard edit are put on a list of cut candidates.</p>
+
+<h2>What comes in, what goes out</h2>
+<ul>
+  <li><strong>In:</strong> the brightness plane of one picture (0 = black, 255 = white), the station-logo rectangle once a logo is known, and the frame's audio volume and channel count.</li>
+  <li><strong>Out, per frame:</strong> average brightness, a flatness score called uniformity, a similarity percentage against the previous frame, a count of distinct bright levels, a count of dim samples, the picture box (the area inside any black bars), the current aspect ratio, and a set of <em>cause</em> flags.</li>
+  <li><strong>Out, for the whole recording:</strong> the <strong>candidate list</strong> (frames with at least one cause, sorted by frame number), the <strong>scene-change list</strong> (every frame less than 90% similar to the one before it), stretches of constant aspect ratio, stretches of constant audio channel count, and histograms of frame brightness and frame uniformity.</li>
+</ul>
+
+<h2>Step 1 · Masking</h2>
+<p>Before anything is measured, optional areas are painted black: a number of rows at the bottom (<code>ticker_tape</code>, or <code>ticker_tape_percentage</code> of the height), at the top (<code>top_ticker_tape</code> or its percentage), and columns at the sides (<code>ignore_side</code>, <code>ignore_left_side</code>, <code>ignore_right_side</code>). All default to 0, so nothing is masked unless you ask. Painted pixels are measured as black; they are not skipped.</p>
+
+<h2>Step 2 · Sampling the picture</h2>
+<p>Comskip does not read every pixel of large pictures. The <strong>sampling step</strong> is the distance between samples, both across and down:</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Visible width</th><th class="r">Step</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td>under 600</td><td class="r">1 (every pixel)</td><td>480×270 TV proxy</td></tr>
+    <tr><td>600 to 1200</td><td class="r">2</td><td>720×480 SD</td></tr>
+    <tr><td>1201 to 1800</td><td class="r">3</td><td>1280×720</td></tr>
+    <tr><td>over 1800</td><td class="r">4</td><td>1920×1080</td></tr>
+  </tbody>
+</table></div>
+<p>The setting <code>scan_step</code> (new in this fork, default 0 = automatic) overrides the table.</p>
+
+<h3>The shrinking-ring scan</h3>
+<p>The picture is read as a set of nested rectangles, peeled from the outside in. Let <em>W</em> and <em>H</em> be width and height, and <code>border</code> the margin that is never read (default 10 pixels). The scan depth is <span class="num">D = min(W, H) / 2 − border</span>. For each ring <em>d</em> = 0, step, 2·step, … while <em>d</em> &lt; <em>D</em>, four scans read one line each:</p>
+<ul>
+  <li><strong>Top:</strong> row <span class="num">border + d</span>, columns from <span class="num">border + d</span> up to <span class="num">W − border − d</span>.</li>
+  <li><strong>Bottom:</strong> row <span class="num">H − border − d</span>, same columns.</li>
+  <li><strong>Left:</strong> column <span class="num">border + d</span>, rows from <span class="num">border + d</span> up to <span class="num">H − border − d</span>.</li>
+  <li><strong>Right:</strong> column <span class="num">W − border − d</span>, same rows.</li>
+</ul>
+<p>Together the rings cover the whole picture inside the border, so the total is about <span class="num">(W − 2·border)(H − 2·border) / step²</span> samples. Every sample adds 1 to a 256-bin brightness histogram. Once the logo is known, samples inside the logo rectangle (enlarged by 5 pixels on every side) are skipped entirely.</p>
+<div class="why"><span class="tag">Why rings</span><p>One pass serves two jobs. The histogram does not care about order, but reading from the edges inward lets each side notice where the picture starts, which gives the black-bar edges for free.</p></div>
+
+<h2>Step 3 · The picture box</h2>
+<p>Each of the four scans keeps a running count of samples brighter than <code>test_brightness</code> (40). The count is never reset between rings. After each ring, if a side's count is still under 5, that ring's position becomes the picture edge on that side. So each edge ends at the last ring where fewer than 5 bright samples had been seen since the outer border: the inner edge of a black bar, to within one step. Before scanning, the edges start at the border.</p>
+
+<h2>Step 4 · Numbers from the histogram</h2>
+<p>Let <em>h</em>[<em>i</em>] be the number of samples at brightness <em>i</em> and <em>N</em> the total number of samples (at least 1).</p>
+<div class="math">average brightness   B = floor( Σ i·h[i] / N )
+bright levels        hasBright = number of levels above max_brightness (60) with at least one sample
+dim samples          dimCount  = samples with 40 &lt; level ≤ 60
+uniformity           U = 730 × Σ h[i]·|i − B| / N,  counting only levels more than noise_level (5) away from B
+similarity           S = floor( 100 × Σ min(h_now[i], h_previous[i]) / N )</div>
+<p>Uniformity is 730 times the average distance from the mean, ignoring small noise. A perfectly flat picture scores 0. Similarity is the overlap between this frame's histogram and the previous frame's, as a percentage: 100 means the same mix of brightness levels.</p>
+
+<h2>Step 5 · Classifying the frame</h2>
+<h3>Black frames</h3>
+<p>Only when the black-frame method is on (<code>detect_method</code> includes 1). A frame is <strong>black</strong> when all three hold:</p>
+<ol>
+  <li><span class="num">B ≤ max_avg_brightness</span> (19).</li>
+  <li><span class="num">hasBright ≤ floor(maxbright × W × H / (720 × 480))</span>, with <code>maxbright</code> = 1. This allows 0 bright levels at 480×270, 1 at 720×480, 2 at 1280×720 and 6 at 1920×1080.</li>
+  <li>The frame is <strong>not dim</strong>. A frame is dim when 5% of all pixels &lt; dimCount &lt; 35% of all pixels.</li>
+</ol>
+<h3>Uniform (blank) frames</h3>
+<p>If the black test failed and <code>non_uniformity</code> (500) is above 0, the frame gets the <strong>non-uniform</strong> cause when <span class="num">U &lt; non_uniformity</span> and either it is dark (B ≤ 19) or its brightness is below 250. This catches flat grey or coloured cards; near-white frames are excluded.</p>
+<h3>Scene changes</h3>
+<p>Any frame with <span class="num">S &lt; 90</span> goes on the scene-change list, whatever the settings. The separate <strong>scene-change cause</strong> (which makes the frame a cut candidate) needs <code>detect_method</code> bit 4, and neither the default nor the TV app's setting turns it on. When on, a frame gets the cause if neither it nor the previous frame is black and the previous frame's similarity was below 15.</p>
+<h3>Resolution changes</h3>
+<p>If the picture's width or height differs from the previous frame, the frame gets the <strong>resolution change</strong> cause and the logo search starts over. This always happens, whatever <code>detect_method</code> says.</p>
+<h3>Silence</h3>
+<p>A per-frame silence test exists here (volume exactly 0, with bit 64 on), but it never fires: a frame's volume is not known yet while its picture is being measured, because the matching audio arrives a little later. In practice all silence cut points are found once the recording has ended. See <a href="#blocks">cut points and blocks</a>.</p>
+<h3>Cutscenes</h3>
+<p>You can give Comskip up to eight reference pictures (<code>cutscenefile1</code> to <code>cutscenefile8</code>), for example a network bumper. Each reference stores its average brightness and a grid of brightness samples. For each frame whose brightness is within 1 of a reference, Comskip compares the same grid and counts samples that differ by more than 5. If fewer than <code>cutscene_threshold</code> (10) percent differ, the frame gets the <strong>cutscene</strong> cause.</p>
+
+<h2>Step 6 · Aspect ratio</h2>
+<p>The picture box gives a shape. Edges within <code>border</code> of the frame edge are snapped to the edge. The reading is only <strong>trusted</strong> when the bars look like real letterbox or pillarbox bars:</p>
+<ul>
+  <li>top and bottom bars differ by less than <span class="num">13 + top/15</span> pixels, and the same for left and right;</li>
+  <li>the top bar is less than a quarter of the height and the left bar less than a quarter of the width.</li>
+</ul>
+<p>The ratio is <span class="num">r = box width / box height</span>, rounded up to 0.01, and treated as undefined outside 0.5 to 3.0.</p>
+<p>A small state machine turns readings into stable stretches. It keeps a current ratio <em>L</em> and a candidate <em>T</em>, with <code>ar_delta</code> = 0.08 as the tolerance:</p>
+<ul>
+  <li>A trusted reading within 0.08 of <em>L</em> resets the candidate.</li>
+  <li>A reading within 0.08 of <em>T</em> counts towards it. After 0.8 seconds of such readings, <em>T</em> becomes the new current ratio. A new aspect-ratio stretch starts where the candidate started, and the frames in between are relabelled.</li>
+  <li>Any other reading becomes the new candidate.</li>
+  <li>If readings disagree with <em>L</em> for more than 3 seconds in total, the ratio becomes undefined and a new stretch starts 3 seconds back.</li>
+</ul>
+<p>Separately, every change in the audio channel count (stereo to 5.1, for example) closes one channel stretch and opens another. There is no minimum length.</p>
+
+<h2>Step 7 · Recording the candidate</h2>
+<p>A frame with any cause is added to the candidate list with its brightness, uniformity, volume and causes. If the same frame is added twice, the causes are merged. At the end of the recording a black entry is added at the last frame so the final block can close. Black frames next to each other form a <strong>run</strong>; later stages use the middle of a run as the cut.</p>
+
+<h2>Thresholds learned from the recording</h2>
+<p>Before blocks are built, two optional adjustments use the recording's own histograms:</p>
+<ul>
+  <li><strong>Raising the flatness limit (always on).</strong> Find the lowest uniformity level that more than 10 frames reach. <code>non_uniformity</code> is raised to at least that level plus 100.</li>
+  <li><strong>Automatic black level</strong> (<code>intelligent_brightness</code> = 1; off by default). <code>max_avg_brightness</code> becomes the brightness below which the darkest <code>black_percentile</code> (0.76%) of frames fall, and <code>non_uniformity</code> is set from the darkest <code>uniform_percentile</code> (0.3%) in the same way. Candidates that no longer qualify are dropped. It can only tighten: frames that missed the old limit are never added.</li>
+</ul>
+
+<h2>Why it works this way</h2>
+<div class="why"><span class="tag">Why</span>
+<ul>
+  <li><strong>Black frames are the oldest signal.</strong> Broadcasters separate commercials with a few black frames, so dark, flat frames are the main cut candidates. <span class="inferred">Inferred: the long-standing Comskip premise.</span></li>
+  <li><strong>The bright-level veto</strong> stops a dark scene with a few highlights (stars, a caption) from counting as black. Counting levels rather than pixels is cheap and tolerant of compression noise. <span class="inferred">Inferred.</span></li>
+  <li><strong>The dim veto</strong> rejects frames where a real share of the picture sits between 40 and 60: dark show scenes and fades, not true separators. <span class="inferred">Inferred.</span></li>
+  <li><strong>Uniformity</strong> catches flat non-black cards such as "we'll be right back" slates. Noise within ±5 is ignored so encoder grain does not spoil flatness. <span class="inferred">Inferred.</span></li>
+  <li><strong>Histogram overlap</strong> is a cheap scene-cut measure that ignores motion and position. The source notes that the original threshold was 91.</li>
+  <li><strong>The symmetry test</strong> follows from real bars being symmetric, while a dark area on one side of a scene is not. The source comments say as much.</li>
+  <li><strong>The 0.8 s and 3 s timings</strong> debounce flicker while still switching fast enough for short commercials. <span class="inferred">Inferred.</span></li>
+</ul>
+</div>
+
+<h2>Quirks</h2>
+<div class="quirk"><span class="tag">Quirks that affect results</span>
+<ul>
+  <li><strong>Counts depend on the sampling step.</strong> The dim test compares a count of <em>samples</em> against a share of all <em>pixels</em>, and the bright-level count falls as fewer pixels are read. At step 2 or more the dim veto almost never fires, so more dark frames pass as black. This is the likely reason one of four test recordings changed when <code>scan_step</code> was raised.</li>
+  <li><strong>The TV proxy is the strictest case.</strong> At 480×270 the bright-level allowance rounds down to 0, so a single pixel above 60 anywhere outside the logo stops a frame counting as black.</li>
+  <li><strong>Masks paint black instead of skipping.</strong> Masked rows pull the average brightness down and look like black bars to the picture-box scan. Side masks also fail the symmetry test.</li>
+  <li><strong>Corners.</strong> At each ring the top-left corner is read twice and the bottom-right corner never.</li>
+  <li><strong>The aspect ratio is biased.</strong> The box marks the last dark ring, not the first picture row, and the ratio is rounded up: a bias of up to one step plus 0.01.</li>
+  <li><strong>Audio channel changes are labelled as resolution changes</strong>, so the two cannot be told apart later.</li>
+</ul>
+</div>
+<div class="quirk"><span class="tag">Logic that never takes effect</span>
+<ul>
+  <li>The <code>brightness_jump</code> scene-change test compares two values that are always equal.</li>
+  <li>An "automatic black level" peak search runs on every frame, and its result is never read.</li>
+  <li>A credits detector exists but is never called.</li>
+  <li>The scene-change cause looks at the previous frame's similarity, so when enabled it would mark the second frame of the new scene.</li>
+</ul>
+<p>A re-implementation can leave all four out without changing results.</p>
+</div>
+
+<h2>Improvements</h2>
+<div class="idea"><span class="tag">Ideas</span>
+<ol>
+  <li><strong>Measure shares, not counts.</strong> Use dim samples ÷ samples taken, and a bright-pixel share instead of a count of bright levels. Black detection then stops depending on resolution and sampling step, which makes coarser sampling safe. Changes decisions that existing tuned settings rely on.</li>
+  <li><strong>Then sample less.</strong> Every second pixel in each direction gave identical cut lists on three of four recordings and saved about 15% of total CPU. Do it after item 1.</li>
+  <li><strong>Skip masked areas</strong> instead of painting them black, so tickers and side panels stop biasing brightness and the picture box.</li>
+  <li><strong>Read the picture in plain rows.</strong> The same histogram and per-row and per-column bright counts can be gathered in a single top-to-bottom pass. That gives the same edges with simpler, faster memory access, and makes vector instructions or a GPU scaler practical.</li>
+  <li><strong>A plainer flatness score</strong>, such as the standard deviation, would be easier to explain and tune than 730 × mean deviation with a limit of 500.</li>
+  <li><strong>Resolution-free cutscene references</strong>, resampled to a fixed small grid, so one reference works on the proxy and the full recording.</li>
+</ol>
+</div>
+
+<nav class="pager" aria-label="Pages"><a href="#recording"><small>Previous</small>Reading the recording</a><a class="next" href="#logo"><small>Next</small>The station logo</a></nav>
+</article>
+</section>
+<section class="page" data-page="logo" hidden>
+<article>
+<p class="eyebrow">Stage 3 · once per second</p>
+<h1>The station logo</h1>
+<p class="lede">Most channels show a small, fixed logo in a corner during the programme and remove it during commercials. Comskip learns what that logo looks like from the recording itself, as a pattern of edges that never move, then checks once a second whether those edges are there. The result is a timeline of "logo on" stretches, which is the strongest evidence of programme content that Comskip has.</p>
+
+<h2>What comes in, what goes out</h2>
+<ul>
+  <li><strong>In:</strong> the brightness picture, one frame per second (every <span class="num">floor(fps × 1.0)</span> frames). Other frames inherit the latest result.</li>
+  <li><strong>Out:</strong> a <strong>logo mask</strong> (positions where a horizontal edge, a vertical edge or both are expected) and its bounding box; a per-frame <strong>logo score</strong> from 0 to 1; a per-frame logo flag; smoothed <strong>logo stretches</strong>; the <strong>logo share</strong> of the whole recording; and the box plus 5 pixels, which the picture scan then leaves out.</li>
+</ul>
+
+<h2>Step 1 · Where to look</h2>
+<p>Only the four corners are searched. The inset from each edge is <span class="num">edge_radius + border + 4 × edge_step</span> = 2 + 10 + 4 = 16 pixels. Columns skip the middle third of the width and rows skip the middle third of the height, which leaves four corner regions. On a 480×270 picture that is x = 16–159 and 320–463, y = 16–89 and 180–253.</p>
+<p>Options narrow it further: <code>logo_at_bottom</code> keeps only the bottom corners, <code>subtitles</code> keeps only the top corners, and <code>logo_at_side</code> keeps only the right half. All are off by default.</p>
+
+<h2>Step 2 · The edge test</h2>
+<p>For each pixel in the search area, with radius <em>r</em> = <code>edge_radius</code> (2) and threshold <em>T</em> = <code>edge_level_threshold</code> (5), on the 0–255 brightness scale:</p>
+<ul>
+  <li><strong>Horizontal edge</strong> at (x, y): the pixel is only judged if at least one of the two pixels at x − r and x + r is darker than 200. It is an edge if either of them differs from the centre by <em>T</em> or more.</li>
+  <li><strong>Vertical edge:</strong> the same, using the pixels at y − r and y + r.</li>
+</ul>
+<p><code>aggressive_logo_rejection</code> (0) selects alternative tests (comparing the two outer pixels, averaging three on each side, or a three-row sum); the default above is what almost everyone uses.</p>
+
+<h2>Step 3 · Learning: edges that never go away</h2>
+<p>Each search-area pixel keeps two counters, one per direction. On every sampled frame:</p>
+<ul>
+  <li>edge found: the counter goes up by 1, up to <code>num_logo_buffers</code> (50);</li>
+  <li>pixel judged but no edge: the counter goes back to 0;</li>
+  <li>pixel not judged (too bright around it): the counter stays as it is.</li>
+</ul>
+<p>The last 50 sampled frames are also kept. Searching starts once those 50 have been collected (about 50 seconds) and then runs every second. <code>delay_logo_search</code> can postpone collection: 1 waits <code>added_recording</code> minutes (14), a larger value waits that many seconds.</p>
+
+<h2>Step 4 · Building and checking a candidate logo</h2>
+<ol>
+  <li><strong>Persistence.</strong> A pixel joins the horizontal mask if its horizontal counter is at least 0.95 × 50, which means 48 sampled seconds in a row. The same for vertical.</li>
+  <li><strong>Clean-up.</strong> Real logos have horizontal and vertical edges close together; a horizon or a graphic line has only one direction. For each horizontal-mask pixel, count vertical-mask pixels at the same spot and on square rings around it, growing by <code>edge_step</code> up to 2% of the picture width. Keep the pixel once the count reaches <code>edge_weight</code> (10), otherwise remove it. Then clean the vertical mask against the cleaned horizontal mask.</li>
+  <li><strong>Box.</strong> Take the box around the remaining pixels, widened by 4 pixels on each side.</li>
+  <li><strong>Size.</strong> With scale = (height ÷ 572) × (width ÷ 720), the attempt passes only if the number of mask pixels is more than <span class="num">150 × scale ÷ edge_step</span> (about 47 at 480×270) and at most 40,000, and the box covers at most <code>logo_max_percentage_of_screen</code> (12%) of the picture.</li>
+  <li><strong>Twice in a row.</strong> An attempt only counts if the attempt one second earlier also passed.</li>
+  <li><strong>Verification.</strong> Test the candidate on all 50 stored frames (Step 5). Accept it if at least 45 of them score above <code>logo_threshold</code>.</li>
+</ol>
+<p>On acceptance the mask becomes the active logo, a logo stretch opens just after the last stored frame that failed, and the logo area is excluded from the picture scan. With <code>two_pass_logo</code> = 1 the logo is saved and the <a href="#recording">rewind</a> follows.</p>
+
+<h2>Step 5 · Is the logo there? (every sampled frame)</h2>
+<p>For each mask pixel, run the edge test in the mask's direction. The <strong>score</strong> is the share of mask pixels where the edge is found. The frame shows the logo if <span class="num">score &gt; logo_threshold</span> (0.80).</p>
+
+<h2>Step 6 · From flickering flags to logo stretches</h2>
+<p>With <code>logo_filter</code> = 0 (the default), the raw flags are smoothed with a deliberately lopsided rule:</p>
+<ul>
+  <li><strong>Appearing is slow.</strong> The logo must be seen on 10 sampled seconds in a row. The stretch then starts back at the first of those ten.</li>
+  <li><strong>Disappearing is fast.</strong> A single sample without the logo closes the stretch, ending it one second earlier.</li>
+  <li><strong>Trimming.</strong> With H = <code>shrink_logo</code> × fps (5 s) and L = <code>shrink_logo_tail</code> × fps (0), a stretch no longer than 2H + L (10 s) is discarded. Longer stretches lose H at the start and H + L at the end.</li>
+</ul>
+<p>A <code>logo_filter</code> of <em>k</em> &gt; 0 replaces the raw flag with a vote: at each sample it averages ±1 votes over two windows of <em>k</em> samples and decides for the frame <em>k</em> samples back.</p>
+
+<h2>Step 7 · At the end of the recording</h2>
+<ol>
+  <li>Close any open stretch.</li>
+  <li><strong>Logo share</strong> = frames inside logo stretches ÷ all frames.</li>
+  <li><strong>Sanity window.</strong> If the share is below <code>logo_fraction</code> − 0.05 (0.35) or above <code>logo_percentile</code> (0.92), the logo is not trusted and logo evidence is switched off for the rest of the run. Under 35% probably means the "logo" was something else. Over 92% means it never leaves, even in breaks, so it says nothing.</li>
+  <li><strong>Automatic threshold</strong> (only when <code>logo_threshold</code> = 0): a 20-bucket histogram of scores gives a suggested threshold. It is computed after the stretches are built, so it does not change them.</li>
+  <li><strong>Logo edges as cut points</strong> are possible with <code>before_logo</code> and <code>after_logo</code>, but both default to 0. By default a logo appearing or disappearing never cuts the recording on its own.</li>
+</ol>
+
+<h2>How later stages use it</h2>
+<ul>
+  <li>A block more than 25% inside logo stretches has its commercial score multiplied by <strong>0.01</strong>: almost certainly programme. A block with less, in a recording where the logo is trusted, is multiplied by 2. See <a href="#scoring">scoring</a>.</li>
+  <li>Two blocks are joined when the logo is on at both sides of the cut between them.</li>
+  <li>Live mode accepts a cut point only if the logo is absent somewhere within 5 seconds of it.</li>
+</ul>
+
+<h2>Logo files</h2>
+<p>A logo can be saved to a text file next to the recording and loaded on the next run, in which case it is known from frame 1 and no search or rewind is needed. The file lists the box, the picture size and one character per pixel (<code>|</code> horizontal edge, <code>-</code> vertical, <code>+</code> both, space for none). By default the file is deleted at the end of each run (<code>delete_logo_file</code> = 1), so reuse only helps when that is turned off.</p>
+
+<h2>Why it works this way</h2>
+<div class="why"><span class="tag">Why</span>
+<ul>
+  <li><strong>Edges, not colour:</strong> a fixed overlay keeps its outline while the picture under it changes. The edge threshold of 5 fires on almost any texture, so the real filter is persistence over time. <span class="inferred">Inferred.</span></li>
+  <li><strong>48 seconds in a row:</strong> programme content rarely holds a still edge that long, and most commercials are shorter, so their own logos are rarely learned. <span class="inferred">Inferred.</span></li>
+  <li><strong>Slow to appear, fast to disappear, then trimmed:</strong> the edges of logo stretches are imprecise (fades, one-second sampling). Trimming keeps boundary frames from being protected as programme, so a cut can land near them. <span class="inferred">Inferred; the tuning output suggests a value for <code>shrink_logo</code> from the measured gap between logo edges and block edges.</span></li>
+  <li><strong>Twice in a row plus 45 of 50:</strong> protects against one lucky search. The source calls this a "double check".</li>
+</ul>
+</div>
+
+<h2>Quirks</h2>
+<div class="quirk"><span class="tag">Quirks that affect results</span>
+<ul>
+  <li><strong>The give-up limit keeps moving.</strong> <code>give_up_logo_search</code> (2000 s) grows by 840 s on every failed attempt, so on a channel without a logo the search never stops.</li>
+  <li><strong>One bad sample ends a stretch.</strong> A flash, fade or full-screen graphic over the logo closes it, reopening takes 10 seconds, and both ends lose 5 seconds to trimming. About 20 seconds of programme near each dip lose logo protection unless <code>logo_filter</code> is used.</li>
+  <li><strong>Learning and testing disagree on bright areas.</strong> Learning skips pixels whose surroundings are brighter than 200; testing does not. A white logo learned perfectly can then score low on bright scenes.</li>
+  <li><strong>The middle-third skip depends on the step.</strong> It only triggers when a column or row lands exactly on a third of the width or height, so with <code>edge_step</code> above 1 the whole picture may be searched.</li>
+  <li><code>logo_at_side</code> searches only the right half. <code>where_logo</code> is read and never used. The 10-second appearance rule and the one-second sampling are fixed, not settings.</li>
+</ul>
+</div>
+
+<h2>Improvements</h2>
+<div class="idea"><span class="tag">Ideas</span>
+<ol>
+  <li><strong>Remember logos per channel.</strong> Keep the logo file by channel name instead of deleting it, test it from frame 1, and relearn only if it fails for minutes. No rewind, and live marks are stable from the first second. Channels do redesign logos, so a stale mask needs a "fails too often, relearn" rule.</li>
+  <li><strong>Close stretches more carefully.</strong> Require two or three absent samples before closing, or use a small <code>logo_filter</code>. Fewer false breaks at flashes, at the cost of break starts a few seconds late, which trimming already covers.</li>
+  <li><strong>Translucent logos.</strong> Compare edge strength against the area around the logo, or learn whether each logo pixel is brighter or darker than its surroundings.</li>
+  <li><strong>Animated logos.</strong> Count "edge present in 90% of the last 50 samples" instead of an unbroken run.</li>
+  <li><strong>Sports score panels.</strong> They are static, edge-rich, and can stay on through breaks while the network logo disappears. Learn up to two masks and keep the one whose on/off pattern best matches the black-frame breaks.</li>
+  <li><strong>Fix the give-up limit</strong>, saving CPU on channels without a logo.</li>
+</ol>
+</div>
+
+<nav class="pager" aria-label="Pages"><a href="#picture"><small>Previous</small>Measuring each picture</a><a class="next" href="#blocks"><small>Next</small>Cut points and blocks</a></nav>
+</article>
+</section>
+<section class="page" data-page="blocks" hidden>
+<article>
+<p class="eyebrow">Stage 4 · after the last frame</p>
+<h1>Cut points and blocks</h1>
+<p class="lede">Comskip never decides frame by frame. It collects frames where the picture or sound suggests a hard edit, throws out the doubtful ones, groups the survivors into cuts, and splits the recording at every cut. The pieces between cuts are <strong>blocks</strong>, and blocks are what the scoring stage labels as programme or commercial.</p>
+
+<h2>What comes in, what goes out</h2>
+<ul>
+  <li><strong>In:</strong> the candidate list from the picture stage (each entry a frame with its causes, brightness, uniformity and volume), the per-frame volumes, the scene-change list, logo stretches, aspect-ratio stretches, audio-channel stretches, and the logo share.</li>
+  <li><strong>Out:</strong> an ordered list of blocks that covers the whole recording without gaps. Each block has a start and end frame, a length in seconds, how many cut frames sit at its head and tail, the <strong>cause</strong> of the cut that ends it, and the features listed at the bottom of this page.</li>
+</ul>
+
+<h2>Which evidence is switched on</h2>
+<p><code>detect_method</code> is a sum of these values:</p>
+<div class="tablewrap"><table>
+  <thead><tr><th class="r">Value</th><th>Method</th><th>What it really controls</th></tr></thead>
+  <tbody>
+    <tr><td class="r">1</td><td>Black frame</td><td>Black and flat frames become cut candidates.</td></tr>
+    <tr><td class="r">2</td><td>Logo</td><td>Logo learning, logo joins, and logo scoring.</td></tr>
+    <tr><td class="r">4</td><td>Scene change</td><td>Hard scene cuts become cut candidates. Scene changes are recorded either way.</td></tr>
+    <tr><td class="r">8</td><td>Resolution change</td><td>Only matters when replaying saved frame data. When decoding, a size change is always a cut.</td></tr>
+    <tr><td class="r">16</td><td>Captions</td><td>Gives each block a caption style for scoring. Never creates cuts.</td></tr>
+    <tr><td class="r">32</td><td>Aspect ratio</td><td>Aspect-ratio stretches, cuts at changes, and the aspect-ratio score.</td></tr>
+    <tr><td class="r">64</td><td>Silence</td><td>Silent frames and short silent stretches become cut candidates.</td></tr>
+    <tr><td class="r">128</td><td>Cutscenes</td><td>Only matters when replaying saved frame data. Cutscene matching runs whenever reference files are loaded.</td></tr>
+  </tbody>
+</table></div>
+<div class="tv"><span class="tag">The TV app</span><p>The default is 123 (1 + 2 + 8 + 16 + 32 + 64). The TV app uses <strong>43</strong> (1 + 2 + 8 + 32): black frames, logo, resolution change and aspect ratio. Its settings comment says 43 includes "scene change", but 8 is resolution change. So the TV app runs with no scene-change, silence or caption evidence, and <strong>black frames do nearly all of the cutting</strong>.</p></div>
+
+<h2>Step 1 · Extra candidates from the whole recording</h2>
+<h3>Silence (bit 64)</h3>
+<ul>
+  <li>Every frame with volume below 6 becomes a silence candidate. Unknown volume is stored as −1, so it counts too (see the quirk on the <a href="#recording">recording page</a>).</li>
+  <li>With <code>min_silence</code> &gt; 0 (12 frames), Comskip also looks for <strong>quiet stretches</strong>: runs of frames with volume from 6 up to <code>max_silence</code> (100). A stretch qualifies when it is longer than 12 frames and shorter than 5 seconds, and
+    <ul>
+      <li>more than 70% of it is below 9, <em>or</em> a frame in it is a scene change (similarity under 90) or flat (uniformity under <code>non_uniformity</code>), <em>or</em> the frame that ends it is a scene change;</li>
+      <li>and the sound around it is loud. With A and B the average volume over 2.5 s before and after: A and B both above 0.9 × <code>max_volume</code> (450), or both above 2 × 500, or either above 4 × 500.</li>
+    </ul>
+    Every frame of a qualifying stretch becomes a silence candidate.</li>
+  <li><code>remove_silent_segments</code> (0, off) adds cuts at both ends of very long silences.</li>
+</ul>
+<h3>Logo edges</h3>
+<p>Only when <code>before_logo</code> or <code>after_logo</code> is set (both 0 by default). Then a cut is placed at the logo edge, or at the hardest scene change in the next 30 seconds of quiet audio.</p>
+<h3>Aspect-ratio stretches are tidied first</h3>
+<p>Ratios within <code>ar_delta</code> (0.08) of a more common ratio are snapped to it, and the most common ratio becomes the <strong>dominant</strong> ratio. Then, until nothing changes: neighbours within 0.08 are joined, an undefined stretch between two equal ones is absorbed, and two stretches with the logo on at both sides of the change are joined.</p>
+
+<h2>Step 2 · Cleaning the candidate list</h2>
+<p>All windows here are in frames.</p>
+<ol>
+  <li><strong>Give every candidate the quietest nearby volume.</strong> Look at the frames from 40 before to 39 after the candidate (<code>volume_slip</code> = 40) and take the lowest known volume.
+    <ul><li>A candidate that is only a scene change has to earn its place: it scores 40 for every nearby frame quieter than 125 and 1 for every frame quieter than 500. Above 10 it is kept, otherwise it is marked loud.</li></ul></li>
+  <li><strong>Drop loud candidates.</strong> Any candidate whose volume is above <code>max_volume</code> (500) is removed. In practice a black frame needs a quiet frame within about 1.3 seconds (at 30 fps) to survive.</li>
+  <li><strong>Drop black candidates</strong> brighter than <code>max_avg_brightness</code>, and flat candidates less flat than <code>non_uniformity</code>. These only matter when a threshold was changed automatically.</li>
+  <li>Cutscene matches are exempt from all three.</li>
+</ol>
+<p>Then cuts are added where the picture format changes. They come after cleaning, so they are never removed for being loud.</p>
+<ul>
+  <li><strong>Aspect ratio:</strong> with <code>cut_on_ar_change</code> = 1 (default), a cut goes at the end of every aspect-ratio stretch whose neighbour also has a defined ratio, but only while logo detection is active.</li>
+  <li><strong>Audio channels:</strong> with <code>cut_on_ac_change</code> = 1 (default), a cut goes at the end of every channel stretch.</li>
+</ul>
+
+<h2>Step 3 · Does this kind of evidence fit this recording?</h2>
+<p>Each kind of cause is tested as a whole. If its cut points are not spaced like commercials, that cause is removed from every candidate. Consecutive-frame candidates count as one run, positioned at the middle.</p>
+<h4>Test A: break shape</h4>
+<p>Walk through the runs that carry the cause. A gap longer than <code>max_commercial_size</code> (120 s) ends a possible break; a closed break shorter than <code>min_commercialbreak</code> (20 s) but longer than 4.7 s, between 1/7 and 6/7 of the way through, is a <em>bad</em> sign. A break that grows past <code>max_commercialbreak</code> (600 s) is also a bad sign. If the logo is not usable and there are two or more bad signs, the cause is dropped.</p>
+<h4>Test B: commercial lengths</h4>
+<p>For each run with the cause, measure the time since the previous run of any cause. Count the gaps between 1 and 120 seconds, and among them the <strong>strict</strong> gaps, those that match a standard commercial length (see <a href="#scoring">length matching</a>). If fewer than 2 are strict, or fewer than one in <em>R</em>, the cause is dropped.</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Cause</th><th>Tested when</th><th class="r">R, logo usable</th><th class="r">R, no logo</th><th>Can be dropped?</th></tr></thead>
+  <tbody>
+    <tr><td>Black</td><td>always</td><td class="r">3.0</td><td class="r">3.0</td><td>no, only logged</td></tr>
+    <tr><td>Scene change</td><td><code>validate_scenechange</code> = 1</td><td class="r">3.5</td><td class="r">1.2</td><td>yes</td></tr>
+    <tr><td>Flat frame</td><td><code>validate_uniform</code> = 1</td><td class="r">3.0</td><td class="r">1.2</td><td>yes</td></tr>
+    <tr><td>Silence</td><td>bit 64 and <code>validate_silence</code> = 1</td><td class="r">3.0</td><td class="r">3.0</td><td>yes</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Step 4 · Grouping candidates into cuts</h2>
+<p>Start a group at the first remaining candidate, then pull in the next candidate while it is less than <strong>1 second</strong> after the group's current end. The group collects the causes of all its members. Two refinements:</p>
+<ul>
+  <li>A candidate that is only an aspect-ratio change adds its cause but does not stretch the group.</li>
+  <li>If a group contains picture evidence (black, flat, scene, resolution) and more than 1.5 times as many silent frames, it is shrunk to the span of the picture evidence. A group of more than 5 silent frames and no picture evidence is narrowed to its middle.</li>
+</ul>
+<p>The cut is placed in the <strong>middle</strong> of the group. If the group is <em>w</em> frames wide, the block before it ends <span class="num">floor(w/2)</span> frames in, and that block's tail is <span class="num">floor(w/2)</span> frames. The next block starts immediately after, with the rest as its head. Each block remembers the causes of the cut that ends it. A first block of 1 second or less is merged into the second.</p>
+<div class="why"><span class="tag">Why</span>
+<ul>
+  <li><strong>One second of slack:</strong> "allow for 2 missing black frames", the source says. Real fades flicker, and splitting one fade into many tiny blocks would wreck the length matching.</li>
+  <li><strong>The middle of the group:</strong> the true edit is somewhere in the fade. The middle is the best guess.</li>
+  <li><strong>Quiet black frames only:</strong> dark show scenes are rarely silent; real breaks are. <span class="inferred">Inferred, partly stated: "find quality of silence around black frame".</span></li>
+  <li><strong>Per-cause tests:</strong> if a kind of evidence is not spaced like commercials on this recording, it is noise here. The bar is lower when a logo can catch the mistakes later. <span class="inferred">Inferred.</span></li>
+</ul>
+</div>
+
+<h2>Step 5 · What each block carries to scoring</h2>
+<p>Some names are historical and do not describe what is measured. A re-implementation should copy the formulas, not the names. Sums run over the frames inside the block; <em>n</em> is the number of frames.</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Feature</th><th>Meaning and formula</th></tr></thead>
+  <tbody>
+    <tr><td>Length</td><td>time of last frame − time of first frame, in seconds</td></tr>
+    <tr><td>"Brightness"</td><td>Picture activity: 1000 × Σ |brightness change from the previous frame| ÷ <em>n</em></td></tr>
+    <tr><td>Volume</td><td>Average volume (unknown counts as −1)</td></tr>
+    <tr><td>"Silence"</td><td>Share of <em>loud</em> frames: 99 × frames with volume ≥ <code>max_volume</code> ÷ <em>n</em></td></tr>
+    <tr><td>"Uniformity"</td><td>Σ |uniformity change from the previous frame| ÷ <em>n</em></td></tr>
+    <tr><td>Scene changes</td><td>Each scene change inside the block adds (100 − similarity) ÷ 10, so a total cut adds 10 and a mild one about 1</td></tr>
+    <tr><td>Logo share</td><td>Frames inside logo stretches ÷ frames in the block</td></tr>
+    <tr><td>Aspect ratio</td><td>The ratio of the aspect-ratio stretch that overlaps the block most</td></tr>
+    <tr><td>Audio channels</td><td>The channel count of the channel stretch that overlaps the block most</td></tr>
+    <tr><td>Caption style</td><td>From the caption stage (bit 16 only)</td></tr>
+  </tbody>
+</table></div>
+<p>Recording-wide averages of the same measures are also passed on, with the dominant aspect ratio, the dominant channel count, the logo share, and whether logo evidence is still trusted. Every block starts with a score of 1.0.</p>
+
+<h2>Quirks</h2>
+<div class="quirk"><span class="tag">Quirks that affect results</span>
+<ul>
+  <li><strong>The loud filter removes the whole candidate,</strong> even one that is also silent or a format change, if no quiet frame happens to be within 40 frames.</li>
+  <li><strong>Windows mix frames and seconds.</strong> <code>volume_slip</code> is 40 frames here but 40 seconds in live mode, and <code>min_silence</code> is in frames, so behaviour changes between 25, 30 and 60 fps.</li>
+  <li><strong>Test B compares against any cause.</strong> The gap is measured from the previous run of any kind, so other causes make a cause look better or worse.</li>
+  <li><strong>Test A and the logo check disagree</strong> on what "no logo" means (below 40% here, below 35% elsewhere).</li>
+  <li><strong>Audio-channel cuts are labelled as resolution changes.</strong></li>
+  <li><code>min_black_frames_for_break</code> at its default of 1 never merges anything; the logo-stretch pruning threshold is negative with the defaults and never prunes.</li>
+</ul>
+</div>
+
+<h2>Improvements</h2>
+<div class="idea"><span class="tag">Ideas</span>
+<ol>
+  <li><strong>Filter loudness per cause.</strong> Remove only the black flag in a loud area, and keep the candidate if it is also silent or a format change.</li>
+  <li><strong>Express every window in seconds,</strong> so 25, 30 and 60 fps recordings and live and final passes behave the same.</li>
+  <li><strong>Cut at logo transitions by default,</strong> at the quietest frame within 2 seconds of a logo edge. Helps channels that no longer use black frames, which matters for live sports.</li>
+  <li><strong>Turn silence on for the TV app</strong> (107 instead of 43). The proxy keeps its audio dips between commercials even where black frames have been re-encoded grey.</li>
+  <li><strong>Make the per-cause tests soft weights</strong> instead of all-or-nothing, so one odd gap cannot remove every scene cut.</li>
+  <li><strong>Build blocks incrementally</strong> in live mode, only after the last confirmed programme block, instead of rebuilding everything every time.</li>
+</ol>
+</div>
+
+<nav class="pager" aria-label="Pages"><a href="#logo"><small>Previous</small>The station logo</a><a class="next" href="#scoring"><small>Next</small>Scoring and breaks</a></nav>
+</article>
+</section>
+<section class="page" data-page="scoring" hidden>
+<article>
+<p class="eyebrow">Stage 5 · the decision</p>
+<h1>Scoring and breaks</h1>
+<p class="lede">Every block gets one number. It starts at 1.0, every piece of evidence <strong>multiplies</strong> it, and a block that ends above 1.05 is a commercial. Neighbouring commercial blocks form a break, and a few rules about break length and the edges of the recording produce the final cut list.</p>
+
+<div class="card">
+<p><strong>Reading a score.</strong> Above 1 leans commercial, below 1 leans programme. Because evidence multiplies, each factor acts like odds: ×3 means "three times more likely to be a commercial", ×0.01 means "a hundred times less likely". One strong clue (the logo, ×0.01) outweighs several weak ones (×1.5 to ×3). Scores are capped at 99.99, or at 10,000 when the logo is not trusted.</p>
+</div>
+
+<h2>Length matching: "is this exactly 30 seconds?"</h2>
+<p>Commercials are sold in exact durations, so a block, or a run of blocks, that lasts a standard length is strong evidence. A length <em>x</em> <strong>matches</strong> an expected length <em>E</em> with tolerance <em>t</em> when:</p>
+<ol>
+  <li><em>t</em> is clamped between <code>commercial_minimum_tolerance</code> (0.5 s) and <code>commercial_maximum_tolerance</code> (1.0 s);</li>
+  <li><em>x</em> is increased by <code>commercial_length_correction</code> (0.11 s);</li>
+  <li><em>E</em> is only considered if it is below <code>min_show_segment_length</code> − <code>commercial_show_margin</code> (120 − 3 = 117 s);</li>
+  <li>counting whole frames, |<em>x</em> − <em>E</em>| ≤ <em>t</em>.</li>
+</ol>
+<ul>
+  <li><strong>Strict</strong> lengths (<code>commercial_lengths</code>): 10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180.</li>
+  <li><strong>Loose</strong> lengths add <code>optional_commercial_lengths</code>: 5, 35, 40, 50, 70, 75.</li>
+</ul>
+
+<h2>Step 1 · Small clean-ups</h2>
+<ul>
+  <li><strong>Aspect-ratio glitch.</strong> If a block under 3 seconds sits between two aspect-ratio-only cuts and the blocks on either side have the same ratio, the three become one.</li>
+  <li><strong>Is the logo trusted?</strong> If the logo share is below 35% or above 92%, logo evidence is switched off and the score cap rises to 10,000.</li>
+  <li><strong>Logo joins.</strong> With <code>connect_blocks_with_logo</code> = 1, two neighbouring blocks merge when the logo is on at both sides of the cut between them.</li>
+</ul>
+
+<h2>Step 2 · The length of each block</h2>
+<p>Black frames at a block's edges are partly subtracted, because the true edit is inside them. With <em>a</em> the black frames at this block's head and <em>b</em> those at the next block's head:</p>
+<div class="math">effective length = length − (a + b) ÷ fps ÷ 4
+                    − a ÷ fps ÷ 4   if the cut before is purely black or flat
+                    − b ÷ fps ÷ 4   if the cut after is purely black or flat</div>
+<ul>
+  <li>Strict match: score × <code>length_strict_modifier</code> (<strong>3.0</strong>), and the block is marked "strict".</li>
+  <li>Otherwise loose match: score × <code>length_nonstrict_modifier</code> (<strong>1.5</strong>).</li>
+</ul>
+
+<h2>Step 3 · Runs of blocks that add up</h2>
+<p>A 30-second commercial may have been split by a stray cut. For each block, Comskip adds the following blocks one by one (and separately the preceding ones), stopping once the total passes <code>max_commercial_size</code> (120 s). Whenever the running total, minus edge black frames, matches a length:</p>
+<ul>
+  <li>strict: every block in the run is multiplied by <span class="num">1 + combined_length_strict_modifier ÷ n ÷ 2</span>, which is ×1.5 for 2 blocks and ×1.33 for 3 (modifier 2.0);</li>
+  <li>loose: the same with <code>combined_length_nonstrict_modifier</code> (1.25).</li>
+</ul>
+<p>Each block can be boosted this way at most 25 times. The backward search stops at any block that is a strict length by itself.</p>
+
+<h2>Step 4 · Evidence about each block</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>Evidence</th><th>Condition</th><th class="r">Factor</th></tr></thead>
+  <tbody>
+    <tr><td>Logo seen</td><td>block's logo share &gt; <code>logo_percentage_threshold</code> (0.25)</td><td class="r">× 0.01</td></tr>
+    <tr><td>Logo missing</td><td>otherwise, with <code>punish_no_logo</code> = 1 and the recording's logo share &gt; 0.40</td><td class="r">× 2</td></tr>
+    <tr><td>Too long</td><td>longer than <code>min_show_segment_length</code> (120 s)</td><td class="r">× 0.01</td></tr>
+    <tr><td>Far too long</td><td>longer than 240 s</td><td class="r">× 0.0001</td></tr>
+    <tr><td>Wrong shape</td><td>aspect ratio differs from the dominant one by ≥ 0.08 (bit 32)</td><td class="r">× 2</td></tr>
+    <tr><td>Wrong channels</td><td>channel count differs from the dominant one</td><td class="r">× 1 (no effect by default)</td></tr>
+    <tr><td>Captions</td><td>bit 16 only; see <a href="#evidence">other evidence</a></td><td class="r">× 0.75 to × 8</td></tr>
+    <tr><td>Above average</td><td><code>punish</code> bits (all off by default): activity, uniformity change, volume, loud share or scene-change rate more than 1.3 × the recording average</td><td class="r">× 2</td></tr>
+  </tbody>
+</table></div>
+
+<div class="card">
+<p><strong>Worked examples</strong> (defaults, logo trusted)</p>
+<ul>
+  <li>A 30 s commercial without the logo: 1 × 3 (strict) × 2 (no logo) = 6, then boosted by its neighbours. <strong>Commercial.</strong></li>
+  <li>A 30 s programme scene with the logo: 1 × 3 × 0.01 = 0.03. <strong>Programme.</strong></li>
+  <li>A 47 s promo without the logo: 1 × 2 = 2. <strong>Commercial.</strong></li>
+  <li>An 8-minute act with the logo: 1 × 0.01 × 0.0001. <strong>Programme.</strong></li>
+  <li>Without a trusted logo, the same 47 s promo stays at 1.0, not above 1.05. <strong>Programme.</strong></li>
+</ul>
+</div>
+
+<h2>Step 5 · Pattern rules ("heuristics")</h2>
+<p>Each can be switched off through <code>disable_heuristics</code>. They run in this order:</p>
+<ol>
+  <li><strong>Short bumper next to the show is show.</strong> A block under 4.8 s scoring a little above 1, between a strict-length block ending on a hard cut and a long programme block, is set to 0.5.</li>
+  <li><strong>Fill short gaps inside a break.</strong> After a block scoring above 1.4, take the following run of blocks scoring between 0 and 1.05. If the run is short (under 60 s and averaging above 0.9, or under 40 s and averaging above 0.3), the block after it also scores above 1.4, and the run is under 20 s or in the middle of the recording, every block in the run is set to 99.99. A second pass repeats this with 1.1 instead of 1.4 and tighter limits (30 s, 20 s, 10 s).</li>
+  <li><strong>A dark ending is show.</strong> A short, commercial-scoring block after a programme block, ending on a black cut, whose last frames stay darker than 16 for more than 5 seconds, is set to 0.5.</li>
+  <li><strong>Black-padded bumpers.</strong> When the logo is trusted, up to five short (under 7 s) blocks with more than 7 black frames at their heads, just before or after a programme block, are multiplied by 0.1.</li>
+  <li>Edge rules (<code>delete_show_before_or_after_current</code>) and very quiet blocks (<code>remove_silent_segments</code>) are off by default.</li>
+</ol>
+
+<h2>Step 6 · From blocks to breaks</h2>
+<ol>
+  <li>A block is a commercial when its score is above <code>global_threshold</code> (<strong>1.05</strong>).</li>
+  <li>Consecutive commercial blocks form one break, from the first block's start to the last block's end.</li>
+  <li>If less than 60 s of recording remains after the last break, the break is extended to the end. If the first break starts at the second block and the first block is under 20 s, the break is extended to the start.</li>
+  <li><strong>Break length.</strong> A break is deleted when it is shorter than <code>min_commercialbreak</code> (20 s), or longer than <code>max_commercialbreak</code> (600 s) and not the first or last break, unless it touches the first or last 39 seconds (<code>min_commercial_break_at_start_or_end</code>).</li>
+  <li>Optional edge rules: <code>delete_show_after_last_commercial</code>, <code>delete_show_before_first_commercial</code>, <code>always_keep_first_seconds</code>, <code>always_keep_last_seconds</code>. All off by default.</li>
+  <li><strong>Padding.</strong> New start = start + (<code>padding</code> − <code>remove_before</code>), new end = end − (<code>padding</code> − <code>remove_after</code>), in seconds, clamped to the recording. All three default to 0. Positive padding keeps more programme.</li>
+  <li>The breaks are written in every enabled format: the frame list by default, and EDL for the TV app.</li>
+</ol>
+
+<h2>Why it works this way</h2>
+<div class="why"><span class="tag">Why</span>
+<ul>
+  <li><strong>Multiplying</strong> lets independent clues act like odds, so one strong clue decides and weak clues break ties. <span class="inferred">Inferred.</span></li>
+  <li><strong>Long blocks are crushed</strong> because a single commercial is almost never longer than two minutes. <span class="inferred">Inferred.</span></li>
+  <li><strong>Gap filling</strong> stops a station ident or a brief logo flash from splitting one break into two. <strong>Bumper rules</strong> stop short fades at the edge of an act from being cut. <span class="inferred">Inferred.</span></li>
+  <li><strong>The 14-minute edge zones</strong> (<code>added_recording</code>) exist because recordings start early and end late, and the neighbouring programme looks like "content without our logo". <span class="inferred">Inferred.</span></li>
+  <li><strong>The TV app's settings</strong> state that spots run 10 to 120 seconds and a break is at least 20 seconds, "which rejects short bumpers and station idents", and that padding is applied at playback, not here.</li>
+</ul>
+</div>
+
+<h2>How well it does today</h2>
+<p>On two labelled recordings, the original Comskip and this fork produce identical cut lists. One found 6 of 12 breaks. The other found all 23 but also cut 206 seconds of programme. Both problems come from the rules on this page, not from the port.</p>
+
+<h2>Quirks</h2>
+<div class="quirk"><span class="tag">Quirks that affect results</span>
+<ul>
+  <li><strong>120, 150 and 180 seconds never match,</strong> because only lengths below 117 s are considered. Two- and three-minute sponsor spots get no length credit.</li>
+  <li><strong>A negative <code>global_threshold</code> marks everything as commercial.</strong> A percentile threshold is computed, but breaks are still built against the raw negative number.</li>
+  <li><strong>The first and last breaks are never limited to 600 s,</strong> so a 15-minute pre-show "commercial" can survive.</li>
+  <li><strong>Edge zones overlap on short recordings.</strong> Under 28 minutes, nothing counts as "the middle".</li>
+  <li><code>dark_block_modifier</code>, <code>min_schange_modifier</code>, <code>max_schange_modifier</code>, <code>reward</code> and <code>reward_modifier</code> are read and never used. One halving rule for long blocks without a logo ignores its own switch in <code>disable_heuristics</code>.</li>
+</ul>
+</div>
+
+<h2>Improvements</h2>
+<div class="idea"><span class="tag">Ideas</span>
+<ol>
+  <li><strong>Learn the factors from labelled recordings.</strong> The factors are already multipliers, which is a logistic model in disguise. Fitting them to hand-checked recordings would give calibrated weights. Needs more labelled data, ideally per channel.</li>
+  <li><strong>Make the logo one vote among several.</strong> ×0.01 decides most blocks. Capping it at, say, ×0.1 and requiring another clue would reduce both misses (logo left on in a break) and over-cuts (logo drops out during the show).</li>
+  <li><strong>Use the programme's own rhythm.</strong> Learn typical act lengths and break spacing per channel, and penalise breaks that would leave implausibly short acts. Targets the 206-second over-cut.</li>
+  <li><strong>Let 120-second spots match</strong> by comparing against <code>min_show_segment_length</code> itself.</li>
+  <li><strong>A sports profile.</strong> Live sports keep the logo on (often above the 92% limit, which switches the logo off), have irregular breaks, and many short black cuts in play. Rely on silence and black together and on lengths divisible by 15.</li>
+  <li><strong>Find the programme's real start and end</strong> from the first and last logo stretch, instead of fixed 14-minute edge zones.</li>
+</ol>
+</div>
+
+<nav class="pager" aria-label="Pages"><a href="#blocks"><small>Previous</small>Cut points and blocks</a><a class="next" href="#live"><small>Next</small>Live mode</a></nav>
+</article>
+</section>
+<section class="page" data-page="live" hidden>
+<article>
+<p class="eyebrow">While recording</p>
+<h1>Live mode</h1>
+<p class="lede">With <code>live_tv</code> = 1, Comskip follows a recording that is still growing and keeps rewriting its cut list as it goes, so a player can skip breaks before the programme has finished recording. The live list comes from a much simpler method than the full analysis. When the recording ends, the full analysis runs once and replaces it.</p>
+
+<div class="tv"><span class="tag">The TV app</span><p>Your TV app runs in live mode. Its settings poll the growing file for up to 48 seconds without new data before deciding the recording has ended, and write an EDL file as well as the frame list.</p></div>
+
+<h2>When it updates</h2>
+<ul>
+  <li>At most once every <strong>15 seconds</strong> of video.</li>
+  <li>Only on a frame that did not itself just become a cut candidate, so a run of black frames is finished before it is used.</li>
+  <li>Once more after the input ends, before the full analysis.</li>
+  <li>Each update starts from scratch over everything seen so far.</li>
+</ul>
+
+<h2>The method</h2>
+<h3>1 · Which cut points count</h3>
+<p>Only candidates caused by black frames, flat frames or silence are used, and the very first one is skipped. A point counts if any of these holds:</p>
+<ul>
+  <li>logo detection is off and the point is a black or flat frame;</li>
+  <li>the logo is absent somewhere within ±<code>shrink_logo</code> (5 s) of it;</li>
+  <li>it is a silence point with a black frame within ±<code>volume_slip</code> × fps frames (40 seconds).</li>
+</ul>
+<h3>2 · Pairing cut points into breaks</h3>
+<p>For each usable point <em>P</em>, look at the later points <em>Q</em> in order and take the first that fits:</p>
+<ul>
+  <li>at least <code>min_commercial_size</code> (4 s) after <em>P</em>;</li>
+  <li>no more than <code>max_commercialbreak</code> (600 s) away;</li>
+  <li>no more than <code>max_commercial_size</code> (120 s) from <em>P</em> for a new break, or from the current break's end when extending one;</li>
+  <li>with <code>require_div5</code> = 1 only, a gap close to a multiple of 5 seconds.</li>
+</ul>
+<p>If <em>P</em> is within 10 seconds of the current break's end, <em>Q</em> extends the break, unless the logo is visible in more than 25% of the frames between them, in which case the break ends where it is. Otherwise <em>P</em> to <em>Q</em> starts a new break, unless the logo is visible there. Scanning continues from <em>Q</em>.</p>
+<h3>3 · Writing</h3>
+<p>Breaks between <code>min_commercialbreak</code> and <code>max_commercialbreak</code> (20 to 600 s) are padded as in the final pass and the whole list is rewritten. Optionally a flag file says whether the recording is in a commercial right now.</p>
+
+<h2>What the live list leaves out</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>Evidence or rule</th><th>Final pass</th><th>Live</th></tr></thead>
+  <tbody>
+    <tr><td>Block scores and the 1.05 threshold</td><td>yes</td><td>no</td></tr>
+    <tr><td>Standard commercial lengths</td><td>yes</td><td>no (optional multiples of 5)</td></tr>
+    <tr><td>Logo</td><td>scored per block</td><td>raw per-frame flags near cuts</td></tr>
+    <tr><td>Silence</td><td>yes (bit 64)</td><td>never, see below</td></tr>
+    <tr><td>Aspect ratio, scene changes, captions</td><td>yes</td><td>no</td></tr>
+    <tr><td>Pattern rules and edge rules</td><td>yes</td><td>no</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Why it works this way</h2>
+<div class="why"><span class="tag">Why</span><p>The live list is rebuilt from scratch every 15 seconds over the whole recording so far, so it was kept cheap. Waiting for frames that are not cut candidates avoids publishing a break whose edge is still being recorded. <span class="inferred">Inferred.</span></p></div>
+
+<h2>Quirks</h2>
+<div class="quirk"><span class="tag">Quirks that affect results</span>
+<ul>
+  <li><strong>Live mode never sees silence.</strong> Silence cut points are only found after the recording ends (see <a href="#recording">reading the recording</a>).</li>
+  <li><strong>Silence matching is far looser than in the final pass:</strong> 40 seconds here against 40 frames there.</li>
+  <li><strong>The rewind still happens.</strong> With <code>two_pass_logo</code> = 1, once the logo is found (about a minute in), everything restarts from frame 1. Early live output is redone.</li>
+  <li><code>require_div5</code> on its own accepts nothing; it also needs <code>div5_tolerance</code> set.</li>
+</ul>
+</div>
+
+<h2>Improvements</h2>
+<div class="idea"><span class="tag">Ideas for near-live detection</span>
+<ol>
+  <li><strong>Score blocks live.</strong> Run a light version of the block scoring (strict length plus logo) over the last few minutes, so live breaks match the final ones much more closely. Scoring is cheap compared with decoding.</li>
+  <li><strong>Find silence as audio arrives,</strong> a couple of frames behind the video.</li>
+  <li><strong>Know the logo from the first second</strong> by remembering it per channel, which also removes the rewind.</li>
+  <li><strong>Publish whole files.</strong> Write each live output to a temporary file and rename it, so a reader never sees half a list.</li>
+  <li><strong>Feed frames from the recorder.</strong> The TV app already decodes and shrinks the video on the GPU. Piping those small grey frames to Comskip, instead of encoding a proxy for Comskip to decode again, removes most of Comskip's CPU cost. The rewind is the main obstacle, because a pipe cannot be read twice.</li>
+</ol>
+</div>
+
+<nav class="pager" aria-label="Pages"><a href="#scoring"><small>Previous</small>Scoring and breaks</a><a class="next" href="#evidence"><small>Next</small>Other evidence and settings</a></nav>
+</article>
+</section>
+<section class="page" data-page="evidence" hidden>
+<article>
+<p class="eyebrow">Secondary evidence</p>
+<h1>Other evidence and settings</h1>
+<p class="lede">Besides black frames, the logo, silence and aspect ratio, Comskip can use weaker evidence: closed-caption style, a phrase list matched against caption text, and changes in the audio channel count. None of them decides a block on its own. This page also explains how settings are organised and what the TV app changes.</p>
+
+<h2>Closed captions</h2>
+<p>Only with <code>detect_method</code> bit 16, which the default has and the TV app does not.</p>
+<div class="tv"><span class="tag">Open problem</span><p>Turning captions on has crashed FFmpeg in the past. An FFmpeg upgrade seemed to fix it, but it may still happen in some form. Reproduce and fix it before enabling captions for the TV app. It is also unknown whether caption data survives the TV app's re-encode to the 480×270 proxy.</p></div>
+
+<h3>Reading caption data</h3>
+<ul>
+  <li>Comskip reads US broadcast captions (line 21, "CC1") carried inside the video. Pairs marked invalid and empty padding pairs are ignored. Digital-only (708) captions are ignored.</li>
+  <li>Control codes arrive twice in a row; an exact repeat is ignored.</li>
+</ul>
+<h3>Caption style</h3>
+<p>The control codes say how text is shown, and that is what Comskip tracks:</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Code</th><th>Meaning</th><th>Style becomes</th></tr></thead>
+  <tbody>
+    <tr><td>Resume Caption Loading</td><td>build text off screen, then flip it on</td><td>pop-on</td></tr>
+    <tr><td>Roll-up 2, 3 or 4 rows</td><td>text scrolls up line by line (live programmes, news)</td><td>roll-up</td></tr>
+    <tr><td>Resume Direct Captioning</td><td>text painted straight onto the screen</td><td>paint-on</td></tr>
+    <tr><td>Erase Displayed Memory</td><td>screen cleared</td><td>none</td></tr>
+    <tr><td>End Of Caption</td><td>swap screen and buffer</td><td>none if nothing is on screen</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li>Every style change starts a <strong>caption run</strong>. Runs shorter than 1 second are removed (flicker).</li>
+  <li>The <strong>dominant style</strong> is the one covering the most frames, "none" included.</li>
+  <li>A <strong>block's style</strong> is the style covering most of its frames.</li>
+</ul>
+<h3>Scoring</h3>
+<div class="tablewrap"><table>
+  <thead><tr><th>Situation</th><th class="r">Factor</th></tr></thead>
+  <tbody>
+    <tr><td>The recording's dominant style is "none" and the block has captions</td><td class="r">× 8</td></tr>
+    <tr><td>The block's style matches the dominant style</td><td class="r">× 0.75</td></tr>
+    <tr><td>The block has no captions</td><td class="r">× 1.5</td></tr>
+    <tr><td>The block has a different style</td><td class="r">× 2</td></tr>
+  </tbody>
+</table></div>
+<h3>Phrase dictionary</h3>
+<p>An optional file lists programme phrases, then a line of dashes, then commercial phrases. Each caption segment containing a phrase (ignoring case) multiplies the block holding the segment's middle by 1.05 for a commercial phrase or divides it by 1.05 for a programme phrase.</p>
+<div class="why"><span class="tag">Why</span><p>A captioned programme uses one style throughout (roll-up for live shows, pop-on for scripted ones), while commercials are often uncaptioned or use another style. Captions appearing in an otherwise uncaptioned recording strongly suggest commercials. <span class="inferred">Inferred.</span></p></div>
+<div class="quirk"><span class="tag">Quirks</span>
+<ul>
+  <li>A "commercial" caption style is defined and has a factor of 4, but the code that would detect it never sets it.</li>
+  <li>A sparsely captioned programme can have "none" as its dominant style, which flips the rule to "any captions means ×8": the whole programme leans commercial.</li>
+  <li><code>ccCheck</code> sounds like a detection switch but only writes a marker file saying whether captions were found.</li>
+</ul>
+</div>
+
+<h2>Audio channel changes</h2>
+<p>Every change in the channel count (5.1 programme, stereo commercials) ends one channel stretch and starts another, with no minimum length. With <code>cut_on_ac_change</code> = 1 (default) every change becomes a cut. A block whose channel count differs from the dominant one is multiplied by <code>ac_wrong_modifier</code>, which is 1.0, so by default channel changes add cuts but never change scores.</p>
+<div class="idea"><span class="tag">Ideas</span><p>Ignore channel stretches shorter than about half a second, which only come from unstable streams. Learn the score factor per channel, since some channels switch reliably and others switch inside programmes.</p></div>
+
+<h2>How settings are organised</h2>
+<p>Settings come from three places, later ones winning: built-in defaults, the settings file, and the command line. Only the key name matters; section headings are ignored. The main groups:</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Group</th><th>Key settings</th></tr></thead>
+  <tbody>
+    <tr><td>Which evidence</td><td><code>detect_method</code></td></tr>
+    <tr><td>Commercial lengths</td><td><code>commercial_lengths</code>, <code>min_commercial_size</code>, <code>max_commercial_size</code>, <code>min_commercialbreak</code>, <code>max_commercialbreak</code>, <code>min_show_segment_length</code></td></tr>
+    <tr><td>Black and flat frames</td><td><code>max_avg_brightness</code>, <code>test_brightness</code>, <code>max_brightness</code>, <code>maxbright</code>, <code>non_uniformity</code>, <code>intelligent_brightness</code></td></tr>
+    <tr><td>Audio</td><td><code>max_volume</code>, <code>max_silence</code>, <code>min_silence</code>, <code>volume_slip</code>, <code>cut_on_ac_change</code></td></tr>
+    <tr><td>Logo</td><td><code>logo_threshold</code>, <code>logo_percentage_threshold</code>, <code>logo_fraction</code>, <code>logo_percentile</code>, <code>shrink_logo</code>, <code>two_pass_logo</code>, <code>give_up_logo_search</code></td></tr>
+    <tr><td>Score factors and decision</td><td>the <code>*_modifier</code> keys, <code>punish_no_logo</code>, <code>global_threshold</code>, <code>disable_heuristics</code></td></tr>
+    <tr><td>Recording edges and padding</td><td><code>added_recording</code>, <code>padding</code>, <code>remove_before</code>, <code>remove_after</code></td></tr>
+    <tr><td>Live</td><td><code>live_tv</code>, <code>live_tv_retries</code></td></tr>
+    <tr><td>Speed</td><td><code>thread_count</code>, <code>scan_step</code>, <code>edge_step</code></td></tr>
+  </tbody>
+</table></div>
+
+<h2>What the TV app changes</h2>
+<p>The TV app's settings file restates many defaults for documentation. Only four values differ:</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Setting</th><th class="r">Default</th><th class="r">TV app</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>detect_method</code></td><td class="r">123</td><td class="r">43</td><td>Turns off captions and silence. Scene change is off in both. The file's comment wrongly says 43 includes scene change.</td></tr>
+    <tr><td><code>live_tv</code></td><td class="r">0</td><td class="r">1</td><td>Follow the growing recording and rewrite outputs as it goes.</td></tr>
+    <tr><td><code>live_tv_retries</code></td><td class="r">6</td><td class="r">12</td><td>Wait 48 s without new data before deciding the recording has ended.</td></tr>
+    <tr><td><code>output_edl</code></td><td class="r">0</td><td class="r">1</td><td>Also write an EDL cut list (start and end in seconds).</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Replaying and checking results</h2>
+<ul>
+  <li><strong>Frame data replay.</strong> Comskip can save its per-frame measurements and later rerun the analysis from them without decoding, which makes tuning settings fast.</li>
+  <li><strong>Reference comparison.</strong> If a reference cut list exists next to the recording, the result is compared with it. Edges within 40 frames (about 1.3 s) count as matching, and the falsely cut and missed seconds are reported.</li>
+</ul>
+
+<nav class="pager" aria-label="Pages"><a href="#live"><small>Previous</small>Live mode</a><a class="next" href="#improvements"><small>Next</small>Improvements</a></nav>
+</article>
+</section>
+<section class="page" data-page="improvements" hidden>
+<article class="wide">
+<p class="eyebrow">Looking ahead</p>
+<h1>Improvements</h1>
+<p class="lede">The ideas from every stage, gathered and ordered by what they would do for the goal: near-live detection on a small NAS, where catching most of each break matters more than exact edges and cutting programme matters most of all.</p>
+
+<h2>What we measured</h2>
+<p>Measured on a desktop in October 2026, on real 480×270 proxies from the NAS. The N100 is slower per core, but the ratios should hold.</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Change</th><th class="r">CPU</th><th>Results</th></tr></thead>
+  <tbody>
+    <tr><td>One scan thread instead of four helper threads</td><td class="r">−24%</td><td>identical</td></tr>
+    <tr><td>Plus every second pixel (<code>scan_step</code> = 2)</td><td class="r">−37% in total</td><td>identical on 3 of 4 recordings, 5–6 s different on the fourth</td></tr>
+    <tr><td>Logo edges on every second pixel</td><td class="r">none</td><td>95–440 s different</td></tr>
+    <tr><td>Smaller pictures (320 or 240 wide)</td><td class="r">decode only</td><td>125–450 s different</td></tr>
+    <tr><td>Half the frame rate</td><td class="r">small</td><td>one recording found 4 of 12 breaks instead of 6</td></tr>
+    <tr><td>Original Comskip vs this fork</td><td class="r">fork faster</td><td>identical</td></tr>
+  </tbody>
+</table></div>
+<p>Of what remains, decoding the proxy is roughly 80% of the CPU time.</p>
+
+<h2>Accuracy</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>Idea</th><th>Expected benefit</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Hand-checked labels first.</strong> A handful of recordings, mostly football, with checked break edges.</td><td>Every other accuracy change can then be measured instead of guessed.</td><td>Labelling time.</td></tr>
+    <tr><td><strong>Turn silence on for the TV app</strong> (107 instead of 43).</td><td>A second cut signal where black frames are weak or re-encoded grey.</td><td>Quiet programme scenes add cuts; the per-cause test partly handles that.</td></tr>
+    <tr><td><strong>Cut at logo transitions by default,</strong> at the quietest frame within 2 s.</td><td>Breaks found on channels that skip black frames.</td><td>Logo flicker adds cuts; require stretches of a few seconds.</td></tr>
+    <tr><td><strong>Make the logo one vote among several</strong> (cap at ×0.1).</td><td>Fewer misses when the logo stays on in a break, fewer over-cuts when it drops out in the programme.</td><td>More promos marked as commercials.</td></tr>
+    <tr><td><strong>Close logo stretches after 2–3 absent samples,</strong> not one.</td><td>Fewer false breaks at flashes and fades.</td><td>Break starts a few seconds late.</td></tr>
+    <tr><td><strong>A sports profile:</strong> logo often above the 92% limit, irregular breaks, short black cuts in play.</td><td>Better results on most of what the NAS records.</td><td>Replays and studio cut-ins look like ads.</td></tr>
+    <tr><td><strong>Learn the score factors</strong> from labelled recordings.</td><td>Calibrated weights instead of hand-set ones.</td><td>Over-fitting without enough labels.</td></tr>
+    <tr><td><strong>Use the programme's rhythm:</strong> typical act lengths and break spacing.</td><td>Fewer over-cuts like the 206 s case.</td><td>Specials and sports break the pattern.</td></tr>
+    <tr><td><strong>Let 120 s spots match.</strong></td><td>Credit for two-minute sponsor spots.</td><td>Long scenes that happen to be 120 s.</td></tr>
+    <tr><td><strong>Captions</strong>, after the FFmpeg crash is fixed and if caption data survives the proxy.</td><td>A cheap, independent signal.</td><td>The crash; the sparse-caption flip.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Near-live detection</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>Idea</th><th>Expected benefit</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Score blocks live</strong> (strict length plus logo) over the last few minutes.</td><td>Live breaks close to the final ones.</td><td>Small CPU cost; live and final still differ in places.</td></tr>
+    <tr><td><strong>Remember the logo per channel.</strong></td><td>Logo known from the first second, no rewind.</td><td>Logo redesigns need a relearn rule.</td></tr>
+    <tr><td><strong>Find silence as audio arrives.</strong></td><td>Live mode gets its second signal.</td><td>None significant.</td></tr>
+    <tr><td><strong>Rescore the opening instead of rewinding.</strong></td><td>No second decode; works on a pipe.</td><td>Black-frame values for the opening still include logo pixels.</td></tr>
+    <tr><td><strong>Pipe frames from the recorder.</strong> The TV app already decodes and shrinks on the GPU, then encodes a proxy only for Comskip to decode it again.</td><td>Removes most of Comskip's remaining CPU and the proxy encode.</td><td>Needs the rewind replacement above and a TV-app change.</td></tr>
+    <tr><td><strong>Write outputs whole</strong> (temporary file, then rename).</td><td>A reader never sees half a list.</td><td>None.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Speed</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>Idea</th><th>Expected benefit</th><th>Risk</th></tr></thead>
+  <tbody>
+    <tr><td><strong>One scan thread</strong> for small pictures.</td><td>−24% CPU, identical output (measured).</td><td>Slightly longer wall time on idle machines.</td></tr>
+    <tr><td><strong>Measure shares, not counts,</strong> in the black-frame tests, then sample every second pixel.</td><td>About −15% more, with sampling no longer changing results.</td><td>Re-baseline existing settings.</td></tr>
+    <tr><td><strong>Decode only brightness.</strong> The decoder honours the greyscale request only if FFmpeg was built for it, and the current builds appear not to be.</td><td>Cheaper decoding, which is now the largest cost.</td><td>None; being measured in the test container.</td></tr>
+    <tr><td><strong>Stop the logo search</strong> after <code>give_up_logo_search</code>.</td><td>Less CPU on channels without a logo.</td><td>Very late logos missed.</td></tr>
+    <tr><td><strong>Read pictures in plain rows,</strong> then consider vector instructions.</td><td>Faster scans; at most about 5% of total after the items above.</td><td>Must reproduce today's edge quirks exactly.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Clean-ups that make the method honest</h2>
+<ul>
+  <li>Fix the TV app's <code>detect_method</code> comment, and decide deliberately which evidence it should use.</li>
+  <li>Treat unknown volume as unknown, not silent.</li>
+  <li>Put audio and video on one clock, and use one volume scale for every audio format.</li>
+  <li>Express every window in seconds instead of frames.</li>
+  <li>Remove logic that never takes effect: the brightness-jump test, the unused black-level search, the credits detector, the "commercial" caption style, and the five unused score settings.</li>
+  <li>Respect <code>detect_method</code> bits 8 and 128 during decoding, and label audio-channel cuts as what they are.</li>
+  <li>Make a negative <code>global_threshold</code> either work or be rejected.</li>
+</ul>
+
+<nav class="pager" aria-label="Pages"><a href="#evidence"><small>Previous</small>Other evidence and settings</a><a class="next" href="#glossary"><small>Next</small>Glossary</a></nav>
+</article>
+</section>
+
+<section class="page" data-page="glossary" hidden>
+<article>
+<p class="eyebrow">Reference</p>
+<h1>Glossary</h1>
+<dl class="gloss">
+  <dt>Brightness</dt><dd>The grey value of a pixel, 0 (black) to 255 (white). Comskip uses nothing else from the picture.</dd>
+  <dt>Histogram</dt><dd>A count of how many sampled pixels have each brightness value, 256 counts per frame.</dd>
+  <dt>Uniformity</dt><dd>How far pixels spread from the frame's average brightness, ignoring small noise. 0 is perfectly flat. Below 500 counts as a flat frame.</dd>
+  <dt>Similarity</dt><dd>The overlap of two frames' histograms, as a percentage. Below 90 is recorded as a scene change.</dd>
+  <dt>Cause</dt><dd>The reason a frame is a cut candidate: black, flat, scene change, silence, resolution change, aspect ratio, cutscene or logo. A frame can have several.</dd>
+  <dt>Candidate list</dt><dd>All frames with at least one cause, in order. Called the black list in the source, although it holds every cause.</dd>
+  <dt>Cut</dt><dd>A group of candidates less than a second apart, treated as one edit. The block boundary goes in its middle.</dd>
+  <dt>Block</dt><dd>The stretch of recording between two cuts. The unit that gets scored.</dd>
+  <dt>Score</dt><dd>A block's number, starting at 1.0 and multiplied by every piece of evidence. Above 1.05 is a commercial.</dd>
+  <dt>Strict length</dt><dd>A length within half a second to a second of 10, 15, 20, 25, 30, 45, 60 or 90 seconds (longer values are listed but never match).</dd>
+  <dt>Break</dt><dd>One or more neighbouring commercial blocks. The cut list is a list of breaks.</dd>
+  <dt>Logo stretch</dt><dd>A smoothed, trimmed period during which the station logo is considered visible.</dd>
+  <dt>Logo share</dt><dd>The fraction of the recording inside logo stretches. Between 35% and 92% the logo is trusted.</dd>
+  <dt>Picture box</dt><dd>The part of the frame inside any black bars. Gives the aspect ratio.</dd>
+  <dt>Dominant</dt><dd>The value (aspect ratio, channel count, caption style) that covers the most frames in the recording.</dd>
+  <dt>Proxy</dt><dd>The small 480×270, 30 fps copy of a recording that the TV app makes for Comskip.</dd>
+  <dt>Rewind</dt><dd>Restarting analysis from the first frame once the logo is found (<code>two_pass_logo</code>).</dd>
+  <dt>Live mode</dt><dd>Following a growing recording and rewriting a simpler cut list every 15 seconds.</dd>
+  <dt>fps</dt><dd>Frames per second. Rules written in seconds become seconds × fps frames.</dd>
+  <dt><code>detect_method</code></dt><dd>The setting that switches kinds of evidence on and off, as a sum of values (1 black, 2 logo, 4 scene change, 8 resolution, 16 captions, 32 aspect ratio, 64 silence, 128 cutscenes).</dd>
+</dl>
+
+<nav class="pager" aria-label="Pages"><a href="#improvements"><small>Previous</small>Improvements</a><a class="next" href="#overview"><small>Back to</small>Overview</a></nav>
+</article>
+</section>
+</main>
+</div>
+<script>
+(function () {
+  var pages = Array.prototype.slice.call(document.querySelectorAll('.page'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('[data-nav]'));
+  var rail = document.getElementById('rail');
+  var btn = document.getElementById('menu-btn');
+  var names = pages.map(function (p) { return p.getAttribute('data-page'); });
+  function show() {
+    var want = (location.hash || '').replace('#', '');
+    if (names.indexOf(want) < 0) want = 'overview';
+    pages.forEach(function (p) { p.hidden = p.getAttribute('data-page') !== want; });
+    links.forEach(function (a) {
+      if (a.getAttribute('data-nav') === want) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    var page = pages[names.indexOf(want)];
+    var h = page && page.querySelector('h1');
+    document.title = (want === 'overview' || !h) ? 'How Comskip Decides' : h.textContent + ' · How Comskip Decides';
+    rail.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  btn.addEventListener('click', function () {
+    var open = rail.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  window.addEventListener('hashchange', function () { show(); window.scrollTo(0, 0); });
+  show();
+})();
+</script>
+</body>
+</html>

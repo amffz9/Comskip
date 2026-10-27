@@ -201,6 +201,71 @@ Consequence: piped results can differ slightly from file results in the opening
 section, mainly where the logo stays visible over a dark frame. The end-to-end
 check measures this with `score.py` rather than requiring identical output.
 
+## Platform facts (measured on the NAS, October 24, 2026)
+
+Environment: TV container `tv_app-tv-1` (Alpine) has `/dev/dri` mapped, the
+Intel `iHD` VA driver, and system FFmpeg 8.1.2 with VAAPI and QSV enabled. The
+deployed `/usr/local/bin/comskip` is statically linked against vcpkg's FFmpeg,
+which is built without VAAPI: the vcpkg port's `vaapi` feature (Linux only) is
+not requested in `vcpkg.json`. The Windows vcpkg build already has D3D11VA and
+DXVA2.
+
+Input: `bin/perf/hd-h264-5min.ts`, 1920x1080 H.264, 11,036 frames (about
+6 minutes). FFmpeg CLI times use `-benchmark`; Comskip times use `time -v`.
+
+| Run | Wall s | CPU s (user+sys) |
+|---|---|---|
+| Software decode, grey, 4 threads, no output | 20.5 | 69.0 |
+| Software decode, grey, 1 thread, no output | 54.3 | 56.3 |
+| VAAPI decode, frames stay on GPU | 21.5 | 9.2 |
+| VAAPI decode + copy full NV12 frames to CPU | 40.0 | 44.9 |
+| VAAPI decode + copy only the luma plane | 49.4 | 60.4 |
+| VAAPI decode, FFmpeg's automatic transfer | 52.2 | 55.4 |
+| VAAPI decode + GPU scale to 960x540 + copy | 21.9 | 19.5 |
+| VAAPI decode + GPU scale to 480x270 + copy | 21.6 | 21.1 |
+| Deployed Comskip on the 1080p file | 41.5 | 76.6 |
+| FFmpeg grey 1080p raw frames piped into deployed Comskip (`/dev/stdin`) | 60.2 | 199.2 (both processes) |
+| Deployed Comskip on pre-scaled 480x270 grey raw frames (file) | 6.9 | 6.7 |
+| Deployed Comskip on a 480x270 H.264 proxy | 5.4 | 10.6 |
+| Software decode of that proxy alone, 1 thread | 2.4 | 2.8 |
+
+With every frame written to a sink so the CPU reads its pixels:
+
+| Run | Wall s | CPU s |
+|---|---|---|
+| VAAPI full size, copy | 47.7 | 79.8 |
+| VAAPI full size, direct map | 39.3 | 74.4 |
+| VAAPI GPU scale to 480x270, copy | 21.6 | 26.8 |
+| VAAPI GPU scale to 480x270, direct map | 21.6 | 25.3 |
+| Software decode + CPU scale to 480x270 | 38.6 | 131.2 |
+
+Conclusions:
+
+1. Copying full-size frames back from the GPU costs more CPU than it saves.
+   Mapping GPU memory directly (the integrated GPU shares RAM) saves only
+   about 10% at full size, because the surfaces are tiled and the CPU reads
+   them through uncached mappings. HardwareDecoder is worth having only if it
+   reduces picture size on the GPU before the CPU reads it. At small size,
+   direct mapping and copying cost the same.
+2. The deployed Comskip already accepts a non-seekable pre-decoded stream:
+   grey raw video plus PCM audio in NUT on `/dev/stdin`, with presentation
+   times preserved. Its cut list matched file mode on this fixture. That
+   fixture never found a logo, so the rewind on a pipe is untested.
+3. Piping full-size raw frames is slower than decoding the file. The
+   pre-decoded path pays off only for small pictures from a process that is
+   already decoding.
+4. On the TV app's 480x270 proxy, decoding is about 2.8 of 10.6 CPU seconds
+   for 6 minutes, and the whole run takes about 1.5% of real time. Neither
+   VAAPI nor piping changes the NAS's live cost much there. VAAPI matters for
+   full-resolution inputs.
+5. Unverified option (external research): have the GPU's scaler write its
+   output into memory Comskip allocated itself (a "user pointer" VAAPI
+   surface). The CPU then reads ordinary cached memory and skips the
+   per-frame map, unmap and copy. FFmpeg does not offer this, so it needs
+   direct VAAPI calls inside HardwareDecoder. It must be shown to work on the
+   N100's `iHD` driver, and to save CPU over measurement row 4 of the second
+   table, before the contract relies on it.
+
 ## Assumptions
 
 - [ASSUMED: the pre-decoded stream carries grey 8-bit pictures and 16-bit PCM
