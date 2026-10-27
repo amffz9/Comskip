@@ -46,6 +46,7 @@ the current resolution; Windows-only results do not establish sanitizer safety.
 | B120 | Fixed in the MSVC sanitizer stage; the public-build `media_formats` automatic reduced-resolution case passes under MSVC AddressSanitizer. |
 | B114 | Fixed in the checked-output/time-safety stage; focused platform, settings, timing, and complete Windows suites pass. |
 | B115 | Fixed in the caption portability stage; the CRLF dictionary regression and complete Windows suites pass. |
+| B126–B133 | Open; found October 27, 2026 and planned in `docs/detection-session-roadmap.md` (stages 1–3 and 6). |
 
 ## Issue evidence and verification
 
@@ -1608,3 +1609,60 @@ before calling FFmpeg seek APIs.
   padding, the last live EDL before the final pass is within half a second of
   post-processing (cut-point choice, not units); the live XML regression now
   expects the same padded interval as the recording list.
+
+### B126: The logo rewind fails on a raw-frame pipe
+
+- **Evidence:** With `two_pass_logo=1`, Comskip reading rawvideo+PCM NUT from
+  `/dev/stdin` reopens the input when the logo is found and stops with
+  "Cannot open recording /dev/stdin" (exit 2). A transport-stream pipe instead
+  continues from the current position, so the opening is never re-analysed.
+- **Impact:** Piped input only works with `two_pass_logo=0`.
+- **Status:** Open. Roadmap stage 2 (`docs/detection-session-roadmap.md`).
+
+### B127: Piped and file input give different results from the same frames
+
+- **Evidence:** October 27 benchmarks (`bin/perf/dock`): with the rewind off,
+  77483aca edges differ by about one frame, and faaea10a edges move by up to
+  40 s, with one break lost. Piping float audio did not remove the difference.
+  Suspected cause: audio/video start-time handling.
+- **Status:** Open. Roadmap stage 1.
+
+### B128: The logo search never gives up when `added_recording` is above zero
+
+- **Evidence:** `logo.cpp:1098-1099` adds `added_recording * 60` seconds to
+  `give_up_logo_search` on each check. The default `added_recording=14`, which
+  the TV ini keeps, grows the limit by 840 s per check.
+- **Status:** Open. Roadmap stage 3.
+
+### B129: Unknown volume counts as silence
+
+- **Evidence:** Frames whose volume is still unknown (-1) pass the `< 6`
+  silence test.
+- **Status:** Open. Roadmap stage 3.
+
+### B130: Pixel-count tests change meaning with `scan_step`
+
+- **Evidence:** isDim/hasBright compare sampled counts with thresholds scaled
+  for full-pixel counts, and the ring scans use a fixed `brightCount < 5` for
+  the picture box (`scene_analysis.cpp` around lines 370/408/446/484). With
+  `scan_step=2` one recording's results moved by 5-6 s.
+- **Status:** Open. Roadmap stage 3; blocks making `scan_step` a default.
+
+### B131: Commercial lengths of 120, 150 and 180 seconds never match
+
+- **Evidence:** They are listed in `commercial_lengths`, but a rule earlier in
+  scoring rejects blocks of 117 s or longer before the length match.
+- **Status:** Open. Roadmap stage 6 (accuracy change, measured against labels).
+
+### B132: `detect_method` bits 8 and 128 are not respected during decoding
+
+- **Evidence:** Resolution-change and cutscene work run whatever the setting;
+  bit 8 only affects CSV output.
+- **Status:** Open. Roadmap stage 3.
+
+### B133: Dead detection logic
+
+- **Evidence:** The brightness-jump test, the unused black-level search, the
+  credits detector, the "commercial" caption style and five unused score
+  settings never take effect (see `docs/algorithm/index.html`, improvements).
+- **Status:** Open. Clean-up, roadmap stage 3.
