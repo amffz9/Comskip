@@ -301,6 +301,20 @@ all 23 but also cuts 206 s of programme.
   audio is a real ad (an "in-programme ad"), and a 2.5 s CBS sting that the
   length rule removes. Script: scratchpad `fp/repeats.py`, to be moved into
   `bin/perf` when this stage starts.
+- **Live use:** fingerprint codes arrive about 8 per second; 3-5 s of codes
+  aligned with one stored ad is a match, and the stored copy gives the whole
+  ad's extent, so it is marked at once (edges to about 0.1 s). A break stays
+  open across gaps under about 90 s between matches, its start falls back to
+  the nearest seam before the first match, and it closes on programme
+  evidence (logo, scoreboard, seam). Two tiers: a small in-memory index of
+  confirmed ads (about 10-20 MB) that concurrent recordings add to at once,
+  and the full on-disk store for finding new repeats after each recording.
+  First airings are left to today's detection and the post-recording pass.
+- **Open question (patents):** Facebook holds US patents 9258604, 9503781 and
+  9832523, "Commercial detection based on audio fingerprinting" (filed around
+  2014), covering cross-channel matching and guide-data filtering. Read the
+  claims, or ask someone qualified, before publishing this stage in the public
+  fork. Personal use is not the concern.
 - **Questions:** Q10.
 
 ### 8. GPU hardware decoding (VAAPI), opt-in (M, may be dropped)
