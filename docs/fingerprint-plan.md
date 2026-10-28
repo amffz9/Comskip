@@ -878,9 +878,17 @@ Types used below:
   fingerprint yet. Check: with no fingerprint list, marks API output identical
   to today; a test `in-programme ad` mark is not skipped by the current web and
   Android builds; a final parse and a re-detection leave a test fingerprint
-  list untouched.
+  list untouched. **Done** (TV 93ca644, 3fd63d2): `dvrMarkStore.js`; the list
+  is `capture.fingerprintMarks` in metadata_json; T3 enters through
+  `DvrService.applyFingerprintMarks`. Left for T3: carrying an excluded
+  Comskip mark's exclusion onto overlapping fingerprint marks; the re-encode
+  stale-row commit could overwrite `fingerprintMarks`.
 - **T2. Generation fix for Timeline** (SERVER_HARDENING). Check: a real-
   Comskip test across a generation seam gives correct capture seconds.
+  **Done** (TV 1bfd742): each generation's proxy gets `-output_ts_offset`;
+  `dvrProxyClock.js` maps to capture seconds or `AxisUntrusted`. Still
+  untrusted: AC-4 passthrough (`-copyts`) captures and multi-generation
+  captures recorded before the fix.
 - **T3. Post-recording pass, shadow then on.** FingerprintRunner, AudioFeeder
   (saved rendition), the Evidence copy saved at final parse and after
   re-detection. Shadow first: results logged and compared, not applied. Then on
