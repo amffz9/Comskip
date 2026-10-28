@@ -38,8 +38,8 @@ START (real speed is for short excerpts; full recordings run accelerated).
 A progress line comes about once a minute per run; a run whose fed position
 does not advance for 60 s of wall time is stopped and fails. The tool's usage
 lines give resident memory and CPU over stream time: a run fails over 48 MB, or
-when memory rises more than 10 MB an hour over the last 10 usage lines after the
-first 5 minutes. Writes WORK/live/NAME/live.json and WORK/live-results.json.
+when memory rises more than 6 MB an hour (least squares over every usage line
+after the first 5 minutes, at least 10 of them). Writes WORK/live/NAME/live.json and WORK/live-results.json.
 """
 import argparse
 import csv  # the label files
@@ -58,14 +58,16 @@ from pathlib import Path
 
 STUCK_SECONDS = 60  # a live run whose fed position does not advance this long fails
 MEMORY_BUDGET_MB = 48  # F5: the tool's resident memory stays under this
-# The leak rule over the tool's usage rows (one a stream minute): after the
-# first WARM_UP stream seconds, the least-squares slope of resident memory over
-# the last TREND_ROWS rows may not exceed LEAK_MB_PER_HOUR. Growth the tool
-# means to have, its own codes and the map of them for self-repeats, measured
-# about 5 MB an hour on g4 and g5; the rule allows twice that.
+# The leak rule over the tool's usage rows (one a stream minute): the
+# least-squares slope of resident memory over every row after the first
+# WARM_UP stream seconds (at least TREND_ROWS of them) may not exceed
+# LEAK_MB_PER_HOUR. Growth the tool means to have, its own codes and the map of
+# them for self-repeats, measured 2.9-3.5 MB an hour on all six recordings; the
+# rule allows about twice that. A slope over only the last rows is not used:
+# vectors doubling their capacity make it swing from 1.5 to 14 MB an hour.
 WARM_UP = 300
 TREND_ROWS = 10
-LEAK_MB_PER_HOUR = 10.0
+LEAK_MB_PER_HOUR = 6.0
 RATE = 11025
 # Context for each labelled recording: channel, series key, programme window.
 # Football windows are the whole broadcast slot (the recordings are its first
@@ -569,7 +571,7 @@ def usage_trend(events):
     steps = [(b["cpu_seconds"] - a["cpu_seconds"]) / max(b["now"] - a["now"], 1e-9) * 60 for a, b in zip(rows, rows[1:])]
     if steps:
         trend["cpuPerStreamMinute"] = [round(sum(steps[:10]) / len(steps[:10]), 3), round(sum(steps[-10:]) / len(steps[-10:]), 3)]
-    late = [r for r in rows if r["now"] >= WARM_UP][-TREND_ROWS:]
+    late = [r for r in rows if r["now"] - rows[0]["now"] >= WARM_UP]
     if len(late) < TREND_ROWS:
         trend["slopeMBPerHour"] = None  # too short to judge a trend
         return trend
@@ -578,7 +580,7 @@ def usage_trend(events):
     slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sum((x - mx) ** 2 for x in xs)
     trend["slopeMBPerHour"] = round(slope, 2)
     if slope > LEAK_MB_PER_HOUR:
-        failures.append(f"resident memory rising {slope:.1f} MB an hour over the last {TREND_ROWS} usage rows "
+        failures.append(f"resident memory rising {slope:.1f} MB an hour over {len(late)} usage rows after warm-up "
                         f"(the rule allows {LEAK_MB_PER_HOUR})")
     return trend
 

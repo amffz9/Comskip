@@ -891,10 +891,66 @@ Types used below:
   each matched ad marked within 6 s of its labelled start; projected parts
   withdrawn within 2 s of a divergence; a stalled reader drops and counts;
   memory under 48 MB, from `/usr/bin/time` and from the tool's `usage` lines
-  (a run fails over 48 MB, or when resident memory rises more than 10 MB an
-  hour over the last 10 usage lines after the first 5 minutes). The Harness
+  (a run fails over 48 MB, or when resident memory rises more than 6 MB an
+  hour, a least-squares fit over every usage line after the first 5
+  minutes). The Harness
   prints a progress line about once a minute per run and fails a run whose
   stream position does not advance for 60 s of wall time.
+  **Done:** `comskip-fingerprint live --store PATH --recording ID --context
+  PATH --evidence PATH --marks PATH [--log PATH]` (C++, `src/fingerprint`:
+  `live.cpp`, `live_matcher.cpp`, `audio_queue.cpp`); Harness `--live`.
+  Results with the all-six library (`--library all`) unless leave-one-out is
+  named. Full recordings were replayed at 40x; a g5 excerpt (1800-2400, three
+  live-index matches) at real speed: marked 5.48 s median, 6.26 s worst, wall
+  less stream clock -0.03 to 0.30 s, 8.9 MB. Before the change of plan, g4,
+  g5 (with and without cuts), faaea10a, elsbeth303 and nash107 ran whole at
+  real speed and gave the same stream-clock numbers as 40x:
+  - Marked after the agreed start (first MarksFile with an `ad` mark over
+    it, on the stream clock): 44 live-index matches over the six, median
+    5.5 s, worst 6.40 s; 3 over 6 s (g5 6.40 and 6.18, 77483aca 6.02). The
+    floor is about 5.5 s: 3 s of agreeing codes, each covering 2.72 s of
+    audio, plus the smoothing window. Against labelled starts (labels are
+    +-5 s) the breaks a match leads: g4 6.05, 6.16, 6.78 s; 77483aca 5.95,
+    7.48 s. So the 6 s check holds on the stream clock for 41 of 44 matches
+    and is missed by at most 0.40 s; it is not met as written.
+    The second exact seed of a group came up to 3 s late on g5 (8.69 s
+    worst, 4 of 8 over 6 s), so live tracking now starts from one seed.
+  - Wall clock: at real speed the wall clock less the stream second reached
+    stays within -0.07 to 0.54 s over whole recordings; the MarksFile is
+    written within 0.004 s of the change, and read whole every 0.2 s
+    (about 27,000 reads per game, none broken).
+  - Withdrawal (`--cut-after 10`, the rest of each ad airing replaced by
+    programme audio): g4 4 cuts, g5 2, 77483aca 1 (a natural divergence),
+    each withdrawn 1.11 s after the codes stopped agreeing and 3.02-3.52 s
+    after the cut point in the audio. The 2 s check holds from the moment
+    the codes stop agreeing; it cannot hold from the cut point itself, since
+    the first code that disagrees completes about 1.8 s after it (2.72 s of
+    audio per code) and 1 s of non-agreement is the contract's own rule.
+  - Stalled reader (`--stall 600:60`, g5): 60 s asleep with a 30 s queue
+    dropped 29.986 s at real speed (569.986 s at 40x), counted in the
+    result and the log; the longest write to standard input was 0.000 s and
+    the audio after the gap is a new run.
+  - Memory: peak 8.8-19.0 MB by `/usr/bin/time` (19.0 MB on 77483aca, 3 h);
+    `usage` lines grow 2.9-3.5 MB an hour after warm-up (own codes and the
+    self-repeat map), so 48 MB is reached at about 11 hours of one capture.
+    CPU about 0.08% of one core at real speed.
+  - Final live marks equal Comskip-107's on every recording with the
+    leave-one-out library; with the all-six library g5 misses 202.6 s
+    instead of 232.5 s and faaea10a finds 6/12 breaks instead of 5/12, as in
+    F4.
+  - Choices the contracts left open: a projected part is the rest of the
+    entry's extent, also backwards to the run start when the entry began
+    before the run; self-repeats are at least 20 s apart and only become
+    `ad` marks under the within-show rule; the queue holds 30 s and drops
+    audio arriving while it is full, starting a new run after the gap;
+    the live index holds at most 10 MB of codes, newest airings first, and
+    is rebuilt only when its entry list changes; "settled" is 3 minutes of
+    stream time after the end with no change; live Evidence is reread when
+    its time or size changes and only a higher revision is used.
+  - Departures: the 2 s check is met from the codes' divergence and the 6 s
+    check for 41 of 44 matches, on the stream clock; neither literally
+    (above). Real speed is used only for an excerpt and the whole recordings
+    run at 40x, as the check now says.
 - **T1. Two mark lists and the merged view.** MarkStore, `publishMarks`
   copying both lists, `marksForWindow` reading the merged view and splitting
   non-`ad` marks into their own list; `kind`, `state`, `basis` fields.
