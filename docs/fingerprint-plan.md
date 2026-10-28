@@ -821,6 +821,52 @@ Types used below:
   an empty library, the within-game coverage of October 27 (about 15% of ad
   seconds on g5 and g4); Must-not-get-worse 1 on all six; corrections appear
   for g4 then g5; the 15 s / 30 s split example.
+  **Done:** `comskip-fingerprint seed|search|pass --store PATH` (C++,
+  `src/fingerprint`), store in SQLite (WAL, 15 s busy timeout, schema 1);
+  Harness `tools/fingerprint/harness.py`. Results (TV ini, 107,
+  `output_evidence=1`, scored in seconds against Comskip-107's blocks from
+  the same evidence; README's frame-based rows differ by the 30 vs 29.97 fps
+  scoring, for example g5 232 s missed and 31 s cut here against 244 s and
+  43 s):
+  - Coverage with an empty library: repeats cover 12.3% of g5's ad seconds
+    and 7.2% of g4's (10.0% of both), the same as `repeats.py` on the same
+    codes (12.3%, 7.1%). The October 27 figure of 15% is not reproduced by
+    `repeats.py` either, on these labels, with the tool's codes, fpcalc's,
+    or g5's original file; across both games the tool gives 19.3% and 14.9%
+    (`repeats.py` on the two joined: 17.3%).
+  - Must-not-get-worse 1: with an empty library every one of the six
+    recordings has exactly Comskip-107's breaks, programme cut and false
+    breaks. With one library grown g5, g4, faaea10a, 77483aca, elsbeth303,
+    nash107 none is worse, and g5 misses 202 s instead of 232 s, faaea10a
+    finds 7/12 breaks instead of 6/12 (562 s missed instead of 591 s); the
+    store ends with 20 `ad`, 41 `candidate` and 6 `programme` entries.
+  - Corrections: g4's pass corrects g5 (and g5's pass corrects g4 the other
+    way round); 77483aca's corrects faaea10a, g4 and g5; nash107's (ABC)
+    corrects 77483aca (CBS).
+  - The 15 s / 30 s split, and the rest of the Library and Combiner tables,
+    are unit tests (`tests/fingerprint`).
+  - g4's Google split-screen (4233-4263) airs as an ordinary ad in g5
+    (3527), and Comskip sees no logo during it, so the entry is an `ad` by
+    the across-shows rule; marked `ad` it cut 1.5 s more programme and added
+    a false break in g4. The Combiner now marks an `ad` match as
+    `in-programme ad` when the logo stops at most 8 s before it and resumes
+    at most 8 s after it, unless seams bound it at both ends (a break of one
+    spot).
+  - Choices the contracts left open: "logo seen" is a logo during at least
+    10% of an airing; a recording whose run learned no logo gives its airings
+    logo unknown; an `intro` or `credits` entry that a later airing breaks
+    the rule for becomes `programme` (it never becomes an ad); a break closes
+    at a logo interval of at least 5 s reaching 1 s into the gap, or at a
+    Comskip programme block beginning in it; the Library keeps each
+    recording's latest Evidence in the store, since airings found later in
+    that recording need its seams and logo; `airStart` is Unix seconds; the
+    pass result adds `needsEvidence` and `airingsFound`; a repeat's audio
+    runs from code `begin` x period + 0.6 s to code `end` x period + 0.9 s
+    (measured on g4's seams); repeats shorter than 3 s, such as the 2.5 s
+    sting, never become entries. Not done: the labels-say-programme rule
+    (the Harness does not hand labels to the tool); `seed --codes` stays for
+    the measurement helpers. Live states are computed from `now` alone; "no
+    change for 3 minutes" needs F5's history.
 - **F5. `live` mode.** Harness live mode feeds audio at real speed. Check:
   each matched ad marked within 6 s of its labelled start; projected parts
   withdrawn within 2 s of a divergence; a stalled reader drops and counts;
