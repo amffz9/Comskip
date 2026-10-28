@@ -403,6 +403,9 @@ if(COMSKIP_BUILD_FINGERPRINT)
         message(FATAL_ERROR "Chromaprint was not found: install it (vcpkg feature \"fingerprint\") "
                             "or configure with -DCOMSKIP_BUILD_FINGERPRINT=OFF")
     endif()
+    add_library(fingerprint_core src/fingerprint/coder.cpp)
+    target_include_directories(fingerprint_core PUBLIC src)
+    target_link_libraries(fingerprint_core PRIVATE Chromaprint::chromaprint)
 endif()
 
 if(COMSKIP_BUILD_APP)
