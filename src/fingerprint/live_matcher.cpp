@@ -12,6 +12,11 @@ constexpr std::uint32_t saturated = 0xffffffffu;
 constexpr long neighbour_offsets = 3;
 // Diagonals whose seeds are older than this are forgotten every so many codes.
 constexpr long prune_every = 64;
+// Live, one seed starts following a diagonal (the offline search wants two
+// within seed_group_gap): exact seeds can be sparse at an ad's start, and a
+// second one came up to 3 s late on g5, past the 6 s marking budget. The 3 s
+// of agreement a match needs still decides.
+constexpr int live_seeds_needed = 1;
 
 long min_codes() { return codes_for(min_repeat_seconds); }
 long self_gap() { return static_cast<long>(min_self_distance / code_period); }
@@ -158,7 +163,7 @@ void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std
         diagonal.first = position;
     }
     diagonal.last = position;
-    if (diagonal.count < 2) return;
+    if (diagonal.count < live_seeds_needed) return;
     // A track already follows this diagonal or one beside it, or did across here.
     for (const auto& track : tracks_) {
         if (track.source != key.source || std::abs(track.offset - key.offset) > neighbour_offsets) continue;
