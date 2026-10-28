@@ -209,7 +209,7 @@ target_link_libraries(player_exports PUBLIC diagnostics)
 add_library(frame_scripts src/output/frame_scripts.cpp)
 target_include_directories(frame_scripts PUBLIC src)
 target_link_libraries(frame_scripts PUBLIC diagnostics)
-add_library(output_text src/output/edl.cpp src/output/xml_cutlists.cpp src/output/live_xml.cpp src/output/plist_cutlist.cpp)
+add_library(output_text src/output/edl.cpp src/output/xml_cutlists.cpp src/output/live_xml.cpp src/output/plist_cutlist.cpp src/output/evidence.cpp)
 target_include_directories(output_text PUBLIC src/output src)
 target_link_libraries(output_text PUBLIC pugixml::pugixml diagnostics)
 
@@ -486,7 +486,7 @@ if(COMSKIP_BUILD_APP)
         src/media/frame_timing.cpp
         src/media/decode_progress.cpp
         src/media/decoder_setup.cpp
-        src/media/video_decoder.cpp src/media/recording_input.cpp src/media/seeking.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp)
+        src/media/video_decoder.cpp src/media/recording_input.cpp src/media/seeking.cpp src/platform/platform.cpp src/output/xml_output_adapter.cpp src/output/evidence_adapter.cpp)
     target_include_directories(comskip_core PUBLIC src/platform src/ui src/app ${FFMPEG_INCLUDE_DIR} ${ARGTABLE_INCLUDE_DIR})
     target_compile_definitions(comskip_core PRIVATE PROCESS_CC $<$<BOOL:${COMSKIP_DONATOR}>:DONATOR>)
     target_link_libraries(comskip_core PUBLIC logo_geometry logo_histogram scene_sampling cutscene_file frame_mask reference_comparison input_text frame_csv run_log commercial_length comskip_config comskip_localization output_text ffmpeg_sidecars frame_scripts player_exports legacy_editor_exports legacy_cutlist_exports selftest_log media_conversion caption_session comskip_ffmpeg

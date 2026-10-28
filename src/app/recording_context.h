@@ -108,6 +108,8 @@ struct RecordingState {
     std::string inbasename;
     std::string workbasename;
     std::string outbasename;
+    // Grows with every evidence export of this run, live and final.
+    long long evidence_revision{};
     std::string shortbasename;
     std::string inifilename;
     std::string dictfilename;

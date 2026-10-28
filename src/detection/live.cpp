@@ -8,6 +8,7 @@
 #include "detection/logo_detection.h"
 #include "detection/storage.h"
 #include "output/cutlist_exports.h"
+#include "output/evidence_adapter.h"
 #include "output/live_xml.h"
 #include "output/checked_file.h"
 #include "platform/platform.h"
@@ -303,6 +304,7 @@ void BuildCommListAsYouGo(RecordingContext& context)
             comskip::output::checked_close(context.state.edl_file,std::string(context.state.outbasename)+".edl");
             if (context.state.live_file) comskip::output::checked_flush(*context.state.live_file,std::string(context.state.outbasename)+".live");
             comskip::output::checked_close(context.state.live_file,std::string(context.state.outbasename)+".live");
+            WriteEvidenceFile(context, false);
             if (context.settings.output_dvrmstb) {
                 std::ostringstream serialized;
                 comskip::output::write_live_dvrmstb(serialized, dvrmstb_intervals, context.settings.fps);
