@@ -39,6 +39,7 @@ WORK/live-results.json.
 import argparse
 import csv
 import json
+import os
 import shutil
 import sqlite3
 import struct
@@ -135,12 +136,12 @@ class Harness:
         for name, (channel, series, title, window, air) in CONTEXTS.items():
             context = {"channel": channel, "airStart": air, "source": "capture",
                        "programmes": [{"from": 0, "to": window, "title": title, "seriesKey": series}]}
-            (self.inputs / f"{name}.context.json").write_text(json.dumps(context))
+            replace_json(self.inputs / f"{name}.context.json", context)
             source = self.evidence_dir / f"{name}.evidence.json"
             if source.exists():
                 copy = json.loads(source.read_text())
                 copy["captureId"] = name
-                (self.inputs / f"{name}.evidence.json").write_text(json.dumps(copy))
+                replace_json(self.inputs / f"{name}.evidence.json", copy)
 
     def evidence(self, name):
         return json.loads((self.inputs / f"{name}.evidence.json").read_text())
@@ -254,7 +255,8 @@ def evidence_until(evidence, cutoff, revision, final):
 
 
 def replace_json(path, value):
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    """Writes the file whole, so a reader (another Harness, the tool) never sees it half-written."""
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     temporary.write_text(json.dumps(value))
     temporary.replace(path)
 
