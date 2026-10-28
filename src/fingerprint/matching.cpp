@@ -25,16 +25,34 @@ struct DiagonalHash {
     }
 };
 
-using Index = std::unordered_map<std::uint32_t, std::vector<Position>>;
+// Every code of the sequences with where it is, sorted by code (then sequence
+// and position): 12 bytes a code, where a map of vectors took about 100.
+struct Placed {
+    std::uint32_t code;
+    Position at;
+};
+using Index = std::vector<Placed>;
 
 Index index_of(std::span<const Sequence> sequences) {
+    std::size_t total = 0;
+    for (const auto& sequence : sequences) total += sequence.codes.size();
     Index index;
+    index.reserve(total);
     for (std::uint32_t sequence = 0; sequence < sequences.size(); ++sequence) {
         const auto codes = sequences[sequence].codes;
         for (std::int32_t position = 0; position < static_cast<std::int32_t>(codes.size()); ++position)
-            index[codes[static_cast<std::size_t>(position)]].push_back({sequence, position});
+            index.push_back({codes[static_cast<std::size_t>(position)], {sequence, position}});
     }
+    std::ranges::sort(index, [](const Placed& x, const Placed& y) {
+        return std::tie(x.code, x.at.sequence, x.at.index) < std::tie(y.code, y.at.sequence, y.at.index);
+    });
     return index;
+}
+
+// The places of one code value.
+std::span<const Placed> places(const Index& index, std::uint32_t code) {
+    const auto [first, last] = std::ranges::equal_range(index, code, {}, &Placed::code);
+    return {first, last};
 }
 
 class Diagonal {
@@ -71,12 +89,17 @@ std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Seq
 
     const auto other_index = index_of(other);
     if (self) {
-        for (const auto& [value, positions] : other_index) {
+        for (std::size_t group = 0; group < other_index.size();) {
+            std::size_t group_end = group + 1;
+            while (group_end < other_index.size() && other_index[group_end].code == other_index[group].code) ++group_end;
+            const std::span<const Placed> positions(other_index.begin() + static_cast<std::ptrdiff_t>(group),
+                                                    other_index.begin() + static_cast<std::ptrdiff_t>(group_end));
+            group = group_end;
             if (positions.size() < 2 || positions.size() > seed_max_occurrences) continue;
             for (std::size_t x = 0; x < positions.size(); ++x) {
                 for (std::size_t y = x + 1; y < positions.size(); ++y) {
-                    auto first = positions[x];
-                    auto later = positions[y];
+                    auto first = positions[x].at;
+                    auto later = positions[y].at;
                     if (first.sequence > later.sequence) std::swap(first, later);
                     const auto& sa = a[first.sequence];
                     const auto& sb = a[later.sequence];
@@ -91,17 +114,15 @@ std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Seq
             }
         }
     } else {
-        std::unordered_map<std::uint32_t, std::size_t> a_counts;
-        for (const auto& sequence : a)
-            for (const auto code : sequence.codes) ++a_counts[code];
+        const auto a_index = index_of(a);
         for (std::uint32_t sequence = 0; sequence < a.size(); ++sequence) {
             const auto codes = a[sequence].codes;
             for (std::int32_t position = 0; position < static_cast<std::int32_t>(codes.size()); ++position) {
                 const auto code = codes[static_cast<std::size_t>(position)];
-                const auto found = other_index.find(code);
-                if (found == other_index.end() || found->second.size() > seed_max_occurrences || a_counts[code] > seed_max_occurrences)
+                const auto found = places(other_index, code);
+                if (found.empty() || found.size() > seed_max_occurrences || places(a_index, code).size() > seed_max_occurrences)
                     continue;
-                for (const auto& at : found->second) seeds[{sequence, at.sequence, at.index - position}].push_back(position);
+                for (const auto& at : found) seeds[{sequence, at.at.sequence, at.at.index - position}].push_back(position);
             }
         }
     }
