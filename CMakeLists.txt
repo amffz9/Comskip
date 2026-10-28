@@ -394,6 +394,17 @@ if(BUILD_TESTING)
     endif()
 endif()
 
+# The audio fingerprint tool (docs/fingerprint-plan.md) is its own executable
+# linked to Chromaprint; the comskip binary never loads Chromaprint.
+option(COMSKIP_BUILD_FINGERPRINT "Build the Chromaprint audio fingerprint tool" ON)
+if(COMSKIP_BUILD_FINGERPRINT)
+    find_package(Chromaprint CONFIG QUIET)
+    if(NOT TARGET Chromaprint::chromaprint)
+        message(FATAL_ERROR "Chromaprint was not found: install it (vcpkg feature \"fingerprint\") "
+                            "or configure with -DCOMSKIP_BUILD_FINGERPRINT=OFF")
+    endif()
+endif()
+
 if(COMSKIP_BUILD_APP)
     if(VCPKG_TOOLCHAIN)
         # vcpkg supplies configuration-specific libraries and static dependencies
