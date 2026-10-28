@@ -90,9 +90,19 @@ logo say is programme is added, and an ad needs recurrence.
   credits), `sponsor` (reserved, Q6). Only `ad` is in the skip list; every
   other kind goes in the separate list older players ignore (U4).
 - **Near the start / near the end**: an airing is near the start when it
-  begins within the first 10 min of its programme window, and near the end
-  when it ends within the last 5 min of the window (or within 2 min after it,
-  for shows that overrun). The programme window comes from the guide.
+  begins within the first 20 min of its programme window (cold opens vary by
+  episode; Elsbeth S03E03's title card is at 11 min 17 s), and near the end
+  when it ends within the last 8 min of the window (or within 2 min after it,
+  for shows that overrun). The programme window comes from the guide. The
+  position may differ between episodes; only the series key and the
+  near-start or near-end condition must hold.
+- **Intros and credits change over time** (user, October 27): a new season's
+  intro, or a one-off episode's, is simply a new entry that becomes `intro`
+  after its second airing, and the old one stops recurring. No season key is
+  needed. Credits that vary by episode (guest names over the same music) are
+  marked only where the audio agrees; parts that don't match stay programme,
+  which costs nothing. Ads vary by episode but recur across series, which is
+  what separates them from a series' own intro and credits.
 - **Mark state**: `provisional` (may still move or vanish) or `settled`.
 - **Labelled set**: every recording in `tests/labels` with a `.labels.csv`.
   Today four football games (g5, g4, faaea10a, 77483aca); step L1 adds two
