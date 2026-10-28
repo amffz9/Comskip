@@ -790,7 +790,11 @@ Types used below:
   Comskip-107 on them and add the rows to the README. Check: both scored.
 - **F2. EvidenceExport in Comskip.** Check: identical EDLs with the key on and
   off on the labelled set and `bin/perf` fixtures; the file is whole at every
-  rewrite.
+  rewrite. **Done:** key `output_evidence`, file `<base>.evidence.json`. Live
+  blocks are the padded live intervals with `score: null`. EDL and `.txt`
+  byte-identical with the key off and on (all six labelled recordings,
+  `sd-mpeg2-10min`, `hd-h264-5min`); a live g5 run gave 354 revisions,
+  every read whole.
 - **F3. Coder and `seed`.** Check: the platform facts; at least 99% of codes
   within 2 bits of fpcalc `-length 0` on g5 and g4; the 80-minute repeat
   within 0.2 s; CPU about 9 s per 90 min in the test container.
