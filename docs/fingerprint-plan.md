@@ -974,7 +974,15 @@ Types used below:
   re-detection. Shadow first: results logged and compared, not applied. Then on
   behind a setting, only after L1 and F4 pass Must-not-get-worse 1 and 8.
   Check: NAS CPU and memory within budget; the off-or-broken tests; an Evidence
-  copy survives proxy reclamation.
+  copy survives proxy reclamation. **Shadow done** (TV 3e1db98, a0cb406,
+  de8a45c, bbf300b, 7feefb6, 89cb6ac, 2ffffb2): setting `mode` off|shadow
+  (default off); the app image builds `comskip-fingerprint`; children run
+  under `ionice -c 3 nice -n 19`; each job's CPU, peak RSS and wall time for
+  decode and tool are kept on `capture.fingerprint.shadow.usage`, with a budget
+  setting that warns only. Measured on the dev PC, not the N100: per 90-min
+  game, decode about 26 CPU s and 51 MB, tool about 1 CPU s and 6 MB.
+  `hasStoredCodes` lets T5's live codes skip the decode. Not done: the `on`
+  mode, and a client UI for the setting.
 - **T4. Backfill.** Seed jobs for the app's own captures and the Plex root
   (`/volume1/Shared/plex/Shows`, read-only, about 230 broadcast episodes of
   about 60 min plus 10 NFL games, about 260 h), with the exclusion list and
