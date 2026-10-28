@@ -261,26 +261,14 @@ bool within_show_ad(const Evidence& evidence, double first_from, double first_to
 }
 
 std::string marks_file_json(std::string_view capture_id, long long evidence_revision, bool final, std::span<const Mark> marks) {
-    std::string text = "{ \"captureId\": ";
-    json::append_string(text, capture_id);
-    text += ", \"evidenceRevision\": ";
-    json::append_integer(text, evidence_revision);
-    text += final ? ", \"final\": true,\n  \"marks\": [" : ", \"final\": false,\n  \"marks\": [";
-    for (std::size_t index = 0; index < marks.size(); ++index) {
-        const auto& mark = marks[index];
-        text += index ? ",\n    { \"start\": " : "\n    { \"start\": ";
-        json::append_number(text, mark.start, 3);
-        text += ", \"end\": ";
-        json::append_number(text, mark.end, 3);
-        text += ", \"kind\": ";
-        json::append_string(text, kind_name(mark.kind));
-        text += ", \"state\": ";
-        json::append_string(text, state_name(mark.state));
-        text += ", \"basis\": ";
-        json::append_string(text, basis_name(mark.basis));
-        text += " }";
-    }
-    text += marks.empty() ? "] }\n" : " ] }\n";
-    return text;
+    json::Value document = {{"captureId", capture_id}, {"evidenceRevision", evidence_revision}, {"final", final},
+                            {"marks", json::Value::array()}};
+    for (const auto& mark : marks)
+        document["marks"].push_back({{"start", json::rounded(mark.start, 3)},
+                                     {"end", json::rounded(mark.end, 3)},
+                                     {"kind", kind_name(mark.kind)},
+                                     {"state", state_name(mark.state)},
+                                     {"basis", basis_name(mark.basis)}});
+    return json::write(document) + "\n";
 }
 }

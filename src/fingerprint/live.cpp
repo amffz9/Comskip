@@ -7,9 +7,7 @@
 #include "fingerprint/store.h"
 #include "output/output_file.h"
 #include "platform/utf8_paths.h"
-#include <nlohmann/json.hpp>
 #include <chrono>
-#include <cmath>
 #include <condition_variable>
 #include <cstdio>
 #include <exception>
@@ -353,13 +351,13 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
 }
 
 std::string live_result_json(std::string_view recording, std::string_view marks_path, const LiveResult& result) {
-    nlohmann::ordered_json document = {{"recording", recording},
-                                       {"ended", result.ended},
-                                       {"codes", result.codes},
-                                       {"marksFiles", nlohmann::ordered_json::array()},
-                                       {"matches", result.matches},
-                                       {"withdrawn", result.withdrawn},
-                                       {"droppedAudioSeconds", std::round(result.dropped_seconds * 1000) / 1000}};
+    json::Value document = {{"recording", recording},
+                            {"ended", result.ended},
+                            {"codes", result.codes},
+                            {"marksFiles", json::Value::array()},
+                            {"matches", result.matches},
+                            {"withdrawn", result.withdrawn},
+                            {"droppedAudioSeconds", json::rounded(result.dropped_seconds, 3)}};
     if (result.marks_written) document["marksFiles"].push_back({{"captureId", recording}, {"path", marks_path}});
     return document.dump() + "\n";
 }

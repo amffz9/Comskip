@@ -38,7 +38,8 @@ std::vector<EvidenceSeam> evidence_seams(std::span<const black_frame_info> cut_f
 // the first frame without a logo, or at the last frame.
 std::vector<EvidenceInterval> evidence_logo(std::span<const frame_info> frames, long first_frame,
                                             const FrameTime& time);
-// Writes one JSON object, times in seconds with three decimals and '\n' endings.
+// Writes one JSON object on one line ending in '\n', times in seconds rounded to
+// three decimals and scores to two.
 // Throws invalid_argument for a non-finite number and ios_base::failure for a
 // failed stream.
 void write_evidence(std::ostream& output, const Evidence& evidence);

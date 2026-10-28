@@ -92,13 +92,10 @@ TEST(Seed, WritesTheCodeStreamAndPassResult) {
     result.runs = {{0, {1, 4294967295u}}, {1234.5, {}}};
     result.ended = true;
     EXPECT_EQ(code_stream_json("plex:/shows/\"A\"\\b.ts", result),
-              "{ \"recording\": \"plex:/shows/\\\"A\\\"\\\\b.ts\", \"codePeriod\": 0.123809524,\n"
-              "  \"runs\": [\n"
-              "    { \"start\": 0.000000, \"codes\": [1,4294967295] },\n"
-              "    { \"start\": 1234.500000, \"codes\": [] } ] }\n");
+              R"({"recording":"plex:/shows/\"A\"\\b.ts","codePeriod":0.123809524,"runs":[)"
+              R"({"start":0.0,"codes":[1,4294967295]},{"start":1234.5,"codes":[]}]})" "\n");
     EXPECT_EQ(seed_result_json("c1\n", result),
-              "{ \"recording\": \"c1\\u000a\", \"ended\": true, \"codes\": 2, \"marksFiles\": [], "
-              "\"promoted\": 0, \"droppedAudioSeconds\": 0.0 }\n");
-    EXPECT_EQ(code_stream_json("c1", {}), "{ \"recording\": \"c1\", \"codePeriod\": 0.123809524,\n  \"runs\": [] }\n");
+              R"({"recording":"c1\n","ended":true,"codes":2,"marksFiles":[],"promoted":0,"droppedAudioSeconds":0.0})" "\n");
+    EXPECT_EQ(code_stream_json("c1", {}), R"({"recording":"c1","codePeriod":0.123809524,"runs":[]})" "\n");
 }
 }

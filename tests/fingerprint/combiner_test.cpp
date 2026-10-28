@@ -125,12 +125,39 @@ TEST(Combiner, NoEvidenceIsEvidenceMissing) {
 TEST(Combiner, WritesTheMarksFile) {
     const std::vector marks{mark(859.6, 950, Basis::both), mark(1478, 1509, Basis::fingerprint, MarkKind::in_programme_ad)};
     EXPECT_EQ(marks_file_json("cap-1", 12, true, marks),
-              "{ \"captureId\": \"cap-1\", \"evidenceRevision\": 12, \"final\": true,\n"
-              "  \"marks\": [\n"
-              "    { \"start\": 859.600, \"end\": 950.000, \"kind\": \"ad\", \"state\": \"settled\", \"basis\": \"both\" },\n"
-              "    { \"start\": 1478.000, \"end\": 1509.000, \"kind\": \"in-programme ad\", \"state\": \"settled\", "
-              "\"basis\": \"fingerprint\" } ] }\n");
-    EXPECT_EQ(marks_file_json("c", 0, false, {}), "{ \"captureId\": \"c\", \"evidenceRevision\": 0, \"final\": false,\n  \"marks\": [] }\n");
+              R"({"captureId":"cap-1","evidenceRevision":12,"final":true,"marks":[)"
+              R"({"start":859.6,"end":950.0,"kind":"ad","state":"settled","basis":"both"},)"
+              R"({"start":1478.0,"end":1509.0,"kind":"in-programme ad","state":"settled","basis":"fingerprint"}]})" "\n");
+    EXPECT_EQ(marks_file_json("c", 0, false, {}), R"({"captureId":"c","evidenceRevision":0,"final":false,"marks":[]})" "\n");
+    // Times to three decimals.
+    const std::vector rounded{mark(859.60049, 950.0006, Basis::fingerprint)};
+    EXPECT_NE(marks_file_json("c", 1, false, rounded).find(R"("start":859.6,"end":950.001,)"), std::string::npos);
+}
+
+// Names the app passes through: quotes, backslashes, control and non-ASCII
+// text come back exactly from every document the tool writes or reads.
+TEST(Inputs, RoundTripsNamesWithQuotesBackslashesAndNonAscii) {
+    const std::string awkward = "plex:/Shows/\"Elsbeth\" \\ S03\\E03 caf\xc3\xa9 \xe2\x80\x94 \xf0\x9f\x93\xba\ttab";
+    Context context;
+    context.channel = "K\"B\\C \xc3\xa9";
+    context.air_start = 1760832000.25;
+    context.programmes.push_back({0, 3600, awkward, "series:\"x\"\\y"});
+    const auto back = context_from_json(json::parse(context_to_json(context)));
+    EXPECT_EQ(back.channel, context.channel);
+    EXPECT_EQ(back.air_start, 1760832000.25);
+    ASSERT_EQ(back.programmes.size(), 1u);
+    EXPECT_EQ(back.programmes[0].title, awkward);
+    EXPECT_EQ(back.programmes[0].series_key, "series:\"x\"\\y");
+
+    Evidence evidence;
+    evidence.capture_id = awkward;
+    evidence.revision = 4;
+    evidence.seams.push_back({12.3456, {"black"}});
+    EXPECT_EQ(evidence_from_json(json::parse(evidence_to_json(evidence))).capture_id, awkward);
+    EXPECT_EQ(evidence_from_json(json::parse(evidence_to_json(evidence))).seams[0].at, 12.346);
+
+    const auto marks = json::parse(marks_file_json(awkward, 4, true, {}));
+    EXPECT_EQ(marks.at("captureId").get<std::string>(), awkward);
 }
 
 TEST(Inputs, ReadsEvidenceAndContext) {

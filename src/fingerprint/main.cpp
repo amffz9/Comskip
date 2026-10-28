@@ -209,7 +209,7 @@ int run(int argc, char** argv) {
         else needs_evidence.push_back(corrected);
     }
     std::filesystem::create_directories(comskip::platform::path_from_utf8(options.out));
-    std::string files;
+    auto files = json::Value::array();
     for (const auto& capture : captures) {
         const auto& copy = evidence.at(capture);
         std::vector<CombinerMatch> matches;
@@ -217,27 +217,18 @@ int run(int argc, char** argv) {
         const auto marks = combine(matches, &copy, {});
         const auto path = comskip::platform::path_to_utf8(comskip::platform::path_from_utf8(options.out) / file_name_for(capture));
         comskip::output::replace_output_file(path, marks_file_json(capture, copy.revision, copy.final, marks));
-        files += files.empty() ? "{ \"captureId\": " : ", { \"captureId\": ";
-        json::append_string(files, capture);
-        files += ", \"path\": ";
-        json::append_string(files, path);
-        files += " }";
+        files.push_back({{"captureId", capture}, {"path", path}});
     }
 
-    std::string result = "{ \"recording\": ";
-    json::append_string(result, options.recording);
-    result += audio.ended ? ", \"ended\": true, \"codes\": " : ", \"ended\": false, \"codes\": ";
-    json::append_integer(result, audio.codes());
-    result += ", \"marksFiles\": [" + files + "], \"needsEvidence\": [";
-    for (std::size_t index = 0; index < needs_evidence.size(); ++index) {
-        if (index) result += ", ";
-        json::append_string(result, needs_evidence[index]);
-    }
-    result += "], \"promoted\": ";
-    json::append_integer(result, repeats.promoted);
-    result += ", \"airingsFound\": ";
-    json::append_integer(result, repeats.airings_found);
-    result += ", \"droppedAudioSeconds\": 0.0 }\n";
+    const json::Value document = {{"recording", options.recording},
+                                  {"ended", audio.ended},
+                                  {"codes", audio.codes()},
+                                  {"marksFiles", files},
+                                  {"needsEvidence", needs_evidence},
+                                  {"promoted", repeats.promoted},
+                                  {"airingsFound", repeats.airings_found},
+                                  {"droppedAudioSeconds", 0.0}};
+    const auto result = json::write(document) + "\n";
     std::fputs(result.c_str(), stdout);
     return std::fflush(stdout) == 0 ? 0 : exit_failure;
 }

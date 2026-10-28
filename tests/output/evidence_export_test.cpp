@@ -4,6 +4,7 @@
 #include "output/evidence_adapter.h"
 #include "checked_format.h"
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -25,10 +26,12 @@ std::string read(const std::filesystem::path& path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>{input}, {}};
 }
+using Json = nlohmann::json;
+// The whole file as JSON, or null when it is not one complete document.
+Json parsed(const std::string& text) { return Json::parse(text, nullptr, false); }
 long long revision(const std::string& text) {
-    const std::string key = "\"revision\": ";
-    const auto at = text.find(key);
-    return at == std::string::npos ? -1 : std::stoll(text.substr(at + key.size()));
+    const auto document = parsed(text);
+    return document.is_object() && document.contains("revision") ? document["revision"].get<long long>() : -1;
 }
 class EvidenceExport : public testing::Test {
 protected:
@@ -72,11 +75,12 @@ TEST_F(EvidenceExport, LiveRewritesBesideTheEdlWithAGrowingRevision) {
     BuildCommListAsYouGo(*context);
     const auto first = read(evidence);
     EXPECT_EQ(revision(first), 1);
-    EXPECT_NE(first.find("\"final\": false"), std::string::npos);
-    EXPECT_NE(first.find("{ \"at\": 34.000, \"kinds\": [\"black\", \"silence\"] }"), std::string::npos);
+    const auto document = parsed(first);
+    EXPECT_EQ(document["final"], false);
+    EXPECT_NE(std::ranges::find(document["seams"], Json{{"at", 34.0}, {"kinds", {"black", "silence"}}}), document["seams"].end());
     // The padded live interval, as the EDL lists it; live intervals have no score.
-    EXPECT_NE(first.find("{ \"from\": 6.000, \"to\": 32.000, \"score\": null, \"decision\": \"commercial\" }"),
-              std::string::npos);
+    EXPECT_NE(std::ranges::find(document["blocks"], Json{{"from", 6.0}, {"to", 32.0}, {"score", nullptr}, {"decision", "commercial"}}),
+              document["blocks"].end());
     EXPECT_TRUE(std::filesystem::exists(directory / "録画.edl"));
     EXPECT_FALSE(std::filesystem::exists(directory / "録画.evidence.json.tmp"));
     context->state.lastFrameCommCalculated = 0;
@@ -109,16 +113,11 @@ TEST_F(EvidenceExport, FinalListsScoredBlocksAndLogoAndDropsTheEndCut) {
     state.commercial[0] = {100, 850, 1, 1, 30.0};
     state.evidence_revision = 4;
     WriteEvidenceFile(*context, true);
-    EXPECT_EQ(read(evidence),
-        "{ \"revision\": 5, \"final\": true, \"logoKnown\": true,\n"
-        "  \"seams\": [\n"
-        "    { \"at\": 4.000, \"kinds\": [\"black\"] },\n"
-        "    { \"at\": 34.000, \"kinds\": [\"black\", \"silence\"] } ],\n"
-        "  \"logo\": [\n"
-        "    { \"from\": 8.000, \"to\": 16.000 } ],\n"
-        "  \"blocks\": [\n"
-        "    { \"from\": 0.040, \"to\": 4.000, \"score\": 0.50, \"decision\": \"programme\" },\n"
-        "    { \"from\": 4.000, \"to\": 34.000, \"score\": 1.25, \"decision\": \"commercial\" } ] }\n");
+    EXPECT_EQ(parsed(read(evidence)), Json::parse(R"({ "revision": 5, "final": true, "logoKnown": true,
+        "seams": [ { "at": 4.0, "kinds": ["black"] }, { "at": 34.0, "kinds": ["black", "silence"] } ],
+        "logo": [ { "from": 8.0, "to": 16.0 } ],
+        "blocks": [ { "from": 0.04, "to": 4.0, "score": 0.5, "decision": "programme" },
+                    { "from": 4.0, "to": 34.0, "score": 1.25, "decision": "commercial" } ] })"));
 }
 
 TEST_F(EvidenceExport, ReadersNeverSeeAHalfWrittenFileDuringLiveRewrites) {
@@ -132,7 +131,7 @@ TEST_F(EvidenceExport, ReadersNeverSeeAHalfWrittenFileDuringLiveRewrites) {
             if (text.empty()) continue;  // between opening and a replace on some systems
             ++reads;
             const auto seen = revision(text);
-            if (text.rfind("{ \"revision\": ", 0) != 0 || !text.ends_with(" }\n") || seen < last_seen)
+            if (seen < 0 || !text.ends_with("}\n") || seen < last_seen)
                 ++partial;
             last_seen = seen;
         }

@@ -41,33 +41,14 @@ SeedResult seed(const ReadBytes& read) {
 }
 
 std::string code_stream_json(std::string_view recording, const SeedResult& result) {
-    std::string text = "{ \"recording\": ";
-    json::append_string(text, recording);
-    text += ", \"codePeriod\": ";
-    json::append_number(text, code_period, 9);
-    text += ",\n  \"runs\": [";
-    for (std::size_t index = 0; index < result.runs.size(); ++index) {
-        const auto& run = result.runs[index];
-        text += index ? ",\n    { \"start\": " : "\n    { \"start\": ";
-        json::append_number(text, run.start, 6);
-        text += ", \"codes\": [";
-        for (std::size_t code = 0; code < run.codes.size(); ++code) {
-            if (code) text += ',';
-            json::append_integer(text, run.codes[code]);
-        }
-        text += "] }";
-    }
-    text += result.runs.empty() ? "] }\n" : " ] }\n";
-    return text;
+    json::Value document = {{"recording", recording}, {"codePeriod", json::rounded(code_period, 9)}, {"runs", json::Value::array()}};
+    for (const auto& run : result.runs) document["runs"].push_back({{"start", json::rounded(run.start, 6)}, {"codes", run.codes}});
+    return json::write(document) + "\n";
 }
 
 std::string seed_result_json(std::string_view recording, const SeedResult& result) {
-    std::string text = "{ \"recording\": ";
-    json::append_string(text, recording);
-    text += result.ended ? ", \"ended\": true" : ", \"ended\": false";
-    text += ", \"codes\": ";
-    json::append_integer(text, result.codes());
-    text += ", \"marksFiles\": [], \"promoted\": 0, \"droppedAudioSeconds\": 0.0 }\n";
-    return text;
+    const json::Value document = {{"recording", recording}, {"ended", result.ended}, {"codes", result.codes()},
+                                  {"marksFiles", json::Value::array()}, {"promoted", 0}, {"droppedAudioSeconds", 0.0}};
+    return json::write(document) + "\n";
 }
 }

@@ -24,14 +24,16 @@ TEST(Evidence, WritesTheCrossRepoFieldsInProxySeconds) {
     std::ostringstream output;
     write_evidence(output, evidence);
     EXPECT_EQ(output.str(),
-        "{ \"revision\": 12, \"final\": false, \"logoKnown\": true,\n"
-        "  \"seams\": [\n"
-        "    { \"at\": 859.600, \"kinds\": [\"black\", \"silence\"] } ],\n"
-        "  \"logo\": [\n"
-        "    { \"from\": 0.000, \"to\": 118.200 } ],\n"
-        "  \"blocks\": [\n"
-        "    { \"from\": 118.200, \"to\": 400.100, \"score\": 1.80, \"decision\": \"commercial\" },\n"
-        "    { \"from\": 400.100, \"to\": 900.000, \"score\": null, \"decision\": \"programme\" } ] }\n");
+              R"({"revision":12,"final":false,"logoKnown":true,"seams":[{"at":859.6,"kinds":["black","silence"]}],)"
+              R"("logo":[{"from":0.0,"to":118.2}],"blocks":[{"from":118.2,"to":400.1,"score":1.8,"decision":"commercial"},)"
+              R"({"from":400.1,"to":900.0,"score":null,"decision":"programme"}]})" "\n");
+    // Times are rounded to three decimals and scores to two.
+    evidence.seams = {{859.60049, 1}};
+    evidence.blocks = {{118.2004, 400.1006, 6.125, BlockDecision::commercial}};  // a tie rounds to even, as before
+    std::ostringstream rounded;
+    write_evidence(rounded, evidence);
+    EXPECT_NE(rounded.str().find(R"("at":859.6,)"), std::string::npos) << rounded.str();
+    EXPECT_NE(rounded.str().find(R"({"from":118.2,"to":400.101,"score":6.12)"), std::string::npos) << rounded.str();
 }
 
 TEST(Evidence, WritesEmptyListsAndRejectsNonFiniteNumbers) {
@@ -40,8 +42,7 @@ TEST(Evidence, WritesEmptyListsAndRejectsNonFiniteNumbers) {
     evidence.final = true;
     std::ostringstream output;
     write_evidence(output, evidence);
-    EXPECT_EQ(output.str(), "{ \"revision\": 1, \"final\": true, \"logoKnown\": false,\n"
-                            "  \"seams\": [],\n  \"logo\": [],\n  \"blocks\": [] }\n");
+    EXPECT_EQ(output.str(), R"({"revision":1,"final":true,"logoKnown":false,"seams":[],"logo":[],"blocks":[]})" "\n");
     evidence.logo = {{0.0, std::numeric_limits<double>::infinity()}};
     std::ostringstream rejected;
     EXPECT_THROW(write_evidence(rejected, evidence), std::invalid_argument);
