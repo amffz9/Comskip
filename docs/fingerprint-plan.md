@@ -938,6 +938,9 @@ Types used below:
   - Memory: peak 8.8-19.0 MB by `/usr/bin/time` (19.0 MB on 77483aca, 3 h);
     `usage` lines grow 2.9-3.5 MB an hour after warm-up (own codes and the
     self-repeat map), so 48 MB is reached at about 11 hours of one capture.
+    With the self-repeat map flat (8 bytes a code), growth is 0.66-1.41 MB an
+    hour (77483aca 0.66 all-six, 1.26 leave-one-out; peak 12.2 MB), with
+    identical matches and marks; the rest is the stream's codes held twice.
     CPU about 0.08% of one core at real speed.
   - Final live marks equal Comskip-107's on every recording with the
     leave-one-out library; with the all-six library g5 misses 202.6 s

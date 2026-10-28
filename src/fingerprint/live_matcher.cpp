@@ -2,12 +2,11 @@
 #include "fingerprint/matching.h"
 #include <algorithm>
 #include <cstdlib>
+#include <iterator>
 #include <stdexcept>
 
 namespace comskip::fingerprint {
 namespace {
-// A code value held in more places than a seed may be; it is never a seed again.
-constexpr std::uint32_t saturated = 0xffffffffu;
 // Seeds on the same source this close to a followed diagonal belong to it.
 constexpr long neighbour_offsets = 3;
 // Diagonals whose seeds are older than this are forgotten every so many codes.
@@ -61,10 +60,53 @@ std::size_t LiveMatcher::DiagonalHash::operator()(const DiagonalKey& key) const 
     return static_cast<std::size_t>(value);
 }
 
+void OwnPlaces::places(std::uint32_t code, std::vector<std::uint32_t>& found) const {
+    found.clear();
+    if (saturated(code)) return;
+    const auto [first, last] = std::ranges::equal_range(sorted_, code, {}, &Pair::code);
+    for (auto at = first; at != last; ++at) found.push_back(at->place);
+    for (const auto& pair : recent_)
+        if (pair.code == code) found.push_back(pair.place);
+}
+
+bool OwnPlaces::saturated(std::uint32_t code) const { return std::ranges::binary_search(saturated_, code); }
+
+void OwnPlaces::add(std::uint32_t code, std::uint32_t place, std::size_t held) {
+    if (held >= seed_max_occurrences) {
+        saturated_.insert(std::ranges::upper_bound(saturated_, code), code);
+        return;
+    }
+    recent_.push_back({code, place});
+    if (recent_.size() >= recent_limit) merge();
+}
+
+// Places only grow, so sorting by (code, place) keeps each code's places in the
+// order added. Saturated codes' places are dropped here.
+void OwnPlaces::merge() {
+    std::ranges::sort(recent_);
+    std::vector<Pair> merged;
+    merged.reserve(sorted_.size() + recent_.size());
+    std::ranges::merge(sorted_, recent_, std::back_inserter(merged));
+    std::erase_if(merged, [&](const Pair& pair) { return saturated(pair.code); });
+    merged.shrink_to_fit();
+    sorted_ = std::move(merged);
+    recent_.clear();
+}
+
+std::size_t OwnPlaces::bytes() const {
+    return (sorted_.capacity() + recent_.capacity()) * sizeof(Pair) + saturated_.capacity() * sizeof(std::uint32_t);
+}
+
 LiveMatcher::LiveMatcher() = default;
 LiveMatcher::~LiveMatcher() = default;
 
 void LiveMatcher::refresh(std::shared_ptr<const LiveIndex> index) { index_ = std::move(index); }
+
+std::size_t LiveMatcher::own_bytes() const {
+    std::size_t bytes = own_.bytes();
+    for (const auto& run : runs_) bytes += run.codes.capacity() * sizeof(std::uint32_t);
+    return bytes;
+}
 
 long long LiveMatcher::codes() const {
     long long count = 0;
@@ -127,10 +169,10 @@ void LiveMatcher::add_code(std::uint32_t code) {
         for (const auto& [entry, at] : hits_) seed({index_->id(entry), at - position}, position, index_->status(entry), index_->codes(entry));
     }
     // The recording's own earlier codes, at least 20 s before.
-    auto& places = own_[code];
-    if (places.size() != 1 || places[0] != saturated) {
+    if (!own_.saturated(code)) {
+        own_.places(code, places_);
         const double time = run.start + position * code_period;
-        for (const auto place : places) {
+        for (const auto place : places_) {
             const auto other = static_cast<std::size_t>(
                 std::ranges::upper_bound(runs_, place, {}, &OwnRun::first) - runs_.begin() - 1);
             const long at = static_cast<long>(place - runs_[other].first);
@@ -139,12 +181,7 @@ void LiveMatcher::add_code(std::uint32_t code) {
                 continue;
             seed({-static_cast<long long>(other) - 1, at - position}, position, Status::candidate, {});
         }
-        if (places.size() >= seed_max_occurrences) {
-            places.assign(1, saturated);
-            places.shrink_to_fit();
-        } else {
-            places.push_back(run.first + static_cast<std::uint32_t>(position));
-        }
+        own_.add(code, run.first + static_cast<std::uint32_t>(position), places_.size());
     }
 
     for (auto& track : tracks_)

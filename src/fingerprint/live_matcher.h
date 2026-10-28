@@ -38,6 +38,33 @@ private:
     std::vector<std::uint32_t> order_;  // places in codes_, sorted by the code there
 };
 
+// The recording's own codes for self-repeat seeds: every place (code number in
+// the recording) of each code value, in the order added, until a value is held
+// in seed_max_occurrences places; then it is saturated and never a seed again.
+// Flat (code, place) pairs, 8 bytes each: a sorted part, and a recent part
+// merged into it every recent_limit pairs.
+class OwnPlaces {
+public:
+    // The places held for the code, oldest first, or none once saturated.
+    void places(std::uint32_t code, std::vector<std::uint32_t>& found) const;
+    bool saturated(std::uint32_t code) const;
+    // After looking at places: adds the place, or saturates the code when it is
+    // already held in seed_max_occurrences places.
+    void add(std::uint32_t code, std::uint32_t place, std::size_t held);
+    std::size_t bytes() const;
+
+private:
+    struct Pair {
+        std::uint32_t code, place;
+        auto operator<=>(const Pair&) const = default;
+    };
+    static constexpr std::size_t recent_limit = 4096;
+    void merge();
+    std::vector<Pair> sorted_;
+    std::vector<Pair> recent_;              // unsorted, in the order added
+    std::vector<std::uint32_t> saturated_;  // sorted
+};
+
 // More than 1 s of codes that don't agree inside an extent ends a match: the
 // tenth such code comes 9 code periods (1.11 s) after the first.
 inline constexpr long divergence_codes = 10;
@@ -80,6 +107,8 @@ public:
     // least 3 s of codes agree at one offset.
     const std::vector<LiveMatch>& matches() const { return matches_; }
     long long codes() const;
+    // The recording's own codes and the lookup of them, in bytes.
+    std::size_t own_bytes() const;
     // The live index in use, in bytes (0 before the first refresh).
     std::size_t index_bytes() const { return index_ ? index_->bytes() : 0; }
 
@@ -130,7 +159,8 @@ private:
 
     std::shared_ptr<const LiveIndex> index_;
     std::vector<OwnRun> runs_;
-    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> own_;  // code -> places in the recording
+    OwnPlaces own_;
+    std::vector<std::uint32_t> places_;  // scratch for own_.places
     std::unordered_map<DiagonalKey, Diagonal, DiagonalHash> diagonals_;
     std::vector<Track> tracks_;
     std::vector<LiveMatch> matches_;

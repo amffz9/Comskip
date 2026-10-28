@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <random>
 
 namespace {
@@ -285,5 +286,34 @@ TEST(ProcessUsage, ReportsMemoryAndCpu) {
     EXPECT_GT(usage.rss_bytes, 0u);
     EXPECT_GE(usage.peak_rss_bytes, usage.rss_bytes);
     EXPECT_GE(usage.cpu_seconds, 0.0);
+}
+
+// OwnPlaces gives what the map it replaced gave: each code's places in the
+// order added, until a code is held in seed_max_occurrences places.
+TEST(OwnPlaces, MatchesAMapOfPlacesAcrossMerges) {
+    using comskip::fingerprint::OwnPlaces;
+    using comskip::fingerprint::seed_max_occurrences;
+    OwnPlaces own;
+    std::map<std::uint32_t, std::vector<std::uint32_t>> reference;
+    std::map<std::uint32_t, bool> saturated;
+    std::mt19937 random(7);
+    std::vector<std::uint32_t> found;
+    for (std::uint32_t place = 0; place < 30000; ++place) {
+        // Mostly rare values, some common ones that saturate.
+        const auto code = random() % 4 == 0 ? static_cast<std::uint32_t>(random() % 40) : static_cast<std::uint32_t>(random());
+        const auto& expected = saturated[code] ? std::vector<std::uint32_t>{} : reference[code];
+        ASSERT_EQ(own.saturated(code), saturated[code]);
+        own.places(code, found);
+        ASSERT_EQ(found, expected) << place;
+        if (saturated[code]) continue;
+        own.add(code, place, found.size());
+        if (found.size() >= seed_max_occurrences) {
+            saturated[code] = true;
+            reference.erase(code);
+        } else {
+            reference[code].push_back(place);
+        }
+    }
+    EXPECT_LT(own.bytes(), 30000u * 8 + 4096 * 8 + 1024);
 }
 }
