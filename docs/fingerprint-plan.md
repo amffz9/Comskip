@@ -916,3 +916,14 @@ One independent review done; all its findings are addressed above.
 - [ASSUMED: the Plex files' AC-3 audio decodes through the normal path.]
 - [ASSUMED: broadcast slots are multiples of 30 min; the duration filter is a
   setting if not.]
+
+## Later option: closed captions as an extra vote (not planned)
+
+Repeated caption text (runs of several pop-on lines) could confirm an audio
+match and help label kinds (ads, promos, intros), and a caption-style change
+(roll-up in sports, pop-on in ads) helps close breaks. It cannot replace
+audio: local ads and many promos are uncaptioned, caption timing is rough
+(0.5-1 s, 3-5 s for live roll-up), Comskip reads only CC1, captions may not
+survive the proxy re-encode, and the FFmpeg caption crash is unresolved. A
+cheap first test needs no decoding: the Plex library already has `.srt` files
+next to episodes (for example Elsbeth).
