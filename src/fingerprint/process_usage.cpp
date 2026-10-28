@@ -8,6 +8,9 @@
 #include <sys/resource.h>
 #include <fstream>
 #include <string>
+#ifdef __APPLE__
+#include <mach/mach.h>
+#endif
 #endif
 
 namespace comskip::fingerprint {
@@ -43,6 +46,14 @@ ProcessUsage process_usage() {
         usage.peak_rss_bytes = static_cast<std::uint64_t>(self.ru_maxrss) * 1024;  // kilobytes
 #endif
     }
+#ifdef __APPLE__
+    // macOS has no /proc; the task's basic info gives resident memory now.
+    mach_task_basic_info_data_t task{};
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&task), &count) == KERN_SUCCESS)
+        usage.rss_bytes = task.resident_size;
+    if (usage.peak_rss_bytes < usage.rss_bytes) usage.peak_rss_bytes = usage.rss_bytes;
+#endif
     // Linux gives resident memory now (VmRSS) and its peak (VmHWM) in kB.
     std::ifstream status("/proc/self/status");
     for (std::string line; std::getline(status, line);) {
