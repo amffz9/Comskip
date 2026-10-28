@@ -527,9 +527,15 @@ Types used below:
     - Ensures: each code appears within 1 s of the audio it covers arriving,
       and the codes equal what `code` gives on the whole run, with no restart
       of Chromaprint's context inside a run.
-- Platform facts, first check of F3: the reviewer reports that Chromaprint has
-  streamed without a restart since 1.4 (taking the codes so far and clearing
-  them) and that vcpkg ships 1.6.0. Not yet checked here.
+- Platform facts, checked in F3: vcpkg's port (baseline `908da3a`) is
+  Chromaprint 1.6.0 port-version 2, built with FFmpeg's avtx FFT. Its NEWS
+  gives "fully streaming audio processing" from 1.4, and 1.6.0's
+  `chromaprint_clear_fingerprint` only empties the code list, so a context
+  runs on. Two details from the source: Chromaprint holds up to 32768 samples
+  (3 s) before analysing them, so the Coder calls `chromaprint_finish` after
+  each feed, which only hands them on (no resampler runs at 11025 Hz); and
+  code *i* covers samples *i* x 1365 to *i* x 1365 + 30031 (20 frames), so a
+  run shorter than 2.72 s has no codes.
 
 | Given | When | Then |
 | --- | --- | --- |
@@ -798,6 +804,17 @@ Types used below:
 - **F3. Coder and `seed`.** Check: the platform facts; at least 99% of codes
   within 2 bits of fpcalc `-length 0` on g5 and g4; the 80-minute repeat
   within 0.2 s; CPU about 9 s per 90 min in the test container.
+  **Done:** `comskip-fingerprint seed --recording ID --codes PATH` (C++,
+  `src/fingerprint`); until F4's store it writes the code stream as a JSON
+  file, whole. On g5 and g4 (43594 codes each, ffmpeg's resampler) every
+  code is within 2 bits of fpcalc 1.5.1's at offset 0 (98.5-99.0% equal).
+  Pieces of 0.1 s, 1 s and 90 s give identical codes, and each feed returns
+  every code whose audio is complete. g5 has no repeat whose later copy is
+  near 80 min; its latest (4345.8 s, partner 2254.4 s) is 0.001 s from the
+  distance measured by cross-correlating the audio (a 0.1239 s period gives
+  1.53 s); the others 0.036 and 0.042 s. Coding takes 0.24 CPU s per 90 min;
+  decoding and resampling to 11025 Hz (the app's part) takes about 17 CPU s
+  with ffmpeg writing a file, and fpcalc with its own decoding 3.6 s.
 - **F4. Library, Combiner, `search` and `pass`; offline Harness.** Harness:
   replay a labelled recording with a chosen library; Evidence from the same
   file (one generation, so proxy seconds equal capture seconds). Check: with
