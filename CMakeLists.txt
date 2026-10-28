@@ -426,11 +426,17 @@ if(COMSKIP_BUILD_FINGERPRINT)
         add_executable(fingerprint_seed_test tests/fingerprint/seed_test.cpp)
         target_link_libraries(fingerprint_seed_test PRIVATE fingerprint_core GTest::gtest_main)
         gtest_discover_tests(fingerprint_seed_test)
+        add_executable(fingerprint_library_test tests/fingerprint/library_test.cpp)
+        target_link_libraries(fingerprint_library_test PRIVATE fingerprint_core SQLite::SQLite3 GTest::gtest_main)
+        gtest_discover_tests(fingerprint_library_test)
+        add_executable(fingerprint_combiner_test tests/fingerprint/combiner_test.cpp)
+        target_link_libraries(fingerprint_combiner_test PRIVATE fingerprint_core GTest::gtest_main)
+        gtest_discover_tests(fingerprint_combiner_test)
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
-        add_test(NAME fingerprint_seed_cli COMMAND ${Python3_EXECUTABLE}
-            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fingerprint/seed_cli.py" $<TARGET_FILE:comskip-fingerprint>
-            "${CMAKE_CURRENT_BINARY_DIR}/fingerprint-seed-cli")
-        set_tests_properties(fingerprint_seed_cli PROPERTIES TIMEOUT 60)
+        add_test(NAME fingerprint_cli COMMAND ${Python3_EXECUTABLE}
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fingerprint/cli.py" $<TARGET_FILE:comskip-fingerprint>
+            "${CMAKE_CURRENT_BINARY_DIR}/fingerprint-cli")
+        set_tests_properties(fingerprint_cli PROPERTIES TIMEOUT 120)
         add_dependencies(comskip-check comskip-fingerprint)
     endif()
 endif()
