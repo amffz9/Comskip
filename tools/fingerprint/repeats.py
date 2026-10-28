@@ -1,16 +1,25 @@
 """Find audio stretches that repeat within one recording and compare them with labels.
 
-usage: repeats.py FPCALC_OUTPUT DURATION_S LABELS_CSV
+usage: repeats.py FPCALC_OUTPUT DURATION_S LABELS_CSV [BITS [MIN_LEN]]
+FPCALC_OUTPUT may instead be a comskip-fingerprint code stream (.json) with one
+run; its code period is exact, and DURATION_S is then ignored.
 """
+import json
 import sys
 from collections import defaultdict
 
 fp_path, duration, labels_path = sys.argv[1], float(sys.argv[2]), sys.argv[3]
 fp = []
-for line in open(fp_path):
-    if line.startswith("FINGERPRINT="):
-        fp = [int(x) & 0xFFFFFFFF for x in line.split("=", 1)[1].split(",")]
-hop = duration / len(fp)
+if fp_path.endswith(".json"):
+    stream = json.load(open(fp_path))
+    (run,) = stream["runs"]
+    fp, hop, origin = run["codes"], stream["codePeriod"], run["start"]
+else:
+    for line in open(fp_path):
+        if line.startswith("FINGERPRINT="):
+            fp = [int(x) & 0xFFFFFFFF for x in line.split("=", 1)[1].split(",")]
+    # duration / codes is not the code period (1365/11025 s); it drifts.
+    hop, origin = duration / len(fp), 0.0
 MIN_GAP = int(20 / hop)        # partner must be at least 20 s away
 MIN_LEN = float(sys.argv[5]) if len(sys.argv) > 5 else 3.0
 BITS = int(sys.argv[4]) if len(sys.argv) > 4 else 10
@@ -66,8 +75,8 @@ for d, starts in seeds.items():
 # Every repeated interval (both copies), merged.
 iv = []
 for a, b, d in set(found):
-    iv.append((a * hop, b * hop, (a + d) * hop))
-    iv.append(((a + d) * hop, (b + d) * hop, a * hop))
+    iv.append((origin + a * hop, origin + b * hop, origin + (a + d) * hop))
+    iv.append((origin + (a + d) * hop, origin + (b + d) * hop, origin + a * hop))
 iv.sort()
 merged = []
 for s, e, partner in iv:
