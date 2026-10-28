@@ -330,8 +330,11 @@ the labelled ones. Run the pass on g5, then on g4. Expected: g4 gains coverage
 from ads first seen in g5, g5's marks are corrected by repeats first seen in
 g4, and both meet Must-not-get-worse 1 against Comskip-107. Then replay g4
 through the live path at real speed (Harness live mode) with that library and
-check that each matched ad is marked within 6 s of its labelled start, and
-that no projected part outlives a divergence by more than 2 s. The two
+check that each matched ad is marked within 7 s of its start, and that no
+projected part outlives the codes' divergence by more than 1.5 s. (Revised
+October 28 after F5: about 3 s of agreeing codes, each covering 2.72 s of
+audio, put the floor near 5.5 s; the first disagreeing code completes about
+1.8 s after a cut.) The two
 kept-aside labelled recordings (roadmap stage 4) are scored only at the end,
 by someone other than the implementer.
 
@@ -888,8 +891,10 @@ Types used below:
   show wall-clock latency and withdrawal timing; every full recording runs
   accelerated. Tool-side latency and settle timing are measured on the stream
   clock (the log's `now`), so they do not depend on the replay speed. Check:
-  each matched ad marked within 6 s of its labelled start; projected parts
-  withdrawn within 2 s of a divergence; a stalled reader drops and counts;
+  each matched ad marked within 7 s of its start; projected parts withdrawn
+  within 1.5 s of the codes disagreeing (about 3.5 s after the cut in the
+  audio, since the first disagreeing code completes about 1.8 s after it);
+  a stalled reader drops and counts;
   memory under 48 MB, from `/usr/bin/time` and from the tool's `usage` lines
   (a run fails over 48 MB, or when resident memory rises more than 6 MB an
   hour, a least-squares fit over every usage line after the first 5
