@@ -7,6 +7,7 @@
 #include <sqlite3.h>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -66,6 +67,12 @@ Evidence evidence(std::string id, std::vector<double> seams, std::vector<Interva
 std::vector<double> edges(double at, double seconds) {
     const long first = codes_of(at);
     return {time_of(first) - 0.3, first * code_period + seconds + edge_end - code_period - 0.2};
+}
+
+Context plex_context(std::string series, double window = 3600) {
+    auto result = context("", std::move(series), window);
+    result.source = "plex";
+    return result;
 }
 
 class LibraryTest : public ::testing::Test {
@@ -222,7 +229,8 @@ TEST_F(LibraryTest, AThemeNearTheStartOfEveryEpisodeIsAnIntro) {
             const auto copy = evidence("e" + std::to_string(episode), {});
             add("e" + std::to_string(episode), show, context("CBS", "elsbeth", 3600), &copy);
         }
-        EXPECT_EQ(statuses(), (std::map<std::string, int>{{std::string(status_name(on ? Status::intro : Status::programme)), 1}}));
+        // Kept as an intro either way; only step T4b marks it.
+        EXPECT_EQ(statuses(), (std::map<std::string, int>{{"intro", 1}}));
         const auto marks = library_->matches("e1");
         if (on) {
             ASSERT_EQ(marks.size(), 1u);
@@ -348,6 +356,206 @@ TEST_F(LibraryTest, WaitsForAnotherWriter) {
     EXPECT_TRUE(library_->has_stream("w"));
 }
 
+TEST_F(LibraryTest, ASpotInThreeSeriesIsAnAdWithoutEvidence) {
+    const auto spot = noise(70, codes_of(30.2));
+    const char* shows[] = {"show a", "show b", "show c"};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(71 + n, 3600);
+        file.put(1500 + 200 * n, spot);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+        // Two series are not enough without evidence.
+        if (n == 1) EXPECT_EQ(statuses(), (std::map<std::string, int>{{"candidate", 1}}));
+    }
+    const auto ads = with_status(Status::ad);
+    ASSERT_EQ(ads.size(), 1u);
+    EXPECT_EQ(ads[0].reason, "in 3 series, no logo seen, an ad's length");
+    EXPECT_EQ(library_->matches("plex:/2.ts").size(), 1u);
+}
+
+TEST_F(LibraryTest, OneSeriesAloneNeverMakesAnAd) {
+    // A recap or theme recurs only inside its own show, however often.
+    const auto recap = noise(75, codes_of(30.2));
+    for (int n = 0; n < 5; ++n) {
+        Recording file(76 + n, 3600);
+        file.put(1500 + 150 * n, recap);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
+TEST_F(LibraryTest, AnAdEarlyInTwoEpisodesOfOneShowIsNotItsIntro) {
+    // Two airings near the start of one show come first: an intro then. Three
+    // more series make the show hold less than half the airings, so it is an ad.
+    const auto spot = noise(80, codes_of(30.2));
+    Recording first(81, 3600), second(82, 3600);
+    first.put(400, spot);
+    second.put(700, spot);
+    add("plex:/a1.ts", first, plex_context("show a"), nullptr);
+    add("plex:/a2.ts", second, plex_context("show a"), nullptr);
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"intro", 1}}));
+    const char* shows[] = {"show b", "show c", "show d"};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(83 + n, 3600);
+        file.put(1500 + 300 * n, spot);
+        add("plex:/o" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"ad", 1}}));
+}
+
+TEST_F(LibraryTest, ALogoSeenInOneAiringVetoesTheAudioOnlyAd) {
+    const auto clip = noise(90, codes_of(30.2));
+    const char* shows[] = {"show a", "show b", "show c"};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(91 + n, 3600);
+        file.put(1500, clip);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    ASSERT_EQ(with_status(Status::ad).size(), 1u);
+    // A capture whose Comskip run saw its logo over the whole airing.
+    Recording capture(95, 3600);
+    capture.put(2000, clip);
+    const auto copy = evidence("c", {}, {{1900, 2100}});
+    add("c", capture, context("CBS", "show d", 3600), &copy);
+    const auto shown = with_status(Status::in_programme_ad);
+    ASSERT_EQ(shown.size(), 1u);
+    EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
+TEST_F(LibraryTest, AStretchNextToAdsInTwoBroadcastsJoinsTheBreak) {
+    // A 30 s spot in four series; a 7 s tag right after it in files 0 and 1, an
+    // 8 s stretch right after it in files 2 and 3 (each two series, an odd
+    // length). Both join the spot's break.
+    const auto spot = noise(100, codes_of(30.2));
+    const auto tag = noise(101, codes_of(7));
+    const auto other = noise(102, codes_of(8));
+    const char* shows[] = {"show a", "show b", "show c", "show d"};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(103 + n, 3600);
+        const double at = 1500 + 100 * n;
+        file.put(at, spot).put(at + 30.2, n < 2 ? tag : other);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    std::map<double, EntryInfo> by_length;
+    for (auto& entry : library_->entries()) by_length[std::round(entry.length)] = std::move(entry);
+    EXPECT_EQ(by_length.at(30).status, Status::ad);
+    EXPECT_EQ(by_length.at(7).status, Status::ad);
+    EXPECT_EQ(by_length.at(7).reason, "next to ads in 2 broadcasts");
+    EXPECT_EQ(by_length.at(8).status, Status::ad);
+}
+
+TEST_F(LibraryTest, PiecesOfAnAdJudgedTogetherWhereTheyAbut) {
+    // A 30 s spot whose last 8 s differ in one airing (another end tag): the
+    // entry splits into a 22 s body and an 8 s tag, neither an ad's length. In
+    // the airings where they abut, together they are 30 s, so both are ads.
+    const auto body = noise(150, codes_of(22));
+    const auto tag = noise(151, codes_of(8.2));
+    const auto other_tag = noise(152, codes_of(8.2));
+    const char* shows[] = {"show a", "show b", "show c", "show d"};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(153 + n, 3600);
+        const double at = 1500 + 100 * n;
+        file.put(at, body).put(at + 22, n == 3 ? other_tag : tag);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    const auto entries = library_->entries();
+    ASSERT_EQ(entries.size(), 2u);
+    for (const auto& entry : entries) {
+        EXPECT_FALSE(audio_ad_length(entry.length)) << entry.length;
+        EXPECT_EQ(entry.status, Status::ad) << entry.length;
+        if (entry.length > 15) EXPECT_EQ(entry.reason, "in 4 series, no logo seen, 30 s with the airings it abuts");
+    }
+}
+
+TEST_F(LibraryTest, AStretchNextToAnAdInOneBroadcastStaysCandidate) {
+    const auto spot = noise(110, codes_of(30.2));
+    const auto tag = noise(111, codes_of(7));
+    const char* shows[] = {"show a", "show b", "show c"};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(112 + n, 3600);
+        file.put(1500, spot);
+        // The tag follows the spot in file 0; in file 1 it airs elsewhere.
+        if (n == 0) file.put(1530.2, tag);
+        if (n == 1) file.put(2500, tag);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    for (const auto& entry : library_->entries())
+        if (std::round(entry.length) == 7) EXPECT_EQ(entry.status, Status::candidate);
+}
+
+TEST_F(LibraryTest, JoiningNeverTakesOneSeriesAudio) {
+    // A show's own 7 s sting after the spot, in two episodes of that show only.
+    const auto spot = noise(120, codes_of(30.2));
+    const auto sting = noise(121, codes_of(7));
+    const char* shows[] = {"show a", "show a", "show b", "show c"};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(122 + n, 3600);
+        file.put(1500 + 100 * n, spot);
+        if (n < 2) file.put(1530.2 + 100 * n, sting);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    for (const auto& entry : library_->entries())
+        if (std::round(entry.length) == 7) EXPECT_NE(entry.status, Status::ad);
+}
+
+TEST_F(LibraryTest, TwoFilesOfOneBroadcastCountAsOneSeries) {
+    // File b runs into the next show: it shares 600 s of that show with file c,
+    // spot included. The spot is then in two series, not three.
+    const auto spot = noise(130, codes_of(30.2));
+    const auto shared = noise(131, codes_of(600));
+    Recording a(132, 3600), b(133, 5400), c(134, 3600);
+    a.put(1500, spot);
+    b.put(3700, shared).put(4100, spot);
+    c.put(100, shared).put(500, spot);
+    add("plex:/a.ts", a, plex_context("show a"), nullptr);
+    add("plex:/b.ts", b, plex_context("show b", 5400), nullptr);
+    add("plex:/c.ts", c, plex_context("show c"), nullptr);
+    for (const auto& entry : library_->entries())
+        if (std::round(entry.length) == 30) EXPECT_EQ(entry.status, Status::candidate);
+}
+
+TEST_F(LibraryTest, TwoCapturesOfOneBroadcastCountAsOneChannel) {
+    // The same game captured twice, the channel named "CBS" in one and "4.1" in
+    // the other: a spot in it and one other series is in two series on one
+    // channel, so not an ad by recurrence alone.
+    const auto spot = noise(160, codes_of(30.2));
+    const auto game = noise(161, codes_of(900));
+    Recording first(162, 3600), second(163, 3600), other(164, 3600);
+    first.put(1000, game).put(1500, spot);
+    second.put(1000, game).put(1500, spot);
+    other.put(2000, spot);
+    add("plex:/other.ts", other, plex_context("show a"), nullptr);
+    add("first", first, context("CBS", "nfl:cbs", 3600), nullptr);
+    add("second", second, context("4.1", "series:nfl", 3600), nullptr);
+    for (const auto& entry : library_->entries())
+        if (std::round(entry.length) == 30) EXPECT_EQ(entry.status, Status::candidate) << entry.reason;
+}
+
+TEST_F(LibraryTest, PromoteAllAppliesTheRulesAgain) {
+    const auto spot = noise(140, codes_of(30.2));
+    const char* shows[] = {"show a", "show b", "show c"};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(141 + n, 3600);
+        file.put(1500, spot);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context(shows[n]), nullptr);
+    }
+    // An entry made programme by the intro rule before T4b, as older stores hold.
+    store_->execute("UPDATE entry SET status = 'programme', "
+                    "reason = 'near the start of show a in every airing (intro rule off until T4b)'");
+    const auto result = library_->promote_all();
+    EXPECT_EQ(result.promoted, 1);
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"ad", 1}}));
+    // A programme entry for any other reason stays.
+    store_->execute("UPDATE entry SET status = 'programme', reason = 'logo in every airing, one series'");
+    library_->promote_all();
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"programme", 1}}));
+    // The thresholds are options: four series needed, it stays candidate.
+    store_->execute("UPDATE entry SET status = 'candidate', reason = ''");
+    LibraryOptions strict;
+    strict.rules.audio_series = 4;
+    Library(*store_, strict).promote_all();
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"candidate", 1}}));
+}
+
 TEST(Store, AnUnreadableFileIsCorruptAndANewerOneTooNew) {
     const auto directory = fs::temp_directory_path() / "comskip-store-errors";
     fs::remove_all(directory);
@@ -363,23 +571,95 @@ TEST(Store, AnUnreadableFileIsCorruptAndANewerOneTooNew) {
 
 TEST(Promotion, RulesInOrder) {
     AiringFacts free_a{"a", "nfl:cbs", "CBS", true, true, true, 0.0, false, false};
-    AiringFacts free_b{"b", "nfl:nbc", "NBC", true, false, false, 0.0, false, false};
+    // One channel, so the audio-only rule (three series, or two on two channels)
+    // stays out of these.
+    AiringFacts free_b{"b", "nfl:nbc", "CBS", true, false, false, 0.0, false, false};
     std::vector<AiringFacts> across{free_a, free_b};
-    EXPECT_EQ(promote(Status::candidate, 30, across, false).status, Status::ad);
-    EXPECT_EQ(promote(Status::candidate, 33, across, false).status, Status::ad);  // seams at both ends in a
+    EXPECT_EQ(promote(Status::candidate, 30, across).status, Status::ad);
+    EXPECT_EQ(promote(Status::candidate, 33, across).status, Status::ad);  // seams at both ends in a
     across[0].seam_end = false;
-    EXPECT_EQ(promote(Status::candidate, 33, across, false).status, Status::candidate);
+    EXPECT_EQ(promote(Status::candidate, 33, across).status, Status::candidate);
     // Programme, intro and credits never change.
-    EXPECT_EQ(promote(Status::programme, 30, across, false).status, Status::programme);
+    EXPECT_EQ(promote(Status::programme, 30, across).status, Status::programme);
     // Without evidence no airing shows that the logo is absent.
     across[0].has_evidence = across[1].has_evidence = false;
-    EXPECT_EQ(promote(Status::candidate, 30, across, false).status, Status::candidate);
+    EXPECT_EQ(promote(Status::candidate, 30, across).status, Status::candidate);
     // One airing alone is not a repeat.
-    EXPECT_EQ(promote(Status::candidate, 30, std::vector<AiringFacts>{free_a}, false).status, Status::candidate);
+    EXPECT_EQ(promote(Status::candidate, 30, std::vector<AiringFacts>{free_a}).status, Status::candidate);
     // An ad lost its rule when a later airing shows a logo.
     std::vector<AiringFacts> logo{free_a, free_b};
     logo[1].logo_fraction = 0.3;
-    EXPECT_EQ(promote(Status::ad, 30, logo, false).status, Status::candidate);
+    EXPECT_EQ(promote(Status::ad, 30, logo).status, Status::candidate);
+}
+
+TEST(Promotion, AudioOnlyRules) {
+    const auto plex = [](std::string recording, std::string series) {
+        AiringFacts facts;
+        facts.recording = std::move(recording);
+        facts.series_key = std::move(series);
+        return facts;
+    };
+    std::vector<AiringFacts> three{plex("a", "x"), plex("b", "y"), plex("c", "z")};
+    EXPECT_EQ(promote(Status::candidate, 30.8, three).status, Status::ad);
+    EXPECT_EQ(promote(Status::candidate, 15.0, three).status, Status::ad);
+    // 10 and 20 s are not lengths the audio-only rule takes; the stretch is shown
+    // as an in-programme ad and may join a break.
+    const auto twenty = promote(Status::candidate, 20, three);
+    EXPECT_EQ(twenty.status, Status::in_programme_ad);
+    EXPECT_TRUE(twenty.may_join);
+    EXPECT_EQ(promote(Status::candidate, 31.2, three).status, Status::in_programme_ad);
+    // Two series need two channels as well.
+    std::vector<AiringFacts> two{plex("a", "x"), plex("b", "y")};
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::candidate);
+    EXPECT_TRUE(promote(Status::candidate, 30, two).may_join);
+    two[0].channel = "4.1";
+    two[1].channel = "5.1";
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::ad);
+    // One broadcast in two files counts once.
+    three[2].broadcast = "y";
+    EXPECT_EQ(promote(Status::candidate, 30, three).status, Status::candidate);
+    // A threshold of 2 series takes it.
+    PromotionRules loose;
+    loose.audio_series = 2;
+    EXPECT_EQ(promote(Status::candidate, 30, three, loose).status, Status::ad);
+    // One series never joins a break; neither does anything longer than an ad.
+    std::vector<AiringFacts> one{plex("a", "x"), plex("b", "x")};
+    EXPECT_FALSE(promote(Status::candidate, 7, one).may_join);
+    EXPECT_FALSE(promote(Status::candidate, 200, std::vector<AiringFacts>{plex("a", "x"), plex("b", "y")}).may_join);
+    // A logo seen in an airing with evidence vetoes the ad, and joining.
+    std::vector<AiringFacts> seen{plex("a", "x"), plex("b", "y"), plex("c", "z")};
+    seen[0].has_evidence = true;
+    seen[0].logo_fraction = 0.6;
+    const auto vetoed = promote(Status::candidate, 30, seen);
+    EXPECT_EQ(vetoed.status, Status::in_programme_ad);
+    EXPECT_FALSE(vetoed.may_join);
+    seen[0].logo_fraction = 0.2;
+    EXPECT_EQ(promote(Status::candidate, 30, seen).status, Status::candidate);
+    // An ad that joined a break and lost it is looked at like any candidate.
+    EXPECT_EQ(promote(Status::ad, 7, std::vector<AiringFacts>{plex("a", "x"), plex("b", "y")}).status, Status::candidate);
+}
+
+TEST(Promotion, AnIntroNeedsItsSeriesToHoldMostAirings) {
+    AiringFacts early{"a", "x", "", false, false, false, 0.0, true, false};
+    auto early_b = early;
+    early_b.recording = "b";
+    std::vector<AiringFacts> airings{early, early_b};
+    EXPECT_EQ(promote(Status::candidate, 30, airings).status, Status::intro);
+    for (const char* name : {"c", "d", "e"}) {
+        AiringFacts other{name, std::string("s-") + name, "", false, false, false, 0.0, false, false};
+        airings.push_back(other);
+    }
+    // x holds 2 of 5 recordings: not its intro, and an intro entry returns to
+    // the rules (here an ad) instead of becoming programme.
+    EXPECT_EQ(promote(Status::candidate, 30, airings).status, Status::ad);
+    EXPECT_EQ(promote(Status::intro, 30, airings).status, Status::ad);
+    // While the series holds most airings, one away from the start makes the
+    // intro programme.
+    auto mid = early;
+    mid.recording = "f";
+    mid.near_start = false;
+    std::vector<AiringFacts> broken{early, early_b, mid};
+    EXPECT_EQ(promote(Status::intro, 30, broken).status, Status::programme);
 }
 
 TEST(Matching, NeverJoinsAcrossRunsAndKeepsCopiesTwentySecondsApart) {

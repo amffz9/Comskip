@@ -42,10 +42,14 @@ constexpr const char* usage =
     "usage: comskip-fingerprint seed   --store PATH --recording ID [--context PATH] [--codes PATH]\n"
     "       comskip-fingerprint search --store PATH --recording ID [--evidence PATH]... --out DIR\n"
     "       comskip-fingerprint pass   --store PATH --recording ID [--context PATH] [--evidence PATH]... --out DIR\n"
+    "       comskip-fingerprint promote --store PATH\n"
     "  seed and pass read the audio stream on standard input and add its codes to the store;\n"
     "  search and pass find repeats and write one MarksFile per capture with evidence into DIR;\n"
     "  each prints the pass result on standard output. --codes also writes the code stream as\n"
-    "  JSON (for measurement). --intro-credits turns on the intro and credits rule (step T4b).\n";
+    "  JSON (for measurement). --intro-credits turns on the intro and credits marks (step T4b).\n"
+    "  promote applies the promotion rules again to every entry and prints what changed.\n"
+    "  --audio-series N and --adjacent N set the audio-only thresholds (for measurement;\n"
+    "  defaults 3 and 2, --adjacent 0 turns joining breaks off).\n";
 
 struct Options {
     std::string command;
@@ -58,6 +62,7 @@ struct Options {
     std::string log;
     std::vector<std::string> evidence;
     bool intro_credits{};
+    PromotionRules rules;
     double stall_at = -1;
     double stall_for{};
 };
@@ -82,6 +87,18 @@ std::optional<Options> parse(int argc, char** argv) {
         else if (name == "--evidence") options.evidence.push_back(value);
         else if (name == "--marks") options.marks = value;
         else if (name == "--log") options.log = value;
+        else if (name == "--audio-series" || name == "--adjacent") {
+            int number = 0;
+            try {
+                std::size_t used = 0;
+                number = std::stoi(value, &used);
+                if (used != value.size()) return std::nullopt;
+            } catch (const std::exception&) {
+                return std::nullopt;
+            }
+            if (number < 0) return std::nullopt;
+            (name == "--adjacent" ? options.rules.adjacent_broadcasts : options.rules.audio_series) = number;
+        }
         else if (name == "--stall") {
             const auto colon = value.find(':');
             if (colon == std::string::npos) return std::nullopt;
@@ -94,6 +111,11 @@ std::optional<Options> parse(int argc, char** argv) {
             if (options.stall_at < 0 || options.stall_for < 0) return std::nullopt;
         } else return std::nullopt;
     }
+    if (options.command == "promote")
+        return options.recording.empty() && options.context.empty() && options.codes.empty() && options.out.empty() &&
+                       options.marks.empty() && options.log.empty() && options.evidence.empty() && options.stall_at < 0
+                   ? std::optional(options)
+                   : std::nullopt;
     if (options.store.empty() || options.recording.empty()) return std::nullopt;
     if (options.command == "live")
         return options.evidence.size() == 1 && !options.marks.empty() && options.out.empty() && options.codes.empty()
@@ -165,6 +187,21 @@ int run_live(const Options& options, Context context) {
     return std::fflush(stdout) == 0 ? 0 : exit_failure;
 }
 
+int run_promote(const Options& options) {
+    if (options.store.empty()) throw InputInvalid("promote needs --store");
+    Store store(options.store);
+    Library library(store, {options.intro_credits, "pass", options.rules});
+    const auto result = library.promote_all();
+    std::map<std::string, int> counts;
+    for (const auto& entry : library.entries()) ++counts[std::string(status_name(entry.status))];
+    const json::Value document = {{"promoted", result.promoted},
+                                  {"changedEntries", result.changed_entries.size()},
+                                  {"corrected", result.corrected},
+                                  {"entries", counts}};
+    std::fputs((json::write(document) + "\n").c_str(), stdout);
+    return std::fflush(stdout) == 0 ? 0 : exit_failure;
+}
+
 int run(int argc, char** argv) {
     const auto parsed = parse(argc, argv);
     if (!parsed) {
@@ -175,6 +212,7 @@ int run(int argc, char** argv) {
     const auto context = options.context.empty() ? Context{}
                                                  : input([&] { return context_from_json(json::parse_file(options.context)); });
     if (options.command == "live") return run_live(options, context);
+    if (options.command == "promote") return run_promote(options);
     std::map<std::string, Evidence> evidence;
     for (const auto& path : options.evidence) {
         auto copy = input([&] { return evidence_from_json(json::parse_file(path)); });
@@ -183,7 +221,7 @@ int run(int argc, char** argv) {
     }
 
     Store store(options.store);
-    Library library(store, {options.intro_credits, options.command == "pass" ? "pass" : "seed"});
+    Library library(store, {options.intro_credits, options.command == "pass" ? "pass" : "seed", options.rules});
     SeedResult audio;
     audio.ended = true;
     if (options.command != "search") {
