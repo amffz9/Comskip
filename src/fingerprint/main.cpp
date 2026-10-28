@@ -201,13 +201,16 @@ int run(int argc, char** argv) {
 
     const auto own = evidence.find(options.recording);
     const auto repeats = library.find_repeats(options.recording, own == evidence.end() ? nullptr : &own->second);
+    // Every capture whose Evidence copy was given and whose stream is stored is
+    // combined, changed in this run or not, so a rerun for needsEvidence (after
+    // this run already changed the entries) still writes the corrected files.
     std::vector<std::string> captures;
     if (own != evidence.end()) captures.push_back(options.recording);
+    for (const auto& [capture, copy] : evidence)
+        if (capture != options.recording && library.has_stream(capture)) captures.push_back(capture);
     std::vector<std::string> needs_evidence;
-    for (const auto& corrected : repeats.corrected) {
-        if (evidence.contains(corrected)) captures.push_back(corrected);
-        else needs_evidence.push_back(corrected);
-    }
+    for (const auto& corrected : repeats.corrected)
+        if (!evidence.contains(corrected)) needs_evidence.push_back(corrected);
     std::filesystem::create_directories(comskip::platform::path_from_utf8(options.out));
     auto files = json::Value::array();
     for (const auto& capture : captures) {

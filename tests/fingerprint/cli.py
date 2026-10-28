@@ -149,14 +149,28 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     marks = json.loads((root / "out4" / "cap_2.marks.json").read_text())["marks"]
     # Two ads 40 s apart with no logo between are one break.
     assert [(round(m["start"]), round(m["end"])) for m in marks] == [(40, 130)], marks
-    run = tool("search", "--store", store, "--recording", "cap 2", "--evidence", evidence2_path, "--evidence", evidence_path,
-               "--out", root / "out5")
-    assert run.returncode == 0, run.stderr
-    result = json.loads(run.stdout)
-    assert [m["captureId"] for m in result["marksFiles"]] == ["cap 2"], result  # nothing changed this time
+    # The app's rerun for needsEvidence: the pass already changed the entries,
+    # so nothing changes now, yet the corrected capture still gets its MarksFile
+    # (every given Evidence copy of a stored capture is combined). Twice, the same.
+    corrected = [(100, 130), (190, 220), (250, 270)]
+    for out_dir in ("out5", "out5b"):
+        run = tool("search", "--store", store, "--recording", "cap 2", "--evidence", evidence2_path,
+                   "--evidence", evidence_path, "--out", root / out_dir)
+        assert run.returncode == 0, run.stderr
+        result = json.loads(run.stdout)
+        assert [m["captureId"] for m in result["marksFiles"]] == ["cap 2", "cap 1"], result
+        assert result["needsEvidence"] == [] and result["promoted"] == 0, result
+        marks = json.loads((root / out_dir / "cap_1.marks.json").read_text())["marks"]
+        assert [(round(m["start"]), round(m["end"])) for m in marks] == corrected, marks
+    assert (root / "out5" / "cap_1.marks.json").read_text() == (root / "out5b" / "cap_1.marks.json").read_text()
     run = tool("search", "--store", store, "--recording", "cap 1", "--evidence", evidence_path, "--out", root / "out6")
     marks = json.loads((root / "out6" / "cap_1.marks.json").read_text())["marks"]
-    assert [(round(m["start"]), round(m["end"])) for m in marks] == [(100, 130), (190, 220), (250, 270)], marks
+    assert [(round(m["start"]), round(m["end"])) for m in marks] == corrected, marks
+    # An Evidence copy of a capture the store has no stream for gets no MarksFile.
+    stranger_path = root / "stranger.evidence.json"
+    stranger_path.write_text(json.dumps(dict(evidence2, captureId="stranger")))
+    run = tool("search", "--store", store, "--recording", "cap 2", "--evidence", stranger_path, "--out", root / "out7")
+    assert run.returncode == 0 and json.loads(run.stdout)["marksFiles"] == [], run.stdout
 
     # live: the spot airs whole, then cut to 15 s; the Evidence file appears only
     # once the tool runs. Audio is paced at 10x real time; writing it never waits.

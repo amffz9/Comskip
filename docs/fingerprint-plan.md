@@ -262,8 +262,8 @@ Post-recording (ships first; needs neither live tapping nor the pipe):
 7. Library lists every other capture whose marks change because an entry
    changed status (corrections). Plex recordings have no marks and are never
    listed.
-8. Combiner makes marks for this capture and for each corrected capture that
-   has an Evidence copy. A capture without one (`AxisUntrusted`, or Evidence
+8. Combiner makes marks for this capture and for every other stored capture
+   whose Evidence copy was given (corrected now or by an earlier run). A capture without one (`AxisUntrusted`, or Evidence
    missing) gets no fingerprint marks; its Comskip marks stand.
 9. FingerprintTool writes one MarksFile per such capture and a result listing
    them, each written whole, and exits 0.
@@ -695,10 +695,13 @@ Types used below:
 
 - Kind: core (wiring). Invocations by the TV app:
   - `op pass(store, RecordingId, Context, audio stream, Evidence copy paths of this and other captures, output dir) -> pass result | exit code`
-    - Ensures: addStream, findRepeats, then Combiner for this capture and each
-      corrected capture whose Evidence copy was given; one MarksFile per
-      capture combined; a corrected capture without an Evidence copy is listed
-      as `needsEvidence`. Repeatable: the same pass twice gives the same files.
+    - Ensures: addStream, findRepeats, then Combiner for this capture and for
+      every other stored capture whose Evidence copy was given, whether or not
+      this run changed its entries; one MarksFile per capture combined; a
+      corrected capture without an Evidence copy is listed as `needsEvidence`.
+      Repeatable: the same pass twice gives the same files, and a rerun with
+      the `needsEvidence` copies writes their MarksFiles although the first
+      run already changed the entries.
   - `op live(store, RecordingId, Context, audio stream, live Evidence path, MarksFile path)`
     - Ensures: codes appended at least every 10 s; the live index refreshed
       every 10 s; the Evidence file reread within 2 s of being replaced with a
