@@ -1,0 +1,18 @@
+# g4 = first 90 min of Colts at Vikings (CBS), 480x270 proxy made like the TV app's.
+# Labelled by eye from contact sheets at 1 frame / 5 s, so edges are +-5 s.
+# start_s,end_s,kind,note
+35,128,ad,opening break (0-35 pregame programme; studio 130-150 is programme)
+150,160,ad,Uber Eats spot then CBS/NFL bumper
+750,868,ad,
+1198,1322,ad,
+1500,1605,ad,stadium sponsor billboards to ~1620
+2275,2398,ad,Cutwater first
+2910,3028,ad,Mercedes first; Nationwide bumper after
+3530,3643,ad,Colts-at-Vikings bumper first
+4058,4160,ad,Giants feature with State Farm 4160-4200 follows
+4465,4588,ad,
+4858,4975,ad,halftime; Verizon split-screen 4840-4858 before
+5252,5345,ad,halftime report (programme) 4980-5245 before
+5385,5405,ad,runs to end of file; halftime report 5350-5380 before
+4840,4858,sponsor,Verizon split-screen
+4233,4263,in-programme ad,Google "Eye on the field" split-screen; its audio is the Google ad (fingerprint match)

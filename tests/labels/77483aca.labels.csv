@@ -1,0 +1,31 @@
+# 77483aca = NFL on CBS, Pittsburgh Steelers at New England Patriots (St. Louis CBS affiliate, First Alert 4), with halftime report; late switch to another game
+# Labelled by eye from contact sheets; edges +-2 s (pts-selected 1 fps strips); breaks include CBS promos and CBS NFL bumpers.
+# start_s,end_s,kind,note
+43,179,ad,Harry's razors; ends with CBS NFL bumper
+584,713,ad,Macy's; State Farm; Visible; CBS promos
+929,1051,ad,DraftKings; Allstate; McDonald's; Sunday Ticket
+1051,1075,sponsor,Survivor promo squeeze over play (end approx)
+1330,1437,ad,Instacart Scooby-Doo; T-Mobile; Dunkin; Capital One; VMA promo
+1829,1956,ad,Kia; Eternally Yours promo; app spot
+2352,2485,ad,Nemluvio; Pizza Hut; TNF promo
+2558,2684,ad,Steelers-Patriots billboard; Voya; Uber Eats; NCIS New York promo
+2773,2803,sponsor,sponsor inset/logos over play (Express delivery)
+3581,3718,ad,Apple iPhone; Whole Foods; Chipotle; Eternally Yours promo
+3976,4083,ad,FanDuel; KFC; Royal Caribbean; Marshals promo
+4083,4115,sponsor,FanDuel/CBS NFL Dune Brothers feature
+4422,4564,ad,Taco Bell; New Balance; Best Buy
+4651,4789,ad,Peyton Manning spot; pizza; Sunday Ticket; CIA promo; ends at halftime-report sponsored update
+5132,5195,ad,Survivor promo; dog spot (short break)
+5446,5471,sponsor,Verizon split-screen squeeze during play
+5471,5609,ad,Verizon; Eternally Yours promo; Chase; NFL Player Health; ends at Verizon Halftime Report open
+5912,5993,ad,halftime break 1: Verizon; NFL It Takes All of Us PSA; Paramount+/Marshals promos
+6022,6166,ad,halftime break 2: CBS promos; Ford; Car Credit; political; DM; Apple Siri
+6403,6536,ad,McDonald's; Indeed; VMA/60 Minutes promos; NFL spot
+6930,7022,ad,Tide (Brand Power); Pergo/Lowe's; Dunkin; Progressive
+7493,7611,ad,Noom; Sunday Ticket; United
+7768,7891,ad,Chili's; Survivor promo
+8362,8494,ad,national spot; Chipotle; local political (Wellman/Wagner)
+8704,8818,ad,Expedia; Best Buy; McDonald's; Chewy
+9046,9168,ad,Whole Foods; Dunkin; CBS college football and 60 Minutes promos
+10366,10488,ad,Liberty Mutual; Sunday Ticket
+10748,10870,ad,Liberty Mutual; Sunday Ticket (during the switched-to game)

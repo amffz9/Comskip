@@ -152,6 +152,7 @@ struct Settings {
     bool output_dvrcut{};
     bool output_ipodchap{};
     bool output_framearray{};
+    bool output_evidence{};
     bool output_debugwindow{};
     bool output_tuning{};
     int output_training{};

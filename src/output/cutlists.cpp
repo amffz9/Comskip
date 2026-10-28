@@ -17,6 +17,7 @@
 #include "player_export_adapter.h"
 #include "legacy_editor_adapter.h"
 #include "legacy_cutlist_adapter.h"
+#include "evidence_adapter.h"
 #include "csv_field.h"
 #include "checked_file.h"
 #include "edl.h"
@@ -570,6 +571,7 @@ bool OutputBlocks(RecordingContext& context)
     WritePlayerExportFiles(context);
     WriteLegacyEditorFiles(context);
     WriteLegacyCutlistFiles(context);
+    WriteEvidenceFile(context, true);
 
     if (context.state.reffer_count == -1) {
         std::vector<Legacy_reffer_entry> reference;

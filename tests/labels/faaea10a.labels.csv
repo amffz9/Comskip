@@ -1,0 +1,16 @@
+# faaea10a = 2016 college football rebroadcast, Boise State at Wyoming ("2016: Josh Allen, #17 Wyoming", CBS Sports via Origin Sports) on a St. Louis station with local ads
+# Labelled by eye from contact sheets; edges +-2 s (pts-selected 1 fps strips). Breaks open with the Origin Sports bumper.
+# start_s,end_s,kind,note
+0,59,ad,recording starts mid-break: Brunt workwear then lung-scan PSA
+449,575,ad,Origin bumper; Chris Buys Homes; ends after ABC/First Alert promos
+891,1017,ad,Origin bumper; nerve-scan clinic; I Buy STL
+1496,1622,ad,Origin bumper; Gray MMJ; Core Properties; Cofman Townsley
+1912,2037,ad,Origin bumper; Consumer Cellular; Foundation Recovery; ABC news promos
+2399,2526,ad,Origin bumper; Gray MMJ; Lifestyle Kitchens; I Buy STL; First Alert drone promo
+2947,3073,ad,Origin bumper; Cofman Townsley; Jewels on Hampton; Watson's; Jim Butler
+3073,3101,sponsor,Chick-fil-A logo on crowd shots after return (end approx +-5 s)
+3438,3565,ad,Origin bumper; Mizzou Live promo; Chris Buys Homes; Don's Garage Doors
+3835,3963,ad,Origin bumper; Gray MMJ; Core Properties; Jewels on Hampton; ABC promos
+4383,4507,ad,no bumper (cut to black); First Alert weather promo; Bath Fitter; Bloomsdale
+5024,5150,ad,Origin bumper; station promos; Plexaderm
+5466,5591,ad,Origin bumper; Jewels on Hampton; Consumer Cellular; First Alert promos; programme resumes to end of file
