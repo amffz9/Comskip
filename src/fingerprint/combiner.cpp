@@ -222,6 +222,44 @@ std::vector<Mark> combine(std::span<const CombinerMatch> matches, const Evidence
     return marks;
 }
 
+std::vector<Mark> MarkHistory::settle(std::vector<Mark> marks, double now) {
+    std::vector<Seen> seen;
+    for (auto& mark : marks) {
+        const Seen* before = nullptr;
+        double best = 0;
+        for (const auto& old : seen_) {
+            if (old.mark.kind != mark.kind) continue;
+            const double shared = std::min(old.mark.end, mark.end) - std::max(old.mark.start, mark.start);
+            if (shared >= 0.5 * std::min(old.mark.end - old.mark.start, mark.end - mark.start) && shared > best) {
+                best = shared;
+                before = &old;
+            }
+        }
+        const bool same = before && std::abs(before->mark.start - mark.start) <= unchanged_within &&
+                          std::abs(before->mark.end - mark.end) <= unchanged_within;
+        const double since = same ? before->since : now;
+        if (mark.state == MarkState::settled && mark.end + settle_after <= now && now - since < settle_after)
+            mark.state = MarkState::provisional;
+        seen.push_back({mark, since});
+    }
+    seen_ = std::move(seen);
+    return marks;
+}
+
+bool within_show_ad(const Evidence& evidence, double first_from, double first_to, double second_from, double second_to) {
+    if (!evidence.logo_known || !standard_length(second_to - second_from)) return false;
+    const auto logo_free = [&](double from, double to) {
+        double seen = 0;
+        for (const auto& logo : evidence.logo) seen += std::max(0.0, std::min(to, logo.to) - std::max(from, logo.from));
+        return to > from && seen / (to - from) < logo_none_below;
+    };
+    const auto seam = [&](double time) {
+        return std::ranges::any_of(evidence.seams, [&](const Seam& s) { return std::abs(s.at - time) <= seam_reach; });
+    };
+    const bool seams = (seam(first_from) && seam(first_to)) || (seam(second_from) && seam(second_to));
+    return seams && logo_free(first_from, first_to) && logo_free(second_from, second_to);
+}
+
 std::string marks_file_json(std::string_view capture_id, long long evidence_revision, bool final, std::span<const Mark> marks) {
     std::string text = "{ \"captureId\": ";
     json::append_string(text, capture_id);

@@ -677,6 +677,11 @@ std::vector<EntryInfo> Library::entries() {
 
 std::vector<EntryInfo> Library::live_index(double now) {
     std::vector<EntryInfo> found;
+    live_index(now, live_index_bytes, [&](EntryInfo&& entry) { found.push_back(std::move(entry)); });
+    return found;
+}
+
+void Library::live_index(double now, std::size_t max_bytes, const std::function<void(EntryInfo&&)>& visit) {
     auto query = store_.prepare(
         "SELECT id, status, length, reason, airings, codes, last_airing FROM entry "
         "WHERE status IN ('ad', 'in-programme ad') AND last_airing >= ? ORDER BY last_airing DESC, id");
@@ -686,9 +691,23 @@ std::vector<EntryInfo> Library::live_index(double now) {
         EntryInfo entry{query.integer(0), status_from_name(query.text(1)), query.real(2), query.text(3), query.integer(4),
                         query.codes(5), query.real(6)};
         bytes += entry.codes.size() * sizeof(std::uint32_t);
-        if (bytes > live_index_bytes) break;
-        found.push_back(std::move(entry));
+        if (bytes > max_bytes) break;
+        visit(std::move(entry));
     }
-    return found;
+}
+
+std::vector<std::tuple<long long, Status, long long>> Library::live_index_key(double now, std::size_t max_bytes) {
+    std::vector<std::tuple<long long, Status, long long>> key;
+    auto query = store_.prepare(
+        "SELECT id, status, length(codes) FROM entry "
+        "WHERE status IN ('ad', 'in-programme ad') AND last_airing >= ? ORDER BY last_airing DESC, id");
+    query.bind(1, now - live_index_weeks * week_seconds);
+    std::size_t bytes = 0;
+    while (query.step()) {
+        bytes += static_cast<std::size_t>(query.integer(2));
+        if (bytes > max_bytes) break;
+        key.emplace_back(query.integer(0), status_from_name(query.text(1)), query.integer(2) / 4);
+    }
+    return key;
 }
 }

@@ -1,13 +1,16 @@
 // FingerprintTool (docs/fingerprint-plan.md): codes audio fed by the TV app,
-// keeps the store, finds repeats and writes marks. `live` follows in step F5.
+// keeps the store, finds repeats and writes marks, after a recording or live.
 #include "fingerprint/audio_stream.h"
 #include "fingerprint/combiner.h"
 #include "fingerprint/json.h"
 #include "fingerprint/library.h"
+#include "fingerprint/live.h"
 #include "fingerprint/seed.h"
 #include "fingerprint/store.h"
 #include "output/output_file.h"
 #include "platform/utf8_paths.h"
+#include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
@@ -21,6 +24,8 @@
 #include "arguments.h"
 #include <fcntl.h>
 #include <io.h>
+#else
+#include <unistd.h>
 #endif
 
 namespace {
@@ -49,8 +54,12 @@ struct Options {
     std::string context;
     std::string codes;
     std::string out;
+    std::string marks;
+    std::string log;
     std::vector<std::string> evidence;
     bool intro_credits{};
+    double stall_at = -1;
+    double stall_for{};
 };
 
 std::optional<Options> parse(int argc, char** argv) {
@@ -71,12 +80,29 @@ std::optional<Options> parse(int argc, char** argv) {
         else if (name == "--codes") options.codes = value;
         else if (name == "--out") options.out = value;
         else if (name == "--evidence") options.evidence.push_back(value);
-        else return std::nullopt;
+        else if (name == "--marks") options.marks = value;
+        else if (name == "--log") options.log = value;
+        else if (name == "--stall") {
+            const auto colon = value.find(':');
+            if (colon == std::string::npos) return std::nullopt;
+            try {
+                options.stall_at = std::stod(value.substr(0, colon));
+                options.stall_for = std::stod(value.substr(colon + 1));
+            } catch (const std::exception&) {
+                return std::nullopt;
+            }
+            if (options.stall_at < 0 || options.stall_for < 0) return std::nullopt;
+        } else return std::nullopt;
     }
+    if (options.store.empty() || options.recording.empty()) return std::nullopt;
+    if (options.command == "live")
+        return options.evidence.size() == 1 && !options.marks.empty() && options.out.empty() && options.codes.empty()
+                   ? std::optional(options)
+                   : std::nullopt;
+    if (!options.marks.empty() || !options.log.empty() || options.stall_at >= 0) return std::nullopt;
     const bool audio = options.command == "seed" || options.command == "pass";
     const bool marks = options.command == "search" || options.command == "pass";
     if (!audio && !marks) return std::nullopt;
-    if (options.store.empty() || options.recording.empty()) return std::nullopt;
     if (marks != !options.out.empty()) return std::nullopt;
     if (!audio && (!options.context.empty() || !options.codes.empty())) return std::nullopt;
     if (!marks && !options.evidence.empty()) return std::nullopt;
@@ -113,6 +139,32 @@ SeedResult read_audio() {
     });
 }
 
+// Live audio is taken as it arrives: a read returns what the pipe holds rather
+// than waiting to fill the buffer.
+std::size_t read_available(std::span<std::byte> buffer) {
+    for (;;) {
+#ifdef _WIN32
+        const int size = _read(0, buffer.data(), static_cast<unsigned>(std::min<std::size_t>(buffer.size(), 1u << 20)));
+#else
+        const auto size = ::read(0, buffer.data(), buffer.size());
+        if (size < 0 && errno == EINTR) continue;
+#endif
+        if (size < 0) throw std::runtime_error("Standard input cannot be read");
+        return static_cast<std::size_t>(size);
+    }
+}
+
+int run_live(const Options& options, Context context) {
+#ifdef _WIN32
+    _setmode(_fileno(stdin), _O_BINARY);
+#endif
+    LiveOptions live_options{options.store, options.recording, std::move(context), options.evidence.front(), options.marks,
+                             options.log, options.intro_credits, options.stall_at, options.stall_for};
+    const auto result = live(live_options, read_available);
+    std::fputs(live_result_json(options.recording, options.marks, result).c_str(), stdout);
+    return std::fflush(stdout) == 0 ? 0 : exit_failure;
+}
+
 int run(int argc, char** argv) {
     const auto parsed = parse(argc, argv);
     if (!parsed) {
@@ -122,6 +174,7 @@ int run(int argc, char** argv) {
     const auto& options = *parsed;
     const auto context = options.context.empty() ? Context{}
                                                  : input([&] { return context_from_json(json::parse_file(options.context)); });
+    if (options.command == "live") return run_live(options, context);
     std::map<std::string, Evidence> evidence;
     for (const auto& path : options.evidence) {
         auto copy = input([&] { return evidence_from_json(json::parse_file(path)); });

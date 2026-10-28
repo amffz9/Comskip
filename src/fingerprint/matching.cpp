@@ -7,20 +7,6 @@
 
 namespace comskip::fingerprint {
 namespace {
-// repeats.py: values seen more often than this (silence, a held tone) are not
-// seeds.
-constexpr std::size_t max_occurrences = 30;
-// Seeds on one offset closer than this form one group.
-constexpr long group_gap = 16;  // int(2 s / code period)
-// The smoothing window: a position agrees when at least 5 of the 8 codes from 4
-// before it to 3 after it agree.
-constexpr long window_before = 4;
-constexpr long window_after = 4;
-constexpr int window_needed = 5;
-// A match whose edge lies this close to a sequence's edge stopped there: the
-// window cannot fill closer to the edge than this.
-constexpr long edge_slack = 4;
-
 struct Position {
     std::uint32_t sequence;
     std::int32_t index;
@@ -63,8 +49,8 @@ public:
     }
     bool smooth(long k) const {
         int count = 0;
-        for (long i = k - window_before; i < k + window_after; ++i) count += good(i) ? 1 : 0;
-        return count >= window_needed;
+        for (long i = k - smooth_before; i < k + smooth_after; ++i) count += good(i) ? 1 : 0;
+        return count >= smooth_needed;
     }
 
 private:
@@ -86,7 +72,7 @@ std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Seq
     const auto other_index = index_of(other);
     if (self) {
         for (const auto& [value, positions] : other_index) {
-            if (positions.size() < 2 || positions.size() > max_occurrences) continue;
+            if (positions.size() < 2 || positions.size() > seed_max_occurrences) continue;
             for (std::size_t x = 0; x < positions.size(); ++x) {
                 for (std::size_t y = x + 1; y < positions.size(); ++y) {
                     auto first = positions[x];
@@ -113,7 +99,7 @@ std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Seq
             for (std::int32_t position = 0; position < static_cast<std::int32_t>(codes.size()); ++position) {
                 const auto code = codes[static_cast<std::size_t>(position)];
                 const auto found = other_index.find(code);
-                if (found == other_index.end() || found->second.size() > max_occurrences || a_counts[code] > max_occurrences)
+                if (found == other_index.end() || found->second.size() > seed_max_occurrences || a_counts[code] > seed_max_occurrences)
                     continue;
                 for (const auto& at : found->second) seeds[{sequence, at.sequence, at.index - position}].push_back(position);
             }
@@ -140,7 +126,7 @@ std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Seq
         std::size_t group_begin = 0;
         while (group_begin < starts.size()) {
             std::size_t group_end = group_begin + 1;
-            while (group_end < starts.size() && starts[group_end] - starts[group_end - 1] <= group_gap) ++group_end;
+            while (group_end < starts.size() && starts[group_end] - starts[group_end - 1] <= seed_group_gap) ++group_end;
             if (group_end - group_begin >= 2) {
                 for (std::size_t seed = group_begin; seed < group_end; ++seed) {
                     const long k0 = starts[seed];

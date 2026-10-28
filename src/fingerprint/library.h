@@ -3,10 +3,12 @@
 #include "fingerprint/inputs.h"
 #include "fingerprint/store.h"
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 // Library (docs/fingerprint-plan.md, "PART: Library"): the store of code streams,
@@ -116,6 +118,12 @@ public:
     // weeks of now (Unix seconds), most recently aired first, at most 20 MB of
     // codes.
     std::vector<EntryInfo> live_index(double now);
+    // The same, at most max_bytes of codes, each entry handed to visit in turn
+    // so the whole list is never held at once.
+    void live_index(double now, std::size_t max_bytes, const std::function<void(EntryInfo&&)>& visit);
+    // What the live index holds (id, status, code count), read without the codes,
+    // so a caller can tell cheaply whether it changed.
+    std::vector<std::tuple<long long, Status, long long>> live_index_key(double now, std::size_t max_bytes);
 
     bool has_stream(const std::string& recording);
     // Marked airings of a recording (ad and in-programme ad; intro and credits too

@@ -407,9 +407,10 @@ if(COMSKIP_BUILD_FINGERPRINT)
     find_package(SQLite3 REQUIRED)
     add_library(fingerprint_core src/fingerprint/coder.cpp src/fingerprint/audio_stream.cpp src/fingerprint/seed.cpp
         src/fingerprint/json.cpp src/fingerprint/inputs.cpp src/fingerprint/matching.cpp src/fingerprint/store.cpp
-        src/fingerprint/library.cpp src/fingerprint/combiner.cpp)
+        src/fingerprint/library.cpp src/fingerprint/combiner.cpp src/fingerprint/audio_queue.cpp
+        src/fingerprint/live_matcher.cpp src/fingerprint/live.cpp)
     target_include_directories(fingerprint_core PUBLIC src)
-    target_link_libraries(fingerprint_core PUBLIC diagnostics PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
+    target_link_libraries(fingerprint_core PUBLIC diagnostics Threads::Threads PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
     add_executable(comskip-fingerprint src/fingerprint/main.cpp)
     target_include_directories(comskip-fingerprint PRIVATE src/app)
     target_link_libraries(comskip-fingerprint PRIVATE fingerprint_core)
@@ -432,11 +433,14 @@ if(COMSKIP_BUILD_FINGERPRINT)
         add_executable(fingerprint_combiner_test tests/fingerprint/combiner_test.cpp)
         target_link_libraries(fingerprint_combiner_test PRIVATE fingerprint_core GTest::gtest_main)
         gtest_discover_tests(fingerprint_combiner_test)
+        add_executable(fingerprint_live_test tests/fingerprint/live_test.cpp)
+        target_link_libraries(fingerprint_live_test PRIVATE fingerprint_core GTest::gtest_main)
+        gtest_discover_tests(fingerprint_live_test)
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
         add_test(NAME fingerprint_cli COMMAND ${Python3_EXECUTABLE}
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/fingerprint/cli.py" $<TARGET_FILE:comskip-fingerprint>
             "${CMAKE_CURRENT_BINARY_DIR}/fingerprint-cli")
-        set_tests_properties(fingerprint_cli PROPERTIES TIMEOUT 120)
+        set_tests_properties(fingerprint_cli PROPERTIES TIMEOUT 240)
         add_dependencies(comskip-check comskip-fingerprint)
     endif()
 endif()

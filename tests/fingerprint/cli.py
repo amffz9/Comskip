@@ -9,6 +9,8 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from contextlib import closing
 
 RATE, CODE_SAMPLES, SPAN = 11025, 1365, 19 * 1365 + 4096
@@ -154,6 +156,97 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     run = tool("search", "--store", store, "--recording", "cap 1", "--evidence", evidence_path, "--out", root / "out6")
     marks = json.loads((root / "out6" / "cap_1.marks.json").read_text())["marks"]
     assert [(round(m["start"]), round(m["end"])) for m in marks] == [(100, 130), (190, 220), (250, 270)], marks
+
+    # live: the spot airs whole, then cut to 15 s; the Evidence file appears only
+    # once the tool runs. Audio is paced at 10x real time; writing it never waits.
+    live_audio = melody(50, 11) + spot + melody(100, 12) + spot[: 15 * RATE] + melody(60, 13)
+    live_context = root / "live context.json"
+    live_context.write_text(json.dumps({"channel": "CBS", "airStart": 1760200000, "source": "capture",
+                                        "programmes": [{"from": 0, "to": 3600, "title": "Show", "seriesKey": "show"}]}))
+    live_evidence = root / "live.evidence.json"
+    live_marks = root / "live.marks.json"
+    live_log = root / "live.log"
+
+    def live(name, audio, speed, *extra, evidence_after=0.0):
+        """Runs live with the audio paced at `speed` times real time; returns the
+        process result, the longest single write in seconds, and the stdout JSON."""
+        process = subprocess.Popen([str(executable), "live", "--store", str(store), "--recording", name, "--context",
+                                    str(live_context), "--evidence", str(live_evidence), "--marks", str(live_marks),
+                                    "--log", str(live_log), *map(str, extra)],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+        longest = [0.0]
+
+        def feed():
+            process.stdin.write(run_start(0))
+            piece = RATE // 10
+            began = time.monotonic()
+            for index in range(0, len(audio), piece):
+                due = began + index / RATE / speed
+                if due > time.monotonic():
+                    time.sleep(due - time.monotonic())
+                chunk = audio[index:index + piece]
+                start = time.monotonic()
+                process.stdin.write(b"A" + struct.pack("<I", 2 * len(chunk)) + struct.pack(f"<{len(chunk)}h", *chunk))
+                longest[0] = max(longest[0], time.monotonic() - start)
+                if evidence_after and index / RATE >= evidence_after and not live_evidence.exists():
+                    live_evidence.write_text(json.dumps({"revision": 3, "final": False, "logoKnown": True,
+                                                         "seams": [], "logo": [], "blocks": []}))
+            process.stdin.write(END)
+            process.stdin.close()
+
+        errors = []
+        writer = threading.Thread(target=feed)
+        reader = threading.Thread(target=lambda: errors.append(process.stderr.read()))
+        writer.start()
+        reader.start()
+        out = process.stdout.read()
+        writer.join()
+        reader.join()
+        err = errors[0]
+        process.wait(timeout=60)
+        return process.returncode, err, longest[0], json.loads(out) if process.returncode == 0 else None
+
+    code, err, longest, result = live("cap 3", live_audio, 10, evidence_after=20)
+    assert code == 0, err
+    assert result["ended"] is True and result["droppedAudioSeconds"] == 0.0, result
+    assert result["marksFiles"] == [{"captureId": "cap 3", "path": str(live_marks)}], result
+    assert result["withdrawn"] >= 1, result
+    assert longest < 1.0, longest
+    final = json.loads(live_marks.read_text())
+    assert final["captureId"] == "cap 3" and final["evidenceRevision"] == 3 and final["final"] is False, final
+    found = [(round(m["start"]), round(m["end"]), m["kind"]) for m in final["marks"]]
+    whole, cut = 50.0, 50.0 + 30 + 100
+    assert len(found) == 2, found
+    assert abs(final["marks"][0]["start"] - whole) < 1.01 and abs(final["marks"][0]["end"] - whole - 30) < 1.01, found
+    # The cut airing: its projected part was withdrawn, so the mark ends where the codes stopped agreeing.
+    assert abs(final["marks"][1]["start"] - cut) < 1.01 and abs(final["marks"][1]["end"] - cut - 15) < 1.01, found
+    events = [json.loads(line) for line in live_log.read_text().splitlines()]
+    kinds = {event["event"] for event in events}
+    assert {"evidence", "match", "ended", "marks", "end"} <= kinds, kinds
+    written = [event for event in events if event["event"] == "marks"]
+    # While the cut airing was still agreeing, its mark covered the whole 30 s.
+    assert any(any(abs(m[0] - cut) < 1.01 and abs(m[1] - cut - 30) < 1.01 for m in event["marks"]) for event in written), written
+    withdrawn = [event for event in events if event["event"] == "ended" and event["withdrawn"]]
+    assert withdrawn and all(event["endedAt"] - event["stoppedAt"] <= 2.0 for event in withdrawn), withdrawn
+
+    # A stalled matcher: 4 s asleep while 80 s of audio arrives. Reading goes on,
+    # the queue keeps 30 s and the rest is dropped and counted.
+    live_evidence.unlink()
+    code, err, longest, result = live("cap 4", melody(150, 21), 20, "--stall", "20:4", evidence_after=1)
+    assert code == 0, err
+    assert result["ended"] is True and 30 <= result["droppedAudioSeconds"] <= 70, result
+    assert longest < 1.0, longest
+    # The audio after the gap is a new run in the store, so nothing is matched across it.
+    with closing(sqlite3.connect(store)) as db:
+        starts = [row[0] for row in db.execute("SELECT start FROM run WHERE recording = 'cap 4' ORDER BY start")]
+    assert len(starts) == 2 and starts[0] == 0 and starts[1] > 20, starts
+
+    # live needs one evidence path and a MarksFile path; audio before a run start is invalid.
+    run = tool("live", "--store", store, "--recording", "x", "--evidence", live_evidence, stream=END)
+    assert run.returncode == 6 and b"usage" in run.stderr, (run.returncode, run.stderr)
+    run = tool("live", "--store", store, "--recording", "x", "--evidence", live_evidence, "--marks", live_marks,
+               stream=pcm(tones(1)) + END)
+    assert run.returncode == 2 and run.stderr, (run.returncode, run.stderr)
 
     # Errors: unknown recording 2, bad evidence 2, a file that is not a store 4,
     # a newer store 5, usage 6.

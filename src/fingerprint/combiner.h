@@ -59,9 +59,36 @@ inline constexpr double touch_reach = 1.0;
 inline constexpr double bracket_reach = 8.0;
 // Live: a mark with any unconfirmed part settles this long after its end.
 inline constexpr double settle_after = 180.0;
+// Mark edges that moved less than this did not change.
+inline constexpr double unchanged_within = 0.05;
 
 // Throws EvidenceMissing without evidence.
 std::vector<Mark> combine(std::span<const CombinerMatch> matches, const Evidence* evidence, CombineMode mode);
+
+// Live: a provisional mark settles 3 minutes after its end only when it has not
+// changed for 3 minutes (roadmap Q9). Remembers when each mark last changed; a
+// mark is the earlier one of its kind it overlaps by at least half the shorter
+// (D3's rule), and it changed when either edge moved.
+class MarkHistory {
+public:
+    // Marks from combine in live mode at capture second now: a mark combine
+    // settled by age (3 minutes past its end) that changed less than 3 minutes
+    // ago stays provisional.
+    std::vector<Mark> settle(std::vector<Mark> marks, double now);
+
+private:
+    struct Seen {
+        Mark mark;
+        double since{};
+    };
+    std::vector<Seen> seen_;
+};
+
+// The within-show ad rule for a repeat inside one recording (Library, "ad,
+// within one show"), from the recording's evidence: a learned logo seen during
+// neither copy, seams within 1 s at both ends of at least one copy, and a
+// standard length. A self-repeat match becomes an ad match only when it holds.
+bool within_show_ad(const Evidence& evidence, double first_from, double first_to, double second_from, double second_to);
 
 // The MarksFile for one capture, as one JSON object.
 std::string marks_file_json(std::string_view capture_id, long long evidence_revision, bool final, std::span<const Mark> marks);

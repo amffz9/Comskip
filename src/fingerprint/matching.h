@@ -1,5 +1,6 @@
 #pragma once
 #include "fingerprint/coder.h"
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -11,6 +12,20 @@ inline constexpr int agree_bits = 10;
 inline constexpr double min_repeat_seconds = 3.0;
 // The two copies of a repeat inside one recording are at least 20 s apart.
 inline constexpr double min_self_distance = 20.0;
+
+// repeats.py: values seen more often than this (silence, a held tone) are not
+// seeds.
+inline constexpr std::size_t seed_max_occurrences = 30;
+// Seeds on one offset closer than this form one group.
+inline constexpr long seed_group_gap = 16;  // int(2 s / code period)
+// The smoothing window: a position agrees when at least 5 of the 8 codes from 4
+// before it to 3 after it agree.
+inline constexpr long smooth_before = 4;
+inline constexpr long smooth_after = 4;
+inline constexpr int smooth_needed = 5;
+// A match whose edge lies this close to a sequence's edge stopped there: the
+// window cannot fill closer to the edge than this.
+inline constexpr long edge_slack = 4;
 
 bool codes_agree(std::uint32_t first, std::uint32_t second);
 
