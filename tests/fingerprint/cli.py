@@ -1,6 +1,7 @@
 """comskip-fingerprint seed, search and pass: exit codes, the store, MarksFiles and
 the pass result."""
 from pathlib import Path
+import csv
 import json
 import math
 import random
@@ -220,14 +221,18 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     assert abs(final["marks"][0]["start"] - whole) < 1.01 and abs(final["marks"][0]["end"] - whole - 30) < 1.01, found
     # The cut airing: its projected part was withdrawn, so the mark ends where the codes stopped agreeing.
     assert abs(final["marks"][1]["start"] - cut) < 1.01 and abs(final["marks"][1]["end"] - cut - 15) < 1.01, found
-    events = [json.loads(line) for line in live_log.read_text().splitlines()]
+    with open(live_log, newline="") as source:
+        rows = list(csv.reader(source))
+    header, rows = rows[0], rows[1:]
+    assert len(header) == 23 and all(len(row) == len(header) for row in rows), [row for row in rows if len(row) != 23][:3]
+    events = [dict(zip(header, row)) for row in rows]
     kinds = {event["event"] for event in events}
-    assert {"evidence", "match", "ended", "marks", "end"} <= kinds, kinds
-    written = [event for event in events if event["event"] == "marks"]
+    assert {"evidence", "match", "ended", "marks", "mark", "end"} <= kinds, kinds
     # While the cut airing was still agreeing, its mark covered the whole 30 s.
-    assert any(any(abs(m[0] - cut) < 1.01 and abs(m[1] - cut - 30) < 1.01 for m in event["marks"]) for event in written), written
-    withdrawn = [event for event in events if event["event"] == "ended" and event["withdrawn"]]
-    assert withdrawn and all(event["endedAt"] - event["stoppedAt"] <= 2.0 for event in withdrawn), withdrawn
+    assert any(event["event"] == "mark" and abs(float(event["from"]) - cut) < 1.01 and abs(float(event["to"]) - cut - 30) < 1.01
+               for event in events), events
+    withdrawn = [event for event in events if event["event"] == "ended" and event["withdrawn"] == "1"]
+    assert withdrawn and all(float(event["ended_at"]) - float(event["stopped_at"]) <= 2.0 for event in withdrawn), withdrawn
 
     # A stalled matcher: 4 s asleep while 80 s of audio arrives. Reading goes on,
     # the queue keeps 30 s and the rest is dropped and counted.

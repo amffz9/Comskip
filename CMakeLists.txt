@@ -143,6 +143,8 @@ endif()
 add_library(platform_paths src/platform/search_path.cpp src/platform/analysis_policy.cpp)
 target_include_directories(platform_paths PUBLIC src/platform)
 find_package(Threads REQUIRED)
+# JSON documents: the evidence file and the fingerprint tool's inputs and outputs.
+find_package(nlohmann_json CONFIG REQUIRED)
 option(COMSKIP_BUILD_APP "Build the FFmpeg application" ON)
 option(COMSKIP_BUILD_GUI "Build the SDL review interface" OFF)
 option(COMSKIP_DONATOR "Enable full-speed decoding" ON)
@@ -410,7 +412,8 @@ if(COMSKIP_BUILD_FINGERPRINT)
         src/fingerprint/library.cpp src/fingerprint/combiner.cpp src/fingerprint/audio_queue.cpp
         src/fingerprint/live_matcher.cpp src/fingerprint/live.cpp)
     target_include_directories(fingerprint_core PUBLIC src)
-    target_link_libraries(fingerprint_core PUBLIC diagnostics Threads::Threads PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
+    target_link_libraries(fingerprint_core PUBLIC diagnostics Threads::Threads nlohmann_json::nlohmann_json
+        PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
     add_executable(comskip-fingerprint src/fingerprint/main.cpp)
     target_include_directories(comskip-fingerprint PRIVATE src/app)
     target_link_libraries(comskip-fingerprint PRIVATE fingerprint_core)

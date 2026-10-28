@@ -15,7 +15,7 @@ ARG FFMPEG_VERSION=8.0
 ARG CHROMAPRINT_VERSION=1.6.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake ninja-build nasm pkg-config curl ca-certificates xz-utils \
-        libva-dev libx264-dev zlib1g-dev libargtable2-dev libsimpleini-dev libpugixml-dev \
+        libva-dev libx264-dev zlib1g-dev libargtable2-dev libsimpleini-dev libpugixml-dev nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN curl -fsSL https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz | tar xJ

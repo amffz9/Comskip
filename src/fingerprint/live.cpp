@@ -7,11 +7,14 @@
 #include "fingerprint/store.h"
 #include "output/output_file.h"
 #include "platform/utf8_paths.h"
+#include <nlohmann/json.hpp>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -116,78 +119,56 @@ std::vector<CombinerMatch> combiner_matches(const std::vector<LiveMatch>& matche
     return found;
 }
 
+// The --log file: CSV with a header row, one row per event written straight to
+// the file. Times are seconds: wall since the job started, the rest capture
+// seconds; now is the capture second reached. A marks row (a MarksFile written)
+// is followed by one mark row per mark in it.
 class Log {
 public:
     explicit Log(const std::string& path) {
         if (path.empty()) return;
         file_.open(platform::path_from_utf8(path), std::ios::binary | std::ios::trunc);
         if (!file_) throw std::runtime_error("Log file " + path + " cannot be written");
+        file_ << "event,wall,now,match,entry,status,from,to,agreed_from,agreed_to,earlier_from,earlier_to,stopped_at,ended_at,"
+                 "ended,withdrawn,revision,kind,state,basis,codes,dropped_seconds,peak_queue_seconds\n";
+        file_.flush();
     }
     bool on() const { return file_.is_open(); }
-    // One line: {"event": ..., "wall": seconds since the job started, "now": capture second, ...}.
-    void line(std::string_view event, double wall, double now, const std::string& rest) {
+
+    void match(std::string_view event, double wall, double now, std::size_t index, const LiveMatch& m) {
         if (!on()) return;
-        std::string text = "{\"event\":";
-        json::append_string(text, event);
-        text += ",\"wall\":";
-        json::append_number(text, wall, 3);
-        text += ",\"now\":";
-        json::append_number(text, now, 3);
-        text += rest + "}\n";
-        file_.write(text.data(), static_cast<std::streamsize>(text.size()));
+        file_ << std::format("{},{:.3f},{:.3f},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{},,,,,,,\n", event, wall,
+                             now, index, m.entry, status_name(m.status), m.from, m.to, m.agreed_from, m.agreed_to, m.earlier_from,
+                             m.earlier_to, m.stopped_at, m.ended_at, m.ended ? 1 : 0, m.withdrawn ? 1 : 0);
+        file_.flush();
+    }
+    void revision(std::string_view event, double wall, double now, long long revision) {
+        if (!on()) return;
+        file_ << std::format("{},{:.3f},{:.3f},,,,,,,,,,,,,,{},,,,,,\n", event, wall, now, revision);
+        file_.flush();
+    }
+    void marks(double wall, double now, long long revision, std::span<const Mark> marks) {
+        if (!on()) return;
+        file_ << std::format("marks,{:.3f},{:.3f},,,,,,,,,,,,,,{},,,,,,\n", wall, now, revision);
+        for (const auto& mark : marks)
+            file_ << std::format("mark,{:.3f},{:.3f},,,,{:.3f},{:.3f},,,,,,,,,,{},{},{},,,\n", wall, now, mark.start, mark.end,
+                                 kind_name(mark.kind), state_name(mark.state), basis_name(mark.basis));
+        file_.flush();
+    }
+    void stall(double wall, double now) {
+        if (!on()) return;
+        file_ << std::format("stall,{:.3f},{:.3f},,,,,,,,,,,,,,,,,,,,\n", wall, now);
+        file_.flush();
+    }
+    void end(double wall, double now, long long codes, double dropped, double peak) {
+        if (!on()) return;
+        file_ << std::format("end,{:.3f},{:.3f},,,,,,,,,,,,,,,,,,{},{:.3f},{:.3f}\n", wall, now, codes, dropped, peak);
         file_.flush();
     }
 
 private:
     std::ofstream file_;
 };
-
-std::string match_fields(std::size_t index, const LiveMatch& match) {
-    std::string text = ",\"match\":";
-    json::append_integer(text, static_cast<long long>(index));
-    text += ",\"entry\":";
-    json::append_integer(text, match.entry);
-    text += ",\"status\":";
-    json::append_string(text, status_name(match.status));
-    const std::pair<const char*, double> times[] = {{"from", match.from},
-                                                    {"to", match.to},
-                                                    {"agreedFrom", match.agreed_from},
-                                                    {"agreedTo", match.agreed_to},
-                                                    {"earlierFrom", match.earlier_from},
-                                                    {"earlierTo", match.earlier_to},
-                                                    {"stoppedAt", match.stopped_at},
-                                                    {"endedAt", match.ended_at}};
-    for (const auto& [name, value] : times) {
-        text += ",\"";
-        text += name;
-        text += "\":";
-        json::append_number(text, value, 3);
-    }
-    text += match.ended ? ",\"ended\":true" : ",\"ended\":false";
-    text += match.withdrawn ? ",\"withdrawn\":true" : ",\"withdrawn\":false";
-    return text;
-}
-
-std::string marks_fields(long long revision, std::span<const Mark> marks) {
-    std::string text = ",\"revision\":";
-    json::append_integer(text, revision);
-    text += ",\"marks\":[";
-    for (std::size_t index = 0; index < marks.size(); ++index) {
-        const auto& mark = marks[index];
-        text += index ? ",[" : "[";
-        json::append_number(text, mark.start, 3);
-        text += ',';
-        json::append_number(text, mark.end, 3);
-        text += ',';
-        json::append_string(text, kind_name(mark.kind));
-        text += ',';
-        json::append_string(text, state_name(mark.state));
-        text += ',';
-        json::append_string(text, basis_name(mark.basis));
-        text += ']';
-    }
-    return text + "]";
-}
 
 // The Evidence file as last seen, so it is reread only when it changes.
 struct EvidenceStamp {
@@ -267,7 +248,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
             stamp = seen;
             if (evidence && next.revision <= evidence->revision) return;
             evidence = std::move(next);
-            log.line("evidence", wall(), now, ",\"revision\":" + std::to_string(evidence->revision));
+            log.revision("evidence", wall(), now, evidence->revision);
         } catch (const json::Invalid& invalid) {
             // Being replaced, or broken: the copy in hand stands until a good one comes.
             std::fprintf(stderr, "comskip-fingerprint: live evidence not used: %s\n", invalid.what());
@@ -280,8 +261,8 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
             logged.resize(matches.size());
             for (std::size_t index = 0; index < matches.size(); ++index) {
                 auto& [found, ended] = logged[index];
-                if (!found) log.line("match", wall(), now, match_fields(index, matches[index]));
-                if (!ended && matches[index].ended) log.line("ended", wall(), now, match_fields(index, matches[index]));
+                if (!found) log.match("match", wall(), now, index, matches[index]);
+                if (!ended && matches[index].ended) log.match("ended", wall(), now, index, matches[index]);
                 found = true;
                 ended = matches[index].ended;
             }
@@ -298,7 +279,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
         }
         written = std::move(text);
         result.marks_written = true;
-        log.line("marks", wall(), now, marks_fields(evidence->revision, marks));
+        log.marks(wall(), now, evidence->revision, marks);
     };
 
     for (;;) {
@@ -341,7 +322,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
         }
         if (options.stall_at >= 0 && !stalled && now >= options.stall_at) {
             stalled = true;
-            log.line("stall", wall(), now, "");
+            log.stall(wall(), now);
             std::this_thread::sleep_for(std::chrono::duration<double>(options.stall_for));
         }
         if (Clock::now() - evidence_checked >= evidence_every) look_at_evidence();
@@ -367,34 +348,19 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
         if (match.withdrawn) ++result.withdrawn;
     }
     result.dropped_seconds = static_cast<double>(queue.dropped_samples()) / sample_rate;
-    std::string rest = ",\"codes\":" + std::to_string(result.codes) + ",\"droppedAudioSeconds\":";
-    json::append_number(rest, result.dropped_seconds, 3);
-    rest += ",\"peakQueueSeconds\":";
-    json::append_number(rest, static_cast<double>(queue.peak_samples()) / sample_rate, 3);
-    log.line("end", wall(), now, rest);
+    log.end(wall(), now, result.codes, result.dropped_seconds, static_cast<double>(queue.peak_samples()) / sample_rate);
     return result;
 }
 
 std::string live_result_json(std::string_view recording, std::string_view marks_path, const LiveResult& result) {
-    std::string text = "{ \"recording\": ";
-    json::append_string(text, recording);
-    text += result.ended ? ", \"ended\": true, \"codes\": " : ", \"ended\": false, \"codes\": ";
-    json::append_integer(text, result.codes);
-    text += ", \"marksFiles\": [";
-    if (result.marks_written) {
-        text += "{ \"captureId\": ";
-        json::append_string(text, recording);
-        text += ", \"path\": ";
-        json::append_string(text, marks_path);
-        text += " }";
-    }
-    text += "], \"matches\": ";
-    json::append_integer(text, result.matches);
-    text += ", \"withdrawn\": ";
-    json::append_integer(text, result.withdrawn);
-    text += ", \"droppedAudioSeconds\": ";
-    json::append_number(text, result.dropped_seconds, 3);
-    text += " }\n";
-    return text;
+    nlohmann::ordered_json document = {{"recording", recording},
+                                       {"ended", result.ended},
+                                       {"codes", result.codes},
+                                       {"marksFiles", nlohmann::ordered_json::array()},
+                                       {"matches", result.matches},
+                                       {"withdrawn", result.withdrawn},
+                                       {"droppedAudioSeconds", std::round(result.dropped_seconds * 1000) / 1000}};
+    if (result.marks_written) document["marksFiles"].push_back({{"captureId", recording}, {"path", marks_path}});
+    return document.dump() + "\n";
 }
 }
