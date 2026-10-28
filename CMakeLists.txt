@@ -407,7 +407,7 @@ if(COMSKIP_BUILD_FINGERPRINT)
     find_package(SQLite3 REQUIRED)
     add_library(fingerprint_core src/fingerprint/coder.cpp src/fingerprint/audio_stream.cpp src/fingerprint/seed.cpp
         src/fingerprint/json.cpp src/fingerprint/inputs.cpp src/fingerprint/matching.cpp src/fingerprint/store.cpp
-        src/fingerprint/library.cpp)
+        src/fingerprint/library.cpp src/fingerprint/combiner.cpp)
     target_include_directories(fingerprint_core PUBLIC src)
     target_link_libraries(fingerprint_core PUBLIC diagnostics PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
     add_executable(comskip-fingerprint src/fingerprint/main.cpp)
