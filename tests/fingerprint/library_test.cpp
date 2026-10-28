@@ -466,6 +466,34 @@ TEST_F(LibraryTest, PiecesOfAnAdJudgedTogetherWhereTheyAbut) {
     }
 }
 
+TEST_F(LibraryTest, EveryVersionOfAnAdWithOneBodyIsAnAd) {
+    // One 22 s body with three end tags (8, 23 and 38 s: a 30, a 45 and a 60 s
+    // version), each version in three shows. The body splits from every tag;
+    // no piece is an ad's length alone, and in every airing the body and its
+    // tag make one, so every piece of every version is an ad.
+    const auto body = noise(170, codes_of(22));
+    const std::vector<std::pair<double, std::vector<uint32_t>>> tags = {
+        {30, noise(171, codes_of(8.2))}, {45, noise(172, codes_of(23.2))}, {60, noise(173, codes_of(38.2))}};
+    for (int n = 0; n < 9; ++n) {
+        Recording file(174 + n, 3600);
+        const double at = 1500 + 100 * n;
+        file.put(at, body).put(at + 22, tags[n % 3].second);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show " + std::to_string(n)), nullptr);
+    }
+    std::map<double, EntryInfo> by_length;
+    for (auto& entry : library_->entries()) by_length[std::round(entry.length)] = std::move(entry);
+    ASSERT_EQ(by_length.size(), 4u);
+    EXPECT_EQ(by_length.at(22).status, Status::ad);
+    EXPECT_EQ(by_length.at(22).airings, 9);
+    for (const auto& [version, tag] : {std::pair{30, 8}, std::pair{45, 23}, std::pair{60, 38}}) {
+        SCOPED_TRACE(version);
+        ASSERT_TRUE(by_length.contains(tag));
+        EXPECT_EQ(by_length.at(tag).status, Status::ad);
+        EXPECT_EQ(by_length.at(tag).reason,
+                  "in 3 series, no logo seen, " + std::to_string(version) + " s with the airings it abuts");
+    }
+}
+
 TEST_F(LibraryTest, AStretchNextToAnAdInOneBroadcastStaysCandidate) {
     const auto spot = noise(110, codes_of(30.2));
     const auto tag = noise(111, codes_of(7));
