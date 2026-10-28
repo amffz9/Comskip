@@ -49,6 +49,7 @@ inline constexpr auto setting_fields = std::tuple{
         SettingField<bool>{"output_dvrcut", &Settings::output_dvrcut},
         SettingField<bool>{"output_ipodchap", &Settings::output_ipodchap},
         SettingField<bool>{"output_framearray", &Settings::output_framearray},
+        SettingField<bool>{"output_evidence", &Settings::output_evidence},
         SettingField<bool>{"output_debugwindow", &Settings::output_debugwindow},
         SettingField<bool>{"output_tuning", &Settings::output_tuning},
         SettingField<bool>{"output_false", &Settings::output_false},
