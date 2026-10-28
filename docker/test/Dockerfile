@@ -39,7 +39,7 @@ COPY tests /src/comskip/tests
 RUN cmake -S /src/comskip -B /src/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_TESTING=OFF -DCOMSKIP_BUILD_GUI=OFF \
         -Drapidcsv_DIR=/src/rapidcsv/share/rapidcsv -DCMAKE_PREFIX_PATH="/opt/ffmpeg-gray;/opt/chromaprint" \
-    && cmake --build /src/build --target comskip
+    && cmake --build /src/build --target comskip comskip-fingerprint
 
 FROM debian:${DEBIAN}-slim
 RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
@@ -49,6 +49,7 @@ RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /opt /opt
 COPY --from=build /src/build/comskip /usr/local/bin/comskip
+COPY --from=build /src/build/comskip-fingerprint /usr/local/bin/comskip-fingerprint
 COPY docker/test/bench.sh /usr/local/bin/bench
 RUN sed -i 's/\r$//' /usr/local/bin/bench && chmod +x /usr/local/bin/bench
 ENV LD_LIBRARY_PATH=/opt/ffmpeg-nogray/lib PATH=/opt/ffmpeg-nogray/bin:$PATH
