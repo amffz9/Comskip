@@ -1,5 +1,5 @@
 // FingerprintTool (docs/fingerprint-plan.md): codes audio fed by the TV app,
-// keeps the store, finds repeats and writes marks. `pass` and `live` follow.
+// keeps the store, finds repeats and writes marks. `live` follows in step F5.
 #include "fingerprint/audio_stream.h"
 #include "fingerprint/combiner.h"
 #include "fingerprint/json.h"
@@ -36,10 +36,11 @@ constexpr int exit_failure = 6;
 constexpr const char* usage =
     "usage: comskip-fingerprint seed   --store PATH --recording ID [--context PATH] [--codes PATH]\n"
     "       comskip-fingerprint search --store PATH --recording ID [--evidence PATH]... --out DIR\n"
-    "  seed reads the audio stream on standard input and adds its codes to the store; search\n"
-    "  finds repeats and writes one MarksFile per capture with evidence into DIR. Each prints\n"
-    "  the pass result on standard output. --codes also writes the code stream as JSON (for\n"
-    "  measurement). --intro-credits turns on the intro and credits rule (step T4b).\n";
+    "       comskip-fingerprint pass   --store PATH --recording ID [--context PATH] [--evidence PATH]... --out DIR\n"
+    "  seed and pass read the audio stream on standard input and add its codes to the store;\n"
+    "  search and pass find repeats and write one MarksFile per capture with evidence into DIR;\n"
+    "  each prints the pass result on standard output. --codes also writes the code stream as\n"
+    "  JSON (for measurement). --intro-credits turns on the intro and credits rule (step T4b).\n";
 
 struct Options {
     std::string command;
@@ -72,8 +73,8 @@ std::optional<Options> parse(int argc, char** argv) {
         else if (name == "--evidence") options.evidence.push_back(value);
         else return std::nullopt;
     }
-    const bool audio = options.command == "seed";
-    const bool marks = options.command == "search";
+    const bool audio = options.command == "seed" || options.command == "pass";
+    const bool marks = options.command == "search" || options.command == "pass";
     if (!audio && !marks) return std::nullopt;
     if (options.store.empty() || options.recording.empty()) return std::nullopt;
     if (marks != !options.out.empty()) return std::nullopt;
@@ -129,7 +130,7 @@ int run(int argc, char** argv) {
     }
 
     Store store(options.store);
-    Library library(store, {options.intro_credits, "seed"});
+    Library library(store, {options.intro_credits, options.command == "pass" ? "pass" : "seed"});
     SeedResult audio;
     audio.ended = true;
     if (options.command != "search") {
