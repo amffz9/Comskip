@@ -403,9 +403,13 @@ if(COMSKIP_BUILD_FINGERPRINT)
         message(FATAL_ERROR "Chromaprint was not found: install it (vcpkg feature \"fingerprint\") "
                             "or configure with -DCOMSKIP_BUILD_FINGERPRINT=OFF")
     endif()
-    add_library(fingerprint_core src/fingerprint/coder.cpp src/fingerprint/audio_stream.cpp src/fingerprint/seed.cpp)
+    # The store is one SQLite file (vcpkg port sqlite3; Debian libsqlite3-dev).
+    find_package(SQLite3 REQUIRED)
+    add_library(fingerprint_core src/fingerprint/coder.cpp src/fingerprint/audio_stream.cpp src/fingerprint/seed.cpp
+        src/fingerprint/json.cpp src/fingerprint/inputs.cpp src/fingerprint/matching.cpp src/fingerprint/store.cpp
+        src/fingerprint/library.cpp)
     target_include_directories(fingerprint_core PUBLIC src)
-    target_link_libraries(fingerprint_core PUBLIC diagnostics PRIVATE Chromaprint::chromaprint)
+    target_link_libraries(fingerprint_core PUBLIC diagnostics PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
     add_executable(comskip-fingerprint src/fingerprint/main.cpp)
     target_include_directories(comskip-fingerprint PRIVATE src/app)
     target_link_libraries(comskip-fingerprint PRIVATE fingerprint_core)

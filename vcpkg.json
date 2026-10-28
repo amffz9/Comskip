@@ -6,7 +6,7 @@
   "features": {
     "tests": { "description": "Google Test and generated-media regression suite", "dependencies": ["gtest", {"name": "ffmpeg", "features": ["ffmpeg"]}] },
     "gui": { "description": "SDL review interface", "dependencies": ["sdl2", "sdl2-ttf"] },
-    "fingerprint": { "description": "Audio fingerprint tool (Chromaprint)", "dependencies": ["chromaprint"] }
+    "fingerprint": { "description": "Audio fingerprint tool (Chromaprint, SQLite store)", "dependencies": ["chromaprint", "sqlite3"] }
   },
   "default-features": ["tests", "fingerprint"]
 }

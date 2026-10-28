@@ -29,7 +29,7 @@ END = b"E" + struct.pack("<I", 0)
 
 def seed(root, name, stream):
     codes = root / f"{name}.codes.json"
-    run = subprocess.run([str(executable), "seed", "--recording", name, "--codes", str(codes)],
+    run = subprocess.run([str(executable), "seed", "--store", str(root / "store.sqlite"), "--recording", name, "--codes", str(codes)],
                          input=stream, capture_output=True, timeout=30)
     return run, codes
 

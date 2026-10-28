@@ -1,11 +1,7 @@
 #include "fingerprint/seed.h"
 #include "fingerprint/audio_stream.h"
-#include <array>
-#include <charconv>
-#include <cmath>
+#include "fingerprint/json.h"
 #include <optional>
-#include <stdexcept>
-#include <type_traits>
 
 namespace comskip::fingerprint {
 namespace {
@@ -27,38 +23,6 @@ private:
     SeedResult& result_;
     std::optional<Coder> coder_;
 };
-
-void append_string(std::string& text, std::string_view value) {
-    text += '"';
-    for (const char character : value) {
-        const auto byte = static_cast<unsigned char>(character);
-        if (character == '"' || character == '\\') {
-            text += '\\';
-            text += character;
-        } else if (byte < 0x20) {
-            constexpr char hex[] = "0123456789abcdef";
-            text += "\\u00";
-            text += hex[byte >> 4];
-            text += hex[byte & 0xf];
-        } else {
-            text += character;
-        }
-    }
-    text += '"';
-}
-
-template <class Number> void append_number(std::string& text, Number value, int decimals = 0) {
-    std::array<char, 64> buffer{};
-    std::to_chars_result result;
-    if constexpr (std::is_floating_point_v<Number>) {
-        if (!std::isfinite(value)) throw std::invalid_argument("Code stream number is not finite");
-        result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed, decimals);
-    } else {
-        result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
-    }
-    if (result.ec != std::errc{}) throw std::invalid_argument("Code stream number cannot be formatted");
-    text.append(buffer.data(), result.ptr);
-}
 }
 
 long long SeedResult::codes() const {
@@ -78,18 +42,18 @@ SeedResult seed(const ReadBytes& read) {
 
 std::string code_stream_json(std::string_view recording, const SeedResult& result) {
     std::string text = "{ \"recording\": ";
-    append_string(text, recording);
+    json::append_string(text, recording);
     text += ", \"codePeriod\": ";
-    append_number(text, code_period, 9);
+    json::append_number(text, code_period, 9);
     text += ",\n  \"runs\": [";
     for (std::size_t index = 0; index < result.runs.size(); ++index) {
         const auto& run = result.runs[index];
         text += index ? ",\n    { \"start\": " : "\n    { \"start\": ";
-        append_number(text, run.start, 6);
+        json::append_number(text, run.start, 6);
         text += ", \"codes\": [";
         for (std::size_t code = 0; code < run.codes.size(); ++code) {
             if (code) text += ',';
-            append_number(text, run.codes[code]);
+            json::append_integer(text, run.codes[code]);
         }
         text += "] }";
     }
@@ -99,10 +63,10 @@ std::string code_stream_json(std::string_view recording, const SeedResult& resul
 
 std::string seed_result_json(std::string_view recording, const SeedResult& result) {
     std::string text = "{ \"recording\": ";
-    append_string(text, recording);
+    json::append_string(text, recording);
     text += result.ended ? ", \"ended\": true" : ", \"ended\": false";
     text += ", \"codes\": ";
-    append_number(text, result.codes());
+    json::append_integer(text, result.codes());
     text += ", \"marksFiles\": [], \"promoted\": 0, \"droppedAudioSeconds\": 0.0 }\n";
     return text;
 }
