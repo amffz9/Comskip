@@ -19,7 +19,7 @@ Prints a table per plan and writes WORK/results.json.
 
 Live mode (step F5): harness.py TOOL WORK PCM_DIR EVIDENCE_DIR --live NAME...
   [--speed S] [--lag SECONDS] [--stall AT:SECONDS] [--limit SECONDS]
-  [--library loo|all] [--cut-after SECONDS] [--tag SUFFIX]
+  [--library loo|all] [--cut-after SECONDS] [--excerpt START:LENGTH] [--tag SUFFIX]
 Each NAME is replayed through `comskip-fingerprint live` with a library grown
 by passes of the other labelled recordings (leave one out). Its audio is fed as
 0.1 s pieces at S times real speed (default 1), and the longest single write is
@@ -27,19 +27,26 @@ timed. The live Evidence file is its final evidence cut at the audio second
 reached minus --lag (default 10 s), rewritten whole every 10 s of audio with a
 growing revision, and the final copy just before the end. The tool runs under
 /usr/bin/time for its peak memory and CPU, the MarksFile is read every 0.2 s to
-check it is always whole, and the tool's --log gives, on its own clock (the
+check it is always whole, and the tool's --log (logfmt) gives, on its own clock (the
 capture second reached when it wrote), when each match was first marked and
 when each projected part was withdrawn. --cut-after S makes divergences: in
 every airing of an ad entry in the replayed recording (from the library) at
 least S + 6 s long and inside a labelled ad row, the audio from S s in to its end is replaced by programme
 audio (the middle of the longest unlabelled stretch), as when a shorter cut of
-an ad airs. Writes WORK/live/NAME/live.json and
-WORK/live-results.json.
+an ad airs. --excerpt feeds only LENGTH s from START, as one run starting at
+START (real speed is for short excerpts; full recordings run accelerated).
+A progress line comes about once a minute per run; a run whose fed position
+does not advance for 60 s of wall time is stopped and fails. The tool's usage
+lines give resident memory and CPU over stream time: a run fails over 48 MB, or
+when memory rises more than 10 MB an hour over the last 10 usage lines after the
+first 5 minutes. Writes WORK/live/NAME/live.json and WORK/live-results.json.
 """
 import argparse
-import csv
+import csv  # the label files
 import json
 import os
+import re
+import signal
 import shutil
 import sqlite3
 import struct
@@ -49,6 +56,16 @@ import threading
 import time
 from pathlib import Path
 
+STUCK_SECONDS = 60  # a live run whose fed position does not advance this long fails
+MEMORY_BUDGET_MB = 48  # F5: the tool's resident memory stays under this
+# The leak rule over the tool's usage rows (one a stream minute): after the
+# first WARM_UP stream seconds, the least-squares slope of resident memory over
+# the last TREND_ROWS rows may not exceed LEAK_MB_PER_HOUR. Growth the tool
+# means to have, its own codes and the map of them for self-repeats, measured
+# about 5 MB an hour on g4 and g5; the rule allows twice that.
+WARM_UP = 300
+TREND_ROWS = 10
+LEAK_MB_PER_HOUR = 10.0
 RATE = 11025
 # Context for each labelled recording: channel, series key, programme window.
 # Football windows are the whole broadcast slot (the recordings are its first
@@ -261,21 +278,27 @@ def replace_json(path, value):
     temporary.replace(path)
 
 
+LOGFMT_FIELD = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|\S*)')
+
+
+def logfmt(line):
+    """One logfmt line as a dict of strings; quoted values use JSON escapes."""
+    return {key: json.loads(value) if value.startswith('"') else value for key, value in LOGFMT_FIELD.findall(line)}
+
+
 def read_log(path):
-    """The tool's --log CSV as events; each marks event carries its mark rows
-    as [start, end, kind, state, basis]."""
-    numbers = ("wall", "now", "from", "to", "agreed_from", "agreed_to", "earlier_from", "earlier_to", "stopped_at", "ended_at")
+    """The tool's --log (logfmt) as events, numbers as numbers; each marks event
+    carries its mark lines as [start, end, kind, state, basis]."""
+    texts = ("event", "status", "kind", "state", "basis")
     events = []
-    with open(path, newline="") as source:
-        for row in csv.DictReader(source):
-            event = {key: (float(value) if key in numbers and value != "" else value) for key, value in row.items()}
+    with open(path, encoding="utf-8") as source:
+        for line in source:
+            event = {key: value if key in texts else (float(value) if "." in value else int(value))
+                     for key, value in logfmt(line).items()}
             if event["event"] == "mark":
-                events[-1]["marks"].append([event["from"], event["to"], event["kind"], event["state"], event["basis"]])
+                events[-1]["marks"].append([event["start"], event["end"], event["kind"], event["state"], event["basis"]])
                 continue
-            for key in ("match", "entry"):
-                if event[key] != "":
-                    event[key] = int(event[key])
-            event["withdrawn"] = event["withdrawn"] == "1"
+            event["withdrawn"] = event.get("withdrawn") == 1
             event["marks"] = []
             events.append(event)
     return events
@@ -291,6 +314,7 @@ class Live:
         self.tag = args.tag
         self.everything = args.library == "all"
         self.cut_after = args.cut_after
+        self.excerpt = tuple(float(x) for x in args.excerpt.split(":")) if args.excerpt else None
 
     def library(self, name):
         """A store grown by passes of every other labelled recording (leave one
@@ -327,21 +351,40 @@ class Live:
                    "--marks", str(marks_path), "--log", str(log_path)]
         if self.stall:
             command += ["--stall", self.stall]
-        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+        # Its own process group, so stopping a stuck run stops /usr/bin/time and the tool.
+        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0,
+                                   start_new_session=True)
         pcm = (h.pcm / f"{name}.s16").read_bytes()
-        if self.limit:
-            pcm = pcm[: int(self.limit * RATE) * 2]
         cuts = self.cut(name, store, pcm) if self.cut_after else []
         if cuts:
             pcm = cuts.pop()
+        # An excerpt is fed as one run starting at its capture second, so every
+        # time stays a capture second.
+        origin = 0.0
+        if self.excerpt:
+            origin, length = self.excerpt
+            pcm = pcm[int(origin * RATE) * 2: int((origin + length) * RATE) * 2]
+            cuts = [c for c in cuts if origin <= c < origin + length]
+        if self.limit:
+            pcm = pcm[: int(self.limit * RATE) * 2]
         samples = len(pcm) // 2
+        end = origin + samples / RATE
         writes = {"longest": 0.0, "over1s": 0}
         reads = {"whole": 0, "broken": 0}
         done = threading.Event()
+        # The stream position fed so far and when it last advanced, for the watchdog.
+        progress = {"position": 0.0, "advanced": time.monotonic(), "stuck": None}
 
         def feed():
-            process.stdin.write(b"R" + struct.pack("<Id", 8, 0.0))
-            revision, next_evidence = 0, 10.0
+            try:
+                send()
+            except BrokenPipeError:
+                if progress["stuck"] is None:
+                    raise  # the tool exited early; its exit status says why
+
+        def send():
+            process.stdin.write(b"R" + struct.pack("<Id", 8, origin))
+            revision, next_evidence = 0, origin + 10.0
             began = time.monotonic()
             for first in range(0, samples, PIECE):
                 due = began + first / RATE / self.speed
@@ -353,12 +396,13 @@ class Live:
                 took = time.monotonic() - start
                 writes["longest"] = max(writes["longest"], took)
                 writes["over1s"] += took > 1.0
-                reached = (first + PIECE) / RATE
+                reached = origin + (first + PIECE) / RATE
+                progress["position"], progress["advanced"] = min(reached, end) - origin, time.monotonic()
                 if reached >= next_evidence:
                     revision += 1
                     replace_json(evidence_path, evidence_until(evidence, reached - self.lag, revision, False))
                     next_evidence += 10.0
-            replace_json(evidence_path, evidence_until(evidence, samples / RATE, revision + 1, True))
+            replace_json(evidence_path, evidence_until(evidence, end, revision + 1, True))
             time.sleep(1.0)  # the tool looks at the evidence every 0.5 s
             process.stdin.write(b"E" + struct.pack("<I", 0))
             process.stdin.close()
@@ -373,31 +417,60 @@ class Live:
                         reads["broken"] += 1
                 time.sleep(0.2)
 
+        def watch():
+            """A progress line about once a minute; a run whose position stops for 60 s fails."""
+            began = next_line = time.monotonic()
+            while not done.wait(1.0):
+                now = time.monotonic()
+                if now >= next_line:
+                    print(f"  live {name}{self.tag}: {progress['position']:.0f} of {samples / RATE:.0f} s, "
+                          f"{now - began:.0f} s elapsed", flush=True)
+                    next_line += 60
+                if progress["position"] < samples / RATE and now - progress["advanced"] > STUCK_SECONDS:
+                    progress["stuck"] = progress["position"]
+                    os.killpg(process.pid, signal.SIGKILL)
+                    return
+
         errors = []
-        threads = [threading.Thread(target=feed), threading.Thread(target=poll),
-                   threading.Thread(target=lambda: errors.append(process.stderr.read()))]
+        threads = [threading.Thread(target=feed, daemon=True), threading.Thread(target=poll),
+                   threading.Thread(target=lambda: errors.append(process.stderr.read())), threading.Thread(target=watch)]
         for thread in threads:
             thread.start()
         output = process.stdout.read()
-        threads[0].join()
         threads[2].join()
+        process.wait()
+        if progress["stuck"] is None:
+            threads[0].join()
         done.set()
         threads[1].join()
-        if process.wait() != 0:
+        threads[3].join()
+        if progress["stuck"] is not None:
+            sys.exit(f"live {name}{self.tag}: the stream position stayed at {progress['stuck']:.1f} s of "
+                     f"{samples / RATE:.1f} s for {STUCK_SECONDS} s of wall time; the tool was stopped")
+        if process.returncode != 0:
             sys.exit(f"live {name} failed ({process.returncode}): {errors[0].decode(errors='replace')}")
         usage = dict(item.split("=") for item in errors[0].decode().split() if "=" in item)
         result = json.loads(output)
-        measured = self.measure(name, read_log(log_path), samples / RATE, cuts)
+        events = read_log(log_path)
+        measured = self.measure(name, events, end, cuts, origin)
+        measured["usage"] = usage_trend(events)
         measured.update({"library": "all" if self.everything else "leave one out", "result": result, "writes": writes, "marksReads": reads,
                          "maxRssMB": round(int(usage["maxrss_kb"]) / 1024, 1),
                          "cpuSeconds": round(float(usage["user"]) + float(usage["system"]), 2),
-                         "elapsed": float(usage["elapsed"]), "speed": self.speed, "stall": self.stall})
+                         "elapsed": float(usage["elapsed"]), "speed": self.speed, "stall": self.stall,
+                         "excerpt": list(self.excerpt) if self.excerpt else None})
         final = json.loads(marks_path.read_text())["marks"]
-        cut = samples / RATE
-        labels = [(s, min(e, cut), k) for s, e, k in labels_of(h.labels / f"{name}.labels.csv") if s < cut]
-        measured["score"] = score(labels, [(m["start"], m["end"]) for m in final if m["kind"] == "ad"])
-        measured["comskip"] = score(labels, comskip_cuts(evidence_until(evidence, cut, 0, True)))
+        within = lambda items: [(max(s, origin), min(e, end), *rest) for s, e, *rest in items if s < end and e > origin]
+        labels = within(labels_of(h.labels / f"{name}.labels.csv"))
+        measured["score"] = score(labels, within([(m["start"], m["end"]) for m in final if m["kind"] == "ad"]))
+        measured["comskip"] = score(labels, within(comskip_cuts(evidence_until(evidence, end, 0, True))))
         (folder / "live.json").write_text(json.dumps(measured, indent=1))
+        failures = measured["usage"]["failures"]
+        if measured["maxRssMB"] >= MEMORY_BUDGET_MB:
+            failures.append(f"peak memory {measured['maxRssMB']} MB by /usr/bin/time, over the {MEMORY_BUDGET_MB} MB budget")
+        if failures:
+            live_report([measured])
+            sys.exit(f"live {name}{self.tag} failed: " + "; ".join(failures))
         return measured
 
     def cut(self, name, store, pcm):
@@ -425,7 +498,7 @@ class Live:
             points.append(round(at, 3))
         return points + [bytes(audio)]
 
-    def measure(self, name, events, duration, cuts=()):
+    def measure(self, name, events, duration, cuts=(), origin=0.0):
         """From the tool's log: for each match of a live index entry, when the
         first MarksFile with an ad mark over its start was written; for each
         projected part withdrawn by a divergence, how long after the codes
@@ -462,7 +535,7 @@ class Live:
         # its first ad mark appeared, against the labelled start (labels are +-5 s).
         breaks = []
         for s, e, kind in labels_of(self.harness.labels / f"{name}.labels.csv"):
-            if kind != "ad" or s >= duration:
+            if kind != "ad" or s >= duration or s < origin:
                 continue
             first = [m for m in latencies if abs(m["agreedFrom"] - s) <= 6.0]
             if not first:
@@ -472,11 +545,42 @@ class Live:
                            "latency": round(marked["now"] - s, 2) if marked else None})
         # On real time, the wall clock less the capture second reached stays
         # constant when writing never lags the audio.
-        offsets = [e["wall"] * self.speed - e["now"] for e in marks_events]
+        offsets = [e["wall"] * self.speed - (e["now"] - origin) for e in marks_events]
         return {"name": name, "duration": duration, "cuts": list(cuts), "matches": latencies, "withdrawals": withdrawals, "breaks": breaks,
                 "selfRepeats": sum(1 for m in last.values() if m["entry"] == 0),
                 "clockOffset": [round(min(offsets), 3), round(max(offsets), 3)] if offsets else None,
                 "marksWritten": len(marks_events)}
+
+
+def usage_trend(events):
+    """The tool's usage rows: resident memory and CPU over stream time, failing
+    over the memory budget or on a rise past warm-up (the leak rule above)."""
+    rows = [e for e in events if e["event"] == "usage"]
+    mb = lambda row: row["rss_bytes"] / 2 ** 20
+    failures = [f"resident memory {mb(r):.1f} MB at stream second {r['now']:.0f}, over the {MEMORY_BUDGET_MB} MB budget"
+                for r in rows if mb(r) >= MEMORY_BUDGET_MB][:1]
+    trend = {"rows": len(rows), "failures": failures}
+    if not rows:
+        return trend
+    trend.update({"rssFirstMB": round(mb(rows[0]), 1), "rssLastMB": round(mb(rows[-1]), 1),
+                  "rssMaxMB": round(max(mb(r) for r in rows), 1), "peakRssMB": round(rows[-1]["peak_rss_bytes"] / 2 ** 20, 1),
+                  "indexMB": round(max(r["index_bytes"] for r in rows) / 2 ** 20, 2), "cpuSeconds": rows[-1]["cpu_seconds"]})
+    # CPU per stream minute, first and last ten rows: a climb shows as a rise.
+    steps = [(b["cpu_seconds"] - a["cpu_seconds"]) / max(b["now"] - a["now"], 1e-9) * 60 for a, b in zip(rows, rows[1:])]
+    if steps:
+        trend["cpuPerStreamMinute"] = [round(sum(steps[:10]) / len(steps[:10]), 3), round(sum(steps[-10:]) / len(steps[-10:]), 3)]
+    late = [r for r in rows if r["now"] >= WARM_UP][-TREND_ROWS:]
+    if len(late) < TREND_ROWS:
+        trend["slopeMBPerHour"] = None  # too short to judge a trend
+        return trend
+    xs, ys = [r["now"] / 3600 for r in late], [mb(r) for r in late]
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sum((x - mx) ** 2 for x in xs)
+    trend["slopeMBPerHour"] = round(slope, 2)
+    if slope > LEAK_MB_PER_HOUR:
+        failures.append(f"resident memory rising {slope:.1f} MB an hour over the last {TREND_ROWS} usage rows "
+                        f"(the rule allows {LEAK_MB_PER_HOUR})")
+    return trend
 
 
 def live_report(results):
@@ -505,6 +609,12 @@ def live_report(results):
               f"(over 1 s: {r['writes']['over1s']}), MarksFile reads whole {r['marksReads']['whole']} broken "
               f"{r['marksReads']['broken']}, peak memory {r['maxRssMB']} MB, CPU {r['cpuSeconds']} s "
               f"({100 * r['cpuSeconds'] / r['elapsed']:.2f}% of one core), wall less audio clock {r['clockOffset']} s")
+        u = r["usage"]
+        if u["rows"]:
+            print(f"  usage rows {u['rows']}: RSS {u['rssFirstMB']} -> {u['rssLastMB']} MB (max {u['rssMaxMB']}, peak {u['peakRssMB']}), "
+                  f"slope after warm-up {u['slopeMBPerHour'] if u['slopeMBPerHour'] is not None else 'n/a (too short)'} MB/h, "
+                  f"live index {u['indexMB']} MB, CPU per stream minute {u.get('cpuPerStreamMinute')} s"
+                  + (f"; FAILED: {'; '.join(u['failures'])}" if u["failures"] else ""))
         print(f"  final live marks {s['breaks']}/{s['of']} missed {s['missed']} cut {s['programmeCut']} false {s['falseBreaks']}"
               f" | comskip {c['breaks']}/{c['of']} missed {c['missed']} cut {c['programmeCut']} false {c['falseBreaks']}")
 
@@ -522,6 +632,7 @@ def main():
     parser.add_argument("--lag", type=float, default=10.0)
     parser.add_argument("--stall", help="AT:SECONDS, passed to the tool")
     parser.add_argument("--limit", type=float, help="feed only the first SECONDS")
+    parser.add_argument("--excerpt", help="live: feed only START:LENGTH seconds of the audio, as a run starting at START")
     parser.add_argument("--tag", default="", help="suffix for the replay folders")
     parser.add_argument("--cut-after", type=float, help="live: cut each ad airing short this far in")
     parser.add_argument("--library", choices=("loo", "all"), default="loo",

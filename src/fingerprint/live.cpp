@@ -4,6 +4,8 @@
 #include "fingerprint/json.h"
 #include "fingerprint/library.h"
 #include "fingerprint/live_matcher.h"
+#include "fingerprint/logfmt.h"
+#include "fingerprint/process_usage.h"
 #include "fingerprint/store.h"
 #include "output/output_file.h"
 #include "platform/utf8_paths.h"
@@ -28,6 +30,8 @@ using Clock = std::chrono::steady_clock;
 constexpr auto store_every = std::chrono::seconds(10);
 // The Evidence file is looked at this often (reread within 2 s of a change).
 constexpr auto evidence_every = std::chrono::milliseconds(500);
+// A usage row is logged this often in stream seconds, and at the end.
+constexpr double usage_every = 60;
 // The matching thread wakes at least this often while no audio comes.
 constexpr auto pop_wait = std::chrono::milliseconds(100);
 // A MarksFile a reader holds open (Windows) is retried after this.
@@ -117,54 +121,68 @@ std::vector<CombinerMatch> combiner_matches(const std::vector<LiveMatch>& matche
     return found;
 }
 
-// The --log file: CSV with a header row, one row per event written straight to
-// the file. Times are seconds: wall since the job started, the rest capture
-// seconds; now is the capture second reached. A marks row (a MarksFile written)
-// is followed by one mark row per mark in it.
+// The --log file: logfmt, one line per event written straight to the file,
+// each starting event=, wall= (seconds since the job started) and now= (the
+// capture second reached); other times are capture seconds. A marks line (a
+// MarksFile written) is followed by one mark line per mark in it.
 class Log {
 public:
     explicit Log(const std::string& path) {
         if (path.empty()) return;
         file_.open(platform::path_from_utf8(path), std::ios::binary | std::ios::trunc);
         if (!file_) throw std::runtime_error("Log file " + path + " cannot be written");
-        file_ << "event,wall,now,match,entry,status,from,to,agreed_from,agreed_to,earlier_from,earlier_to,stopped_at,ended_at,"
-                 "ended,withdrawn,revision,kind,state,basis,codes,dropped_seconds,peak_queue_seconds\n";
-        file_.flush();
     }
     bool on() const { return file_.is_open(); }
 
     void match(std::string_view event, double wall, double now, std::size_t index, const LiveMatch& m) {
         if (!on()) return;
-        file_ << std::format("{},{:.3f},{:.3f},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{},,,,,,,\n", event, wall,
-                             now, index, m.entry, status_name(m.status), m.from, m.to, m.agreed_from, m.agreed_to, m.earlier_from,
-                             m.earlier_to, m.stopped_at, m.ended_at, m.ended ? 1 : 0, m.withdrawn ? 1 : 0);
-        file_.flush();
+        using namespace logfmt;
+        write(line(event, wall, now,
+                   {integer("match", static_cast<long long>(index)), integer("entry", m.entry), text("status", status_name(m.status)),
+                    seconds("from", m.from), seconds("to", m.to), seconds("agreed_from", m.agreed_from),
+                    seconds("agreed_to", m.agreed_to), seconds("earlier_from", m.earlier_from),
+                    seconds("earlier_to", m.earlier_to), seconds("stopped_at", m.stopped_at), seconds("ended_at", m.ended_at),
+                    flag("ended", m.ended), flag("withdrawn", m.withdrawn)}));
     }
     void revision(std::string_view event, double wall, double now, long long revision) {
         if (!on()) return;
-        file_ << std::format("{},{:.3f},{:.3f},,,,,,,,,,,,,,{},,,,,,\n", event, wall, now, revision);
-        file_.flush();
+        write(logfmt::line(event, wall, now, {logfmt::integer("revision", revision)}));
     }
     void marks(double wall, double now, long long revision, std::span<const Mark> marks) {
         if (!on()) return;
-        file_ << std::format("marks,{:.3f},{:.3f},,,,,,,,,,,,,,{},,,,,,\n", wall, now, revision);
+        using namespace logfmt;
+        auto text_lines = line("marks", wall, now, {integer("revision", revision), integer("count", static_cast<long long>(marks.size()))});
         for (const auto& mark : marks)
-            file_ << std::format("mark,{:.3f},{:.3f},,,,{:.3f},{:.3f},,,,,,,,,,{},{},{},,,\n", wall, now, mark.start, mark.end,
-                                 kind_name(mark.kind), state_name(mark.state), basis_name(mark.basis));
-        file_.flush();
+            text_lines += line("mark", wall, now,
+                               {seconds("start", mark.start), seconds("end", mark.end), text("kind", kind_name(mark.kind)),
+                                text("state", state_name(mark.state)), text("basis", basis_name(mark.basis))});
+        write(text_lines);
     }
     void stall(double wall, double now) {
         if (!on()) return;
-        file_ << std::format("stall,{:.3f},{:.3f},,,,,,,,,,,,,,,,,,,,\n", wall, now);
-        file_.flush();
+        write(logfmt::line("stall", wall, now));
     }
     void end(double wall, double now, long long codes, double dropped, double peak) {
         if (!on()) return;
-        file_ << std::format("end,{:.3f},{:.3f},,,,,,,,,,,,,,,,,,{},{:.3f},{:.3f}\n", wall, now, codes, dropped, peak);
-        file_.flush();
+        using namespace logfmt;
+        write(line("end", wall, now, {integer("codes", codes), seconds("dropped_seconds", dropped), seconds("peak_queue_seconds", peak)}));
+    }
+    // Resource use so far, so a slow leak or a CPU climb shows as a trend.
+    void usage(double wall, double now, double dropped, std::size_t index_bytes) {
+        if (!on()) return;
+        using namespace logfmt;
+        const auto usage = process_usage();
+        write(line("usage", wall, now,
+                   {integer("rss_bytes", static_cast<long long>(usage.rss_bytes)),
+                    integer("peak_rss_bytes", static_cast<long long>(usage.peak_rss_bytes)), seconds("cpu_seconds", usage.cpu_seconds),
+                    integer("index_bytes", static_cast<long long>(index_bytes)), seconds("dropped_seconds", dropped)}));
     }
 
 private:
+    void write(const std::string& text) {
+        file_ << text;
+        file_.flush();
+    }
     std::ofstream file_;
 };
 
@@ -234,6 +252,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
     double run_start = 0, now = 0;
     long long run_samples = 0;
     bool stalled = false;
+    double next_usage = usage_every;
 
     const auto look_at_evidence = [&] {
         evidence_checked = Clock::now();
@@ -325,6 +344,10 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
         }
         if (Clock::now() - evidence_checked >= evidence_every) look_at_evidence();
         publish();
+        if (now >= next_usage) {
+            log.usage(wall(), now, static_cast<double>(queue.dropped_samples()) / sample_rate, matcher.index_bytes());
+            next_usage = now + usage_every;
+        }
     }
     if (const auto error = queue.error()) std::rethrow_exception(error);
     matcher.finish();
@@ -346,6 +369,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
         if (match.withdrawn) ++result.withdrawn;
     }
     result.dropped_seconds = static_cast<double>(queue.dropped_samples()) / sample_rate;
+    log.usage(wall(), now, result.dropped_seconds, matcher.index_bytes());
     log.end(wall(), now, result.codes, result.dropped_seconds, static_cast<double>(queue.peak_samples()) / sample_rate);
     return result;
 }

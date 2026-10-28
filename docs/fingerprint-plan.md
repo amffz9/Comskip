@@ -707,6 +707,18 @@ Types used below:
       every 10 s; the Evidence file reread within 2 s of being replaced with a
       higher revision; the MarksFile replaced within 1 s of any change; reading
       standard input never pauses for more than 1 s (it drops and counts).
+    - `--log PATH` (optional) writes logfmt, one line per event, each starting
+      `event=`, `wall=` (seconds since the job started) and `now=` (the
+      capture second reached), for example
+      `event=revision wall=12.345 now=1200.000 revision=5`. Times have 3
+      decimals; text with a space, quote, `=` or backslash is quoted with JSON
+      escapes. Events: `match` and `ended` (a live match), `evidence` (a newer
+      Evidence revision read), `marks` (a MarksFile written, followed by one
+      `mark` line per mark), `stall`, `usage` and `end`. A `usage` line comes
+      about once a minute of stream time and at the end: `rss_bytes`,
+      `peak_rss_bytes`, `cpu_seconds` (user plus system), `index_bytes` (the
+      live index) and `dropped_seconds`, so a slow leak or a CPU climb shows as
+      a trend in production logs.
   - `op seed(store, RecordingId, Context, audio stream)`: addStream only, for
     parallel coding.
   - `op search(store, RecordingId, Evidence copy paths, output dir)`: the
@@ -870,10 +882,19 @@ Types used below:
     (the Harness does not hand labels to the tool); `seed --codes` stays for
     the measurement helpers. Live states are computed from `now` alone; "no
     change for 3 minutes" needs F5's history.
-- **F5. `live` mode.** Harness live mode feeds audio at real speed. Check:
+- **F5. `live` mode.** Harness live mode replays recordings through `live`.
+  Real speed only for a short excerpt (`--excerpt START:LENGTH`, about 10
+  minutes of g5 holding at least one break the prebuilt library matches), to
+  show wall-clock latency and withdrawal timing; every full recording runs
+  accelerated. Tool-side latency and settle timing are measured on the stream
+  clock (the log's `now`), so they do not depend on the replay speed. Check:
   each matched ad marked within 6 s of its labelled start; projected parts
   withdrawn within 2 s of a divergence; a stalled reader drops and counts;
-  memory under 48 MB.
+  memory under 48 MB, from `/usr/bin/time` and from the tool's `usage` lines
+  (a run fails over 48 MB, or when resident memory rises more than 10 MB an
+  hour over the last 10 usage lines after the first 5 minutes). The Harness
+  prints a progress line about once a minute per run and fails a run whose
+  stream position does not advance for 60 s of wall time.
 - **T1. Two mark lists and the merged view.** MarkStore, `publishMarks`
   copying both lists, `marksForWindow` reading the merged view and splitting
   non-`ad` marks into their own list; `kind`, `state`, `basis` fields.

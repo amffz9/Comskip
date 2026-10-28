@@ -80,6 +80,8 @@ public:
     // least 3 s of codes agree at one offset.
     const std::vector<LiveMatch>& matches() const { return matches_; }
     long long codes() const;
+    // The live index in use, in bytes (0 before the first refresh).
+    std::size_t index_bytes() const { return index_ ? index_->bytes() : 0; }
 
 private:
     struct OwnRun {

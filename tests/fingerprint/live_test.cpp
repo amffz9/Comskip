@@ -3,6 +3,8 @@
 #include "fingerprint/audio_queue.h"
 #include "fingerprint/combiner.h"
 #include "fingerprint/live_matcher.h"
+#include "fingerprint/logfmt.h"
+#include "fingerprint/process_usage.h"
 #include "fingerprint/matching.h"
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -265,5 +267,23 @@ TEST(Combiner, ASelfRepeatIsAnAdOnlyUnderTheWithinShowRule) {
     copy.seams = {{100, {"black"}}, {130, {"black"}}};
     copy.logo_known = false;
     EXPECT_FALSE(within_show_ad(copy, 100.3, 130.2, 250.4, 280.1));  // no logo learned: can't show none
+}
+
+TEST(Logfmt, LinesStartWithEventWallNowAndQuoteOnlyWhatNeedsIt) {
+    using namespace comskip::fingerprint::logfmt;
+    EXPECT_EQ(line("revision", 12.3454, 1200, {integer("revision", 5)}), "event=revision wall=12.345 now=1200.000 revision=5\n");
+    EXPECT_EQ(line("stall", 0, 1.5), "event=stall wall=0.000 now=1.500\n");
+    EXPECT_EQ(line("mark", 1, 2, {seconds("start", 859.6), text("kind", "in-programme ad"), text("basis", "both"), flag("ended", true)}),
+              "event=mark wall=1.000 now=2.000 start=859.600 kind=\"in-programme ad\" basis=both ended=1\n");
+    EXPECT_EQ(text("id", "a=\"b\"\\c\n\x01").value, R"("a=\"b\"\\c\n\u0001")");
+    EXPECT_EQ(text("id", "").value, R"("")");
+    EXPECT_EQ(text("id", "caf\xc3\xa9").value, "caf\xc3\xa9");
+}
+
+TEST(ProcessUsage, ReportsMemoryAndCpu) {
+    const auto usage = comskip::fingerprint::process_usage();
+    EXPECT_GT(usage.rss_bytes, 0u);
+    EXPECT_GE(usage.peak_rss_bytes, usage.rss_bytes);
+    EXPECT_GE(usage.cpu_seconds, 0.0);
 }
 }

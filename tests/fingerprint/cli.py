@@ -1,7 +1,7 @@
 """comskip-fingerprint seed, search and pass: exit codes, the store, MarksFiles and
 the pass result."""
 from pathlib import Path
-import csv
+import re
 import json
 import math
 import random
@@ -47,6 +47,14 @@ def melody(seconds, seed):
 
 
 END = b"E" + struct.pack("<I", 0)
+
+
+LOGFMT_FIELD = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|\S*)')
+
+
+def logfmt(line):
+    """One logfmt line as a dict of strings; quoted values use JSON escapes."""
+    return {key: json.loads(value) if value.startswith('"') else value for key, value in LOGFMT_FIELD.findall(line)}
 
 
 def tool(*args, stream=b""):
@@ -235,15 +243,21 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     assert abs(final["marks"][0]["start"] - whole) < 1.01 and abs(final["marks"][0]["end"] - whole - 30) < 1.01, found
     # The cut airing: its projected part was withdrawn, so the mark ends where the codes stopped agreeing.
     assert abs(final["marks"][1]["start"] - cut) < 1.01 and abs(final["marks"][1]["end"] - cut - 15) < 1.01, found
-    with open(live_log, newline="") as source:
-        rows = list(csv.reader(source))
-    header, rows = rows[0], rows[1:]
-    assert len(header) == 23 and all(len(row) == len(header) for row in rows), [row for row in rows if len(row) != 23][:3]
-    events = [dict(zip(header, row)) for row in rows]
+    lines = live_log.read_text(encoding="utf-8").splitlines()
+    events = [logfmt(line) for line in lines]
+    # Every line is key=value fields starting event, wall, now.
+    assert all(list(event)[:3] == ["event", "wall", "now"] for event in events), lines[:3]
+    assert any('kind="in-programme ad"' in line or "kind=ad" in line for line in lines), lines[:5]
     kinds = {event["event"] for event in events}
-    assert {"evidence", "match", "ended", "marks", "mark", "end"} <= kinds, kinds
+    assert {"evidence", "match", "ended", "marks", "mark", "usage", "end"} <= kinds, kinds
+    # A usage row about once a minute of stream time, and one at the end.
+    usage = [event for event in events if event["event"] == "usage"]
+    assert len(usage) == 255 // 60 + 1, usage
+    assert all(int(u["rss_bytes"]) > 0 and int(u["peak_rss_bytes"]) >= int(u["rss_bytes"]) and float(u["cpu_seconds"]) > 0
+               for u in usage), usage
+    assert [round(float(u["now"])) for u in usage[:-1]] == [60, 120, 180, 240], usage
     # While the cut airing was still agreeing, its mark covered the whole 30 s.
-    assert any(event["event"] == "mark" and abs(float(event["from"]) - cut) < 1.01 and abs(float(event["to"]) - cut - 30) < 1.01
+    assert any(event["event"] == "mark" and abs(float(event["start"]) - cut) < 1.01 and abs(float(event["end"]) - cut - 30) < 1.01
                for event in events), events
     withdrawn = [event for event in events if event["event"] == "ended" and event["withdrawn"] == "1"]
     assert withdrawn and all(float(event["ended_at"]) - float(event["stopped_at"]) <= 2.0 for event in withdrawn), withdrawn

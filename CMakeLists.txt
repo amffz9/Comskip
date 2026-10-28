@@ -410,10 +410,14 @@ if(COMSKIP_BUILD_FINGERPRINT)
     add_library(fingerprint_core src/fingerprint/coder.cpp src/fingerprint/audio_stream.cpp src/fingerprint/seed.cpp
         src/fingerprint/json.cpp src/fingerprint/inputs.cpp src/fingerprint/matching.cpp src/fingerprint/store.cpp
         src/fingerprint/library.cpp src/fingerprint/combiner.cpp src/fingerprint/audio_queue.cpp
-        src/fingerprint/live_matcher.cpp src/fingerprint/live.cpp)
+        src/fingerprint/live_matcher.cpp src/fingerprint/live.cpp
+        src/fingerprint/process_usage.cpp src/fingerprint/logfmt.cpp)
     target_include_directories(fingerprint_core PUBLIC src)
     target_link_libraries(fingerprint_core PUBLIC diagnostics Threads::Threads nlohmann_json::nlohmann_json
         PRIVATE Chromaprint::chromaprint SQLite::SQLite3)
+    if(WIN32)
+        target_link_libraries(fingerprint_core PRIVATE psapi)  # GetProcessMemoryInfo for the usage lines
+    endif()
     add_executable(comskip-fingerprint src/fingerprint/main.cpp)
     target_include_directories(comskip-fingerprint PRIVATE src/app)
     target_link_libraries(comskip-fingerprint PRIVATE fingerprint_core)
