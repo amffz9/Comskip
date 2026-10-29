@@ -185,6 +185,28 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     run = tool("search", "--store", store, "--recording", "cap 2", "--evidence", stranger_path, "--out", root / "out7")
     assert run.returncode == 0 and json.loads(run.stdout)["marksFiles"] == [], run.stdout
 
+    # context: a stored recording's context is replaced, its codes kept, and the
+    # entries promoted again; the summary is promote's.
+    with closing(sqlite3.connect(store)) as db:
+        runs_before = db.execute("SELECT start, codes FROM run WHERE recording = 'cap 2' ORDER BY start").fetchall()
+    context2b = root / "context2b.json"
+    context2b.write_text(json.dumps({"channel": "4.1", "network": "NBC", "airStart": 1760100000, "source": "plex",
+                                     "programmes": [{"from": 0, "to": 3600, "title": "Other", "seriesKey": "other"}]}))
+    run = tool("context", "--store", store, "--recording", "cap 2", "--context", context2b)
+    assert run.returncode == 0, run.stderr
+    result = json.loads(run.stdout)
+    assert set(result) == {"promoted", "changedEntries", "corrected", "entries"}, result
+    assert result["entries"].get("ad", 0) >= 2, result
+    with closing(sqlite3.connect(store)) as db:
+        source, channel, stored = db.execute("SELECT source, channel, context FROM recording WHERE id = 'cap 2'").fetchone()
+        assert db.execute("SELECT start, codes FROM run WHERE recording = 'cap 2' ORDER BY start").fetchall() == runs_before
+    assert (source, channel) == ("plex", "4.1") and json.loads(stored)["network"] == "NBC", stored
+    # A recording the store does not hold is invalid input; a missing --context is a usage error.
+    run = tool("context", "--store", store, "--recording", "nobody", "--context", context2b)
+    assert run.returncode == 2 and run.stderr, (run.returncode, run.stderr)
+    run = tool("context", "--store", store, "--recording", "cap 2")
+    assert run.returncode == 6 and b"usage" in run.stderr, (run.returncode, run.stderr)
+
     # live: the spot airs whole, then cut to 15 s; the Evidence file appears only
     # once the tool runs. Audio is paced at 10x real time; writing it never waits.
     live_audio = melody(50, 11) + spot + melody(100, 12) + spot[: 15 * RATE] + melody(60, 13)

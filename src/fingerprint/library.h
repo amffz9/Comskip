@@ -181,6 +181,9 @@ public:
     // Stores the stream; more runs for the recording extend it, the same run
     // again changes nothing, and a run that grew replaces its shorter copy.
     void add_stream(const std::string& recording, const Context& context, std::span<const CodeRun> runs);
+    // Replaces a stored recording's context, leaving its codes; false when the
+    // recording is not stored.
+    bool replace_context(const std::string& recording, const Context& context);
     // Requires the stream to be stored. Evidence, when given, is kept for the
     // recording and used for its airings.
     RepeatsResult find_repeats(const std::string& recording, const Evidence* evidence);

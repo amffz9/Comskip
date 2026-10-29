@@ -921,6 +921,21 @@ void Library::add_stream(const std::string& recording, const Context& context, s
     });
 }
 
+bool Library::replace_context(const std::string& recording, const Context& context) {
+    bool stored = false;
+    in_transaction(store_, [&] {
+        store_.prepare("UPDATE recording SET source = ?, channel = ?, air_start = ?, context = ? WHERE id = ?")
+            .bind(1, context.source)
+            .bind(2, context.channel)
+            .bind(3, context.air_start)
+            .bind(4, context_to_json(context))
+            .bind(5, recording)
+            .run();
+        stored = has_stream(recording);
+    });
+    return stored;
+}
+
 bool Library::has_stream(const std::string& recording) {
     auto query = store_.prepare("SELECT 1 FROM recording WHERE id = ?");
     query.bind(1, recording);
