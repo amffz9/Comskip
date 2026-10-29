@@ -367,6 +367,28 @@ TEST_F(LibraryTest, WaitsForAnotherWriter) {
     EXPECT_TRUE(library_->has_stream("w"));
 }
 
+TEST_F(LibraryTest, OpeningACurrentStoreDoesNotWaitForAWriter) {
+    sqlite3* other = nullptr;
+    ASSERT_EQ(sqlite3_open(path_.c_str(), &other), SQLITE_OK);
+    ASSERT_EQ(sqlite3_exec(other, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr), SQLITE_OK);
+    const auto started = std::chrono::steady_clock::now();
+    EXPECT_NO_THROW(Store second(path_, 0));
+    EXPECT_LT(std::chrono::steady_clock::now() - started, std::chrono::seconds(1));
+    sqlite3_exec(other, "COMMIT", nullptr, nullptr, nullptr);
+    sqlite3_close(other);
+}
+
+TEST_F(LibraryTest, NestedTransactionsCommitOrRollBackAsOne) {
+    EXPECT_THROW(in_transaction(*store_, [&] {
+                     library_->add_stream("n", context("CBS", "x", 3600), Recording(83, 60).runs());
+                     throw std::runtime_error("later step failed");
+                 }),
+                 std::runtime_error);
+    EXPECT_FALSE(library_->has_stream("n"));
+    in_transaction(*store_, [&] { library_->add_stream("n", context("CBS", "x", 3600), Recording(83, 60).runs()); });
+    EXPECT_TRUE(library_->has_stream("n"));
+}
+
 TEST_F(LibraryTest, ASpotInThreeSeriesIsAnAdWithoutEvidence) {
     const auto spot = noise(70, codes_of(30.2));
     const char* shows[] = {"show a", "show b", "show c"};

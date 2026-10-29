@@ -227,15 +227,20 @@ int run_live(const Options& options, Context context) {
 // promote alone, or context: replace the given recordings' contexts, then promote once.
 int run_promote(const Options& options, const std::map<std::string, Context>& contexts = {}) {
     if (options.store.empty()) throw InputInvalid("promote needs --store");
-    Store store(options.store);
+    Store store(options.store, Store::queue_wait_ms);
     Library library(store, {options.intro_credits, "pass", options.rules, options.matching});
     std::vector<std::string> unknown;
-    for (const auto& [recording, context] : contexts)
-        if (!library.replace_context(recording, context)) unknown.push_back(recording);
-    // One named recording that isn't stored is a mistake; in a batch it is reported.
-    if (!options.recording.empty() && !unknown.empty())
-        throw InputInvalid("Recording " + options.recording + " has no stored stream");
-    const auto result = library.promote_all();
+    RepeatsResult result;
+    // The contexts and the promotion they lead to are one transaction.
+    in_transaction(store, [&] {
+        for (const auto& [recording, context] : contexts)
+            if (!library.replace_context(recording, context)) unknown.push_back(recording);
+        // One named recording that isn't stored is a mistake; in a batch it is reported.
+        if (!options.recording.empty() && !unknown.empty())
+            throw InputInvalid("Recording " + options.recording + " has no stored stream");
+        result = library.promote_all();
+    });
+    store.checkpoint();
     std::map<std::string, int> counts;
     for (const auto& entry : library.entries()) ++counts[std::string(status_name(entry.status))];
     json::Value document = {{"promoted", result.promoted},
@@ -286,7 +291,7 @@ int run(int argc, char** argv) {
         evidence.insert_or_assign(copy.capture_id, std::move(copy));
     }
 
-    Store store(options.store);
+    Store store(options.store, Store::queue_wait_ms);
     Library library(store, {options.intro_credits, options.command == "pass" ? "pass" : "seed", options.rules, options.matching});
     SeedResult audio;
     audio.ended = true;

@@ -67,7 +67,7 @@ std::string message(sqlite3* database, std::string_view what) {
 }
 }
 
-Store::Store(const std::string& path) {
+Store::Store(const std::string& path, int wait_ms) : wait_ms_(wait_ms) {
     const int opened = sqlite3_open_v2(path.c_str(), &database_,
                                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX, nullptr);
     if (opened != SQLITE_OK) {
@@ -78,7 +78,7 @@ Store::Store(const std::string& path) {
         throw StoreUnavailable(text);
     }
     try {
-        sqlite3_busy_timeout(database_, busy_timeout_ms);
+        sqlite3_busy_timeout(database_, wait_ms_);
         sqlite3_extended_result_codes(database_, 0);
         execute("PRAGMA foreign_keys = ON");
         // Reading the journal mode reads the header, so a file that is not a
@@ -114,7 +114,23 @@ void Store::fail(int code, std::string_view what) const {
     }
 }
 
+// Most opens find a current store; checking it is a plain read, so opening
+// never waits for a writer.
+bool Store::current() {
+    auto tables = prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'meta'");
+    tables.step();
+    if (tables.integer(0) == 0) return false;
+    auto version = prepare("SELECT value FROM meta WHERE key = 'schema'");
+    if (!version.step()) return false;
+    const auto number = std::stoi(version.text(0));
+    if (number > schema_version)
+        throw StoreTooNew("Store schema " + std::to_string(number) + " is newer than this tool's " +
+                          std::to_string(schema_version));
+    return number == schema_version;
+}
+
 void Store::create_or_upgrade() {
+    if (current()) return;
     in_transaction(*this, [&] {
         auto tables = prepare("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'meta'");
         tables.step();
@@ -149,9 +165,24 @@ void Store::execute(std::string_view sql) {
     if (result != SQLITE_OK) fail(result, "Store statement failed");
 }
 
-void Store::begin() { execute("BEGIN IMMEDIATE"); }
-void Store::commit() { execute("COMMIT"); }
-void Store::rollback() noexcept { sqlite3_exec(database_, "ROLLBACK", nullptr, nullptr, nullptr); }
+void Store::begin() {
+    if (depth_ == 0) execute("BEGIN IMMEDIATE");
+    ++depth_;
+}
+void Store::commit() {
+    if (--depth_ == 0) execute("COMMIT");
+}
+void Store::rollback() noexcept {
+    if (--depth_ == 0) sqlite3_exec(database_, "ROLLBACK", nullptr, nullptr, nullptr);
+}
+void Store::checkpoint() noexcept {
+    if (depth_ > 0) return;  // the outermost transaction's caller checkpoints
+    // A truncating checkpoint waits for readers through the busy handler, so
+    // it runs without one: busy means another process is using the log.
+    sqlite3_busy_timeout(database_, 0);
+    sqlite3_wal_checkpoint_v2(database_, nullptr, SQLITE_CHECKPOINT_TRUNCATE, nullptr, nullptr);
+    sqlite3_busy_timeout(database_, wait_ms_);
+}
 long long Store::last_insert_id() const { return sqlite3_last_insert_rowid(database_); }
 
 Statement::~Statement() { sqlite3_finalize(statement_); }

@@ -30,11 +30,15 @@ class Statement;
 class Store {
 public:
     static constexpr int schema_version = 1;
-    // Every connection waits this long for a lock before StoreUnavailable.
-    static constexpr int busy_timeout_ms = 15000;
+    // How long a connection waits for the write lock before StoreUnavailable.
+    // Live retries every round, so it waits briefly; a search holds the lock
+    // from load to save, a minute or more on the N100, so the batch commands
+    // queue behind one another for much longer.
+    static constexpr int short_wait_ms = 15000;
+    static constexpr int queue_wait_ms = 30 * 60 * 1000;
 
     // Opens or creates the store, upgrades an older schema and checks the file.
-    explicit Store(const std::string& path);
+    explicit Store(const std::string& path, int wait_ms = short_wait_ms);
     ~Store();
     Store(const Store&) = delete;
     Store& operator=(const Store&) = delete;
@@ -42,16 +46,23 @@ public:
     Statement prepare(std::string_view sql);
     void execute(std::string_view sql);
     // BEGIN IMMEDIATE, so a writer takes the lock (or waits) before reading.
+    // Transactions nest: only the outermost begins, commits or rolls back.
     void begin();
     void commit();
     void rollback() noexcept;
+    // Folds the write-ahead log back into the store and empties it; does
+    // nothing when a reader is still using the log.
+    void checkpoint() noexcept;
     long long last_insert_id() const;
     // Throws the store error that matches an SQLite result code.
     [[noreturn]] void fail(int code, std::string_view what) const;
 
 private:
     void create_or_upgrade();
+    bool current();
     sqlite3* database_{};
+    int wait_ms_{};
+    int depth_{};
 };
 
 // Runs a transaction; rolls it back when the body throws.

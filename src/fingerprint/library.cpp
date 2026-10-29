@@ -944,15 +944,27 @@ bool Library::has_stream(const std::string& recording) {
     return query.step();
 }
 
+// A search reads the whole store, works on its copy and writes it back, so it
+// holds the write lock throughout: another search can't change the store in
+// between and have its work overwritten.
 RepeatsResult Library::promote_all() {
-    Search search(store_, options_, "");
-    return search.promote_all();
+    RepeatsResult result;
+    in_transaction(store_, [&] {
+        Search search(store_, options_, "");
+        result = search.promote_all();
+    });
+    store_.checkpoint();
+    return result;
 }
 
 RepeatsResult Library::find_repeats(const std::string& recording, const Evidence* evidence) {
-    Search search(store_, options_, recording);
-    auto result = search.run(evidence);
-    result.airings = matches(recording);
+    RepeatsResult result;
+    in_transaction(store_, [&] {
+        Search search(store_, options_, recording);
+        result = search.run(evidence);
+        result.airings = matches(recording);
+    });
+    store_.checkpoint();
     return result;
 }
 
