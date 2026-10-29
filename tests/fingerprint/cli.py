@@ -65,6 +65,11 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     root = Path(directory)
     store = root / "store.sqlite"
 
+    # version: the rules version the app keys its whole-store search on.
+    run = tool("version")
+    assert run.returncode == 0, run.stderr
+    assert isinstance(json.loads(run.stdout)["rules"], int), run.stdout
+
     # seed: the stream goes into the store; --codes also writes it as JSON.
     codes = root / "short.codes.json"
     run = tool("seed", "--store", store, "--recording", "short", "--codes", codes, stream=run_start(1234.5) + pcm(tones(2)) + END)

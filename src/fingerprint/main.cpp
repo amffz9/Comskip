@@ -38,11 +38,17 @@ constexpr int exit_store_corrupt = 4;
 constexpr int exit_store_too_new = 5;
 constexpr int exit_failure = 6;
 
+// Raise whenever matching or promotion rules change what a search finds, so the
+// app knows to search its whole store again (3: seeds within 2 bits and the gate).
+constexpr int rules_version = 3;
+
 constexpr const char* usage =
     "usage: comskip-fingerprint seed   --store PATH --recording ID [--context PATH] [--codes PATH]\n"
     "       comskip-fingerprint search --store PATH --recording ID [--evidence PATH]... --out DIR\n"
     "       comskip-fingerprint pass   --store PATH --recording ID [--context PATH] [--evidence PATH]... --out DIR\n"
     "       comskip-fingerprint promote --store PATH\n"
+    "       comskip-fingerprint version\n"
+    "  version prints the rules version, which rises when a search would find something else.\n"
     "  seed and pass read the audio stream on standard input and add its codes to the store;\n"
     "  search and pass find repeats and write one MarksFile per capture with evidence into DIR;\n"
     "  each prints the pass result on standard output. --codes also writes the code stream as\n"
@@ -220,6 +226,10 @@ int run_promote(const Options& options) {
 }
 
 int run(int argc, char** argv) {
+    if (argc == 2 && std::string_view(argv[1]) == "version") {
+        std::fputs((json::write(json::Value{{"rules", rules_version}}) + "\n").c_str(), stdout);
+        return std::fflush(stdout) == 0 ? 0 : exit_failure;
+    }
     const auto parsed = parse(argc, argv);
     if (!parsed) {
         std::fputs(usage, stderr);
