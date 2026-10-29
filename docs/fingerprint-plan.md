@@ -1362,8 +1362,20 @@ Types used below:
   decode and tool are kept on `capture.fingerprint.shadow.usage`, with a budget
   setting that warns only. Measured on the dev PC, not the N100: per 90-min
   game, decode about 26 CPU s and 51 MB, tool about 1 CPU s and 6 MB.
-  `hasStoredCodes` lets T5's live codes skip the decode. Not done: the `on`
-  mode, and a client UI for the setting.
+  `hasStoredCodes` lets T5's live codes skip the decode. **`on` done**,
+  live on the NAS since October 29, 16:29 CDT (TV 3a3e79f, deployed as
+  dfecbab, Comskip 6ca1dbe; rollback image `tv_app-tv:rollback-cff8488`):
+  in `on` each MarksFile goes through MarkStore.applyFingerprint for its
+  capture and those it corrected. Leaving `on` clears every fingerprint list
+  and carries viewers' removals back onto Comskip's marks. Only `settled` `ad`
+  marks are in the skip list; provisional ads and every other kind go in
+  `otherMarks`, which no client reads yet. Must-not-get-worse 4 checked on
+  the NAS: in shadow, every capture's marks API output equalled Comskip's
+  list. First real MarksFile: the redetect of c6faa224 (Texas A&M at
+  Missouri), 21 ad marks over 3387.6 s against Comskip's 2978.6 s (2978.5 s
+  agreed, 409.1 s fingerprint only, 0 s Comskip only); decode 99 CPU s, tool
+  11.5 CPU s and 239 MB peak. Not done: shading `otherMarks` in the web and
+  Android players, and a client UI for the setting.
   - **Gate for `on`, re-run October 29** (Comskip 6ca1dbe, rules 4; base: a
     copy of production's store after its 85167b0 re-search, the labelled
     recordings' own copies dropped; library plan g5 to nash107). Breaks,
