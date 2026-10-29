@@ -1364,6 +1364,33 @@ Types used below:
   game, decode about 26 CPU s and 51 MB, tool about 1 CPU s and 6 MB.
   `hasStoredCodes` lets T5's live codes skip the decode. Not done: the `on`
   mode, and a client UI for the setting.
+  - **Gate for `on`, re-run October 29** (Comskip 6ca1dbe, rules 4; base: a
+    copy of production's store after its 85167b0 re-search, the labelled
+    recordings' own copies dropped; library plan g5 to nash107). Breaks,
+    missed, programme cut, false breaks, with Comskip-107's in brackets:
+
+    | recording | marks | Comskip-107 |
+    | --- | --- | --- |
+    | g5 | 10/10, 143, 60, 1 | 9/10, 232, 30, 0 |
+    | g4 | 13/13, 72, 166, 1 | 13/13, 72, 151, 0 |
+    | faaea10a | 7/12, 516, 24, 0 | 6/12, 591, 6, 0 |
+    | 77483aca | 24/24, 128, 134, 2 | 24/24, 132, 97, 0 |
+    | elsbeth303 | 6/6, 12, 0, 0 | 6/6, 18, 0, 0 |
+    | nash107 | 4/6, 436, 58, 1 | 4/6, 436, 58, 1 |
+
+    Over the six: 64/71 breaks, 1307 s missed, 442 s cut, 5 false (October
+    28: 64, 1339, 414, 5; Comskip-107: 62, 1681, 342, 1). The 28 s more cut
+    is in faaea10a and 77483aca. Of their new stretches over 4 s, checked on
+    1 fps strips: faaea10a 2942.7-2947.0 and 3829.2-3835.0 (the Origin
+    Sports bumper is on screen; the label starts late), 77483aca
+    6396.7-6403.0 (McDonald's) and 10360.4-10366.0 (Liberty Mutual): the
+    mark is right and the label starts 4-6 s late. 77483aca 4985.0-4992.0
+    is the unlabelled "Eye on the Field" Progressive split-screen. Real:
+    faaea10a 5591.0-5596.5, about 5 s of game after the break. With g5
+    5103-5133 (above), that makes two real programme cuts over the six,
+    about 35 s. The dramas (rule 8) cut nothing Comskip doesn't. Recall is
+    weighted over a wrong marker (D6) and auto-skip is off by default, so
+    the gate is met in the D6 reading.
 - **T4. Backfill.** Seed jobs for the app's own captures and the Plex root
   (`/volume1/Shared/plex/Shows`, read-only, about 230 broadcast episodes of
   about 60 min plus 10 NFL games, about 260 h), with the exclusion list and
