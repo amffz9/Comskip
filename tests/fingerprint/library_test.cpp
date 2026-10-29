@@ -989,6 +989,8 @@ TEST(Matching, QualityOfAStretch) {
     EXPECT_DOUBLE_EQ(quality.mean_bits, 2.0 / 5);
     EXPECT_DOUBLE_EQ(quality.loose_share, 0.0);
     EXPECT_TRUE(quality.exact_pair);
+    EXPECT_TRUE(quality.exact_code);
+    EXPECT_FALSE(quality_of(a, b, -1, 2, 3).exact_code);
     EXPECT_TRUE(passes_gate({7.0, 0.9, true}, 3));
     EXPECT_FALSE(passes_gate({2.0, 0.1, false}, 5.9));
     EXPECT_TRUE(passes_gate({6.0, 0.5, false}, 6));

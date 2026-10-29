@@ -84,6 +84,7 @@ struct MatchQuality {
     double mean_bits{};
     double loose_share{};
     bool exact_pair{};
+    bool exact_code{};  // one of its codes equal to the other copy's
 };
 inline constexpr int loose_bits = 6;
 // A stretch with no exact pair is a repeat only when it is at least 6 s long,

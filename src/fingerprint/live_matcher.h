@@ -136,6 +136,7 @@ private:
         std::shared_ptr<const std::vector<std::uint32_t>> entry_codes;  // an index entry's reference copy
         std::size_t own_run{};                                           // a self-repeat's earlier run
         long seed{};       // the first seed; agreement is looked for from here
+        bool exact{};      // started by a seed of equal codes
         long next{};       // the next position to look at
         long begin{-1}, end{-1};  // agreed positions [begin, end) once started
         std::size_t match = no_match;
@@ -153,7 +154,7 @@ private:
     };
 
     void add_code(std::uint32_t code);
-    void seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes);
+    void seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes, bool exact);
     bool advance(Track& track, long newest);
     bool good_enough(const Track& track) const;
     bool end_track(Track& track, double now);

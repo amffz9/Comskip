@@ -153,6 +153,7 @@ MatchQuality quality_of(std::span<const std::uint32_t> a, std::span<const std::u
         bits += differ;
         loose += differ > loose_bits ? 1 : 0;
         if (differ == 0) {
+            quality.exact_code = true;
             if (last_exact >= 0 && k - last_exact <= seed_group_gap) quality.exact_pair = true;
             last_exact = k;
         }

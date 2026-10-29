@@ -179,8 +179,11 @@ void LiveMatcher::add_code(std::uint32_t code) {
 
     if (index_) {
         index_->hits(code, rules_.seed_bits, hits_);
-        for (const auto& [entry, at] : hits_)
-            seed({index_->id(entry), static_cast<long>(at) - position}, position, index_->status(entry), index_->codes(entry));
+        for (const auto& [entry, at] : hits_) {
+            const auto codes = index_->codes(entry);
+            seed({index_->id(entry), static_cast<long>(at) - position}, position, index_->status(entry), codes,
+                 codes[static_cast<std::size_t>(at)] == code);
+        }
     }
     // The recording's own earlier codes, at least 20 s before.
     if (!own_.saturated(code)) {
@@ -193,7 +196,8 @@ void LiveMatcher::add_code(std::uint32_t code) {
             if (other == current ? position - at < self_gap()
                                  : time - (runs_[other].start + at * code_period) < min_self_distance)
                 continue;
-            seed({-static_cast<long long>(other) - 1, at - position}, position, Status::candidate, {});
+            seed({-static_cast<long long>(other) - 1, at - position}, position, Status::candidate, {},
+                 runs_[other].codes[static_cast<std::size_t>(at)] == code);
         }
         own_.add(code, run.first + static_cast<std::uint32_t>(position), places_.size());
     }
@@ -205,7 +209,7 @@ void LiveMatcher::add_code(std::uint32_t code) {
         std::erase_if(diagonals_, [&](const auto& item) { return position - item.second.last > seed_group_gap; });
 }
 
-void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes) {
+void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes, bool exact) {
     auto& diagonal = diagonals_[key];
     if (diagonal.count > 0 && position - diagonal.last <= seed_group_gap) {
         ++diagonal.count;
@@ -216,8 +220,18 @@ void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std
     diagonal.last = position;
     if (diagonal.count < live_seeds_needed) return;
     // A track already follows this diagonal or one beside it, or did across here.
-    for (const auto& track : tracks_) {
+    // Near seeds also fall on the offsets beside a repeat's own (neighbouring
+    // codes differ by few bits), so an exact seed moves a track that near
+    // seeds alone started, and that has reported no match yet, to its offset.
+    for (auto& track : tracks_) {
         if (track.source != key.source || std::abs(track.offset - key.offset) > neighbour_offsets) continue;
+        if (exact && !track.exact && !track.done && track.match == no_match && track.offset != key.offset) {
+            track.offset = key.offset;
+            track.exact = true;
+            track.begin = track.end = -1;
+            track.seed = track.next = std::min(track.seed, diagonal.first);
+            return;
+        }
         if (!track.done || diagonal.first < track.end + seed_group_gap) return;
     }
     Track track;
@@ -227,6 +241,7 @@ void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std
     if (key.source > 0) track.entry_codes = std::make_shared<const std::vector<std::uint32_t>>(entry_codes.begin(), entry_codes.end());
     else track.own_run = static_cast<std::size_t>(-key.source - 1);
     track.seed = track.next = diagonal.first;
+    track.exact = exact;
     tracks_.push_back(std::move(track));
 }
 
@@ -284,10 +299,13 @@ bool LiveMatcher::advance(Track& track, long newest) {
 }
 
 // The quality gate over the agreed part so far, as offline: a stretch that
-// fails it may still pass as it grows.
+// fails it may still pass as it grows. Live, one exact seed started a match
+// before near seeds (live_seeds_needed), so one equal code stands in for the
+// offline exact pair.
 bool LiveMatcher::good_enough(const Track& track) const {
     if (!rules_.quality_gate) return true;
-    const auto quality = quality_of(runs_.back().codes, reference(track), track.offset, track.begin, track.end);
+    auto quality = quality_of(runs_.back().codes, reference(track), track.offset, track.begin, track.end);
+    quality.exact_pair = quality.exact_pair || (live_seeds_needed == 1 && quality.exact_code);
     return passes_gate(quality, static_cast<double>(track.end - track.begin) * code_period);
 }
 
