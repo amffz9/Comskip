@@ -239,22 +239,25 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
         longest = [0.0]
 
         def feed():
-            process.stdin.write(run_start(0))
-            piece = RATE // 10
-            began = time.monotonic()
-            for index in range(0, len(audio), piece):
-                due = began + index / RATE / speed
-                if due > time.monotonic():
-                    time.sleep(due - time.monotonic())
-                chunk = audio[index:index + piece]
-                start = time.monotonic()
-                process.stdin.write(b"A" + struct.pack("<I", 2 * len(chunk)) + struct.pack(f"<{len(chunk)}h", *chunk))
-                longest[0] = max(longest[0], time.monotonic() - start)
-                if evidence_after and index / RATE >= evidence_after and not live_evidence.exists():
-                    live_evidence.write_text(json.dumps({"revision": 3, "final": False, "logoKnown": True,
-                                                         "seams": [], "logo": [], "blocks": []}))
-            process.stdin.write(END)
-            process.stdin.close()
+            # stdin is closed even if feeding fails, so the tool ends instead of waiting out the timeout.
+            try:
+                process.stdin.write(run_start(0))
+                piece = RATE // 10
+                began = time.monotonic()
+                for index in range(0, len(audio), piece):
+                    wait = began + index / RATE / speed - time.monotonic()
+                    if wait > 0:
+                        time.sleep(wait)
+                    chunk = audio[index:index + piece]
+                    start = time.monotonic()
+                    process.stdin.write(b"A" + struct.pack("<I", 2 * len(chunk)) + struct.pack(f"<{len(chunk)}h", *chunk))
+                    longest[0] = max(longest[0], time.monotonic() - start)
+                    if evidence_after and index / RATE >= evidence_after and not live_evidence.exists():
+                        live_evidence.write_text(json.dumps({"revision": 3, "final": False, "logoKnown": True,
+                                                             "seams": [], "logo": [], "blocks": []}))
+                process.stdin.write(END)
+            finally:
+                process.stdin.close()
 
         errors = []
         writer = threading.Thread(target=feed)
