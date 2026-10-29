@@ -964,7 +964,7 @@ TEST(SeedIndex, FindsEveryCodeWithinTheBitsOnce) {
     EXPECT_TRUE(found.empty());
     EXPECT_EQ(index.count(code, 4, 3), 4u);
     EXPECT_EQ(index.codes(1).size(), 4000u);
-    EXPECT_LT(index.bytes(), 12000u * 12 + 2 * 65537 * 4 + 64);
+    EXPECT_LT(index.bytes(), 12000u * 20 + 2 * 65537 * 4 + 64);
 }
 
 TEST(Matching, NearSeedsFindARepeatWithNoEqualCodes) {
@@ -989,6 +989,58 @@ TEST(Matching, NearSeedsFindARepeatWithNoEqualCodes) {
     const std::vector<Sequence> own{{self, 0}};
     EXPECT_TRUE(find_matches(own, {}, true, {0, true}).empty());
     EXPECT_EQ(find_matches(own, {}, true).size(), 1u);
+}
+
+TEST(Matching, OneIndexOverManyGroupsFindsWhatOneCallPerGroupFinds) {
+    // A clip in several groups (exact, 2 bits off, cut short, in two runs), and
+    // a code held 31 times in one group and 30 in another: the per-group limit
+    // must still drop it in the first and keep it in the second.
+    const auto clip = noise(110, codes_of(20));
+    const auto changed = flipped(clip, 2, 111);
+    const std::uint32_t common = 0x5a5a5a5au;
+    auto own = noise(112, codes_of(300));
+    std::copy(clip.begin(), clip.end(), own.begin() + codes_of(40));
+    std::fill_n(own.begin() + codes_of(200), 10, common);  // under the limit in own
+    std::vector<std::vector<std::uint32_t>> codes;
+    for (int g = 0; g < 6; ++g) codes.push_back(noise(113 + g, codes_of(120)));
+    std::copy(clip.begin(), clip.end(), codes[0].begin() + codes_of(10));
+    std::copy(changed.begin(), changed.end(), codes[1].begin() + codes_of(70));
+    std::copy_n(clip.begin(), codes_of(8), codes[2].begin() + codes_of(5));
+    std::copy(clip.begin(), clip.end(), codes[3].begin() + codes_of(30));
+    std::copy(changed.begin(), changed.end(), codes[3].begin() + codes_of(90));
+    std::fill_n(codes[4].begin() + codes_of(50), 31, common);
+    std::fill_n(codes[5].begin() + codes_of(50), 30, common);
+    std::vector<std::vector<Sequence>> groups;
+    for (int g = 0; g < 6; ++g) {
+        const std::span<const std::uint32_t> all(codes[g]);
+        if (g == 3)  // two runs
+            groups.push_back({{all.first(codes_of(60)), 0}, {all.subspan(codes_of(60)), 60}});
+        else
+            groups.push_back({{all, 0}});
+    }
+    groups.emplace_back();  // a recording with no runs
+    const std::vector<Sequence> a{{std::span<const std::uint32_t>(own).first(codes_of(150)), 0},
+                                  {std::span<const std::uint32_t>(own).subspan(codes_of(150)), 150}};
+    for (const MatchRules rules : {MatchRules{}, MatchRules{0, true}, MatchRules{2, false}}) {
+        const auto together = find_matches_in_groups(a, groups, rules);
+        ASSERT_EQ(together.size(), groups.size());
+        std::size_t found = 0;
+        for (std::size_t g = 0; g < groups.size(); ++g) {
+            const auto alone = find_matches(a, groups[g], false, rules);
+            ASSERT_EQ(together[g].size(), alone.size()) << "group " << g;
+            for (std::size_t m = 0; m < alone.size(); ++m) {
+                const auto& x = together[g][m];
+                const auto& y = alone[m];
+                EXPECT_EQ(std::tie(x.a, x.a_begin, x.a_end, x.b, x.b_begin, x.a_cut_at_start, x.a_cut_at_end, x.b_cut_at_start,
+                                   x.b_cut_at_end),
+                          std::tie(y.a, y.a_begin, y.a_end, y.b, y.b_begin, y.a_cut_at_start, y.a_cut_at_end, y.b_cut_at_start,
+                                   y.b_cut_at_end))
+                    << "group " << g << " match " << m;
+            }
+            found += alone.size();
+        }
+        EXPECT_GE(found, 3u);
+    }
 }
 
 TEST(Matching, TheQualityGateKeepsLooseAndShortNearOnlyStretchesOut) {

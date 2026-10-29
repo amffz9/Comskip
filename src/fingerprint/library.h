@@ -220,7 +220,7 @@ private:
 // capture is its own process and holds its own copy): 64 MB by default, about
 // 5.5 million codes, where the store's ads and in-programme ads, intros and
 // credits took about 2.3 MB in October 2026. An entry of n codes takes
-// 12 n bytes (a SeedIndex) and 12 for its id and status.
+// 20 n bytes (a SeedIndex) and 12 for its id and status.
 inline constexpr std::size_t live_index_bytes = 64u << 20;
-inline constexpr std::size_t live_index_entry_bytes(std::size_t codes) { return codes * 12 + 12; }
+inline constexpr std::size_t live_index_entry_bytes(std::size_t codes) { return codes * 20 + 12; }
 }

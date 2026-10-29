@@ -148,14 +148,25 @@ public:
         std::ranges::sort(self_matches, longest_first);
         for (const auto& match : self_matches)
             add_pair(recording_, own[match.a], recording_, own[match.b], match);
+        // Every other recording at once, in the store's order: one index over
+        // all of them, each of the recording's codes looked up once.
+        std::vector<std::string> others;
+        std::vector<std::vector<CodeRun>> their_runs;
+        std::vector<std::vector<Sequence>> their_sequences;
         for (const auto& [other, data] : recordings_) {
             if (other == recording_) continue;
-            const auto theirs = runs_of(other);
-            std::vector<Sequence> their_sequences;
-            for (const auto& run : theirs) their_sequences.push_back({run.codes, run.start});
-            auto matches = find_matches(own_sequences, their_sequences, false, options_.matching);
+            others.push_back(other);
+            their_runs.push_back(runs_of(other));
+        }
+        for (const auto& runs : their_runs) {
+            auto& sequences = their_sequences.emplace_back();
+            for (const auto& run : runs) sequences.push_back({run.codes, run.start});
+        }
+        auto grouped = find_matches_in_groups(own_sequences, their_sequences, options_.matching);
+        for (std::size_t group = 0; group < others.size(); ++group) {
+            auto& matches = grouped[group];
             std::ranges::sort(matches, longest_first);
-            for (const auto& match : matches) add_pair(recording_, own[match.a], other, theirs[match.b], match);
+            for (const auto& match : matches) add_pair(recording_, own[match.a], others[group], their_runs[group][match.b], match);
         }
         split_entries();
         // The recording's evidence may have changed, so all its airings are

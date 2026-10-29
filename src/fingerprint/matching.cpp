@@ -61,6 +61,12 @@ void SeedIndex::finish() {
     starts_.shrink_to_fit();
     bucket(codes_, 16, high_, high_from_);
     bucket(codes_, 0, low_, low_from_);
+    // The codes again in each order, so a lookup reads its buckets straight
+    // through instead of jumping to every place's code.
+    high_codes_.resize(high_.size());
+    low_codes_.resize(low_.size());
+    for (std::size_t at = 0; at < high_.size(); ++at) high_codes_[at] = codes_[high_[at]];
+    for (std::size_t at = 0; at < low_.size(); ++at) low_codes_[at] = codes_[low_[at]];
 }
 
 std::span<const std::uint32_t> SeedIndex::codes(std::size_t sequence) const {
@@ -68,8 +74,8 @@ std::span<const std::uint32_t> SeedIndex::codes(std::size_t sequence) const {
 }
 
 std::size_t SeedIndex::bytes() const {
-    return (codes_.capacity() + starts_.capacity() + high_.capacity() + low_.capacity() + high_from_.capacity() +
-            low_from_.capacity()) *
+    return (codes_.capacity() + starts_.capacity() + high_.capacity() + low_.capacity() + high_codes_.capacity() +
+            low_codes_.capacity() + high_from_.capacity() + low_from_.capacity()) *
            sizeof(std::uint32_t);
 }
 
@@ -81,12 +87,12 @@ template <class Visit> bool SeedIndex::visit(std::uint32_t code, int bits, Visit
     const int half = bits / 2;
     const auto high = [&](std::uint32_t key) {
         for (auto at = high_from_[key]; at < high_from_[key + 1]; ++at)
-            if (std::popcount(codes_[high_[at]] ^ code) <= bits && !each(high_[at])) return false;
+            if (std::popcount(high_codes_[at] ^ code) <= bits && !each(high_[at])) return false;
         return true;
     };
     const auto low = [&](std::uint32_t key) {
         for (auto at = low_from_[key]; at < low_from_[key + 1]; ++at) {
-            const auto differ = codes_[low_[at]] ^ code;
+            const auto differ = low_codes_[at] ^ code;
             if (std::popcount(differ) <= bits && std::popcount(differ >> 16) > half && !each(low_[at])) return false;
         }
         return true;
@@ -113,6 +119,18 @@ std::size_t SeedIndex::count(std::uint32_t code, int bits, std::size_t most) con
     std::size_t counted = 0;
     visit(code, bits, [&](std::uint32_t) { return ++counted <= most; });
     return counted;
+}
+
+void SeedIndex::all_near(std::uint32_t code, int bits, std::vector<std::uint32_t>& found) const {
+    found.clear();
+    visit(code, bits, [&](std::uint32_t place) {
+        found.push_back(place);
+        return true;
+    });
+}
+
+std::uint32_t SeedIndex::sequence_of(std::uint32_t place) const {
+    return static_cast<std::uint32_t>(std::ranges::upper_bound(starts_, place) - starts_.begin() - 1);
 }
 
 namespace {
@@ -170,46 +188,20 @@ bool passes_gate(const MatchQuality& quality, double seconds) {
                                   quality.loose_share <= gate_loose_share);
 }
 
-std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Sequence> b, bool self, const MatchRules& rules) {
-    const auto& other = self ? a : b;
+namespace {
+using Seeds = std::unordered_map<DiagonalKey, std::vector<std::int32_t>, DiagonalHash>;
+
+SeedIndex index_of(std::span<const Sequence> sequences) {
+    std::vector<std::span<const std::uint32_t>> codes;
+    codes.reserve(sequences.size());
+    for (const auto& sequence : sequences) codes.push_back(sequence.codes);
+    return SeedIndex(codes);
+}
+
+// Groups each diagonal's seeds and extends the groups into matches.
+std::vector<Match> extend_seeds(Seeds& seeds, std::span<const Sequence> a, std::span<const Sequence> other, bool self,
+                                const MatchRules& rules) {
     const long min_codes = codes_for(min_repeat_seconds);
-    const long min_gap = static_cast<long>(min_self_distance / code_period);
-    std::unordered_map<DiagonalKey, std::vector<std::int32_t>, DiagonalHash> seeds;
-
-    const auto index_of = [](std::span<const Sequence> sequences) {
-        std::vector<std::span<const std::uint32_t>> codes;
-        codes.reserve(sequences.size());
-        for (const auto& sequence : sequences) codes.push_back(sequence.codes);
-        return SeedIndex(codes);
-    };
-    const auto other_index = index_of(other);
-    // Own codes held in more than seed_max_occurrences places are no seeds
-    // either (with self set, other_index already counts them).
-    const auto own_index = self ? SeedIndex() : index_of(a);
-    std::vector<SeedIndex::Place> found;
-    for (std::uint32_t sequence = 0; sequence < a.size(); ++sequence) {
-        const auto codes = a[sequence].codes;
-        for (std::int32_t position = 0; position < static_cast<std::int32_t>(codes.size()); ++position) {
-            const auto code = codes[static_cast<std::size_t>(position)];
-            other_index.near(code, rules.seed_bits, seed_max_occurrences, found);
-            if (found.empty()) continue;
-            if (!self && own_index.count(code, rules.seed_bits, seed_max_occurrences) > seed_max_occurrences) continue;
-            for (const auto& at : found) {
-                if (self) {
-                    // Each pair once, from its earlier copy.
-                    if (std::tie(at.sequence, at.position) <= std::tie(sequence, position)) continue;
-                    if (at.sequence == sequence) {
-                        if (at.position - position < min_gap) continue;
-                    } else if ((a[at.sequence].start + at.position * code_period) - (a[sequence].start + position * code_period) <
-                               min_self_distance) {
-                        continue;
-                    }
-                }
-                seeds[{sequence, at.sequence, at.position - position}].push_back(position);
-            }
-        }
-    }
-
     // Visit diagonals in a fixed order so the result never depends on hashing.
     std::vector<std::pair<DiagonalKey, std::vector<std::int32_t>*>> diagonals;
     diagonals.reserve(seeds.size());
@@ -257,6 +249,92 @@ std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Seq
             group_begin = group_end;
         }
     }
+    return matches;
+}
+}
+
+std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Sequence> b, bool self, const MatchRules& rules) {
+    const auto& other = self ? a : b;
+    const long min_gap = static_cast<long>(min_self_distance / code_period);
+    Seeds seeds;
+
+    const auto other_index = index_of(other);
+    // Own codes held in more than seed_max_occurrences places are no seeds
+    // either (with self set, other_index already counts them).
+    const auto own_index = self ? SeedIndex() : index_of(a);
+    std::vector<SeedIndex::Place> found;
+    for (std::uint32_t sequence = 0; sequence < a.size(); ++sequence) {
+        const auto codes = a[sequence].codes;
+        for (std::int32_t position = 0; position < static_cast<std::int32_t>(codes.size()); ++position) {
+            const auto code = codes[static_cast<std::size_t>(position)];
+            other_index.near(code, rules.seed_bits, seed_max_occurrences, found);
+            if (found.empty()) continue;
+            if (!self && own_index.count(code, rules.seed_bits, seed_max_occurrences) > seed_max_occurrences) continue;
+            for (const auto& at : found) {
+                if (self) {
+                    // Each pair once, from its earlier copy.
+                    if (std::tie(at.sequence, at.position) <= std::tie(sequence, position)) continue;
+                    if (at.sequence == sequence) {
+                        if (at.position - position < min_gap) continue;
+                    } else if ((a[at.sequence].start + at.position * code_period) - (a[sequence].start + position * code_period) <
+                               min_self_distance) {
+                        continue;
+                    }
+                }
+                seeds[{sequence, at.sequence, at.position - position}].push_back(position);
+            }
+        }
+    }
+
+    return extend_seeds(seeds, a, other, self, rules);
+}
+
+std::vector<std::vector<Match>> find_matches_in_groups(std::span<const Sequence> a,
+                                                       std::span<const std::vector<Sequence>> groups,
+                                                       const MatchRules& rules) {
+    // One index over every group's sequences; group_of maps an index sequence
+    // to its group, first_of a group to its first index sequence.
+    std::vector<Sequence> all;
+    std::vector<std::uint32_t> group_of, first_of;
+    for (std::uint32_t group = 0; group < groups.size(); ++group) {
+        first_of.push_back(static_cast<std::uint32_t>(all.size()));
+        for (const auto& sequence : groups[group]) {
+            all.push_back(sequence);
+            group_of.push_back(group);
+        }
+    }
+    const auto other_index = index_of(all);
+    const auto own_index = index_of(a);
+    std::vector<Seeds> seeds(groups.size());
+    std::vector<std::uint32_t> places;
+    std::vector<SeedIndex::Place> found;
+    for (std::uint32_t sequence = 0; sequence < a.size(); ++sequence) {
+        const auto codes = a[sequence].codes;
+        for (std::int32_t position = 0; position < static_cast<std::int32_t>(codes.size()); ++position) {
+            const auto code = codes[static_cast<std::size_t>(position)];
+            other_index.all_near(code, rules.seed_bits, places);
+            if (places.empty()) continue;
+            if (own_index.count(code, rules.seed_bits, seed_max_occurrences) > seed_max_occurrences) continue;
+            std::ranges::sort(places);
+            // Each group's places in turn; a group holding the code in more than
+            // seed_max_occurrences places gives no seeds, as one call per group.
+            for (std::size_t at = 0; at < places.size();) {
+                const auto group = group_of[other_index.sequence_of(places[at])];
+                found.clear();
+                for (; at < places.size(); ++at) {
+                    const auto in = other_index.sequence_of(places[at]);
+                    if (group_of[in] != group) break;
+                    found.push_back({in - first_of[group], static_cast<std::int32_t>(places[at] - other_index.start_of(in))});
+                }
+                if (found.size() > seed_max_occurrences) continue;
+                for (const auto& place : found)
+                    seeds[group][{sequence, place.sequence, place.position - position}].push_back(position);
+            }
+        }
+    }
+    std::vector<std::vector<Match>> matches(groups.size());
+    for (std::size_t group = 0; group < groups.size(); ++group)
+        if (!seeds[group].empty()) matches[group] = extend_seeds(seeds[group], a, groups[group], false, rules);
     return matches;
 }
 }

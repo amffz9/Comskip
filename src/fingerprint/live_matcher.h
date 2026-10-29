@@ -13,7 +13,7 @@
 // code stream against the live index and against the recording's own earlier
 // codes.
 namespace comskip::fingerprint {
-// The live index in memory: every entry's codes in a SeedIndex, 12 bytes per
+// The live index in memory: every entry's codes in a SeedIndex, 20 bytes per
 // code. Built away from the matching thread, then shared read-only.
 class LiveIndex {
 public:

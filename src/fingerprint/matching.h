@@ -45,7 +45,7 @@ struct MatchRules {
 // within b bits differ in at most b / 2 bits of their high or of their low 16
 // bits, so each half's places sit in buckets keyed by that half, and a lookup
 // visits the buckets of every key within b / 2 bits of the code's halves.
-// 12 bytes a code: the codes, and their places in each half's order.
+// 20 bytes a code: the codes, and their places and values in each half's order.
 class SeedIndex {
 public:
     struct Place {
@@ -66,6 +66,12 @@ public:
     void near(std::uint32_t code, int bits, std::size_t most, std::vector<Place>& found) const;
     // How many places hold a code within `bits`, counted up to most + 1.
     std::size_t count(std::uint32_t code, int bits, std::size_t most) const;
+    // Every place whose code is within `bits` of the code, as offsets into all
+    // the codes, in no order.
+    void all_near(std::uint32_t code, int bits, std::vector<std::uint32_t>& found) const;
+    // The sequence holding an offset from all_near, and where it begins.
+    std::uint32_t sequence_of(std::uint32_t place) const;
+    std::uint32_t start_of(std::size_t sequence) const { return starts_[sequence]; }
     std::size_t bytes() const;
 
 private:
@@ -73,6 +79,7 @@ private:
     std::vector<std::uint32_t> codes_;
     std::vector<std::uint32_t> starts_{0};  // sequence i's codes are codes_[starts_[i], starts_[i + 1])
     std::vector<std::uint32_t> high_, low_;            // places sorted by the code's high, low 16 bits
+    std::vector<std::uint32_t> high_codes_, low_codes_;  // the codes at those places, in the same order
     std::vector<std::uint32_t> high_from_, low_from_;  // where each key's places begin, 65537 each
 };
 
@@ -132,6 +139,15 @@ struct Match {
 // empty): only pairs whose copies are at least 20 s apart count, each once.
 std::vector<Match> find_matches(std::span<const Sequence> a, std::span<const Sequence> b, bool self,
                                 const MatchRules& rules = {});
+
+// find_matches(a, groups[g], false) for every group g (a recording's runs),
+// with one index over every group instead of one per group, so each of a's
+// codes is looked up once. The 30-place limit still holds within each group, so
+// the matches are the same ones, in the same order, as one call per group;
+// each Match's b indexes into its own group.
+std::vector<std::vector<Match>> find_matches_in_groups(std::span<const Sequence> a,
+                                                       std::span<const std::vector<Sequence>> groups,
+                                                       const MatchRules& rules = {});
 
 long codes_for(double seconds);
 }
