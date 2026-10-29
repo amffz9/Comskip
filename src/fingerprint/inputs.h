@@ -42,6 +42,7 @@ struct Programme {
 // What the app knows about a recording when it hands the tool its audio.
 struct Context {
     std::string channel;          // empty when unknown
+    std::string network;          // the affiliation (CBS, ABC...), empty when unknown
     double air_start{};           // Unix seconds of capture second 0
     std::vector<Programme> programmes;
     std::string source = "capture";  // "capture" or "plex"

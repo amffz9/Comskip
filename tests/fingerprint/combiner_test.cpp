@@ -144,6 +144,9 @@ TEST(Inputs, RoundTripsNamesWithQuotesBackslashesAndNonAscii) {
     context.programmes.push_back({0, 3600, awkward, "series:\"x\"\\y"});
     const auto back = context_from_json(json::parse(context_to_json(context)));
     EXPECT_EQ(back.channel, context.channel);
+    EXPECT_TRUE(back.network.empty());
+    context.network = "CBS";
+    EXPECT_EQ(context_from_json(json::parse(context_to_json(context))).network, "CBS");
     EXPECT_EQ(back.air_start, 1760832000.25);
     ASSERT_EQ(back.programmes.size(), 1u);
     EXPECT_EQ(back.programmes[0].title, awkward);

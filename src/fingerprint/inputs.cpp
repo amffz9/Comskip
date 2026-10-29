@@ -53,6 +53,7 @@ Context context_from_json(const json::Value& document) {
     return json::reading("context", [&] {
         Context context;
         if (const auto* channel = optional_string(document, "channel")) context.channel = *channel;
+        if (const auto* network = optional_string(document, "network")) context.network = *network;
         if (const auto air = document.find("airStart"); air != document.end()) context.air_start = air->get<double>();
         if (const auto* source = optional_string(document, "source")) {
             if (*source != "capture" && *source != "plex") throw json::Invalid("source is neither capture nor plex");
@@ -92,6 +93,7 @@ std::string context_to_json(const Context& context) {
     json::Value document = {{"channel", nullptr}, {"airStart", time(context.air_start)}, {"source", context.source},
                             {"programmes", json::Value::array()}};
     if (!context.channel.empty()) document["channel"] = context.channel;
+    if (!context.network.empty()) document["network"] = context.network;
     for (const auto& programme : context.programmes)
         document["programmes"].push_back({{"from", time(programme.from)},
                                           {"to", time(programme.to)},
