@@ -81,7 +81,8 @@ inline constexpr double within_recording_apart = 300;
 
 // The audio-only thresholds; options so the Harness can measure other points.
 struct PromotionRules {
-    // An entry recurring in this many series (or two series on two channels),
+    // An entry recurring in this many series (or two series on two networks, or
+    // on two channels where a network is unknown),
     // at an ad's length, with no logo seen, is an ad.
     int audio_series = 3;
     // A candidate next to ad airings in this many broadcasts joins their break
@@ -105,6 +106,7 @@ struct AiringFacts {
     // airing's end to the programme's end; meaningful only with a programme.
     bool has_position{};
     double from_start{}, to_end{};
+    std::string network;  // trimmed and lower case; empty when unknown
 };
 struct Promotion {
     Status status{};

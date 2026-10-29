@@ -2,6 +2,7 @@
 #include "fingerprint/matching.h"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <map>
 #include <regex>
@@ -25,7 +26,7 @@ struct RecordingData {
     std::optional<Evidence> evidence;
     // One series key and one channel for every recording holding the same
     // broadcast as this one; empty when it shares none.
-    std::string broadcast, broadcast_channel;
+    std::string broadcast, broadcast_channel, broadcast_network;
 };
 
 // Longer repeats first, so they define entries; then by position, for a fixed order.
@@ -63,12 +64,30 @@ void apply_evidence(Airing& airing, const RecordingData& recording) {
     airing.logo = *airing.logo_fraction < logo_none_below ? "no" : "yes";
 }
 
+// A network compared as its affiliation: "CBS" and " cbs" are one.
+std::string network_key(std::string_view network) {
+    const auto first = network.find_first_not_of(" 	");
+    if (first == std::string_view::npos) return "";
+    network = network.substr(first, network.find_last_not_of(" 	") - first + 1);
+    std::string key;
+    for (const char character : network) key += static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    return key;
+}
+
+// Two airings went out on different stations: by network when both know one,
+// by channel otherwise. Nothing unknown counts as different.
+bool different_places(const AiringFacts& one, const AiringFacts& other) {
+    if (!one.network.empty() && !other.network.empty()) return one.network != other.network;
+    return !one.channel.empty() && !other.channel.empty() && one.channel != other.channel;
+}
+
 AiringFacts facts_of(const Airing& airing, const RecordingData& recording) {
     AiringFacts facts;
     facts.recording = airing.recording;
     // Two recordings of one broadcast name its channel differently ("CBS",
     // "4.1"), so they count as one channel.
     facts.channel = recording.broadcast.empty() ? recording.context.channel : recording.broadcast_channel;
+    facts.network = recording.broadcast.empty() ? network_key(recording.context.network) : recording.broadcast_network;
     const double start = airing.start();
     const double end = airing.end();
     const Programme* programme = programme_at(recording.context, start);
@@ -443,7 +462,7 @@ private:
                 if (first != other) parent[std::max(first, other)] = std::min(first, other);
             }
         }
-        std::map<std::string, std::set<std::string>> keys, channels;
+        std::map<std::string, std::set<std::string>> keys, channels, networks;
         std::map<std::string, int> sizes;
         std::set<std::string> events;
         for (const auto& [name, data] : recordings_) {
@@ -453,6 +472,7 @@ private:
             for (const auto& programme : data.context.programmes)
                 if (!programme.series_key.empty()) keys[group].insert(programme.series_key);
             if (!data.context.channel.empty()) channels[group].insert(data.context.channel);
+            if (const auto network = network_key(data.context.network); !network.empty()) networks[group].insert(network);
         }
         for (auto& [name, data] : recordings_) {
             const auto group = root(name);
@@ -460,6 +480,7 @@ private:
             data.broadcast = shared && !keys[group].empty() ? *keys[group].begin() : "";
             if (events.contains(group)) data.broadcast = group;
             data.broadcast_channel = shared && !channels[group].empty() ? *channels[group].begin() : "";
+            data.broadcast_network = shared && !networks[group].empty() ? *networks[group].begin() : "";
             broadcast_group_[name] = group;
         }
     }
@@ -731,12 +752,14 @@ bool audio_ad_length(double seconds) {
 
 Promotion promote(Status current, double length, std::span<const AiringFacts> airings, const PromotionRules& rules) {
     if (current == Status::programme) return {current, ""};
-    std::set<std::string> series, broadcasts, channels, recordings;
+    std::set<std::string> series, broadcasts, recordings;
+    // Distinct stations, as the network and channel pairs seen.
+    std::set<std::pair<std::string, std::string>> places;
     for (const auto& airing : airings) {
         if (!airing.series_key.empty()) series.insert(airing.series_key);
         const auto& broadcast = airing.broadcast.empty() ? airing.series_key : airing.broadcast;
         if (!broadcast.empty()) broadcasts.insert(broadcast);
-        if (!airing.channel.empty()) channels.insert(airing.channel);
+        places.emplace(airing.network, airing.channel);
         recordings.insert(airing.recording);
     }
     if (airings.size() < 2) {
@@ -840,7 +863,15 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         return {Status::programme, std::string(status_name(current)) + " until an airing away from the start or end"};
 
     const auto spread = static_cast<int>(broadcasts.size());
-    const bool across = spread >= 2 || channels.size() >= 2;
+    bool two_places = false;
+    for (auto one = places.begin(); one != places.end() && !two_places; ++one)
+        for (auto other = std::next(one); other != places.end() && !two_places; ++other) {
+            AiringFacts first, second;
+            std::tie(first.network, first.channel) = *one;
+            std::tie(second.network, second.channel) = *other;
+            two_places = different_places(first, second);
+        }
+    const bool across = spread >= 2 || two_places;
     const bool standard = standard_length(length);
     // Evidence confirms: Comskip saw no logo in an airing.
     if (any_evidence && across && logo_free && (standard || seams_both))
@@ -849,7 +880,7 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         return {Status::ad, "within one show, no logo, seams at both ends, standard length"};
     if (any_evidence && across && mostly_logo) return {Status::in_programme_ad, "across shows, logo during most of every airing"};
     if (any_evidence && logo_everywhere && series.size() <= 1) return {Status::programme, "logo in every airing, one series"};
-    const bool widely = spread >= rules.audio_series || (spread >= 2 && channels.size() >= 2);
+    const bool widely = spread >= rules.audio_series || (spread >= 2 && two_places);
     if (no_logo_seen && widely && audio_ad_length(length))
         return {Status::ad, "in " + std::to_string(spread) + " series, no logo seen, an ad's length"};
     const bool may_join = no_logo_seen && spread >= 2 && length <= adjacent_max_length;

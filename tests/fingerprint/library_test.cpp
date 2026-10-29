@@ -839,6 +839,23 @@ TEST(Promotion, AudioOnlyRules) {
     two[0].channel = "4.1";
     two[1].channel = "5.1";
     EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::ad);
+    // Networks, where both airings know one, decide over channel names: one
+    // network under two channel names is one place; two networks are two.
+    two[0].network = two[1].network = "cbs";
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::candidate);
+    two[1].network = "abc";
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::ad);
+    two[0].channel = two[1].channel = "";
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::ad);
+    // A missing network is never a difference: two series with networks
+    // unknown (and no channels) need three series.
+    two[0].network = two[1].network = "";
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::candidate);
+    std::vector<AiringFacts> unknown{plex("a", "x"), plex("b", "y"), plex("c", "z")};
+    EXPECT_EQ(promote(Status::candidate, 30, unknown).status, Status::ad);
+    // One known network beside an unknown one falls back to channels.
+    two[0].network = "cbs";
+    EXPECT_EQ(promote(Status::candidate, 30, two).status, Status::candidate);
     // One broadcast in two files counts once.
     three[2].broadcast = "y";
     EXPECT_EQ(promote(Status::candidate, 30, three).status, Status::candidate);
