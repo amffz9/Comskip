@@ -615,30 +615,34 @@ private:
         judge_chains(promotions);
         join_breaks(promotions);
 
+        // One transaction for every write: one disk sync per search, not one per
+        // entry, and a failure leaves the store as it was.
         std::set<std::string> corrected;
-        for (auto& [id, entry] : entries_) {
-            const auto& promotion = promotions.at(id);
-            const auto before = old_status_.contains(id) ? std::optional(old_status_.at(id)) : std::nullopt;
-            entry.status = promotion.status;
-            if (!promotion.reason.empty()) entry.reason = promotion.reason;
-            const bool changed = (before ? *before != entry.status : entry.status != Status::candidate) || migrated_.contains(id);
-            const bool reworded = !old_reason_.contains(id) || old_reason_.at(id) != entry.reason;
-            if (!changed && !reworded && !touched_.contains(id)) continue;
-            const auto members = members_of(id);
-            const bool was_candidate = !before || *before == Status::candidate || migrated_.contains(id);
-            if (changed && entry.status != Status::candidate && was_candidate) ++result.promoted;
-            const auto correct = [&](const std::string& name) {
-                if (name != recording_ && recordings_.at(name).context.source == "capture") corrected.insert(name);
-            };
-            if (changed || split_.contains(id)) {
-                result.changed_entries.push_back(id);
-                for (const auto index : members) correct(airings_[index].recording);
-            } else if (marked(entry.status) && fresh_in_.contains(id)) {
-                // A marked entry found again in another capture changes its marks.
-                for (const auto& name : fresh_in_.at(id)) correct(name);
+        in_transaction(store_, [&] {
+            for (auto& [id, entry] : entries_) {
+                const auto& promotion = promotions.at(id);
+                const auto before = old_status_.contains(id) ? std::optional(old_status_.at(id)) : std::nullopt;
+                entry.status = promotion.status;
+                if (!promotion.reason.empty()) entry.reason = promotion.reason;
+                const bool changed = (before ? *before != entry.status : entry.status != Status::candidate) || migrated_.contains(id);
+                const bool reworded = !old_reason_.contains(id) || old_reason_.at(id) != entry.reason;
+                if (!changed && !reworded && !touched_.contains(id)) continue;
+                const auto members = members_of(id);
+                const bool was_candidate = !before || *before == Status::candidate || migrated_.contains(id);
+                if (changed && entry.status != Status::candidate && was_candidate) ++result.promoted;
+                const auto correct = [&](const std::string& name) {
+                    if (name != recording_ && recordings_.at(name).context.source == "capture") corrected.insert(name);
+                };
+                if (changed || split_.contains(id)) {
+                    result.changed_entries.push_back(id);
+                    for (const auto index : members) correct(airings_[index].recording);
+                } else if (marked(entry.status) && fresh_in_.contains(id)) {
+                    // A marked entry found again in another capture changes its marks.
+                    for (const auto& name : fresh_in_.at(id)) correct(name);
+                }
+                write_entry(entry, members);
             }
-            write_entry(entry, members);
-        }
+        });
         result.corrected.assign(corrected.begin(), corrected.end());
         // Changed ids refer to rows now in the store.
         for (auto& id : result.changed_entries) id = saved_ids_.contains(id) ? saved_ids_.at(id) : id;
@@ -659,41 +663,39 @@ private:
                 series.insert(programme->series_key);
             if (!recording.context.channel.empty()) channels.insert(recording.context.channel);
         }
-        in_transaction(store_, [&] {
-            long long id = entry.id;
-            if (id < 0) {
-                store_.prepare("INSERT INTO entry(status, length, codes, reason) VALUES('candidate', 0, x'', '')").run();
-                id = store_.last_insert_id();
-                saved_ids_[entry.id] = id;
-            }
-            auto update = store_.prepare(
-                "UPDATE entry SET status = ?, length = ?, codes = ?, first_airing = ?, last_airing = ?, airings = ?, "
-                "series_keys = ?, channels = ?, reason = ? WHERE id = ?");
-            update.bind(1, status_name(entry.status)).bind(2, entry.length).bind_codes(3, entry.codes);
-            if (members.empty()) update.bind(4, nullptr).bind(5, nullptr);
-            else update.bind(4, first).bind(5, last);
-            update.bind(6, static_cast<long long>(members.size())).bind(7, join(series)).bind(8, join(channels));
-            update.bind(9, entry.reason).bind(10, id).run();
-            store_.prepare("DELETE FROM airing WHERE entry = ?").bind(1, id).run();
-            auto insert = store_.prepare(
-                "INSERT INTO airing(entry, recording, run_start, code_begin, code_end, start, \"end\", part_begin, part_end, "
-                "cut_at_start, cut_at_end, found_by, seam_start, seam_end, logo, logo_fraction) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            for (const auto index : members) {
-                auto& airing = airings_[index];
-                airing.entry = id;
-                insert.bind(1, id).bind(2, airing.recording).bind(3, airing.run_start);
-                insert.bind(4, static_cast<long long>(airing.code_begin)).bind(5, static_cast<long long>(airing.code_end));
-                insert.bind(6, airing.start()).bind(7, airing.end());
-                insert.bind(8, static_cast<long long>(airing.part_begin)).bind(9, static_cast<long long>(airing.part_end));
-                insert.bind(10, airing.cut_at_start ? 1 : 0).bind(11, airing.cut_at_end ? 1 : 0).bind(12, airing.found_by);
-                if (airing.seam_start) insert.bind(13, *airing.seam_start ? 1 : 0); else insert.bind(13, nullptr);
-                if (airing.seam_end) insert.bind(14, *airing.seam_end ? 1 : 0); else insert.bind(14, nullptr);
-                insert.bind(15, airing.logo);
-                if (airing.logo_fraction) insert.bind(16, *airing.logo_fraction); else insert.bind(16, nullptr);
-                insert.run();
-            }
-        });
+        long long id = entry.id;
+        if (id < 0) {
+            store_.prepare("INSERT INTO entry(status, length, codes, reason) VALUES('candidate', 0, x'', '')").run();
+            id = store_.last_insert_id();
+            saved_ids_[entry.id] = id;
+        }
+        auto update = store_.prepare(
+            "UPDATE entry SET status = ?, length = ?, codes = ?, first_airing = ?, last_airing = ?, airings = ?, "
+            "series_keys = ?, channels = ?, reason = ? WHERE id = ?");
+        update.bind(1, status_name(entry.status)).bind(2, entry.length).bind_codes(3, entry.codes);
+        if (members.empty()) update.bind(4, nullptr).bind(5, nullptr);
+        else update.bind(4, first).bind(5, last);
+        update.bind(6, static_cast<long long>(members.size())).bind(7, join(series)).bind(8, join(channels));
+        update.bind(9, entry.reason).bind(10, id).run();
+        store_.prepare("DELETE FROM airing WHERE entry = ?").bind(1, id).run();
+        auto insert = store_.prepare(
+            "INSERT INTO airing(entry, recording, run_start, code_begin, code_end, start, \"end\", part_begin, part_end, "
+            "cut_at_start, cut_at_end, found_by, seam_start, seam_end, logo, logo_fraction) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        for (const auto index : members) {
+            auto& airing = airings_[index];
+            airing.entry = id;
+            insert.bind(1, id).bind(2, airing.recording).bind(3, airing.run_start);
+            insert.bind(4, static_cast<long long>(airing.code_begin)).bind(5, static_cast<long long>(airing.code_end));
+            insert.bind(6, airing.start()).bind(7, airing.end());
+            insert.bind(8, static_cast<long long>(airing.part_begin)).bind(9, static_cast<long long>(airing.part_end));
+            insert.bind(10, airing.cut_at_start ? 1 : 0).bind(11, airing.cut_at_end ? 1 : 0).bind(12, airing.found_by);
+            if (airing.seam_start) insert.bind(13, *airing.seam_start ? 1 : 0); else insert.bind(13, nullptr);
+            if (airing.seam_end) insert.bind(14, *airing.seam_end ? 1 : 0); else insert.bind(14, nullptr);
+            insert.bind(15, airing.logo);
+            if (airing.logo_fraction) insert.bind(16, *airing.logo_fraction); else insert.bind(16, nullptr);
+            insert.run();
+        }
     }
 
     std::vector<std::size_t> members_of(long long id) const {
