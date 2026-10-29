@@ -49,7 +49,10 @@ constexpr const char* usage =
     "  JSON (for measurement). --intro-credits turns on the intro and credits marks (step T4b).\n"
     "  promote applies the promotion rules again to every entry and prints what changed.\n"
     "  --audio-series N and --adjacent N set the audio-only thresholds (for measurement;\n"
-    "  defaults 3 and 2, --adjacent 0 turns joining breaks off).\n";
+    "  defaults 3 and 2, --adjacent 0 turns joining breaks off).\n"
+    "  --seed-bits N seeds repeats on codes within N bits (default 2; 0 is exact values) and\n"
+    "  --quality-gate off keeps repeats that agree loosely (for measurement).\n"
+    "  --live-index-mb N caps the live index in memory (default 64).\n";
 
 struct Options {
     std::string command;
@@ -63,6 +66,8 @@ struct Options {
     std::vector<std::string> evidence;
     bool intro_credits{};
     PromotionRules rules;
+    MatchRules matching;
+    std::size_t live_index_bytes = comskip::fingerprint::live_index_bytes;
     double stall_at = -1;
     double stall_for{};
 };
@@ -87,7 +92,10 @@ std::optional<Options> parse(int argc, char** argv) {
         else if (name == "--evidence") options.evidence.push_back(value);
         else if (name == "--marks") options.marks = value;
         else if (name == "--log") options.log = value;
-        else if (name == "--audio-series" || name == "--adjacent") {
+        else if (name == "--quality-gate") {
+            if (value != "on" && value != "off") return std::nullopt;
+            options.matching.quality_gate = value == "on";
+        } else if (name == "--audio-series" || name == "--adjacent" || name == "--seed-bits" || name == "--live-index-mb") {
             int number = 0;
             try {
                 std::size_t used = 0;
@@ -97,7 +105,15 @@ std::optional<Options> parse(int argc, char** argv) {
                 return std::nullopt;
             }
             if (number < 0) return std::nullopt;
-            (name == "--adjacent" ? options.rules.adjacent_broadcasts : options.rules.audio_series) = number;
+            if (name == "--seed-bits") {
+                if (number > 5) return std::nullopt;  // the lookup visits keys within half of it
+                options.matching.seed_bits = number;
+            } else if (name == "--live-index-mb") {
+                if (number == 0) return std::nullopt;
+                options.live_index_bytes = static_cast<std::size_t>(number) << 20;
+            } else {
+                (name == "--adjacent" ? options.rules.adjacent_broadcasts : options.rules.audio_series) = number;
+            }
         }
         else if (name == "--stall") {
             const auto colon = value.find(':');
@@ -181,7 +197,8 @@ int run_live(const Options& options, Context context) {
     _setmode(_fileno(stdin), _O_BINARY);
 #endif
     LiveOptions live_options{options.store, options.recording, std::move(context), options.evidence.front(), options.marks,
-                             options.log, options.intro_credits, options.stall_at, options.stall_for};
+                             options.log, options.intro_credits, options.stall_at, options.stall_for, options.matching,
+                             options.live_index_bytes};
     const auto result = live(live_options, read_available);
     std::fputs(live_result_json(options.recording, options.marks, result).c_str(), stdout);
     return std::fflush(stdout) == 0 ? 0 : exit_failure;
@@ -190,7 +207,7 @@ int run_live(const Options& options, Context context) {
 int run_promote(const Options& options) {
     if (options.store.empty()) throw InputInvalid("promote needs --store");
     Store store(options.store);
-    Library library(store, {options.intro_credits, "pass", options.rules});
+    Library library(store, {options.intro_credits, "pass", options.rules, options.matching});
     const auto result = library.promote_all();
     std::map<std::string, int> counts;
     for (const auto& entry : library.entries()) ++counts[std::string(status_name(entry.status))];
@@ -221,7 +238,7 @@ int run(int argc, char** argv) {
     }
 
     Store store(options.store);
-    Library library(store, {options.intro_credits, options.command == "pass" ? "pass" : "seed", options.rules});
+    Library library(store, {options.intro_credits, options.command == "pass" ? "pass" : "seed", options.rules, options.matching});
     SeedResult audio;
     audio.ended = true;
     if (options.command != "search") {

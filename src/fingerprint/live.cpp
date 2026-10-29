@@ -49,39 +49,30 @@ struct Shared {
     std::exception_ptr failure;               // the store can't be used
 };
 
-double unix_now() {
-    return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
-}
-
 // Appends the codes and refreshes the live index every 10 s, and once more when
 // told to stop. A busy store is retried at the next round.
 void keep_store(const LiveOptions& options, Shared& shared) {
     try {
         Store store(options.store);
-        Library library(store, {options.intro_credits, "live"});
+        Library library(store, {options.intro_credits, "live", {}, options.matching});
         std::optional<std::vector<std::tuple<long long, Status, long long>>> key;
         for (;;) {
             std::vector<CodeRun> runs;
-            double now = 0;
             bool stop = false, append = false;
             {
                 const std::lock_guard lock(shared.mutex);
-                now = shared.now;
                 stop = shared.stop;
                 append = shared.runs_changed;
                 if (append) runs = shared.runs;
                 shared.runs_changed = false;
             }
-            // The live index ages by air time: the capture's own clock where the
-            // app gives it, which is today's date for a live capture.
-            const double when = options.context.air_start > 0 ? options.context.air_start + now : unix_now();
             try {
                 if (append && !runs.empty()) library.add_stream(options.recording, options.context, runs);
                 if (!stop) {
-                    auto next = library.live_index_key(when, live_index_code_bytes);
+                    auto next = library.live_index_key(options.live_index_bytes);
                     if (!key || next != *key) {
                         auto index = std::make_shared<LiveIndex>();
-                        library.live_index(when, live_index_code_bytes,
+                        library.live_index(options.live_index_bytes,
                                            [&](EntryInfo&& entry) { index->add(entry.id, entry.status, entry.codes); });
                         index->finish();
                         const std::lock_guard lock(shared.mutex);
@@ -106,12 +97,14 @@ void keep_store(const LiveOptions& options, Shared& shared) {
     }
 }
 
-// The Combiner's matches: index matches as they are; a self-repeat, once it has
-// ended, as two ad matches when the within-show rule holds.
-std::vector<CombinerMatch> combiner_matches(const std::vector<LiveMatch>& matches, const Evidence& evidence) {
+// The Combiner's matches: index matches as they are (intro and credits ones
+// only once step T4b is on); a self-repeat, once it has ended, as two ad
+// matches when the within-show rule holds.
+std::vector<CombinerMatch> combiner_matches(const std::vector<LiveMatch>& matches, const Evidence& evidence, bool intro_credits) {
     std::vector<CombinerMatch> found;
     for (const auto& match : matches) {
         if (!match.self()) {
+            if (!intro_credits && (match.status == Status::intro || match.status == Status::credits)) continue;
             found.push_back({match.from, match.to, match.agreed_from, match.agreed_to, match.status});
         } else if (match.ended && within_show_ad(evidence, match.earlier_from, match.earlier_to, match.agreed_from, match.agreed_to)) {
             found.push_back(agreed_match(match.earlier_from, match.earlier_to, Status::ad));
@@ -241,7 +234,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
 
     const auto evidence_path = platform::path_from_utf8(options.evidence);
     LiveResult result;
-    LiveMatcher matcher;
+    LiveMatcher matcher(options.matching);
     MarkHistory history;
     std::optional<Coder> coder;
     std::optional<Evidence> evidence;
@@ -285,7 +278,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
             }
         }
         if (!evidence) return;
-        const auto marks = history.settle(combine(combiner_matches(matches, *evidence), &*evidence, {false, now}), now);
+        const auto marks = history.settle(combine(combiner_matches(matches, *evidence, options.intro_credits), &*evidence, {false, now}), now);
         auto text = marks_file_json(options.recording, evidence->revision, false, marks);
         if (text == written) return;
         try {

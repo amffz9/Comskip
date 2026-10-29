@@ -1,6 +1,7 @@
 #include "fingerprint/live_matcher.h"
 #include "fingerprint/matching.h"
 #include <algorithm>
+#include <bit>
 #include <cstdlib>
 #include <iterator>
 #include <stdexcept>
@@ -22,36 +23,21 @@ long self_gap() { return static_cast<long>(min_self_distance / code_period); }
 }
 
 void LiveIndex::add(long long id, Status status, std::span<const std::uint32_t> codes) {
-    codes_.insert(codes_.end(), codes.begin(), codes.end());
-    starts_.push_back(static_cast<std::uint32_t>(codes_.size()));
+    codes_.add(codes);
     ids_.push_back(id);
     statuses_.push_back(status);
 }
 
-void LiveIndex::finish() {
-    order_.resize(codes_.size());
-    for (std::uint32_t place = 0; place < order_.size(); ++place) order_[place] = place;
-    std::ranges::sort(order_, [&](std::uint32_t x, std::uint32_t y) { return codes_[x] < codes_[y] || (codes_[x] == codes_[y] && x < y); });
-    codes_.shrink_to_fit();
-}
+void LiveIndex::finish() { codes_.finish(); }
 
-std::span<const std::uint32_t> LiveIndex::codes(std::size_t entry) const {
-    return std::span(codes_).subspan(starts_[entry], starts_[entry + 1] - starts_[entry]);
-}
+std::span<const std::uint32_t> LiveIndex::codes(std::size_t entry) const { return codes_.codes(entry); }
 
 std::size_t LiveIndex::bytes() const {
-    return (codes_.capacity() + order_.capacity() + starts_.capacity()) * sizeof(std::uint32_t) +
-           ids_.capacity() * sizeof(long long) + statuses_.capacity() * sizeof(Status);
+    return codes_.bytes() + ids_.capacity() * sizeof(long long) + statuses_.capacity() * sizeof(Status);
 }
 
-void LiveIndex::hits(std::uint32_t code, std::vector<std::pair<std::size_t, long>>& found) const {
-    found.clear();
-    const auto [first, last] = std::ranges::equal_range(order_, code, {}, [&](std::uint32_t place) { return codes_[place]; });
-    if (static_cast<std::size_t>(last - first) > seed_max_occurrences) return;
-    for (auto at = first; at != last; ++at) {
-        const auto entry = static_cast<std::size_t>(std::ranges::upper_bound(starts_, *at) - starts_.begin() - 1);
-        found.emplace_back(entry, static_cast<long>(*at - starts_[entry]));
-    }
+void LiveIndex::hits(std::uint32_t code, int bits, std::vector<SeedIndex::Place>& found) const {
+    codes_.near(code, bits, seed_max_occurrences, found);
 }
 
 std::size_t LiveMatcher::DiagonalHash::operator()(const DiagonalKey& key) const {
@@ -63,10 +49,32 @@ std::size_t LiveMatcher::DiagonalHash::operator()(const DiagonalKey& key) const 
 void OwnPlaces::places(std::uint32_t code, std::vector<std::uint32_t>& found) const {
     found.clear();
     if (saturated(code)) return;
-    const auto [first, last] = std::ranges::equal_range(sorted_, code, {}, &Pair::code);
-    for (auto at = first; at != last; ++at) found.push_back(at->place);
-    for (const auto& pair : recent_)
-        if (pair.code == code) found.push_back(pair.place);
+    // A code saturated since the last merge still has pairs here.
+    const auto take = [&](const Pair& pair) {
+        if (std::popcount(pair.code ^ code) <= bits_ && (pair.code == code || !saturated(pair.code))) found.push_back(pair.place);
+    };
+    // Within `bits`, one half of the code is within bits / 2 (as in SeedIndex).
+    const int half = bits_ / 2;
+    const auto high_near = [&](const Pair& pair) { return std::popcount((pair.code ^ code) >> 16) <= half; };
+    const auto visit_keys = [&](std::uint32_t key, auto&& each) {
+        // Keys within `half` bits: half is at most 2 for the seed tolerances used.
+        each(key);
+        for (int bit = 0; bit < 16 && half >= 1; ++bit) {
+            each(key ^ (1u << bit));
+            for (int other = bit + 1; other < 16 && half >= 2; ++other) each(key ^ (1u << bit) ^ (1u << other));
+        }
+    };
+    visit_keys(code >> 16, [&](std::uint32_t key) {
+        const auto first = std::ranges::lower_bound(sorted_, key << 16, {}, &Pair::code);
+        for (auto at = first; at != sorted_.end() && at->code >> 16 == key; ++at) take(*at);
+    });
+    visit_keys(code & 0xffff, [&](std::uint32_t key) {
+        const auto [first, last] = std::ranges::equal_range(low_, key, {}, [&](std::uint32_t at) { return sorted_[at].code & 0xffff; });
+        for (auto at = first; at != last; ++at)
+            if (!high_near(sorted_[*at])) take(sorted_[*at]);
+    });
+    for (const auto& pair : recent_) take(pair);
+    std::ranges::sort(found);
 }
 
 bool OwnPlaces::saturated(std::uint32_t code) const { return std::ranges::binary_search(saturated_, code); }
@@ -91,13 +99,18 @@ void OwnPlaces::merge() {
     merged.shrink_to_fit();
     sorted_ = std::move(merged);
     recent_.clear();
+    if (bits_ == 0) return;  // exact codes are found through sorted_ alone
+    low_.resize(sorted_.size());
+    for (std::uint32_t at = 0; at < low_.size(); ++at) low_[at] = at;
+    std::ranges::stable_sort(low_, {}, [&](std::uint32_t at) { return sorted_[at].code & 0xffff; });
+    low_.shrink_to_fit();
 }
 
 std::size_t OwnPlaces::bytes() const {
-    return (sorted_.capacity() + recent_.capacity()) * sizeof(Pair) + saturated_.capacity() * sizeof(std::uint32_t);
+    return (sorted_.capacity() + recent_.capacity()) * sizeof(Pair) + (saturated_.capacity() + low_.capacity()) * sizeof(std::uint32_t);
 }
 
-LiveMatcher::LiveMatcher() = default;
+LiveMatcher::LiveMatcher(MatchRules rules) : rules_(rules), own_(rules.seed_bits) {}
 LiveMatcher::~LiveMatcher() = default;
 
 void LiveMatcher::refresh(std::shared_ptr<const LiveIndex> index) { index_ = std::move(index); }
@@ -165,8 +178,12 @@ void LiveMatcher::add_code(std::uint32_t code) {
     const std::size_t current = runs_.size() - 1;
 
     if (index_) {
-        index_->hits(code, hits_);
-        for (const auto& [entry, at] : hits_) seed({index_->id(entry), at - position}, position, index_->status(entry), index_->codes(entry));
+        index_->hits(code, rules_.seed_bits, hits_);
+        for (const auto& [entry, at] : hits_) {
+            const auto codes = index_->codes(entry);
+            seed({index_->id(entry), static_cast<long>(at) - position}, position, index_->status(entry), codes,
+                 codes[static_cast<std::size_t>(at)] == code);
+        }
     }
     // The recording's own earlier codes, at least 20 s before.
     if (!own_.saturated(code)) {
@@ -179,7 +196,8 @@ void LiveMatcher::add_code(std::uint32_t code) {
             if (other == current ? position - at < self_gap()
                                  : time - (runs_[other].start + at * code_period) < min_self_distance)
                 continue;
-            seed({-static_cast<long long>(other) - 1, at - position}, position, Status::candidate, {});
+            seed({-static_cast<long long>(other) - 1, at - position}, position, Status::candidate, {},
+                 runs_[other].codes[static_cast<std::size_t>(at)] == code);
         }
         own_.add(code, run.first + static_cast<std::uint32_t>(position), places_.size());
     }
@@ -191,7 +209,7 @@ void LiveMatcher::add_code(std::uint32_t code) {
         std::erase_if(diagonals_, [&](const auto& item) { return position - item.second.last > seed_group_gap; });
 }
 
-void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes) {
+void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes, bool exact) {
     auto& diagonal = diagonals_[key];
     if (diagonal.count > 0 && position - diagonal.last <= seed_group_gap) {
         ++diagonal.count;
@@ -202,8 +220,18 @@ void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std
     diagonal.last = position;
     if (diagonal.count < live_seeds_needed) return;
     // A track already follows this diagonal or one beside it, or did across here.
-    for (const auto& track : tracks_) {
+    // Near seeds also fall on the offsets beside a repeat's own (neighbouring
+    // codes differ by few bits), so an exact seed moves a track that near
+    // seeds alone started, and that has reported no match yet, to its offset.
+    for (auto& track : tracks_) {
         if (track.source != key.source || std::abs(track.offset - key.offset) > neighbour_offsets) continue;
+        if (exact && !track.exact && !track.done && track.match == no_match && track.offset != key.offset) {
+            track.offset = key.offset;
+            track.exact = true;
+            track.begin = track.end = -1;
+            track.seed = track.next = std::min(track.seed, diagonal.first);
+            return;
+        }
         if (!track.done || diagonal.first < track.end + seed_group_gap) return;
     }
     Track track;
@@ -213,6 +241,7 @@ void LiveMatcher::seed(const DiagonalKey& key, long position, Status status, std
     if (key.source > 0) track.entry_codes = std::make_shared<const std::vector<std::uint32_t>>(entry_codes.begin(), entry_codes.end());
     else track.own_run = static_cast<std::size_t>(-key.source - 1);
     track.seed = track.next = diagonal.first;
+    track.exact = exact;
     tracks_.push_back(std::move(track));
 }
 
@@ -252,7 +281,7 @@ bool LiveMatcher::advance(Track& track, long newest) {
             track.end = limit;
             track.complete = true;
         }
-        if (track.match == no_match && track.end - track.begin >= min_codes()) {
+        if (track.match == no_match && track.end - track.begin >= min_codes() && good_enough(track)) {
             track.match = matches_.size();
             matches_.push_back({track.source > 0 ? track.source : 0, track.status});
         }
@@ -267,6 +296,17 @@ bool LiveMatcher::advance(Track& track, long newest) {
         }
     }
     return changed;
+}
+
+// The quality gate over the agreed part so far, as offline: a stretch that
+// fails it may still pass as it grows. Live, one exact seed started a match
+// before near seeds (live_seeds_needed), so one equal code stands in for the
+// offline exact pair.
+bool LiveMatcher::good_enough(const Track& track) const {
+    if (!rules_.quality_gate) return true;
+    auto quality = quality_of(runs_.back().codes, reference(track), track.offset, track.begin, track.end);
+    quality.exact_pair = quality.exact_pair || (live_seeds_needed == 1 && quality.exact_code);
+    return passes_gate(quality, static_cast<double>(track.end - track.begin) * code_period);
 }
 
 bool LiveMatcher::end_track(Track& track, double now) {

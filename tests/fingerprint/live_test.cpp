@@ -38,7 +38,10 @@ struct Replay {
     std::vector<std::uint32_t> codes;
     LiveMatcher matcher;
     long fed = 0;
-    explicit Replay(double seconds, unsigned seed = 1) : codes(noise(seed, code_at(seconds))) { matcher.run_start(0); }
+    explicit Replay(double seconds, unsigned seed = 1, MatchRules rules = {})
+        : codes(noise(seed, code_at(seconds))), matcher(rules) {
+        matcher.run_start(0);
+    }
     Replay& put(double at, std::span<const std::uint32_t> clip) {
         std::ranges::copy(clip, codes.begin() + code_at(at));
         return *this;
@@ -68,7 +71,7 @@ TEST(LiveMatcher, ReportsAMatchAfterThreeSecondsAndProjectsTheRest) {
     ASSERT_NE(match, nullptr);
     EXPECT_EQ(match->entry, 11);
     EXPECT_EQ(match->status, Status::ad);
-    EXPECT_NEAR(match->agreed_from, 600, 0.8);
+    EXPECT_NEAR(match->agreed_from, 600 + edge_start, 0.8);
     EXPECT_NEAR(match->from, match->agreed_from, 1e-9);
     EXPECT_GE(match->agreed_to - match->agreed_from, 3.0);
     EXPECT_LE(match->agreed_to, 605);
@@ -136,7 +139,7 @@ TEST(LiveMatcher, ARefreshedIndexMatchesFromThenOn) {
     const auto& matches = replay.matcher.matches();
     const auto found = std::ranges::find(matches, 12LL, &LiveMatch::entry);
     ASSERT_NE(found, matches.end());
-    EXPECT_NEAR(found->agreed_from, 500, 0.8);
+    EXPECT_NEAR(found->agreed_from, 500 + edge_start, 0.8);
     EXPECT_EQ(std::ranges::count(matches, 12LL, &LiveMatch::entry), 1);
 }
 
@@ -172,9 +175,9 @@ TEST(LiveMatcher, FindsARepeatOfTheRecordingsOwnCodes) {
     const auto& matches = replay.matcher.matches();
     ASSERT_EQ(matches.size(), 1u);
     EXPECT_TRUE(matches[0].self());
-    EXPECT_NEAR(matches[0].agreed_from, 250, 0.8);
+    EXPECT_NEAR(matches[0].agreed_from, 250 + edge_start, 0.8);
     EXPECT_NEAR(matches[0].agreed_to, 280, 1.0);
-    EXPECT_NEAR(matches[0].earlier_from, 100, 0.8);
+    EXPECT_NEAR(matches[0].earlier_from, 100 + edge_start, 0.8);
     EXPECT_NEAR(matches[0].earlier_to, 130, 1.0);
     EXPECT_FALSE(matches[0].projected());
 }
@@ -185,18 +188,23 @@ TEST(LiveMatcher, ACommonCodeIsNoSeed) {
     LiveIndex index;
     index.add(1, Status::ad, held);
     index.finish();
-    std::vector<std::pair<std::size_t, long>> hits;
-    index.hits(0x12345678u, hits);
+    std::vector<SeedIndex::Place> hits;
+    index.hits(0x12345678u, near_seed_bits, hits);
+    EXPECT_TRUE(hits.empty());
+    // A code near the held one is no seed either.
+    index.hits(0x12345679u, near_seed_bits, hits);
     EXPECT_TRUE(hits.empty());
     const auto ad = noise(3, 50);
     LiveIndex other;
     other.add(4, Status::in_programme_ad, held);
     other.add(5, Status::ad, ad);
     other.finish();
-    other.hits(ad[17], hits);
+    other.hits(ad[17] ^ 0x00010001u, near_seed_bits, hits);
     ASSERT_EQ(hits.size(), 1u);
-    EXPECT_EQ(other.id(hits[0].first), 5);
-    EXPECT_EQ(hits[0].second, 17);
+    EXPECT_EQ(other.id(hits[0].sequence), 5);
+    EXPECT_EQ(hits[0].position, 17);
+    other.hits(ad[17] ^ 0x00010001u, 0, hits);
+    EXPECT_TRUE(hits.empty());
     EXPECT_EQ(other.status(0), Status::in_programme_ad);
 }
 
@@ -293,7 +301,7 @@ TEST(ProcessUsage, ReportsMemoryAndCpu) {
 TEST(OwnPlaces, MatchesAMapOfPlacesAcrossMerges) {
     using comskip::fingerprint::OwnPlaces;
     using comskip::fingerprint::seed_max_occurrences;
-    OwnPlaces own;
+    OwnPlaces own(0);
     std::map<std::uint32_t, std::vector<std::uint32_t>> reference;
     std::map<std::uint32_t, bool> saturated;
     std::mt19937 random(7);
@@ -315,5 +323,36 @@ TEST(OwnPlaces, MatchesAMapOfPlacesAcrossMerges) {
         }
     }
     EXPECT_LT(own.bytes(), 30000u * 8 + 4096 * 8 + 1024);
+}
+
+// Within 2 bits, OwnPlaces gives every earlier place within 2 bits, as a scan
+// of all of them would, across merges.
+TEST(OwnPlaces, FindsPlacesWithinTwoBitsAcrossMerges) {
+    using comskip::fingerprint::OwnPlaces;
+    using comskip::fingerprint::seed_max_occurrences;
+    OwnPlaces own;
+    std::vector<std::uint32_t> codes;
+    std::map<std::uint32_t, bool> saturated;
+    std::mt19937 random(9);
+    std::vector<std::uint32_t> found;
+    for (std::uint32_t place = 0; place < 12000; ++place) {
+        // Some codes a bit or two off earlier ones, some near one common value.
+        std::uint32_t code = random();
+        if (place > 0 && random() % 3 == 0) code = codes[random() % codes.size()] ^ (1u << (random() % 32)) ^ (1u << (random() % 32));
+        if (random() % 50 == 0) code = 0x1234abcd ^ (1u << (random() % 32));
+        std::vector<std::uint32_t> expected;
+        if (!saturated[code])
+            for (std::uint32_t at = 0; at < codes.size(); ++at)
+                if (std::popcount(codes[at] ^ code) <= 2 && !saturated[codes[at]]) expected.push_back(at);
+        own.places(code, found);
+        ASSERT_EQ(found, expected) << place;
+        if (!saturated[code]) {
+            own.add(code, place, found.size());
+            if (found.size() >= seed_max_occurrences) saturated[code] = true;
+        }
+        codes.push_back(code);
+    }
+    // The common value's neighbours saturate.
+    EXPECT_GT(std::ranges::count_if(saturated, [](const auto& item) { return item.second; }), 0);
 }
 }

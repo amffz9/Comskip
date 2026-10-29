@@ -19,7 +19,6 @@ constexpr double near_start_seconds = 20 * 60;
 // "Near the end": ends within the last 8 min of the window, or within 2 min after.
 constexpr double near_end_before = 8 * 60;
 constexpr double near_end_after = 2 * 60;
-constexpr double week_seconds = 7 * 24 * 3600.0;
 
 struct RecordingData {
     Context context;
@@ -126,7 +125,7 @@ public:
         for (const auto& run : own) own_sequences.push_back({run.codes, run.start});
 
         match_entries(own, own_sequences);
-        auto self_matches = find_matches(own_sequences, {}, true);
+        auto self_matches = find_matches(own_sequences, {}, true, options_.matching);
         std::ranges::sort(self_matches, longest_first);
         for (const auto& match : self_matches)
             add_pair(recording_, own[match.a], recording_, own[match.b], match);
@@ -135,7 +134,7 @@ public:
             const auto theirs = runs_of(other);
             std::vector<Sequence> their_sequences;
             for (const auto& run : theirs) their_sequences.push_back({run.codes, run.start});
-            auto matches = find_matches(own_sequences, their_sequences, false);
+            auto matches = find_matches(own_sequences, their_sequences, false, options_.matching);
             std::ranges::sort(matches, longest_first);
             for (const auto& match : matches) add_pair(recording_, own[match.a], other, theirs[match.b], match);
         }
@@ -261,7 +260,7 @@ private:
             references.push_back({entry.codes, 0});
         }
         if (references.empty()) return;
-        auto matches = find_matches(own_sequences, references, false);
+        auto matches = find_matches(own_sequences, references, false, options_.matching);
         std::ranges::sort(matches, longest_first);
         for (const auto& match : matches) {
             const auto& run = own[match.a];
@@ -957,36 +956,34 @@ std::vector<EntryInfo> Library::entries() {
     return found;
 }
 
-std::vector<EntryInfo> Library::live_index(double now) {
+std::vector<EntryInfo> Library::live_index() {
     std::vector<EntryInfo> found;
-    live_index(now, live_index_bytes, [&](EntryInfo&& entry) { found.push_back(std::move(entry)); });
+    live_index(live_index_bytes, [&](EntryInfo&& entry) { found.push_back(std::move(entry)); });
     return found;
 }
 
-void Library::live_index(double now, std::size_t max_bytes, const std::function<void(EntryInfo&&)>& visit) {
+void Library::live_index(std::size_t max_bytes, const std::function<void(EntryInfo&&)>& visit) {
     auto query = store_.prepare(
         "SELECT id, status, length, reason, airings, codes, last_airing FROM entry "
-        "WHERE status IN ('ad', 'in-programme ad') AND last_airing >= ? ORDER BY last_airing DESC, id");
-    query.bind(1, now - live_index_weeks * week_seconds);
+        "WHERE status IN ('ad', 'in-programme ad', 'intro', 'credits') ORDER BY last_airing DESC, id");
     std::size_t bytes = 0;
     while (query.step()) {
         EntryInfo entry{query.integer(0), status_from_name(query.text(1)), query.real(2), query.text(3), query.integer(4),
                         query.codes(5), query.real(6)};
-        bytes += entry.codes.size() * sizeof(std::uint32_t);
+        bytes += live_index_entry_bytes(entry.codes.size());
         if (bytes > max_bytes) break;
         visit(std::move(entry));
     }
 }
 
-std::vector<std::tuple<long long, Status, long long>> Library::live_index_key(double now, std::size_t max_bytes) {
+std::vector<std::tuple<long long, Status, long long>> Library::live_index_key(std::size_t max_bytes) {
     std::vector<std::tuple<long long, Status, long long>> key;
     auto query = store_.prepare(
         "SELECT id, status, length(codes) FROM entry "
-        "WHERE status IN ('ad', 'in-programme ad') AND last_airing >= ? ORDER BY last_airing DESC, id");
-    query.bind(1, now - live_index_weeks * week_seconds);
+        "WHERE status IN ('ad', 'in-programme ad', 'intro', 'credits') ORDER BY last_airing DESC, id");
     std::size_t bytes = 0;
     while (query.step()) {
-        bytes += static_cast<std::size_t>(query.integer(2));
+        bytes += live_index_entry_bytes(static_cast<std::size_t>(query.integer(2) / 4));
         if (bytes > max_bytes) break;
         key.emplace_back(query.integer(0), status_from_name(query.text(1)), query.integer(2) / 4);
     }

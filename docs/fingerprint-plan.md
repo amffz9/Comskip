@@ -71,8 +71,11 @@ logo say is programme is added, and an ad needs recurrence.
 - **Evidence**: seams, logo intervals and Comskip blocks for one capture, in
   capture seconds (format below).
 - **Repeat**: two stretches of at least 3 s whose codes agree at one offset
-  (the experiment's rule: exact-value seeds, extended only while codes agree,
-  at least 3 s long, the copies at least 20 s apart).
+  (the experiment's rule, with seeds on codes within 2 bits rather than equal
+  ones since step F4c: extended only while codes agree, at least 3 s long,
+  the copies at least 20 s apart; a stretch with no two equal codes within
+  2 s must be at least 6 s long and agree within 6 bits on average, with at
+  most half its codes more than 6 bits apart).
 - **Standard length**: 10, 15, 20, 30, 45, 60, 90 or 120 s, within 1 s.
 - **Library entry**: a stretch of audio that repeats, kept as a unit, with a
   status: `candidate`, `ad`, `in-programme ad`, `intro`, `credits`, or
@@ -82,8 +85,9 @@ logo say is programme is added, and an ad needs recurrence.
 - **Match**: an airing found while processing a code stream. Its *agreed
   part* is where the codes have actually agreed; its *projected part* is the
   rest of the entry's extent, not yet confirmed.
-- **Live index**: the entries with status `ad` or `in-programme ad` whose last
-  airing is within the last 8 weeks (U2).
+- **Live index**: the entries with status `ad`, `in-programme ad`, `intro` or
+  `credits`, most recently aired first, within a cap on its size in memory
+  (64 MB by default; U2, revised in step F4c: no aging).
 - **Mark kind**: `ad` (part of a break; skippable), `in-programme ad` (ad audio
   over programme, such as the 31 s Google split-screen in g5; shown, never
   auto-skipped), `intro` (a series' opening theme), `credits` (a series' end
@@ -214,9 +218,12 @@ MarkClients:       read MarkStore through the marks API
    without limit. Checked by a test that stalls the tool for 60 s and one that
    kills it.
 3. **NAS budget.**
-   - Per live recording: at most 2% of one N100 core and 48 MB of memory for
-     FingerprintTool (live index up to 20 MB, the recording's own codes about
-     350 KB for 3 h, the rest headroom).
+   - Per live recording: at most 2% of one N100 core, and 48 MB of memory for
+     FingerprintTool plus the live index beyond 4 MB. The live index takes
+     12 bytes a code: about 4 MB for the whole store in October 2026, capped
+     at 64 MB by default (`--live-index-mb`), so at most about 108 MB per
+     capture; each live capture is its own process with its own copy. The
+     recording's own codes and their lookup take about 1.4 MB for 3 h.
    - Post-recording pass: lowest CPU and I/O priority; one repeat search at a
      time; at most 512 MB peak memory.
    - Backfill (U1): up to 4 coding jobs at once when no capture is in progress,
@@ -316,12 +323,15 @@ Backfill (seeding, U1):
     one at a time, oldest recording first. Seed jobs make no marks, except
     corrections to the app's own captures that have an Evidence copy.
 
-Live index aging (U2):
+Live index size (U2, revised in step F4c):
 
-23. The store keeps everything. An entry leaves the live index when its last
-    airing is more than 8 weeks old. When a pass finds an airing of an older
-    entry, its last airing moves forward and it is back in the live index at
-    the next refresh.
+23. The store keeps everything, and so does the live index while it fits: it
+    holds every `ad`, `in-programme ad`, `intro` and `credits` entry, most
+    recently aired first, up to its cap in memory (64 MB by default, about
+    5.5 million codes; the whole store's took about 4 MB in October 2026).
+    If the store ever outgrows it, the entries aired longest ago are left
+    out; when a pass finds an airing of one, its last airing moves forward
+    and it is back in the live index at the next refresh.
 
 ## End-to-end check
 
@@ -663,10 +673,11 @@ Types used below:
       - Comskip's block decisions are never used.
     - Ensures: corrected captures are the app's captures, other than this
       recording, with an airing of an entry that changed status or was split.
-  - `op liveIndex(now) -> entries`
-    - Ensures: entries with status `ad` or `in-programme ad` whose last airing
-      is within 8 weeks of `now`, at most 20 MB; the most recently aired first
-      if over.
+  - `op liveIndex(max bytes) -> entries`
+    - Ensures: entries with status `ad`, `in-programme ad`, `intro` or
+      `credits`, the most recently aired first, while the live index holding
+      them stays within max bytes (12 bytes a code and 12 an entry); the
+      entries aired longest ago are the ones left out.
 - Also offers `op promoteAll() -> changed entries` (command `promote --store`):
   the rules again over every entry, with nothing searched.
 - Invariants: a `programme`, `intro` or `credits` entry is never `ad` while it
@@ -709,7 +720,9 @@ Types used below:
   - `op feed(codes) -> new or changed matches`
     - Ensures: a match is reported once at least 3 s of codes agree with one
       live index entry, or with the recording's own codes at least 20 s
-      earlier, at one offset. Its agreed part grows while codes agree; its
+      earlier, at one offset, and the agreed part passes the quality gate
+      (a stretch with no exact pair needs 6 s). `intro` and `credits` matches
+      become marks only once step T4b is on. Its agreed part grows while codes agree; its
       projected part is the rest of the entry's extent. When codes stop
       agreeing for more than 1 s inside the extent, the projected part is
       withdrawn and the match ends at the agreed part.
@@ -977,7 +990,8 @@ Types used below:
   within 1.5 s of the codes disagreeing (about 3.5 s after the cut in the
   audio, since the first disagreeing code completes about 1.8 s after it);
   a stalled reader drops and counts;
-  memory under 48 MB, from `/usr/bin/time` and from the tool's `usage` lines
+  memory under 48 MB plus the live index beyond 4 MB (step F4c), from
+  `/usr/bin/time` and from the tool's `usage` lines
   (a run fails over 48 MB, or when resident memory rises more than 6 MB an
   hour, a least-squares fit over every usage line after the first 5
   minutes). The Harness
@@ -1217,6 +1231,97 @@ Types used below:
     marked, 93.8% of ours inside Plex's (62.1% and 93.9% with gaps up to
     30 s joined); Plex breaks missed 107/256; of 19413 Plex seconds missed,
     15635 are first airings and 3778 repeats.
+- **F4c. Near seeds, a quality gate, a size-capped live index** (an
+  independent review of the matcher). **Done:** seeds are codes within 2 bits
+  (`MatchRules::seed_bits`, `--seed-bits N`, 0 is the old exact rule and
+  gives its stores unchanged); a stretch with no exact pair must pass the
+  quality gate (`--quality-gate off` for measurement); `edge_start` 0.9 s;
+  the live index is capped by size, not age (`--live-index-mb`, 64).
+  - Why: exact 32-bit seeds failed to seed about 20% of the store's true
+    repeats (the median pair shares 7.8% exact codes; sub-hop phase between
+    recordings alone lowers that). Within 2 bits seeds 97%, with unrelated
+    codes colliding at 3.3e-6.
+  - Index: a `SeedIndex` holds the codes and their places bucketed by each
+    16-bit half (two codes within b bits have a half within b / 2 bits, so a
+    lookup visits 17 keys per half at 2 bits), 12 bytes a code, built by
+    counting sort; `find_matches`, `LiveIndex` and `OwnPlaces` use it. The
+    review's three 11/11/10-bit chunk copies took 36 bytes a code more.
+  - The gate, from the matches of an ungated near-2 run on the six (match
+    level, labels by majority): with an exact pair, over ads, mean 2.9 bits
+    (p10 1.5, p90 4.3), 6% of codes over 6 bits (p90 20%), median 15.2 s;
+    near only, over ads (4288), 5.7 bits (4.2-7.3), 36% over 6 bits (14-63%),
+    30% under 6 s; near only, over programme (2582), 7.2 bits (5.8-8.1),
+    64% over 6 bits (36-80%), 82% under 6 s. Rules scored by the new ad and
+    programme seconds near-only matches add over the exact-pair ones (411 ad,
+    936 programme ungated): mean <= 6 kept 298 / 128; over-6 share <= 0.5,
+    327 / 308; at least 6 s, 316 / 332; mean <= 5 and share <= 0.4, 180 / 21;
+    at least 6 s and mean <= 6 and share <= 0.5 (chosen), 230 / 36. Live, one
+    equal code exempts a stretch (one exact seed started a live match), and
+    an exact seed moves a track that near seeds started on a neighbouring
+    offset to its own.
+  - A/B on the six (production copy, each one's own copies dropped, passed in
+    order; ad seconds under any airing and under `ad` entries, programme
+    seconds under any airing and under `ad` entries), master / ungated
+    near-2 / final: g5 65.7, 51.4, 42.4, 40.6 / 66.9, 53.4, 243.8, 49.4 /
+    66.3, 54.4, 53.1, 39.9; g4 72.7, 65.5, 114.9, 51.9 / 80.7, 71.6, 219.3,
+    43.0 / 76.4, 68.9, 113.4, 51.0; faaea10a 48.2, 35.4, 72.9, 19.9 / 51.0,
+    33.3, 161.8, 19.9 / 48.8, 33.5, 78.5, 13.3; 77483aca 57.6, 47.3, 481.7,
+    69.3 / 61.1, 45.2, 634.8, 68.6 / 59.4, 47.3, 472.6, 60.3; elsbeth303
+    71.9, 66.2, 16.4, 0 / 73.5, 66.1, 88.0, 0 / 70.8, 65.1, 15.5, 0; nash107
+    58.8, 37.5, 8.7, 0 / 64.1, 39.1, 82.6, 0 / 59.1, 38.1, 14.6, 0. The
+    later start costs each airing 0.3 s (elsbeth303 falls 1.1 points).
+  - Edges: against the synthetic splice points (robust.sh), starts at 0.6
+    fell -0.79..+0.19 s; at 0.9 -0.49..+0.49 s, median +0.09 for the plain
+    copy, every alteration 6/6 found. Comskip's seams are the middle of their
+    black frames: starts at 0.9 fall a median +0.30 s (g4) and +0.43 s (g5)
+    after the seam (0.0 and +0.13 at 0.6), ends -0.18 and -0.43 s.
+  - Harness (as F4b; master / final): breaks 64 / 64 of 71, missed ad
+    seconds 1306 / 1308, programme cut 439 / 425, false breaks 5 / 4
+    (Comskip-107 62, 1481, 341, 1). Per recording, final: g5 10/10, 143,
+    61, 1; g4 13/13, 70, 166, 1; faaea10a 7/12, 519, 19, 0; 77483aca 24/24,
+    128, 121, 1; elsbeth303 6/6, 12, 0, 0; nash107 4/6, 436, 58, 1. No new
+    programme-cut stretch over 3 s; two left (77483aca 4984.6-4991.3, a
+    split-screen ad, and faaea10a 3432.6-3438.0, an ad the labels start
+    late). The stretches outside Comskip's blocks, from frame strips:
+    77483aca 1324.9-1329.4 (about 2 s of a touchdown celebration, black,
+    then a Scooby-Doo ad), 1823.1-1828.9 (about 3 s of sideline, black, a
+    Kia ad), 5442.8-5446.0 (game, the Steelers-Patriots bumper, then the
+    Verizon split-screen the `sponsor` row starts), 10360.4-10365.2 (a
+    second of crowd, black, Liberty Mutual), 10741.6-10747.8 (about 2 s of
+    game, black, Liberty Mutual); faaea10a 2942.7-2947.0 and 3829.2-3835.0
+    (Origin Sports bumpers and ads: break content the labels start after);
+    g4 2517.0-2532.1 ("Eye on the Field" split-screen Burger King and Voya
+    ads); g5 5102.7-5132.8 (in the proxy's time, the NBC peacock and about
+    26 s of a T-Mobile split-screen ad, then about 4 s of game).
+  - Plex agreement (44 files; every recording of the production copy
+    searched again, then `promote`; master / final): 47.4% / 49.5% of
+    Plex's 45101 s marked, 94.8% / 94.8% of ours inside Plex's (46.5% /
+    48.4% with gaps up to 30 s joined); Plex breaks missed 153 / 146 of 256.
+  - The 25 "first airing" spans the loose matcher matched elsewhere at BER
+    0.08-0.25 (1131 s): master covers 7 s of them, the final 345 s, with an
+    airing in 19 spans (at least half of 6), and `ad` airings over 255 s in
+    13. The Melania trailer (Nashville S01E09 3114-3143) is now one 29.5 s
+    entry with Doc S02E11, a `candidate` (two series); the 20/20 promo
+    (Nashville S02E02 1508-1569) is found for 11 s with Doc S03E03, also a
+    `candidate`. The NFL pair and four others stay unfound.
+  - Time and memory (`/usr/bin/time`): a pass of the six, master 1.4-3.3 s
+    and 26-27 MB, final 2.8-9.0 s and 29-35 MB (the review's chunk indexes
+    6.4-16 s, 47-51 MB). `search` on the production copy: an Elsbeth
+    episode 3.3 to 5.1 s, 24.3 to 27.3 MB; the 6.6 h capture 4e9174d1 7.3
+    to 21.1 s, 27.4 to 41.8 MB; a Tracker file 3.6 to 6.2 s, 24.7 to
+    28.8 MB. All 237 recordings searched again: 332 to 786 s, peak 27.5 to
+    42.0 MB. Live, 77483aca at 40x with the whole store (Harness plus the
+    six) as library: the live index 2.29 MB (ads aged, 8 bytes a code) to
+    4.15 MB (every ad, in-programme ad, intro and credits entry, 12 bytes a
+    code), peak 15.5 to 19.2 MB, CPU 11.4 to 13.1 s for 3 h of audio;
+    matches marked over 6 s after their start 17 / 19, labelled breaks led
+    by a match marked -0.53 to 7.08 s / -0.53 to 7.08 s after their start.
+  - The Plex files' audio (ffprobe of all 796 under /plex/Shows, read-only):
+    735 MKV and 61 TS; 193 with one audio stream, 329 with two, 274 with
+    three. The first audio stream is English in 795; the one exception,
+    Stargate Universe S01E02 (Disc 1, "Air Part 2"), has a stereo track
+    tagged Kurdish and default first and English 5.1 second. The 61 TS files
+    set no default but put English first. For the TV app to act on.
 - **T1. Two mark lists and the merged view.** MarkStore, `publishMarks`
   copying both lists, `marksForWindow` reading the merged view and splitting
   non-`ad` marks into their own list; `kind`, `state`, `basis` fields.
@@ -1335,8 +1440,11 @@ One independent review done; all its findings are addressed above.
    capture's `metadata_json` is rewritten on every capture change.
 6. **Sponsor kind?** Recommended: reserve it; emit only `ad` and
    `in-programme ad`. Decide after F4 shows how sponsor billboards repeat.
-7. **Expiry?** Decided (U2): the store never expires; the live index holds
-   entries aired in the last 8 weeks, and an older ad found again re-enters it.
+7. **Expiry?** Decided (U2): the store never expires. The live index first
+   held entries aired in the last 8 weeks; since step F4c it holds every
+   `ad`, `in-programme ad`, `intro` and `credits` entry, newest airing first,
+   up to a size cap (64 MB by default), and evicts the least recently aired
+   only if the store outgrows it.
 8. **Who maps Comskip's Evidence to capture seconds?** Recommended: the TV app
    (Timeline).
 9. **Gap joining when no logo was learned?** Recommended: only gaps up to
