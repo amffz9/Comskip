@@ -539,8 +539,11 @@ Types used below:
 - `Run`, `Evidence`, `MarksFile`: as in "Cross-repo formats".
 - `CodeRun`: `{start: Seconds, codes}`; code *i* starts at
   `start + i x code period`.
-- `Context`: `{channel or unknown, airStart, programmes: [{from, to: Seconds,
-  title, seriesKey}], source: capture | plex}`.
+- `Context`: `{channel or unknown, network or unknown, airStart,
+  programmes: [{from, to: Seconds, title, seriesKey}], source: capture | plex}`.
+  `network` is the affiliation (CBS, ABC, NBC, FOX, ION...): the app sends it
+  for captures, and for Plex files takes it from the bracketed part of Plex's
+  channel ("4.1 KMOVDT (CBS)"). It is kept in the context JSON.
 - `Mark`: `{start, end: Seconds, kind, state, basis}`; `start < end`.
 
 ### PART: Coder
@@ -599,10 +602,13 @@ Types used below:
       confirms or vetoes). "Series" counts recordings holding one broadcast
       once: two recordings sharing a repeat of at least 180 s (a 90-minute
       file that runs into the next show, two captures of one game) count as
-      one series, its smallest key, and one channel. A Plex file named for
+      one series, its smallest key, one channel and one network. A Plex file named for
       its air date with no season and episode (a game) is its own broadcast,
       since games share ads but not programme. Every entry is promoted again
-      on each search, since joining looks across entries.
+      on each search, since joining looks across entries. "Two channels"
+      below means two airings on different stations: compared by network
+      (trimmed, ignoring case) when both recordings know one, by channel
+      otherwise; an unknown network or channel is never a difference.
       - `intro` or `credits` (checked first, U4): airings in at least two
         recordings with the same series key, that series holding at least half
         the entry's recordings, and in every such airing near the start
@@ -680,6 +686,10 @@ Types used below:
       entries aired longest ago are the ones left out.
 - Also offers `op promoteAll() -> changed entries` (command `promote --store`):
   the rules again over every entry, with nothing searched.
+- Command `context --store PATH --recording ID --context PATH` replaces a
+  stored recording's context (series keys, channel, network...), keeping its
+  codes, then runs `promoteAll` and prints promote's summary (the app fills in
+  networks for recordings stored before them). Rules version 4.
 - Invariants: a `programme`, `intro` or `credits` entry is never `ad` while it
   holds that status; every
   airing belongs to a
