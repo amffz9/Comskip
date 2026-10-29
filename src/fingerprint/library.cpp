@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <regex>
 #include <set>
 #include <stdexcept>
 #include <tuple>
@@ -77,6 +78,9 @@ AiringFacts facts_of(const Airing& airing, const RecordingData& recording) {
         facts.series_key = programme->series_key;
         facts.near_start = start - programme->from <= near_start_seconds;
         facts.near_end = end >= programme->to - near_end_before && end <= programme->to + near_end_after;
+        facts.has_position = true;
+        facts.from_start = start - programme->from;
+        facts.to_end = programme->to - end;
     }
     facts.broadcast = recording.broadcast.empty() ? facts.series_key : recording.broadcast;
     facts.has_evidence = airing.logo != "unknown";
@@ -84,6 +88,16 @@ AiringFacts facts_of(const Airing& airing, const RecordingData& recording) {
     facts.seam_end = airing.seam_end.value_or(false);
     facts.logo_fraction = airing.logo_fraction.value_or(0);
     return facts;
+}
+
+// A Plex file named for its air date and no season or episode (" - 2026-09-13
+// 07 00 00 - Chicago Bears at Carolina Panthers.ts") holds one event, a game:
+// every such file of a series is its own broadcast, since games share ads but
+// not programme.
+bool dated_event(const std::string& recording, const RecordingData& data) {
+    static const std::regex dated(R"( - \d{4}-\d{2}-\d{2} )");
+    static const std::regex episode(R"(S\d+E\d+)");
+    return data.context.source == "plex" && std::regex_search(recording, dated) && !std::regex_search(recording, episode);
 }
 
 std::string join(const std::set<std::string>& values) {
@@ -412,7 +426,8 @@ private:
     }
 
     // Recordings sharing a repeat of at least same_broadcast_seconds hold one
-    // broadcast; each such group counts as one series, its smallest key.
+    // broadcast; each such group counts as one series, its smallest key. A
+    // group holding a dated event counts as its own series.
     void link_broadcasts() {
         std::map<std::string, std::string> parent;
         for (const auto& [name, data] : recordings_) parent[name] = name;
@@ -431,9 +446,11 @@ private:
         }
         std::map<std::string, std::set<std::string>> keys, channels;
         std::map<std::string, int> sizes;
+        std::set<std::string> events;
         for (const auto& [name, data] : recordings_) {
             const auto group = root(name);
             ++sizes[group];
+            if (dated_event(name, data)) events.insert(group);
             for (const auto& programme : data.context.programmes)
                 if (!programme.series_key.empty()) keys[group].insert(programme.series_key);
             if (!data.context.channel.empty()) channels[group].insert(data.context.channel);
@@ -442,6 +459,7 @@ private:
             const auto group = root(name);
             const bool shared = sizes[group] > 1;
             data.broadcast = shared && !keys[group].empty() ? *keys[group].begin() : "";
+            if (events.contains(group)) data.broadcast = group;
             data.broadcast_channel = shared && !channels[group].empty() ? *channels[group].begin() : "";
             broadcast_group_[name] = group;
         }
@@ -473,31 +491,58 @@ private:
     // some airing, it and the airings it abuts (each of an entry that may join a
     // break) make an ad's length: the Library splits an ad where its variants
     // stop agreeing, so a 30 s spot can be stored as a 22 s body and an 8 s tag.
+    // The same chain must recur in chain_recordings recordings, or lie in or
+    // next to an ad by its own airings: two recordings sharing a stretch of
+    // programme (a game's highlight replayed elsewhere) can split it into
+    // pieces that happen to add up to an ad's length.
     void judge_chains(std::map<long long, Promotion>& promotions) const {
+        struct Chain {
+            std::set<std::string> recordings;
+            bool anchored{};
+            double length{};
+        };
+        std::map<std::vector<long long>, Chain> chains;
+        const auto own_ad = [&](std::size_t index) { return promotions.at(airings_[index].entry).status == Status::ad; };
         for (const auto& [name, indices] : by_recording_) {
             std::vector<std::size_t> pieces;
             for (const auto index : indices) {
                 if (!alive_[index]) continue;
                 const auto found = promotions.find(airings_[index].entry);
-                if (found != promotions.end() && (found->second.may_join || found->second.status == Status::ad)) pieces.push_back(index);
+                if (found != promotions.end() && (found->second.may_join || found->second.widely || found->second.status == Status::ad))
+                    pieces.push_back(index);
             }
             std::ranges::sort(pieces, [&](std::size_t x, std::size_t y) { return airings_[x].start() < airings_[y].start(); });
+            const auto abuts = [&](std::size_t x, std::size_t y) {
+                return std::abs(airings_[pieces[y]].start() - airings_[pieces[x]].end()) <= adjacent_gap;
+            };
             for (std::size_t first = 0; first < pieces.size(); ++first) {
                 for (std::size_t last = first + 1; last < pieces.size() && last - first < chain_most_pieces; ++last) {
-                    const auto& before = airings_[pieces[last - 1]];
-                    const auto& after = airings_[pieces[last]];
-                    if (std::abs(after.start() - before.end()) > adjacent_gap) break;
-                    const double length = after.end() - airings_[pieces[first]].start();
+                    if (!abuts(last - 1, last)) break;
+                    const double length = airings_[pieces[last]].end() - airings_[pieces[first]].start();
                     if (!audio_ad_length(length)) continue;
+                    std::vector<long long> key;
+                    bool anchored = (first > 0 && abuts(first - 1, first) && own_ad(pieces[first - 1])) ||
+                                    (last + 1 < pieces.size() && abuts(last, last + 1) && own_ad(pieces[last + 1]));
                     for (std::size_t piece = first; piece <= last; ++piece) {
-                        auto& promotion = promotions.at(airings_[pieces[piece]].entry);
-                        if (promotion.status == Status::ad || !promotion.widely) continue;
-                        const auto at = promotion.reason.find(", not an ad's length");
-                        promotion.status = Status::ad;
-                        promotion.reason = promotion.reason.substr(0, at) + ", no logo seen, " +
-                                           std::to_string(static_cast<int>(std::lround(length))) + " s with the airings it abuts";
+                        key.push_back(airings_[pieces[piece]].entry);
+                        anchored = anchored || own_ad(pieces[piece]);
                     }
+                    auto& chain = chains[key];
+                    chain.recordings.insert(name);
+                    chain.anchored = chain.anchored || anchored;
+                    chain.length = length;
                 }
+            }
+        }
+        for (const auto& [key, chain] : chains) {
+            if (static_cast<int>(chain.recordings.size()) < chain_recordings && !chain.anchored) continue;
+            for (const auto entry : key) {
+                auto& promotion = promotions.at(entry);
+                if (promotion.status == Status::ad || !promotion.widely) continue;
+                const auto at = promotion.reason.find(", not an ad's length");
+                promotion.status = Status::ad;
+                promotion.reason = promotion.reason.substr(0, at) + ", no logo seen, " +
+                                   std::to_string(static_cast<int>(std::lround(chain.length))) + " s with the airings it abuts";
             }
         }
     }
@@ -512,14 +557,18 @@ private:
             changed = false;
             std::vector<std::pair<long long, std::size_t>> joined;
             for (const auto& [id, promotion] : promotions) {
-                if (promotion.status == Status::ad || !promotion.may_join) continue;
+                if (promotion.status == Status::ad || !(promotion.may_join || promotion.ad_if_beside)) continue;
                 const auto beside = beside_ads(id, promotions);
                 if (static_cast<int>(beside.size()) >= needed) joined.emplace_back(id, beside.size());
             }
             for (const auto& [id, count] : joined) {
                 auto& promotion = promotions.at(id);
+                promotion.reason = promotion.ad_if_beside
+                                       ? std::string(status_name(promotion.status)) + " by position, but next to ads in " +
+                                             std::to_string(count) + " recordings"
+                                       : "next to ads in " + std::to_string(count) + " broadcasts";
                 promotion.status = Status::ad;
-                promotion.reason = "next to ads in " + std::to_string(count) + " broadcasts";
+                promotion.ad_if_beside = false;
                 changed = true;
             }
         }
@@ -697,6 +746,47 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         return {Status::candidate, "one airing"};
     }
 
+    bool any_evidence = false, logo_free = true, logo_everywhere = true, mostly_logo = true, some_logo = false, seams_both = false;
+    for (const auto& airing : airings) {
+        if (!airing.has_evidence) continue;
+        any_evidence = true;
+        const bool seen = airing.logo_fraction >= logo_none_below;
+        logo_free = logo_free && !seen;
+        logo_everywhere = logo_everywhere && seen;
+        mostly_logo = mostly_logo && airing.logo_fraction >= logo_in_programme;
+        some_logo = some_logo || airing.logo_fraction >= logo_in_programme;
+        seams_both = seams_both || (airing.seam_start && airing.seam_end);
+    }
+    // Evidence vetoes: a logo seen in any airing keeps the entry from being an ad
+    // by recurrence alone.
+    const bool no_logo_seen = logo_free;
+
+    // Within one series, at positions that vary: not a theme, credits or recap.
+    std::string varying_key;
+    int varying_recordings = 0;
+    for (const auto& key : series) {
+        std::set<std::string> in_series, away;
+        double first_start = 0, last_start = 0, first_end = 0, last_end = 0;
+        bool any = false;
+        for (const auto& airing : airings) {
+            if (airing.series_key != key || !airing.has_position) continue;
+            in_series.insert(airing.recording);
+            if (airing.from_start >= recap_edge_seconds && airing.to_end >= recap_edge_seconds) away.insert(airing.recording);
+            first_start = any ? std::min(first_start, airing.from_start) : airing.from_start;
+            last_start = any ? std::max(last_start, airing.from_start) : airing.from_start;
+            first_end = any ? std::min(first_end, airing.to_end) : airing.to_end;
+            last_end = any ? std::max(last_end, airing.to_end) : airing.to_end;
+            any = true;
+        }
+        const bool varies = std::min(last_start - first_start, last_end - first_end) > varying_position_seconds;
+        if (varies && static_cast<int>(away.size()) >= within_series_recordings && static_cast<int>(away.size()) > varying_recordings) {
+            varying_key = key;
+            varying_recordings = static_cast<int>(away.size());
+        }
+    }
+    const bool within_series = no_logo_seen && !varying_key.empty();
+    const std::string within_reason = "in " + std::to_string(varying_recordings) + " recordings of " + varying_key + " at varying positions";
+
     // Intro and credits come first, so a theme bounded by black frames is never
     // an ad. The series must hold at least half the entry's recordings: an ad
     // that happened to air early in two episodes of one show, and in a dozen
@@ -715,24 +805,18 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         series_holds = true;
         if (!(all_start || all_end)) continue;
         const Status kind = all_start ? Status::intro : Status::credits;
-        return {kind, "near the " + std::string(all_start ? "start" : "end") + " of " + key + " in every airing"};
+        Promotion promotion{kind, "near the " + std::string(all_start ? "start" : "end") + " of " + key + " in every airing"};
+        promotion.ad_if_beside = no_logo_seen && length <= adjacent_max_length;
+        return promotion;
     }
+    // An ad that recurs within one series at varying positions: checked after
+    // intro and credits, so a theme after a cold open of varying length stays one.
+    if (within_series && audio_ad_length(length)) return {Status::ad, within_reason + ", no logo seen, an ad's length"};
     // An intro or credits entry that a later airing in its series breaks the rule
     // for is programme: it is a series' own audio, so it never becomes an ad.
     if ((current == Status::intro || current == Status::credits) && series_holds)
         return {Status::programme, std::string(status_name(current)) + " until an airing away from the start or end"};
 
-    bool any_evidence = false, logo_free = true, logo_everywhere = true, mostly_logo = true, some_logo = false, seams_both = false;
-    for (const auto& airing : airings) {
-        if (!airing.has_evidence) continue;
-        any_evidence = true;
-        const bool seen = airing.logo_fraction >= logo_none_below;
-        logo_free = logo_free && !seen;
-        logo_everywhere = logo_everywhere && seen;
-        mostly_logo = mostly_logo && airing.logo_fraction >= logo_in_programme;
-        some_logo = some_logo || airing.logo_fraction >= logo_in_programme;
-        seams_both = seams_both || (airing.seam_start && airing.seam_end);
-    }
     const auto spread = static_cast<int>(broadcasts.size());
     const bool across = spread >= 2 || channels.size() >= 2;
     const bool standard = standard_length(length);
@@ -743,9 +827,6 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         return {Status::ad, "within one show, no logo, seams at both ends, standard length"};
     if (any_evidence && across && mostly_logo) return {Status::in_programme_ad, "across shows, logo during most of every airing"};
     if (any_evidence && logo_everywhere && series.size() <= 1) return {Status::programme, "logo in every airing, one series"};
-    // Evidence vetoes: a logo seen in any airing keeps the entry from being an ad
-    // by recurrence alone.
-    const bool no_logo_seen = logo_free;
     const bool widely = spread >= rules.audio_series || (spread >= 2 && channels.size() >= 2);
     if (no_logo_seen && widely && audio_ad_length(length))
         return {Status::ad, "in " + std::to_string(spread) + " series, no logo seen, an ad's length"};
@@ -755,6 +836,8 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
     if (any_evidence && across && some_logo) return {Status::in_programme_ad, "across shows, logo during most of an airing", may_join};
     if (no_logo_seen && widely)
         return {Status::in_programme_ad, "in " + std::to_string(spread) + " series, not an ad's length", may_join, true};
+    // Pieces of a split ad within one series: judged with the airings they abut.
+    if (within_series) return {Status::candidate, within_reason + ", not an ad's length", may_join, true};
     return {Status::candidate, "no rule holds", may_join};
 }
 

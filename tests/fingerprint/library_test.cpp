@@ -372,15 +372,104 @@ TEST_F(LibraryTest, ASpotInThreeSeriesIsAnAdWithoutEvidence) {
     EXPECT_EQ(library_->matches("plex:/2.ts").size(), 1u);
 }
 
-TEST_F(LibraryTest, OneSeriesAloneNeverMakesAnAd) {
-    // A recap or theme recurs only inside its own show, however often.
-    const auto recap = noise(75, codes_of(30.2));
+TEST_F(LibraryTest, OneSeriesAtOneSpotNeverMakesAnAd) {
+    // Audio in the same spot of every episode is the show's own, however often
+    // it recurs.
+    const auto cue = noise(75, codes_of(30.2));
     for (int n = 0; n < 5; ++n) {
         Recording file(76 + n, 3600);
-        file.put(1500 + 150 * n, recap);
+        file.put(1500 + 40 * n, cue);
         add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
     }
     EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
+TEST_F(LibraryTest, AnAdWithinOneSeriesAtVaryingPositionsIsAnAd) {
+    // A 30 s spot in three episodes of one show, ten minutes apart: not a theme,
+    // credits or recap, so an ad. Two episodes are not enough.
+    const auto spot = noise(85, codes_of(30.2));
+    const double at[] = {900, 1500, 2400};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(86 + n, 3600);
+        file.put(at[n], spot);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+        if (n == 1) EXPECT_TRUE(with_status(Status::ad).empty());
+    }
+    const auto ads = with_status(Status::ad);
+    ASSERT_EQ(ads.size(), 1u);
+    EXPECT_EQ(ads[0].reason, "in 3 recordings of show a at varying positions, no logo seen, an ad's length");
+}
+
+TEST_F(LibraryTest, ARecapOrPreviewWithinOneSeriesIsNotAnAd) {
+    // A scene plays mid-episode, then in the next episodes' "previously on" (the
+    // first minutes) and in a "next week on" (the last minutes): it varies in
+    // position, but only one airing is away from the ends of its programme.
+    const auto scene = noise(90, codes_of(30.2));
+    const double at[] = {2000, 40, 100, 3520};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(91 + n, 3600);
+        file.put(at[n], scene);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
+TEST_F(LibraryTest, PiecesOfAnAdWithinOneSeriesChainToAnAdsLength) {
+    // A 22 s body in four episodes of one show at varying positions, with an
+    // 8 s tag in three of them: neither is an ad's length, together they are.
+    const auto body = noise(95, codes_of(22));
+    const auto tag = noise(96, codes_of(8.2));
+    const auto other = noise(97, codes_of(8.2));
+    const double at[] = {700, 1300, 2100, 2700};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(98 + n, 3600);
+        file.put(at[n], body).put(at[n] + 22, n == 3 ? other : tag);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    std::map<double, EntryInfo> by_length;
+    for (auto& entry : library_->entries()) by_length[std::round(entry.length)] = std::move(entry);
+    ASSERT_TRUE(by_length.contains(22));
+    ASSERT_EQ(by_length.size(), 2u);
+    EXPECT_EQ(by_length.at(22).status, Status::ad);
+    EXPECT_EQ(by_length.at(22).reason, "in 4 recordings of show a at varying positions, no logo seen, 30 s with the airings it abuts");
+    EXPECT_EQ(by_length.begin()->second.status, Status::ad);  // the tag
+}
+
+TEST_F(LibraryTest, ASponsorSpotInTheSameSpotEveryWeekIsAnAdBesideAds) {
+    // A sponsor's 30 s spot first in the first break of three episodes, right
+    // after an ad that airs in four other shows too: by position it would be
+    // the show's intro, but a theme is bounded by programme, not by ads.
+    const auto sponsor = noise(110, codes_of(30.2));
+    const auto ad = noise(111, codes_of(30.2));
+    for (int n = 0; n < 3; ++n) {
+        Recording file(112 + n, 3600);
+        file.put(570, ad).put(600.2, sponsor);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    const char* others[] = {"show b", "show c", "show d", "show e"};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(115 + n, 3600);
+        file.put(1800 + 300 * n, ad);
+        add("plex:/other" + std::to_string(n) + ".ts", file, plex_context(others[n]), nullptr);
+    }
+    const auto ads = with_status(Status::ad);
+    ASSERT_EQ(ads.size(), 2u);
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"ad", 2}}));
+    const bool named = std::ranges::any_of(ads, [](const EntryInfo& entry) {
+        return entry.reason == "intro by position, but next to ads in 3 recordings";
+    });
+    EXPECT_TRUE(named);
+}
+
+TEST_F(LibraryTest, AThemeBoundedByProgrammeStaysAnIntro) {
+    // The same, with programme around the theme: it stays the show's intro.
+    const auto theme = noise(120, codes_of(30.2));
+    for (int n = 0; n < 3; ++n) {
+        Recording file(121 + n, 3600);
+        file.put(600, theme);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"intro", 1}}));
 }
 
 TEST_F(LibraryTest, AnAdEarlyInTwoEpisodesOfOneShowIsNotItsIntro) {
@@ -466,6 +555,25 @@ TEST_F(LibraryTest, PiecesOfAnAdJudgedTogetherWhereTheyAbut) {
     }
 }
 
+TEST_F(LibraryTest, PiecesThatAddUpInTwoRecordingsAloneAreNotAnAd) {
+    // Two captures on two channels share 31 s of a game (a highlight replayed in
+    // another broadcast) that the Library holds as 13 s and 17 s pieces: an
+    // ad's length together, but in two recordings only and next to no ad.
+    const auto first = noise(160, codes_of(13.2));
+    const auto second = noise(161, codes_of(17));
+    const char* channels[] = {"NBC", "32.1"};
+    for (int n = 0; n < 2; ++n) {
+        Recording file(162 + n, 3600);
+        file.put(1500 + 700 * n, first).put(1513.2 + 700 * n, second);
+        add("capture" + std::to_string(n), file, context(channels[n], n == 0 ? "nfl:nbc" : "college", 3600), nullptr);
+    }
+    // Split them: each piece also airs alone in a third recording.
+    Recording third(164, 3600);
+    third.put(900, first).put(2000, second);
+    add("capture2", third, context("CBS", "news", 3600), nullptr);
+    EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
 TEST_F(LibraryTest, EveryVersionOfAnAdWithOneBodyIsAnAd) {
     // One 22 s body with three end tags (8, 23 and 38 s: a 30, a 45 and a 60 s
     // version), each version in three shows. The body splits from every tag;
@@ -523,6 +631,22 @@ TEST_F(LibraryTest, JoiningNeverTakesOneSeriesAudio) {
     }
     for (const auto& entry : library_->entries())
         if (std::round(entry.length) == 7) EXPECT_NE(entry.status, Status::ad);
+}
+
+TEST_F(LibraryTest, EveryGameOfASportsSeriesIsItsOwnBroadcast) {
+    // Plex files of one series named for their air date, one game each: a spot
+    // in three games is in three broadcasts. Episodes of a show are not.
+    const auto spot = noise(140, codes_of(30.2));
+    const char* games[] = {"2026-09-13 07 00 00 - Bears at Panthers", "2026-09-20 07 00 00 - Rams at Broncos",
+                           "2026-09-27 07 00 00 - Bills at Texans"};
+    for (int n = 0; n < 3; ++n) {
+        Recording file(141 + n, 3600);
+        file.put(1500 + 10 * n, spot);
+        add(std::string("plex:/NFL Football - ") + games[n] + ".ts", file, plex_context("title:nfl football"), nullptr);
+    }
+    const auto ads = with_status(Status::ad);
+    ASSERT_EQ(ads.size(), 1u);
+    EXPECT_EQ(ads[0].reason, "in 3 series, no logo seen, an ad's length");
 }
 
 TEST_F(LibraryTest, TwoFilesOfOneBroadcastCountAsOneSeries) {

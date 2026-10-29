@@ -57,6 +57,19 @@ inline constexpr double adjacent_max_length = 121;
 // An ad split into pieces (its variants share a body, not their tags) is tested
 // for an ad's length over at most this many abutting airings.
 inline constexpr int chain_most_pieces = 4;
+// A chain of pieces counts when the same pieces abut in this many recordings,
+// or when it lies in or next to an ad by its own airings.
+inline constexpr int chain_recordings = 3;
+// Within one series, an entry whose position from the programme's start and
+// from its end both vary by more than this is not a theme, credits or a recap
+// (those sit in about the same spot every episode).
+inline constexpr double varying_position_seconds = 300;
+// ... in at least this many recordings of the series ...
+inline constexpr int within_series_recordings = 3;
+// ... each with an airing at least this far from both ends of its programme
+// ("previously on" plays last week's scene at the start, "next week on" near
+// the end).
+inline constexpr double recap_edge_seconds = 180;
 
 // The audio-only thresholds; options so the Harness can measure other points.
 struct PromotionRules {
@@ -80,6 +93,10 @@ struct AiringFacts {
     // The series counted for recurrence: the series key, or for a recording
     // holding the same broadcast as another, one key for all of them.
     std::string broadcast;
+    // Seconds from its programme's start to the airing's start, and from the
+    // airing's end to the programme's end; meaningful only with a programme.
+    bool has_position{};
+    double from_start{}, to_end{};
 };
 struct Promotion {
     Status status{};
@@ -91,6 +108,10 @@ struct Promotion {
     // series) but is not an ad's length alone: the Library tests it with the
     // airings it abuts (a variant's body and its end tag).
     bool widely{};
+    // An intro or credits entry by position, with no logo seen and no longer
+    // than an ad: sitting next to ads makes it an ad (a season sponsor's spot,
+    // first in the same break every week). A theme is bounded by programme.
+    bool ad_if_beside{};
 };
 // The promotion rules, in the contract's order, over all of an entry's airings.
 // Intro and credits entries are kept whether or not step T4b marks them.
