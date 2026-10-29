@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include <sqlite3.h>
 #include <atomic>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -873,6 +874,116 @@ TEST(Promotion, AnIntroNeedsItsSeriesToHoldMostAirings) {
     mid.near_start = false;
     std::vector<AiringFacts> broken{early, early_b, mid};
     EXPECT_EQ(promote(Status::intro, 30, broken).status, Status::programme);
+}
+
+// Flips `bits` distinct random bits of every code.
+std::vector<std::uint32_t> flipped(std::vector<std::uint32_t> codes, int bits, unsigned seed) {
+    std::mt19937 random(seed);
+    for (auto& code : codes) {
+        std::uint32_t mask = 0;
+        while (std::popcount(mask) < bits) mask |= 1u << (random() % 32);
+        code ^= mask;
+    }
+    return codes;
+}
+
+TEST(SeedIndex, FindsEveryCodeWithinTheBitsOnce) {
+    std::mt19937 random(5);
+    std::vector<std::vector<std::uint32_t>> sequences(3);
+    for (auto& codes : sequences)
+        for (int k = 0; k < 4000; ++k) codes.push_back(random());
+    // Neighbours of one code at every distance up to 4 bits, in both halves.
+    const std::uint32_t code = 0x5a3c0ff1;
+    for (const std::uint32_t mask : {0u, 1u, 1u << 20, 3u, 3u << 15, 1u << 31 | 1u, 7u << 14, 15u, 5u << 17 | 5u})
+        sequences[1][100 + std::popcount(mask) * 7 + (mask & 0xff) % 5] = code ^ mask;
+    std::vector<std::span<const std::uint32_t>> spans(sequences.begin(), sequences.end());
+    const SeedIndex index(spans);
+    std::vector<SeedIndex::Place> found;
+    for (int bits = 0; bits <= 5; ++bits) {
+        for (const std::uint32_t probe : {code, static_cast<std::uint32_t>(random()), sequences[2][17]}) {
+            std::vector<SeedIndex::Place> expected;
+            for (std::uint32_t s = 0; s < sequences.size(); ++s)
+                for (std::int32_t k = 0; k < static_cast<std::int32_t>(sequences[s].size()); ++k)
+                    if (std::popcount(sequences[s][static_cast<std::size_t>(k)] ^ probe) <= bits) expected.push_back({s, k});
+            index.near(probe, bits, 1000, found);
+            EXPECT_EQ(found, expected) << bits;
+            EXPECT_EQ(index.count(probe, bits, 1000), expected.size());
+        }
+    }
+    // More places than allowed: none, and the count stops just past the limit.
+    index.near(code, 4, 3, found);
+    EXPECT_TRUE(found.empty());
+    EXPECT_EQ(index.count(code, 4, 3), 4u);
+    EXPECT_EQ(index.codes(1).size(), 4000u);
+    EXPECT_LT(index.bytes(), 12000u * 12 + 2 * 65537 * 4 + 64);
+}
+
+TEST(Matching, NearSeedsFindARepeatWithNoEqualCodes) {
+    const auto clip = noise(95, codes_of(12));
+    auto first = noise(96, codes_of(100));
+    auto second = noise(97, codes_of(100));
+    std::copy(clip.begin(), clip.end(), first.begin() + codes_of(30));
+    const auto changed = flipped(clip, 2, 98);  // every code 2 bits off
+    std::copy(changed.begin(), changed.end(), second.begin() + codes_of(60));
+    const std::vector<Sequence> a{{first, 0}};
+    const std::vector<Sequence> b{{second, 0}};
+    EXPECT_TRUE(find_matches(a, b, false, {0, true}).empty());
+    const auto matches = find_matches(a, b, false);
+    ASSERT_EQ(matches.size(), 1u);
+    EXPECT_NEAR(matches[0].a_begin, codes_of(30), 2);
+    EXPECT_NEAR(matches[0].length(), static_cast<long>(clip.size()), 4);
+    EXPECT_EQ(matches[0].b_begin - matches[0].a_begin, codes_of(60) - codes_of(30));
+    // The same inside one recording.
+    auto self = noise(99, codes_of(200));
+    std::copy(clip.begin(), clip.end(), self.begin() + codes_of(20));
+    std::copy(changed.begin(), changed.end(), self.begin() + codes_of(120));
+    const std::vector<Sequence> own{{self, 0}};
+    EXPECT_TRUE(find_matches(own, {}, true, {0, true}).empty());
+    EXPECT_EQ(find_matches(own, {}, true).size(), 1u);
+}
+
+TEST(Matching, TheQualityGateKeepsLooseAndShortNearOnlyStretchesOut) {
+    const auto clip = noise(100, codes_of(12));
+    auto first = noise(101, codes_of(100));
+    std::copy(clip.begin(), clip.end(), first.begin() + codes_of(30));
+    const std::vector<Sequence> a{{first, 0}};
+    const auto with = [&](const std::vector<std::uint32_t>& copy, long count, const MatchRules& rules = {}) {
+        auto second = noise(102, codes_of(100));
+        std::copy_n(copy.begin(), count, second.begin() + codes_of(50));
+        const std::vector<Sequence> b{{second, 0}};
+        return find_matches(a, b, false, rules).size();
+    };
+    // Seeds within 2 bits, but most codes 7 bits apart: agreement by the
+    // smoothing rule alone is no repeat.
+    auto loose = flipped(clip, 7, 103);
+    for (std::size_t k = 0; k < loose.size(); k += 6) loose[k] = flipped({clip[k]}, 2, static_cast<unsigned>(k))[0];
+    EXPECT_EQ(with(loose, static_cast<long>(loose.size()), {near_seed_bits, false}), 1u);
+    EXPECT_EQ(with(loose, static_cast<long>(loose.size())), 0u);
+    // 2 bits apart throughout: kept at 12 s, not at 5 s with no equal codes...
+    const auto near = flipped(clip, 2, 104);
+    EXPECT_EQ(with(near, static_cast<long>(near.size())), 1u);
+    EXPECT_EQ(with(near, codes_of(5)), 0u);
+    EXPECT_EQ(with(near, codes_of(5), {near_seed_bits, false}), 1u);
+    // ... while 5 s that would have seeded exactly is kept.
+    auto exact = near;
+    exact[10] = clip[10];
+    exact[18] = clip[18];
+    EXPECT_EQ(with(exact, codes_of(5)), 1u);
+}
+
+TEST(Matching, QualityOfAStretch) {
+    const std::vector<std::uint32_t> a{0, 0, 0, 0, 0xff, 0};
+    const std::vector<std::uint32_t> b{0, 1, 0, 0x7f, 0, 0};
+    // Positions 1..5 of a against 0..4 of b: 0^0, 0^1, 0^0, 0xff^0x7f, 0^0.
+    const auto quality = quality_of(a, b, -1, 1, 6);
+    EXPECT_DOUBLE_EQ(quality.mean_bits, 2.0 / 5);
+    EXPECT_DOUBLE_EQ(quality.loose_share, 0.0);
+    EXPECT_TRUE(quality.exact_pair);
+    EXPECT_TRUE(passes_gate({7.0, 0.9, true}, 3));
+    EXPECT_FALSE(passes_gate({2.0, 0.1, false}, 5.9));
+    EXPECT_TRUE(passes_gate({6.0, 0.5, false}, 6));
+    EXPECT_FALSE(passes_gate({6.1, 0.2, false}, 20));
+    EXPECT_FALSE(passes_gate({4.0, 0.6, false}, 20));
 }
 
 TEST(Matching, NeverJoinsAcrossRunsAndKeepsCopiesTwentySecondsApart) {

@@ -126,7 +126,7 @@ public:
         for (const auto& run : own) own_sequences.push_back({run.codes, run.start});
 
         match_entries(own, own_sequences);
-        auto self_matches = find_matches(own_sequences, {}, true);
+        auto self_matches = find_matches(own_sequences, {}, true, options_.matching);
         std::ranges::sort(self_matches, longest_first);
         for (const auto& match : self_matches)
             add_pair(recording_, own[match.a], recording_, own[match.b], match);
@@ -135,7 +135,7 @@ public:
             const auto theirs = runs_of(other);
             std::vector<Sequence> their_sequences;
             for (const auto& run : theirs) their_sequences.push_back({run.codes, run.start});
-            auto matches = find_matches(own_sequences, their_sequences, false);
+            auto matches = find_matches(own_sequences, their_sequences, false, options_.matching);
             std::ranges::sort(matches, longest_first);
             for (const auto& match : matches) add_pair(recording_, own[match.a], other, theirs[match.b], match);
         }
@@ -261,7 +261,7 @@ private:
             references.push_back({entry.codes, 0});
         }
         if (references.empty()) return;
-        auto matches = find_matches(own_sequences, references, false);
+        auto matches = find_matches(own_sequences, references, false, options_.matching);
         std::ranges::sort(matches, longest_first);
         for (const auto& match : matches) {
             const auto& run = own[match.a];

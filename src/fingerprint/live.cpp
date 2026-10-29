@@ -58,7 +58,7 @@ double unix_now() {
 void keep_store(const LiveOptions& options, Shared& shared) {
     try {
         Store store(options.store);
-        Library library(store, {options.intro_credits, "live"});
+        Library library(store, {options.intro_credits, "live", {}, options.matching});
         std::optional<std::vector<std::tuple<long long, Status, long long>>> key;
         for (;;) {
             std::vector<CodeRun> runs;
@@ -241,7 +241,7 @@ LiveResult live(const LiveOptions& options, const ReadBytes& read) {
 
     const auto evidence_path = platform::path_from_utf8(options.evidence);
     LiveResult result;
-    LiveMatcher matcher;
+    LiveMatcher matcher(options.matching);
     MarkHistory history;
     std::optional<Coder> coder;
     std::optional<Evidence> evidence;

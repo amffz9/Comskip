@@ -1,5 +1,6 @@
 #pragma once
 #include "fingerprint/inputs.h"
+#include "fingerprint/matching.h"
 #include "fingerprint/seed.h"
 #include <string>
 #include <string_view>
@@ -21,6 +22,7 @@ struct LiveOptions {
     // stall_for seconds, as a starved process would.
     double stall_at = -1;
     double stall_for{};
+    MatchRules matching;
 };
 
 struct LiveResult {

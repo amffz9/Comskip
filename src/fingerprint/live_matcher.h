@@ -1,6 +1,7 @@
 #pragma once
 #include "fingerprint/coder.h"
 #include "fingerprint/library.h"
+#include "fingerprint/matching.h"
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -12,9 +13,8 @@
 // code stream against the live index and against the recording's own earlier
 // codes.
 namespace comskip::fingerprint {
-// The live index in memory: every entry's codes in one array and their places
-// sorted by code value, 8 bytes per code. Built away from the matching thread,
-// then shared read-only.
+// The live index in memory: every entry's codes in a SeedIndex, 12 bytes per
+// code. Built away from the matching thread, then shared read-only.
 class LiveIndex {
 public:
     void add(long long id, Status status, std::span<const std::uint32_t> codes);
@@ -26,26 +26,28 @@ public:
     Status status(std::size_t entry) const { return statuses_[entry]; }
     std::span<const std::uint32_t> codes(std::size_t entry) const;
     std::size_t bytes() const;
-    // Every (entry, position) holding the code, or none when the code is held in
-    // more than seed_max_occurrences places.
-    void hits(std::uint32_t code, std::vector<std::pair<std::size_t, long>>& found) const;
+    // Every (entry, position) holding a code within `bits` of the code, or none
+    // when more than seed_max_occurrences places do.
+    void hits(std::uint32_t code, int bits, std::vector<SeedIndex::Place>& found) const;
 
 private:
-    std::vector<std::uint32_t> codes_;
-    std::vector<std::uint32_t> starts_{0};  // entry i's codes are codes_[starts_[i], starts_[i + 1])
+    SeedIndex codes_;
     std::vector<long long> ids_;
     std::vector<Status> statuses_;
-    std::vector<std::uint32_t> order_;  // places in codes_, sorted by the code there
 };
 
 // The recording's own codes for self-repeat seeds: every place (code number in
-// the recording) of each code value, in the order added, until a value is held
-// in seed_max_occurrences places; then it is saturated and never a seed again.
-// Flat (code, place) pairs, 8 bytes each: a sorted part, and a recent part
-// merged into it every recent_limit pairs.
+// the recording) of each code value, in the order added, until a value has
+// seed_max_occurrences places within `bits` of it; then it is saturated and
+// never a seed again. Flat (code, place) pairs, 8 bytes each, sorted (which
+// orders them by the code's high 16 bits too) with the pairs' order by their
+// low 16 bits, 4 bytes each; and a recent part merged into them every
+// recent_limit pairs.
 class OwnPlaces {
 public:
-    // The places held for the code, oldest first, or none once saturated.
+    explicit OwnPlaces(int bits = near_seed_bits) : bits_(bits) {}
+    // The places held for codes within `bits` of the code, oldest first, or
+    // none once the code is saturated.
     void places(std::uint32_t code, std::vector<std::uint32_t>& found) const;
     bool saturated(std::uint32_t code) const;
     // After looking at places: adds the place, or saturates the code when it is
@@ -60,7 +62,9 @@ private:
     };
     static constexpr std::size_t recent_limit = 4096;
     void merge();
+    int bits_;
     std::vector<Pair> sorted_;
+    std::vector<std::uint32_t> low_;  // places in sorted_, by the low 16 bits of their code
     std::vector<Pair> recent_;              // unsorted, in the order added
     std::vector<std::uint32_t> saturated_;  // sorted
 };
@@ -87,7 +91,7 @@ struct LiveMatch {
 
 class LiveMatcher {
 public:
-    LiveMatcher();
+    explicit LiveMatcher(MatchRules rules = {});
     ~LiveMatcher();
     LiveMatcher(const LiveMatcher&) = delete;
     LiveMatcher& operator=(const LiveMatcher&) = delete;
@@ -151,12 +155,14 @@ private:
     void add_code(std::uint32_t code);
     void seed(const DiagonalKey& key, long position, Status status, std::span<const std::uint32_t> entry_codes);
     bool advance(Track& track, long newest);
+    bool good_enough(const Track& track) const;
     bool end_track(Track& track, double now);
     void update(Track& track);
     std::span<const std::uint32_t> reference(const Track& track) const;
     bool smooth(const Track& track, long position) const;
     double completed(long position) const;
 
+    MatchRules rules_;
     std::shared_ptr<const LiveIndex> index_;
     std::vector<OwnRun> runs_;
     OwnPlaces own_;
@@ -164,7 +170,7 @@ private:
     std::unordered_map<DiagonalKey, Diagonal, DiagonalHash> diagonals_;
     std::vector<Track> tracks_;
     std::vector<LiveMatch> matches_;
-    std::vector<std::pair<std::size_t, long>> hits_;
+    std::vector<SeedIndex::Place> hits_;
     bool changed_{};
 };
 }

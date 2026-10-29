@@ -253,8 +253,11 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     # A usage row about once a minute of stream time, and one at the end.
     usage = [event for event in events if event["event"] == "usage"]
     assert len(usage) == 255 // 60 + 1, usage
-    assert all(int(u["rss_bytes"]) > 0 and int(u["peak_rss_bytes"]) >= int(u["rss_bytes"]) and float(u["cpu_seconds"]) > 0
-               for u in usage), usage
+    # CPU time is counted in clock ticks (15.6 ms on Windows), so the first
+    # minute of a fast matcher may show none; it only grows and ends above 0.
+    assert all(int(u["rss_bytes"]) > 0 and int(u["peak_rss_bytes"]) >= int(u["rss_bytes"]) for u in usage), usage
+    cpu = [float(u["cpu_seconds"]) for u in usage]
+    assert cpu == sorted(cpu) and cpu[-1] > 0, usage
     assert [round(float(u["now"])) for u in usage[:-1]] == [60, 120, 180, 240], usage
     # While the cut airing was still agreeing, its mark covered the whole 30 s.
     assert any(event["event"] == "mark" and abs(float(event["start"]) - cut) < 1.01 and abs(float(event["end"]) - cut - 30) < 1.01

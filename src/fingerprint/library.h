@@ -1,6 +1,7 @@
 #pragma once
 #include "fingerprint/coder.h"
 #include "fingerprint/inputs.h"
+#include "fingerprint/matching.h"
 #include "fingerprint/store.h"
 #include <cstdint>
 #include <functional>
@@ -165,6 +166,7 @@ struct LibraryOptions {
     bool intro_credits = false;  // step T4b
     std::string found_by = "pass";
     PromotionRules rules;
+    MatchRules matching;
 };
 
 class Library {
