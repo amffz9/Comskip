@@ -768,17 +768,24 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         std::set<std::string> in_series, away;
         double first_start = 0, last_start = 0, first_end = 0, last_end = 0;
         bool any = false;
+        int count = 0, starts = 0, ends = 0;
         for (const auto& airing : airings) {
             if (airing.series_key != key || !airing.has_position) continue;
             in_series.insert(airing.recording);
             if (airing.from_start >= recap_edge_seconds && airing.to_end >= recap_edge_seconds) away.insert(airing.recording);
+            ++count;
+            starts += airing.near_start;
+            ends += airing.near_end;
             first_start = any ? std::min(first_start, airing.from_start) : airing.from_start;
             last_start = any ? std::max(last_start, airing.from_start) : airing.from_start;
             first_end = any ? std::min(first_end, airing.to_end) : airing.to_end;
             last_end = any ? std::max(last_end, airing.to_end) : airing.to_end;
             any = true;
         }
-        const bool varies = std::min(last_start - first_start, last_end - first_end) > varying_position_seconds;
+        // Opening credits over the first act, after cold opens of varying length,
+        // vary too, but stay near the start.
+        const bool one_end = 3 * starts > 2 * count || 3 * ends > 2 * count;
+        const bool varies = std::min(last_start - first_start, last_end - first_end) > varying_position_seconds && !one_end;
         if (varies && static_cast<int>(away.size()) >= within_series_recordings && static_cast<int>(away.size()) > varying_recordings) {
             varying_key = key;
             varying_recordings = static_cast<int>(away.size());
@@ -806,7 +813,7 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         if (!(all_start || all_end)) continue;
         const Status kind = all_start ? Status::intro : Status::credits;
         Promotion promotion{kind, "near the " + std::string(all_start ? "start" : "end") + " of " + key + " in every airing"};
-        promotion.ad_if_beside = no_logo_seen && length <= adjacent_max_length;
+        promotion.ad_if_beside = no_logo_seen && audio_ad_length(length);
         return promotion;
     }
     // An ad that recurs within one series at varying positions: checked after

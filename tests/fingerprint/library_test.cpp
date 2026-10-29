@@ -414,6 +414,38 @@ TEST_F(LibraryTest, ARecapOrPreviewWithinOneSeriesIsNotAnAd) {
     EXPECT_TRUE(with_status(Status::ad).empty());
 }
 
+TEST_F(LibraryTest, OpeningCreditsAfterColdOpensOfVaryingLengthAreNotAnAd) {
+    // Credits over the first act, six to twelve minutes in, and once later: the
+    // position varies, but stays near the start in most airings.
+    const auto credits = noise(100, codes_of(30.2));
+    const double at[] = {380, 520, 700, 2300};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(101 + n, 3600);
+        file.put(at[n], credits);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
+TEST_F(LibraryTest, ABumperBesideAdsInTheSameSpotStaysAnIntro) {
+    // A 4 s network bumper right after the first break of every episode, near
+    // the start: not an ad's length, so it stays the show's own.
+    const auto bumper = noise(105, codes_of(4));
+    const auto ad = noise(106, codes_of(30.2));
+    for (int n = 0; n < 3; ++n) {
+        Recording file(107 + n, 3600);
+        file.put(570, ad).put(600.2, bumper);
+        add("plex:/" + std::to_string(n) + ".ts", file, plex_context("show a"), nullptr);
+    }
+    const char* others[] = {"show b", "show c", "show d", "show e"};
+    for (int n = 0; n < 4; ++n) {
+        Recording file(110 + n, 3600);
+        file.put(1800 + 300 * n, ad);
+        add("plex:/other" + std::to_string(n) + ".ts", file, plex_context(others[n]), nullptr);
+    }
+    EXPECT_EQ(statuses(), (std::map<std::string, int>{{"ad", 1}, {"intro", 1}}));
+}
+
 TEST_F(LibraryTest, PiecesOfAnAdWithinOneSeriesChainToAnAdsLength) {
     // A 22 s body in four episodes of one show at varying positions, with an
     // 8 s tag in three of them: neither is an ad's length, together they are.

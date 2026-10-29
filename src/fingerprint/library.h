@@ -108,8 +108,8 @@ struct Promotion {
     // series) but is not an ad's length alone: the Library tests it with the
     // airings it abuts (a variant's body and its end tag).
     bool widely{};
-    // An intro or credits entry by position, with no logo seen and no longer
-    // than an ad: sitting next to ads makes it an ad (a season sponsor's spot,
+    // An intro or credits entry by position, with no logo seen and an ad's
+    // length: sitting next to ads makes it an ad (a season sponsor's spot,
     // first in the same break every week). A theme is bounded by programme.
     bool ad_if_beside{};
 };
