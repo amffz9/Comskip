@@ -19,7 +19,7 @@ jobs:
       UBSAN_OPTIONS: halt_on_error=1
       BUILD_CONFIGURATION: ${{ matrix.sanitizers && 'Debug' || 'Release' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Linux build prerequisites
         if: runner.os == 'Linux'
         run: >-
