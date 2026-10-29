@@ -45,7 +45,9 @@ struct MatchRules {
 // within b bits differ in at most b / 2 bits of their high or of their low 16
 // bits, so each half's places sit in buckets keyed by that half, and a lookup
 // visits the buckets of every key within b / 2 bits of the code's halves.
-// 20 bytes a code: the codes, and their places and values in each half's order.
+// 16 bytes a code: their places and values in each half's order. Built over
+// spans, it reads the caller's codes, which must outlive it; built with add,
+// it holds a copy (4 bytes a code more).
 class SeedIndex {
 public:
     struct Place {
@@ -54,6 +56,10 @@ public:
         bool operator==(const Place&) const = default;
     };
     SeedIndex() = default;
+    SeedIndex(const SeedIndex&) = delete;  // the sequences may point into owned_
+    SeedIndex& operator=(const SeedIndex&) = delete;
+    SeedIndex(SeedIndex&&) = default;
+    SeedIndex& operator=(SeedIndex&&) = default;
     explicit SeedIndex(std::span<const std::span<const std::uint32_t>> sequences);
     void add(std::span<const std::uint32_t> codes);
     // Builds the lookup; called once, after the last add.
@@ -76,8 +82,9 @@ public:
 
 private:
     template <class Visit> bool visit(std::uint32_t code, int bits, Visit&& each) const;
-    std::vector<std::uint32_t> codes_;
-    std::vector<std::uint32_t> starts_{0};  // sequence i's codes are codes_[starts_[i], starts_[i + 1])
+    std::vector<std::span<const std::uint32_t>> sequences_;
+    std::vector<std::uint32_t> owned_;      // the codes given to add, in order
+    std::vector<std::uint32_t> starts_{0};  // sequence i's places are [starts_[i], starts_[i + 1])
     std::vector<std::uint32_t> high_, low_;            // places sorted by the code's high, low 16 bits
     std::vector<std::uint32_t> high_codes_, low_codes_;  // the codes at those places, in the same order
     std::vector<std::uint32_t> high_from_, low_from_;  // where each key's places begin, 65537 each

@@ -31,52 +31,61 @@ template <class Each> bool keys_near(std::uint32_t key, int bits, int from, Each
 }
 
 // Places sorted by a 16-bit key of their code (a counting sort, so places stay
-// in order within a key), with where each key's places begin.
-void bucket(const std::vector<std::uint32_t>& codes, int shift, std::vector<std::uint32_t>& order, std::vector<std::uint32_t>& from) {
+// in order within a key), with where each key's places begin, and the codes in
+// that order.
+void bucket(std::span<const std::span<const std::uint32_t>> sequences, std::size_t total, int shift,
+            std::vector<std::uint32_t>& order, std::vector<std::uint32_t>& codes, std::vector<std::uint32_t>& from) {
     from.assign((1u << 16) + 1, 0);
-    for (const auto code : codes) ++from[((code >> shift) & 0xffff) + 1];
+    for (const auto sequence : sequences)
+        for (const auto code : sequence) ++from[((code >> shift) & 0xffff) + 1];
     for (std::size_t key = 1; key < from.size(); ++key) from[key] += from[key - 1];
-    order.resize(codes.size());
+    order.resize(total);
+    codes.resize(total);
     std::vector<std::uint32_t> next(from.begin(), from.end() - 1);
-    for (std::uint32_t place = 0; place < codes.size(); ++place) order[next[(codes[place] >> shift) & 0xffff]++] = place;
+    std::uint32_t place = 0;
+    for (const auto sequence : sequences)
+        for (const auto code : sequence) {
+            const auto at = next[(code >> shift) & 0xffff]++;
+            order[at] = place++;
+            codes[at] = code;
+        }
 }
 }
 
-SeedIndex::SeedIndex(std::span<const std::span<const std::uint32_t>> sequences) {
-    std::size_t total = 0;
-    for (const auto codes : sequences) total += codes.size();
-    codes_.reserve(total);
+SeedIndex::SeedIndex(std::span<const std::span<const std::uint32_t>> sequences)
+    : sequences_(sequences.begin(), sequences.end()) {
     starts_.reserve(sequences.size() + 1);
-    for (const auto codes : sequences) add(codes);
+    for (const auto codes : sequences) starts_.push_back(starts_.back() + static_cast<std::uint32_t>(codes.size()));
     finish();
 }
 
 void SeedIndex::add(std::span<const std::uint32_t> codes) {
-    codes_.insert(codes_.end(), codes.begin(), codes.end());
-    starts_.push_back(static_cast<std::uint32_t>(codes_.size()));
+    owned_.insert(owned_.end(), codes.begin(), codes.end());
+    starts_.push_back(static_cast<std::uint32_t>(owned_.size()));
 }
 
 void SeedIndex::finish() {
-    codes_.shrink_to_fit();
     starts_.shrink_to_fit();
-    bucket(codes_, 16, high_, high_from_);
-    bucket(codes_, 0, low_, low_from_);
+    // Built with add: the sequences are the copy, now that it no longer grows.
+    if (sequences_.size() + 1 < starts_.size()) {
+        owned_.shrink_to_fit();
+        sequences_.clear();
+        for (std::size_t sequence = 0; sequence + 1 < starts_.size(); ++sequence)
+            sequences_.push_back(std::span<const std::uint32_t>(owned_).subspan(starts_[sequence], starts_[sequence + 1] - starts_[sequence]));
+    }
     // The codes again in each order, so a lookup reads its buckets straight
     // through instead of jumping to every place's code.
-    high_codes_.resize(high_.size());
-    low_codes_.resize(low_.size());
-    for (std::size_t at = 0; at < high_.size(); ++at) high_codes_[at] = codes_[high_[at]];
-    for (std::size_t at = 0; at < low_.size(); ++at) low_codes_[at] = codes_[low_[at]];
+    bucket(sequences_, starts_.back(), 16, high_, high_codes_, high_from_);
+    bucket(sequences_, starts_.back(), 0, low_, low_codes_, low_from_);
 }
 
-std::span<const std::uint32_t> SeedIndex::codes(std::size_t sequence) const {
-    return std::span(codes_).subspan(starts_[sequence], starts_[sequence + 1] - starts_[sequence]);
-}
+std::span<const std::uint32_t> SeedIndex::codes(std::size_t sequence) const { return sequences_[sequence]; }
 
 std::size_t SeedIndex::bytes() const {
-    return (codes_.capacity() + starts_.capacity() + high_.capacity() + low_.capacity() + high_codes_.capacity() +
+    return (owned_.capacity() + starts_.capacity() + high_.capacity() + low_.capacity() + high_codes_.capacity() +
             low_codes_.capacity() + high_from_.capacity() + low_from_.capacity()) *
-           sizeof(std::uint32_t);
+               sizeof(std::uint32_t) +
+           sequences_.capacity() * sizeof(std::span<const std::uint32_t>);
 }
 
 // Calls each(place) for every place within `bits` of the code, each once: a

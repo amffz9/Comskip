@@ -963,8 +963,25 @@ TEST(SeedIndex, FindsEveryCodeWithinTheBitsOnce) {
     index.near(code, 4, 3, found);
     EXPECT_TRUE(found.empty());
     EXPECT_EQ(index.count(code, 4, 3), 4u);
-    EXPECT_EQ(index.codes(1).size(), 4000u);
-    EXPECT_LT(index.bytes(), 12000u * 20 + 2 * 65537 * 4 + 64);
+    // Built over spans, it reads the caller's codes: 16 bytes a code.
+    EXPECT_EQ(index.codes(1).data(), sequences[1].data());
+    EXPECT_LT(index.bytes(), 12000u * 16 + 2 * 65537 * 4 + 128);
+    // Built with add, it keeps its own copy, which survives the caller's and
+    // a move: 20 bytes a code.
+    SeedIndex copied;
+    {
+        auto gone = sequences;
+        for (const auto& codes : gone) copied.add(codes);
+        copied.finish();
+    }
+    const SeedIndex moved = std::move(copied);
+    ASSERT_EQ(moved.sequences(), 3u);
+    for (std::size_t s = 0; s < 3; ++s) EXPECT_TRUE(std::ranges::equal(moved.codes(s), sequences[s])) << s;
+    moved.near(code, 4, 1000, found);
+    std::vector<SeedIndex::Place> expected_found;
+    index.near(code, 4, 1000, expected_found);
+    EXPECT_EQ(found, expected_found);
+    EXPECT_LT(moved.bytes(), 12000u * 20 + 2 * 65537 * 4 + 128);
 }
 
 TEST(Matching, NearSeedsFindARepeatWithNoEqualCodes) {
