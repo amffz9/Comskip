@@ -39,8 +39,9 @@ constexpr int exit_store_too_new = 5;
 constexpr int exit_failure = 6;
 
 // Raise whenever matching or promotion rules change what a search finds, so the
-// app knows to search its whole store again (3: seeds within 2 bits and the gate).
-constexpr int rules_version = 3;
+// app knows to search its whole store again (3: seeds within 2 bits and the gate;
+// 4: two networks, not two channel names, make two places).
+constexpr int rules_version = 4;
 
 constexpr const char* usage =
     "usage: comskip-fingerprint seed   --store PATH --recording ID [--context PATH] [--codes PATH]\n"
@@ -139,12 +140,12 @@ std::optional<Options> parse(int argc, char** argv) {
                    ? std::optional(options)
                    : std::nullopt;
     if (options.store.empty() || options.recording.empty()) return std::nullopt;
-    if (options.command == "live")
     if (options.command == "context")
         return !options.context.empty() && options.codes.empty() && options.out.empty() && options.marks.empty() &&
                        options.log.empty() && options.evidence.empty() && options.stall_at < 0
                    ? std::optional(options)
                    : std::nullopt;
+    if (options.command == "live")
         return options.evidence.size() == 1 && !options.marks.empty() && options.out.empty() && options.codes.empty()
                    ? std::optional(options)
                    : std::nullopt;
@@ -219,9 +220,9 @@ int run_promote(const Options& options, const Context* context = nullptr) {
     if (options.store.empty()) throw InputInvalid("promote needs --store");
     Store store(options.store);
     Library library(store, {options.intro_credits, "pass", options.rules, options.matching});
-    const auto result = library.promote_all();
     if (context && !library.replace_context(options.recording, *context))
         throw InputInvalid("Recording " + options.recording + " has no stored stream");
+    const auto result = library.promote_all();
     std::map<std::string, int> counts;
     for (const auto& entry : library.entries()) ++counts[std::string(status_name(entry.status))];
     const json::Value document = {{"promoted", result.promoted},
@@ -247,8 +248,8 @@ int run(int argc, char** argv) {
                                                  : input([&] { return context_from_json(json::parse_file(options.context)); });
     if (options.command == "live") return run_live(options, context);
     if (options.command == "promote") return run_promote(options);
-    std::map<std::string, Evidence> evidence;
     if (options.command == "context") return run_promote(options, &context);
+    std::map<std::string, Evidence> evidence;
     for (const auto& path : options.evidence) {
         auto copy = input([&] { return evidence_from_json(json::parse_file(path)); });
         if (copy.capture_id.empty()) throw InputInvalid(path + ": the evidence copy has no captureId");
