@@ -31,7 +31,10 @@ bool status_is_final(Status status);
 // as the audio from S + begin * period + edge_start to S + end * period +
 // edge_end. Measured against Comskip's seams on g5 and g4 (step F4): with both
 // at 1.2 s, starts fell 0.5-0.9 s after the seam and ends 0.2-0.4 s after it.
-inline constexpr double edge_start = 0.60;
+// A seam is the middle of its black frames, so an ad's audio begins a little
+// after it; against the exact splice points of synthetic recordings (step
+// F4c) starts at 0.6 fell 0.79 s early to 0.19 s late, hence 0.9.
+inline constexpr double edge_start = 0.90;
 inline constexpr double edge_end = 0.90;
 
 // Logo seen during less than this share of an airing counts as no logo.

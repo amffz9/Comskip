@@ -71,7 +71,7 @@ TEST(LiveMatcher, ReportsAMatchAfterThreeSecondsAndProjectsTheRest) {
     ASSERT_NE(match, nullptr);
     EXPECT_EQ(match->entry, 11);
     EXPECT_EQ(match->status, Status::ad);
-    EXPECT_NEAR(match->agreed_from, 600, 0.8);
+    EXPECT_NEAR(match->agreed_from, 600 + edge_start, 0.8);
     EXPECT_NEAR(match->from, match->agreed_from, 1e-9);
     EXPECT_GE(match->agreed_to - match->agreed_from, 3.0);
     EXPECT_LE(match->agreed_to, 605);
@@ -139,7 +139,7 @@ TEST(LiveMatcher, ARefreshedIndexMatchesFromThenOn) {
     const auto& matches = replay.matcher.matches();
     const auto found = std::ranges::find(matches, 12LL, &LiveMatch::entry);
     ASSERT_NE(found, matches.end());
-    EXPECT_NEAR(found->agreed_from, 500, 0.8);
+    EXPECT_NEAR(found->agreed_from, 500 + edge_start, 0.8);
     EXPECT_EQ(std::ranges::count(matches, 12LL, &LiveMatch::entry), 1);
 }
 
@@ -175,9 +175,9 @@ TEST(LiveMatcher, FindsARepeatOfTheRecordingsOwnCodes) {
     const auto& matches = replay.matcher.matches();
     ASSERT_EQ(matches.size(), 1u);
     EXPECT_TRUE(matches[0].self());
-    EXPECT_NEAR(matches[0].agreed_from, 250, 0.8);
+    EXPECT_NEAR(matches[0].agreed_from, 250 + edge_start, 0.8);
     EXPECT_NEAR(matches[0].agreed_to, 280, 1.0);
-    EXPECT_NEAR(matches[0].earlier_from, 100, 0.8);
+    EXPECT_NEAR(matches[0].earlier_from, 100 + edge_start, 0.8);
     EXPECT_NEAR(matches[0].earlier_to, 130, 1.0);
     EXPECT_FALSE(matches[0].projected());
 }

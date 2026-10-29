@@ -131,7 +131,7 @@ TEST_F(LibraryTest, ThirtySecondRepeatsBoundedBySeamsBecomeAds) {
     EXPECT_EQ(ads[0].airings, 2);
     EXPECT_EQ(result.promoted, 1);
     ASSERT_EQ(result.airings.size(), 2u);
-    EXPECT_NEAR(result.airings[0].start, 600, 1.0);
+    EXPECT_NEAR(result.airings[0].start, 600 + edge_start, 1.0);
     EXPECT_NEAR(result.airings[1].end, 2430.2, 1.0);
     // The 2.5 s sting is shorter than a repeat (3 s): never an entry, never an ad.
     EXPECT_EQ(statuses(), (std::map<std::string, int>{{"ad", 1}}));
