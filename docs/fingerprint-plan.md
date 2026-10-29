@@ -619,6 +619,13 @@ Types used below:
         airings (opening credits over the first act move with the cold open
         but stay near the start); no logo seen; and an ad's length alone or
         chained as below. Within-series pieces join chains.
+      - `ad`, within one recording (same place in the order): two or more
+        airings in one recording at least 300 s apart, each at least 180 s
+        from both ends of its programme, no logo seen, and an ad's length
+        alone or chained. A replay has its own commentary, so audio that
+        repeats within a broadcast is an ad or promo; a studio package aired
+        twice under the logo stays out through the logo veto where Evidence
+        exists.
       - `ad`, Evidence confirms (as before): airings in at least two series
         keys or two channels; no airing has a logo seen in it; at least one
         airing has Evidence; and either a standard length (10, 15, 20, 30, 45,
@@ -1191,6 +1198,25 @@ Types used below:
     joined); Plex breaks missed 117/256 (from 126). Of 20419 Plex
     commercial seconds we miss, 15641 are first airings and 4779 repeats
     (from 5970).
+  - **Within one recording** (rule above). Of the 662 labelled ad seconds
+    on the six under repeats inside one recording, 176 s remain under
+    entries that are not `ad`. Missed ad seconds on the six 1338 to 1305
+    (repeats 423 to 390, first airings 915), most of the rest already in
+    Comskip's blocks; programme cut 413 to 439 s, false breaks 5, breaks
+    64. The new stretches over 3 s, frame-accurate strips: 77483aca
+    10360.1-10365.2 and 10741.3-10747.8 (a Liberty Mutual ad), faaea10a
+    2942.4-2947.0 (an injury lawyer's ad) and 3828.9-3835.0 (a Social
+    Security disability ad): ads already playing, the labels start late.
+    No new programme. Store after `promote`: 2258 `ad`, 97 `in-programme
+    ad`, 130 `intro`, 39 `credits`, 997 `candidate`; 129 new `ad` (64 on
+    Plex files only, 55 on captures only, 12 on both). Contact sheets of
+    20 of the 64 Plex-only entries (no Evidence, so no logo veto): 20 ads
+    or promos, no programme, no studio package. The captures' video is not
+    on this machine beyond the six; on the six, the rule's entries add only
+    the four stretches above. Plex agreement: 57.0% of Plex's seconds
+    marked, 93.8% of ours inside Plex's (62.1% and 93.9% with gaps up to
+    30 s joined); Plex breaks missed 107/256; of 19413 Plex seconds missed,
+    15635 are first airings and 3778 repeats.
 - **T1. Two mark lists and the merged view.** MarkStore, `publishMarks`
   copying both lists, `marksForWindow` reading the merged view and splitting
   non-`ad` marks into their own list; `kind`, `state`, `basis` fields.
