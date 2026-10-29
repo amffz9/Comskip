@@ -414,6 +414,35 @@ TEST_F(LibraryTest, ARecapOrPreviewWithinOneSeriesIsNotAnAd) {
     EXPECT_TRUE(with_status(Status::ad).empty());
 }
 
+TEST_F(LibraryTest, AnAdTwiceInOneRecordingIsAnAd) {
+    // A 30 s spot twice in one game, an hour apart: a replay would have its own
+    // commentary, so it is an ad. Ten seconds of crowd noise twice is not an
+    // ad's length, and a spot twice within five minutes proves nothing.
+    const auto spot = noise(200, codes_of(30.2));
+    const auto close = noise(201, codes_of(15.2));
+    const auto crowd = noise(202, codes_of(10));
+    Recording game(203, 7200);
+    game.put(1200, spot).put(4800, spot).put(2000, close).put(2200, close).put(3000, crowd).put(5000, crowd);
+    add("game", game, context("NBC", "nfl:nbc", 7200), nullptr);
+    std::map<double, EntryInfo> by_length;
+    for (auto& entry : library_->entries()) by_length[std::round(entry.length)] = std::move(entry);
+    ASSERT_TRUE(by_length.contains(30));
+    EXPECT_EQ(by_length.at(30).status, Status::ad);
+    EXPECT_EQ(by_length.at(30).reason, "twice in one recording, minutes apart, no logo seen, an ad's length");
+    EXPECT_EQ(by_length.size(), 3u);
+    EXPECT_EQ(with_status(Status::ad).size(), 1u);
+}
+
+TEST_F(LibraryTest, ALogoOverAPackageAiredTwiceKeepsItOutOfTheAds) {
+    // A sponsored halftime package aired twice with the logo on screen.
+    const auto package = noise(205, codes_of(30.2));
+    Recording game(206, 7200);
+    game.put(2400, package).put(5400, package);
+    const auto logo = evidence("game", {}, {{0, 7200}});
+    add("game", game, context("NBC", "nfl:nbc", 7200), &logo);
+    EXPECT_TRUE(with_status(Status::ad).empty());
+}
+
 TEST_F(LibraryTest, OpeningCreditsAfterColdOpensOfVaryingLengthAreNotAnAd) {
     // Credits over the first act, six to twelve minutes in, and once later: the
     // position varies, but stays near the start in most airings.

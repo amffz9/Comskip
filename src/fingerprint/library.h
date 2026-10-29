@@ -70,6 +70,10 @@ inline constexpr int within_series_recordings = 3;
 // ("previously on" plays last week's scene at the start, "next week on" near
 // the end).
 inline constexpr double recap_edge_seconds = 180;
+// Two airings in one recording at least this far apart (and each that far from
+// its programme's ends) are an ad or promo aired twice, not a replay: a replay
+// has its own commentary.
+inline constexpr double within_recording_apart = 300;
 
 // The audio-only thresholds; options so the Harness can measure other points.
 struct PromotionRules {

@@ -791,8 +791,24 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
             varying_recordings = static_cast<int>(away.size());
         }
     }
-    const bool within_series = no_logo_seen && !varying_key.empty();
-    const std::string within_reason = "in " + std::to_string(varying_recordings) + " recordings of " + varying_key + " at varying positions";
+    // Twice or more in one recording, minutes apart: a replay has its own
+    // commentary, so audio that repeats within a broadcast is an ad or promo.
+    std::map<std::string, std::vector<double>> starts_in;
+    for (const auto& airing : airings)
+        if (airing.has_position && airing.from_start >= recap_edge_seconds && airing.to_end >= recap_edge_seconds)
+            starts_in[airing.recording].push_back(airing.from_start);
+    std::string repeating;
+    for (auto& [name, starts] : starts_in) {
+        std::ranges::sort(starts);
+        if (starts.size() >= 2 && starts.back() - starts.front() >= within_recording_apart) {
+            repeating = name;
+            break;
+        }
+    }
+    const bool within_series = no_logo_seen && (!varying_key.empty() || !repeating.empty());
+    const std::string within_reason =
+        !varying_key.empty() ? "in " + std::to_string(varying_recordings) + " recordings of " + varying_key + " at varying positions"
+                             : "twice in one recording, minutes apart";
 
     // Intro and credits come first, so a theme bounded by black frames is never
     // an ad. The series must hold at least half the entry's recordings: an ad
