@@ -440,6 +440,25 @@ post-recording pass in the app, then backfill, then live, then the pipe, then
 fingerprints primary. Backfill comes before live because live matching is
 only useful once the library holds confirmed ads; the review agreed.
 
+### D6. Recurrence decides; Evidence confirms or vetoes
+
+The user's direction (October 28), after the production backfill seeded 236
+recordings (8 app captures, 229 Plex episodes, about 283 h) and the store
+ended with 3 `ad`, 3199 `candidate` and 319 `programme` entries: the Plex
+files have no Evidence, and the rule that an `ad` needed an airing with
+Evidence showing no logo left nearly every repeat a candidate.
+Fingerprinting detects commercials on its own, from audio and recurrence,
+where Comskip's information doesn't exist. Audio recurrence should be more
+accurate than Comskip's own detection; its gap is an ad's first airing, which
+is why it stays paired with Comskip. Comskip's Evidence is a confirmation
+(the earlier rules stay) and a veto: a logo seen in any airing keeps an entry
+from being an `ad` by recurrence alone. False positives cost a wrong marker,
+not deleted video (auto-skip is a per-profile setting, off by default), so
+recall weighs more than before, and `in-programme ad` (shown, never skipped)
+is promoted at a lower bar than `ad`. Never cutting programme stays the first
+check (Must-not-get-worse 1), now read as a trade-off reported with every
+programme-cut stretch named.
+
 ## Cross-repo formats
 
 These are the contracts between the two repos. Times are capture seconds as
@@ -566,30 +585,81 @@ Types used below:
       agree on only part of it (a 15 s cut of a 30 s ad), the entry is split
       into the shared part and the rest, each its own entry.
     - Promotion rules, over all of an entry's airings, where "logo seen" comes
-      from each airing's own recording:
+      from each airing's own recording (D6: recurrence decides; Evidence
+      confirms or vetoes). "Series" counts recordings holding one broadcast
+      once: two recordings sharing a repeat of at least 180 s (a 90-minute
+      file that runs into the next show, two captures of one game) count as
+      one series, its smallest key, and one channel. A Plex file named for
+      its air date with no season and episode (a game) is its own broadcast,
+      since games share ads but not programme. Every entry is promoted again
+      on each search, since joining looks across entries.
       - `intro` or `credits` (checked first, U4): airings in at least two
-        recordings with the same series key, and in every such airing near the
-        start (`intro`) or near the end (`credits`). This holds with or
-        without a logo, seams or a standard length, so a theme bounded by
-        black frames never becomes an `ad`. An airing of the same entry in a
-        different series key elsewhere (a theme used in a promo) doesn't
-        change this status. Rule applied after T4b is on; before that, such
-        entries are `programme` as below.
-      - `ad`, across shows: airings in at least two series keys or two
-        channels; no airing has a logo seen in it; and either a standard
-        length, or seams within 1 s at both ends in at least one airing.
-      - `ad`, within one show: seams within 1 s at both ends in at least one
-        airing, no logo seen in any airing, and a standard length. This
-        applies within one recording and across recordings with the same
-        series key (two CBS NFL games).
+        recordings with the same series key, that series holding at least half
+        the entry's recordings, and in every such airing near the start
+        (`intro`) or near the end (`credits`). This holds with or without a
+        logo, seams or a standard length, so a theme bounded by black frames
+        never becomes an `ad`. A few airings in other series (a theme used in
+        a promo) don't change this status; a dozen do: an ad that aired early
+        in two episodes of one show and in ten other shows is not that show's
+        theme. Kept as `intro` or `credits` before T4b too; T4b only marks
+        them. An `intro` or `credits` entry that an airing in its series
+        breaks becomes `programme`; one whose series no longer holds half its
+        recordings is looked at again by the rules below. An `intro` or
+        `credits` entry of an ad's length (15, 30, 45, 60, 90, 120 s) with no
+        logo seen that lies next to `ad` airings in at least two recordings is
+        an `ad`: a season sponsor's spot first in the same break each week. A
+        theme is bounded by programme, and the main titles, bumpers and
+        credits squeezes that do follow a break are not an ad's length.
+      - `ad`, within one series by varying position (checked after `intro`
+        and `credits`): airings in at least three recordings of one series,
+        each at least 180 s from both ends of its programme (a "previously
+        on" sits at the start, a "next week on" at the end); positions from
+        the programme's start and from its end both varying by more than
+        300 s; near the start (or the end) in at most two thirds of its
+        airings (opening credits over the first act move with the cold open
+        but stay near the start); no logo seen; and an ad's length alone or
+        chained as below. Within-series pieces join chains.
+      - `ad`, within one recording (same place in the order): two or more
+        airings in one recording at least 300 s apart, each at least 180 s
+        from both ends of its programme, no logo seen, and an ad's length
+        alone or chained. A replay has its own commentary, so audio that
+        repeats within a broadcast is an ad or promo; a studio package aired
+        twice under the logo stays out through the logo veto where Evidence
+        exists.
+      - `ad`, Evidence confirms (as before): airings in at least two series
+        keys or two channels; no airing has a logo seen in it; at least one
+        airing has Evidence; and either a standard length (10, 15, 20, 30, 45,
+        60, 90, 120 s within 1 s), or seams within 1 s at both ends in at
+        least one airing.
+      - `ad`, within one show (as before): seams within 1 s at both ends in
+        at least one airing, no logo seen in any airing, and a standard
+        length.
       - `in-programme ad`: airings in at least two series keys or channels,
         and a logo seen during at least half of it in every airing that has
         Evidence.
       - `programme`: labels call it programme (Harness only), or every airing
         has a logo seen and all share one series key. Never promoted after.
-      - otherwise `candidate`. An airing with logo unknown (no Evidence, such
-        as a Plex file) counts toward recurrence but can't satisfy "no logo
-        seen" alone: at least one airing with Evidence must.
+      - `ad`, recurrence alone (D6): airings in at least three series (or two
+        series on two channels), no logo seen in any airing with Evidence, and
+        an ad's length: 15, 30, 45, 60, 90 or 120 s within 1 s, either the
+        entry's own length or, in some airing, that of the entry with the
+        airings it abuts (gap at most 1 s, at most four pieces, each in two
+        or more series with no logo seen). The Library splits an ad where
+        its variants stop agreeing (a 30 s and a 15 s cut, another end tag),
+        so a 30 s spot can be stored as a 22 s body and an 8 s tag; the chain
+        judges them together. The same pieces must abut in at least three
+        recordings, or the chain must hold or abut an ad by its own airings.
+      - `ad`, joining a break: an entry in at least two series, no longer
+        than 121 s, with no logo seen, that lies next to (gap at most 1 s) an
+        airing of an `ad` entry in at least two broadcasts. Repeated until
+        nothing changes, so a break fills outwards from its known ads.
+      - One series alone makes an `ad` only by varying position, above;
+        audio in the same spot of every episode is the show's own.
+      - `in-programme ad`, shown and never skipped: across series with a logo
+        seen during at least half of it in some airing with Evidence; or in
+        three series (as for `ad`) at a length that is not an ad's and not
+        part of an ad's length with what it abuts (stings, billboards).
+      - otherwise `candidate`.
       - Comskip's block decisions are never used.
     - Ensures: corrected captures are the app's captures, other than this
       recording, with an airing of an entry that changed status or was split.
@@ -597,7 +667,10 @@ Types used below:
     - Ensures: entries with status `ad` or `in-programme ad` whose last airing
       is within 8 weeks of `now`, at most 20 MB; the most recently aired first
       if over.
-- Invariants: a `programme`, `intro` or `credits` entry is never `ad`; every
+- Also offers `op promoteAll() -> changed entries` (command `promote --store`):
+  the rules again over every entry, with nothing searched.
+- Invariants: a `programme`, `intro` or `credits` entry is never `ad` while it
+  holds that status; every
   airing belongs to a
   stored stream; an `ad` entry meets one of the two `ad` rules.
 
@@ -612,7 +685,16 @@ Types used below:
 | three episodes of one drama share 40 s of audio starting 2-4 min into each | findRepeats | `intro` (the cold opens before it stay unmarked) |
 | three episodes share 30 s ending 1 min before each programme end, seams at both ends, no logo | findRepeats | `credits`, not `ad` |
 | a series' theme appears once mid-episode and near the start in two others | findRepeats | not `intro` (not near the start in every airing); stays `candidate` or `programme` |
-| repeat only between two Plex files (no Evidence) in different series | findRepeats | `candidate` until an airing with Evidence shows no logo |
+| repeat only between two Plex files (no Evidence) in different series | findRepeats | `candidate` |
+| a 30 s repeat in three Plex files of three series, no Evidence | findRepeats | `ad` (recurrence alone) |
+| the same in five episodes of one series | findRepeats | never `ad` |
+| that 30 s entry, then a capture whose Evidence shows its logo throughout | findRepeats | `in-programme ad` |
+| a 30 s ad early in two episodes of one show, then in three other shows | findRepeats | `intro` after two, then `ad` |
+| a 22 s body and an 8 s tag that abut in three series, the body alone in a fourth | findRepeats | both `ad` (30 s together) |
+| a 7 s stretch next to a promoted ad in two broadcasts | findRepeats | `ad` (joins the break); next to it in one broadcast only: `candidate` |
+| a spot in two captures of one game ("CBS" and "4.1") and one other series | findRepeats | `candidate` (one broadcast, one channel) |
+| one body with three end tags (30, 45, 60 s versions), each in three shows | findRepeats | body and every tag `ad` |
+| an older store with programme entries from the intro rule before T4b | promote | looked at again by the rules |
 | an `ad` last aired 10 weeks ago | liveIndex | not included |
 | that ad found again by a pass today | liveIndex at next refresh | included |
 | same stream added twice | addStream | no change |
@@ -959,6 +1041,182 @@ Types used below:
     check for 41 of 44 matches, on the stream clock; neither literally
     (above). Real speed is used only for an excerpt and the whole recordings
     run at 40x, as the check now says.
+- **F4b. Audio-only promotion (D6).** Check: on a copy of the production
+  store, newly promoted entries are ads on contact sheets; the Harness with
+  the production store plus the six as library, each labelled recording's own
+  other copies left out; agreement with Plex's own commercial markers on the
+  44 Plex files that have them; `search` memory on the production store.
+  **Done:** rules in "PART: Library" above; `promote --store PATH` applies
+  them to a whole store; `--audio-series N` and `--adjacent N` move the
+  thresholds for measurement; Harness `--base`, `--drop`, `--tool-arg`.
+  - The data behind the thresholds (production copy, 3521 entries, 16752
+    airings): entries in three or more series pile up within 0.9 s of 15 s
+    (247 at 15, 78 at 16) and 30 s (128 at 30, 38 at 31) and are flat
+    around 10 and 20 s, so the audio-only lengths are 15/30/45/60/90/120
+    within 1 s. Gaps between consecutive ad airings are mostly -0.3 to +0.9 s
+    and thin out beyond 1 s, so joining and chains take 1 s. The old intro
+    rule had made 319 entries `programme`, 93 of them in five or more series
+    with the show holding as little as 11% of the airings: ads early in two
+    episodes of one show. Tracker files run 90 minutes into Watson's slot (and
+    Marshals, FBI), so the same broadcast sits in two files under two keys;
+    and two of the app's game captures are the same broadcasts as g4 and g5
+    (shared stretches of up to 702 s), hence the same-broadcast rule.
+  - Store before and after `promote`: 3 `ad`, 3199 `candidate`, 319
+    `programme`; after, 2058 `ad` (581 by their own length, 706 as pieces
+    of a chain, 771 by joining a break), 63 `in-programme ad`, 144 `intro`,
+    40 `credits`, 1216 `candidate`, 0 `programme`. 753 of the `ad` entries
+    abut a partner piece in at least two airings but not in all of them
+    (variant families or ads that often air together).
+  - Spot checks (contact sheets of the actual airings, `fps=1/5`): 16 entries
+    sampled at random from the newly promoted ones (8 by their own length, 8
+    by joining) are all break content: 15 ads, 1 a CBS promo with the "New
+    CBS Next" sting. The 8 largest stretches marked outside Plex's commercial
+    markers are all ads Plex missed. Of 48 entries airing in two Plex NFL
+    games, the 11 promoted are all ads; most of the 37 left candidates are
+    ads too (one series key covers every Plex NFL game, so recurrence inside
+    the NFL alone never promotes).
+  - Harness, production store plus the six, each one's own copies dropped
+    (Plex Elsbeth S03E03 and 9-1-1 Nashville S01E07, captures 61392dc7 = g5
+    and 2d2d699c = g4), final marks after all six passes, seconds:
+
+    | recording | breaks | missed | programme cut | false breaks | Comskip-107 |
+    | --- | --- | --- | --- | --- | --- |
+    | g5 | 10/10 | 143 | 61 | 1 | 9/10, 232, 30, 0 |
+    | g4 | 13/13 | 72 | 166 | 1 | 13/13, 72, 151, 0 |
+    | faaea10a | 7/12 | 548 | 11 | 0 | 6/12, 591, 6, 0 |
+    | 77483aca | 24/24 | 128 | 118 | 2 | 24/24, 132, 97, 0 |
+    | elsbeth303 | 6/6 | 12 | 0 | 0 | 6/6, 18, 0, 0 |
+    | nash107 | 4/6 | 436 | 58 | 1 | 4/6, 436, 58, 1 |
+
+    Must-not-get-worse 1 does not hold as written: 72 s more counted as
+    programme cut over the six and 4 more false breaks. Every new stretch
+    over 3 s, from frame-accurate strips: g5 5102.5-5132.9, about 5 s of a
+    T-Mobile split-screen then 25 s of game (the one real programme cut:
+    its audio recurs only in the 32.1 capture c6faa224, so two series on two
+    channels and a chain made it); 77483aca 1324.7-1329.4 (about 3 s of a
+    touchdown celebration before the ad) and 1823.0-1828.9 (about 2 s of
+    sideline); 77483aca 4984.6-4991.3 and g4 2517.0-2532.1, "Eye on the
+    Field" split-screen ads (Progressive, Burger King), unlabelled;
+    77483aca 5442.4-5446.0, the start of a Verizon split-screen the
+    `sponsor` row starts 4 s later; 77483aca 2553.1-2558.0 and faaea10a
+    3432.6-3438.0, ads already playing (the labels start late).
+  - Trade-off over the six (9261 labelled ad seconds): Comskip-107 62/71
+    breaks, 7780 found, 341 cut, 1 false. Three series, joining in two
+    broadcasts (default): 64, 7923, 413, 5. No joining: 64, 7923, 403, 4.
+    Joining beside one broadcast: 64, 7928, 418, 5. Two or four series:
+    as the default. On the six the points barely differ, since Comskip's
+    blocks already hold most breaks; Plex's files, with no Comskip, show
+    the difference (share of Plex's commercial seconds marked, share of our
+    seconds inside Plex's): no joining 42.0%, 94.9%; default 52.1%, 94.2%;
+    one broadcast 55.5%, 93.0%; two series 55.2%, 93.0%; four series 51.5%,
+    94.3%. Joining beside one broadcast took the Marshals S02E01 title
+    sequence (1570-1599), so the default stays at two.
+  - Remaining miss on the six (1338 s): 915 s first airings (no airing at all
+    in the store) and 423 s repeats the rules left unpromoted. On the 44
+    Plex files, of 21623 Plex commercial seconds we don't mark, 15653 are
+    first airings and 5970 repeats.
+  - Agreement with Plex's own commercial markers (44 files, not ground
+    truth): 52.1% of Plex's 45101 s marked, 94.2% of our 24934 s inside
+    Plex's (56.7% and 94.0% with gaps up to 30 s joined); Plex breaks we
+    miss 126/256. On nash107 Plex misses the two whole breaks 932-1147 and
+    1497-1712; we mark 936-966 in its Plex copy at the one-broadcast point.
+  - `search` memory on the production store (peak RSS, `/usr/bin/time`):
+    an Elsbeth episode 65.6 MB before, 24.1 MB after; the 6.6 h capture
+    4e9174d1 74.4 to 27.1 MB; a Tracker file 66.6 to 24.3 MB. What grew was
+    `find_matches`' index of every entry's reference codes, a map of vectors
+    at about 100 bytes a code; a sorted vector is 12 bytes a code. Wall time
+    unchanged (1.2-5.2 s) once a store is promoted; the first search on an
+    old store writes its re-promoted entries (about 5 s).
+  - Variants: the State Farm (Mahomes and Reid) family is not in the store
+    (none of the airings recurring in g4, g5 or the Plex NFL games; it likely
+    airs in Chiefs games only). A unit test stands in: one 22 s body with
+    8, 23 and 38 s end tags, each version in three shows; every piece of
+    every version becomes an `ad`, chained to 30, 45 and 60 s.
+  - **Follow-up: position within a series, games, chain guard.** Position
+    spread is the smaller of the spreads from the programme's start and
+    from its end, over the airings in the series holding most recordings.
+    On the production copy after the rules above (bands under 60 s, 60 s to
+    5 min, over 5 min):
+
+    | status | one series, 2 recordings | one series, 3+ | several series, 2 in the main one | several, 3+ |
+    | --- | --- | --- | --- | --- |
+    | candidate | 21 / 48 / 285 | 4 / 6 / 127 | 2 / 6 / 46 | 0 / 1 / 16 |
+    | ad | 0 / 2 / 1 | 0 / 0 / 2 | 49 / 81 / 445 | 3 / 31 / 423 |
+    | intro | 31 / 29 / 11 | 13 / 17 / 5 | 11 / 13 / 4 | 3 / 3 / 4 |
+    | credits | 16 / 2 / 1 | 9 / 3 / 0 | 3 / 1 / 1 | 3 / 0 / 1 |
+
+    Single-series candidates in three or more recordings: 4 under 60 s,
+    127 over 5 min (46 of those at an ad's length). Of 12 such Plex repeats
+    at an ad's length on contact sheets, 12 were ads or promos; of 12 at
+    other lengths, 4 were programme (opening credits, music cues) and 8
+    promos, credits squeezes or ads, so the rule needs an ad's length. The
+    unpromoted repeats under Plex's commercial markers (5970 s) lie mostly
+    in single-series candidates spread over 5 min (1410 s in two recordings,
+    988 s in three or more) and in several-series entries with one recording
+    in each series (1305 s). On the six, labelled ad seconds under entries
+    not `ad` lie mostly in repeats inside one recording (662 s: an ad aired
+    twice in one game), which no rule takes.
+  - Rules added (above): within one series by varying position; an ad's
+    length beside ads beats `intro` or `credits`; dated Plex files are each
+    their own broadcast; chains need three recordings or an anchor; opening
+    credits and bumpers kept out. Store after `promote`: 2129 `ad`, 100
+    `in-programme ad`, 130 `intro`, 39 `credits`, 1123 `candidate` (from
+    2058, 63, 144, 40, 1216). 212 `ad` entries carry the within-series
+    reason (66 new); 15 are intros or credits beside ads; entries in two or
+    more Plex NFL games: 23 `ad`, 19 `candidate` (from 10 and 40), where the
+    within-series rule alone promoted 2 (most NFL repeats are in two games),
+    so the games-as-broadcasts rule was needed.
+  - Spot checks (contact sheets, first runs, then the final rules): within
+    one series, 11 of 12 ads or promos and 1 opening credits over the first
+    act (Boston Blue, 18 of 19 airings near the start; now excluded);
+    intros and credits beside ads, before the length condition, 8 of 16 break
+    content, 3 main titles, 3 credits squeezes, 1 scene, 1 unclear, all 3 to
+    16 s; with it, all 15 are ads or promos. Newly joined: 8 of 8 ads,
+    promos or bumpers. Chains the recurrence-or-anchor guard demoted: 5 of 8
+    programme, 3 promos.
+  - The g5 5102.5-5132.9 cut is not fixed. Entries 160 (13.5 s) and 3545
+    (12.2 s) sit in g5 and in capture c6faa224 (32.1 college football, a
+    year later) on either side of 3546, a 5.4 s piece in four series that is
+    an ad by a chain elsewhere; they join the break beside it in the two
+    broadcasts. Three guards were measured and dropped: skipping an ad by its
+    neighbours only where its run holds an ad by its own airings (Plex
+    share 54.7% to 44.2%); joining only beside chain pieces where their
+    chain qualified (183 fewer `ad`, 13 of 14 sampled were ads); and not
+    joining beside one lone chain piece in just two broadcasts (108 fewer
+    `ad`, 12 of 12 sampled were ads or end tags).
+  - Harness with the final rules: the same marks on the six as before
+    (64 breaks, 7923 ad s found, 413 programme s cut, 5 false breaks;
+    Comskip-107 62/71, 7780, 341, 1), since Comskip's blocks already hold
+    what the new rules add there. Programme-cut stretches over 3 s, as
+    before: g5 5102.5-5132.9 (above); 77483aca 1324.7-1329.4 and
+    1823.0-1828.9 (seconds of programme before an ad); 77483aca
+    4984.6-4991.3 and g4 2517.0-2532.1 (unlabelled split-screen ads);
+    77483aca 5442.4-5446.0 and faaea10a 3432.6-3438.0 (ads, labels start
+    late). Missed: 915 s first airings, 423 s repeats.
+  - Plex agreement (44 files): 54.7% of Plex's 45101 s marked, 94.0% of
+    our 26247 s inside Plex's (59.6% and 94.1% with gaps up to 30 s
+    joined); Plex breaks missed 117/256 (from 126). Of 20419 Plex
+    commercial seconds we miss, 15641 are first airings and 4779 repeats
+    (from 5970).
+  - **Within one recording** (rule above). Of the 662 labelled ad seconds
+    on the six under repeats inside one recording, 176 s remain under
+    entries that are not `ad`. Missed ad seconds on the six 1338 to 1305
+    (repeats 423 to 390, first airings 915), most of the rest already in
+    Comskip's blocks; programme cut 413 to 439 s, false breaks 5, breaks
+    64. The new stretches over 3 s, frame-accurate strips: 77483aca
+    10360.1-10365.2 and 10741.3-10747.8 (a Liberty Mutual ad), faaea10a
+    2942.4-2947.0 (an injury lawyer's ad) and 3828.9-3835.0 (a Social
+    Security disability ad): ads already playing, the labels start late.
+    No new programme. Store after `promote`: 2258 `ad`, 97 `in-programme
+    ad`, 130 `intro`, 39 `credits`, 997 `candidate`; 129 new `ad` (64 on
+    Plex files only, 55 on captures only, 12 on both). Contact sheets of
+    20 of the 64 Plex-only entries (no Evidence, so no logo veto): 20 ads
+    or promos, no programme, no studio package. The captures' video is not
+    on this machine beyond the six; on the six, the rule's entries add only
+    the four stretches above. Plex agreement: 57.0% of Plex's seconds
+    marked, 93.8% of ours inside Plex's (62.1% and 93.9% with gaps up to
+    30 s joined); Plex breaks missed 107/256; of 19413 Plex seconds missed,
+    15635 are first airings and 3778 repeats.
 - **T1. Two mark lists and the merged view.** MarkStore, `publishMarks`
   copying both lists, `marksForWindow` reading the merged view and splitting
   non-`ad` marks into their own list; `kind`, `state`, `basis` fields.

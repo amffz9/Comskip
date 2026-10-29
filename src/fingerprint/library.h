@@ -19,7 +19,9 @@ enum class Status { candidate, ad, in_programme_ad, intro, credits, programme };
 std::string_view status_name(Status status);
 Status status_from_name(std::string_view name);
 // programme, intro and credits never become an ad (programme never changes; an
-// intro or credits entry an airing breaks the rule for becomes programme).
+// intro or credits entry whose series no longer holds most of its airings is
+// looked at again, and one an airing in that series breaks the rule for
+// becomes programme).
 bool status_is_final(Status status);
 
 // Where the audio of a run of agreeing codes lies. Code i of a run starting at S
@@ -39,6 +41,49 @@ inline constexpr double logo_in_programme = 0.50;
 inline constexpr double seam_reach = 1.0;
 // Lengths an ad is sold in, matched within 1 s.
 bool standard_length(double seconds);
+// The lengths the audio-only rule takes as an ad's: 15, 30, 45, 60, 90 and 120 s
+// within 1 s. On the production store the entries recurring in three or more
+// series pile up within 0.9 s of 15 and 30 s; 10 and 20 s show no peak.
+bool audio_ad_length(double seconds);
+// Two recordings sharing a repeat at least this long hold one broadcast (a
+// 90-minute file that runs into the next show, a rerun): their airings count as
+// one series when recurrence is counted.
+inline constexpr double same_broadcast_seconds = 180;
+// An entry next to an ad airing (this far apart or overlapping as far) in the
+// same recording is likely in the same break.
+inline constexpr double adjacent_gap = 1.0;
+// The longest entry that joins a break by adjacency: the longest ad length.
+inline constexpr double adjacent_max_length = 121;
+// An ad split into pieces (its variants share a body, not their tags) is tested
+// for an ad's length over at most this many abutting airings.
+inline constexpr int chain_most_pieces = 4;
+// A chain of pieces counts when the same pieces abut in this many recordings,
+// or when it lies in or next to an ad by its own airings.
+inline constexpr int chain_recordings = 3;
+// Within one series, an entry whose position from the programme's start and
+// from its end both vary by more than this is not a theme, credits or a recap
+// (those sit in about the same spot every episode).
+inline constexpr double varying_position_seconds = 300;
+// ... in at least this many recordings of the series ...
+inline constexpr int within_series_recordings = 3;
+// ... each with an airing at least this far from both ends of its programme
+// ("previously on" plays last week's scene at the start, "next week on" near
+// the end).
+inline constexpr double recap_edge_seconds = 180;
+// Two airings in one recording at least this far apart (and each that far from
+// its programme's ends) are an ad or promo aired twice, not a replay: a replay
+// has its own commentary.
+inline constexpr double within_recording_apart = 300;
+
+// The audio-only thresholds; options so the Harness can measure other points.
+struct PromotionRules {
+    // An entry recurring in this many series (or two series on two channels),
+    // at an ad's length, with no logo seen, is an ad.
+    int audio_series = 3;
+    // A candidate next to ad airings in this many broadcasts joins their break
+    // (0 turns joining off).
+    int adjacent_broadcasts = 2;
+};
 
 // What promotion needs to know about one airing, from its own recording.
 struct AiringFacts {
@@ -49,15 +94,32 @@ struct AiringFacts {
     bool seam_start{}, seam_end{};
     double logo_fraction{};  // share of the airing with a logo; meaningful only with evidence
     bool near_start{}, near_end{};
+    // The series counted for recurrence: the series key, or for a recording
+    // holding the same broadcast as another, one key for all of them.
+    std::string broadcast;
+    // Seconds from its programme's start to the airing's start, and from the
+    // airing's end to the programme's end; meaningful only with a programme.
+    bool has_position{};
+    double from_start{}, to_end{};
 };
 struct Promotion {
     Status status{};
     std::string reason;
+    // Not an ad by its own airings, but may join a break it sits next to: no
+    // logo seen, in at least two series, no longer than an ad.
+    bool may_join{};
+    // Recurs widely enough for the audio-only ad rule (no logo seen, enough
+    // series) but is not an ad's length alone: the Library tests it with the
+    // airings it abuts (a variant's body and its end tag).
+    bool widely{};
+    // An intro or credits entry by position, with no logo seen and an ad's
+    // length: sitting next to ads makes it an ad (a season sponsor's spot,
+    // first in the same break every week). A theme is bounded by programme.
+    bool ad_if_beside{};
 };
 // The promotion rules, in the contract's order, over all of an entry's airings.
-// With intro_credits off (until step T4b) an entry the intro or credits rule
-// picks becomes programme.
-Promotion promote(Status current, double length, std::span<const AiringFacts> airings, bool intro_credits);
+// Intro and credits entries are kept whether or not step T4b marks them.
+Promotion promote(Status current, double length, std::span<const AiringFacts> airings, const PromotionRules& rules = {});
 
 struct Airing {
     long long entry{};
@@ -102,6 +164,7 @@ struct RepeatsResult {
 struct LibraryOptions {
     bool intro_credits = false;  // step T4b
     std::string found_by = "pass";
+    PromotionRules rules;
 };
 
 class Library {
@@ -114,6 +177,9 @@ public:
     // Requires the stream to be stored. Evidence, when given, is kept for the
     // recording and used for its airings.
     RepeatsResult find_repeats(const std::string& recording, const Evidence* evidence);
+    // The promotion rules again over every entry, without a search (after the
+    // rules change). Every capture with a changed entry is corrected.
+    RepeatsResult promote_all();
     // Entries with status ad or in-programme ad whose last airing is within 8
     // weeks of now (Unix seconds), most recently aired first, at most 20 MB of
     // codes.

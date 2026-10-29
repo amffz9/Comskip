@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <regex>
 #include <set>
 #include <stdexcept>
 #include <tuple>
@@ -12,6 +13,7 @@ namespace comskip::fingerprint {
 namespace {
 constexpr std::array<std::string_view, 6> status_names{"candidate", "ad", "in-programme ad", "intro", "credits", "programme"};
 constexpr std::array<double, 8> standard_lengths{10, 15, 20, 30, 45, 60, 90, 120};
+constexpr std::array<double, 6> audio_lengths{15, 30, 45, 60, 90, 120};
 // "Near the start": begins within the first 20 min of its programme window.
 constexpr double near_start_seconds = 20 * 60;
 // "Near the end": ends within the last 8 min of the window, or within 2 min after.
@@ -22,6 +24,9 @@ constexpr double week_seconds = 7 * 24 * 3600.0;
 struct RecordingData {
     Context context;
     std::optional<Evidence> evidence;
+    // One series key and one channel for every recording holding the same
+    // broadcast as this one; empty when it shares none.
+    std::string broadcast, broadcast_channel;
 };
 
 // Longer repeats first, so they define entries; then by position, for a fixed order.
@@ -62,7 +67,9 @@ void apply_evidence(Airing& airing, const RecordingData& recording) {
 AiringFacts facts_of(const Airing& airing, const RecordingData& recording) {
     AiringFacts facts;
     facts.recording = airing.recording;
-    facts.channel = recording.context.channel;
+    // Two recordings of one broadcast name its channel differently ("CBS",
+    // "4.1"), so they count as one channel.
+    facts.channel = recording.broadcast.empty() ? recording.context.channel : recording.broadcast_channel;
     const double start = airing.start();
     const double end = airing.end();
     const Programme* programme = programme_at(recording.context, start);
@@ -71,12 +78,26 @@ AiringFacts facts_of(const Airing& airing, const RecordingData& recording) {
         facts.series_key = programme->series_key;
         facts.near_start = start - programme->from <= near_start_seconds;
         facts.near_end = end >= programme->to - near_end_before && end <= programme->to + near_end_after;
+        facts.has_position = true;
+        facts.from_start = start - programme->from;
+        facts.to_end = programme->to - end;
     }
+    facts.broadcast = recording.broadcast.empty() ? facts.series_key : recording.broadcast;
     facts.has_evidence = airing.logo != "unknown";
     facts.seam_start = airing.seam_start.value_or(false);
     facts.seam_end = airing.seam_end.value_or(false);
     facts.logo_fraction = airing.logo_fraction.value_or(0);
     return facts;
+}
+
+// A Plex file named for its air date and no season or episode (" - 2026-09-13
+// 07 00 00 - Chicago Bears at Carolina Panthers.ts") holds one event, a game:
+// every such file of a series is its own broadcast, since games share ads but
+// not programme.
+bool dated_event(const std::string& recording, const RecordingData& data) {
+    static const std::regex dated(R"( - \d{4}-\d{2}-\d{2} )");
+    static const std::regex episode(R"(S\d+E\d+)");
+    return data.context.source == "plex" && std::regex_search(recording, dated) && !std::regex_search(recording, episode);
 }
 
 std::string join(const std::set<std::string>& values) {
@@ -126,6 +147,9 @@ public:
         return save();
     }
 
+    // The rules again over every entry, with nothing searched.
+    RepeatsResult promote_all() { return save(); }
+
 private:
     void load() {
         auto recordings = store_.prepare("SELECT id, context, evidence FROM recording ORDER BY id");
@@ -144,6 +168,13 @@ private:
             entry.codes = entries.codes(3);
             entry.reason = entries.text(4);
             old_status_[entry.id] = entry.status;
+            old_reason_[entry.id] = entry.reason;
+            // Before the audio-only rules, the intro and credits rule made
+            // entries programme until step T4b, final; they are looked at again.
+            if (entry.status == Status::programme && entry.reason.find("rule off until T4b") != std::string::npos) {
+                entry.status = Status::candidate;
+                migrated_.insert(entry.id);
+            }
             entries_.emplace(entry.id, std::move(entry));
         }
         auto airings = store_.prepare(
@@ -394,26 +425,188 @@ private:
         }
     }
 
+    // Recordings sharing a repeat of at least same_broadcast_seconds hold one
+    // broadcast; each such group counts as one series, its smallest key. A
+    // group holding a dated event counts as its own series.
+    void link_broadcasts() {
+        std::map<std::string, std::string> parent;
+        for (const auto& [name, data] : recordings_) parent[name] = name;
+        const auto root = [&](std::string name) {
+            while (parent[name] != name) name = parent[name] = parent[parent[name]];
+            return name;
+        };
+        for (const auto& [id, entry] : entries_) {
+            if (entry.length < same_broadcast_seconds) continue;
+            const auto members = members_of(id);
+            for (std::size_t n = 1; n < members.size(); ++n) {
+                const auto first = root(airings_[members[0]].recording);
+                const auto other = root(airings_[members[n]].recording);
+                if (first != other) parent[std::max(first, other)] = std::min(first, other);
+            }
+        }
+        std::map<std::string, std::set<std::string>> keys, channels;
+        std::map<std::string, int> sizes;
+        std::set<std::string> events;
+        for (const auto& [name, data] : recordings_) {
+            const auto group = root(name);
+            ++sizes[group];
+            if (dated_event(name, data)) events.insert(group);
+            for (const auto& programme : data.context.programmes)
+                if (!programme.series_key.empty()) keys[group].insert(programme.series_key);
+            if (!data.context.channel.empty()) channels[group].insert(data.context.channel);
+        }
+        for (auto& [name, data] : recordings_) {
+            const auto group = root(name);
+            const bool shared = sizes[group] > 1;
+            data.broadcast = shared && !keys[group].empty() ? *keys[group].begin() : "";
+            if (events.contains(group)) data.broadcast = group;
+            data.broadcast_channel = shared && !channels[group].empty() ? *channels[group].begin() : "";
+            broadcast_group_[name] = group;
+        }
+    }
+
+    // The broadcasts in which an airing of the entry lies next to an airing of
+    // an `ad` entry, in the same recording.
+    std::set<std::string> beside_ads(long long id, const std::map<long long, Promotion>& promotions) const {
+        std::set<std::string> beside;
+        for (const auto index : members_of(id)) {
+            const auto& airing = airings_[index];
+            const double start = airing.start();
+            const double end = airing.end();
+            for (const auto other : by_recording_.at(airing.recording)) {
+                const auto& neighbour = airings_[other];
+                if (!alive_[other] || neighbour.entry == id) continue;
+                const auto found = promotions.find(neighbour.entry);
+                if (found == promotions.end() || found->second.status != Status::ad) continue;
+                if (std::abs(start - neighbour.end()) <= adjacent_gap || std::abs(neighbour.start() - end) <= adjacent_gap) {
+                    beside.insert(broadcast_group_.at(airing.recording));
+                    break;
+                }
+            }
+        }
+        return beside;
+    }
+
+    // A widely recurring entry that is not an ad's length alone is one when, in
+    // some airing, it and the airings it abuts (each of an entry that may join a
+    // break) make an ad's length: the Library splits an ad where its variants
+    // stop agreeing, so a 30 s spot can be stored as a 22 s body and an 8 s tag.
+    // The same chain must recur in chain_recordings recordings, or lie in or
+    // next to an ad by its own airings: two recordings sharing a stretch of
+    // programme (a game's highlight replayed elsewhere) can split it into
+    // pieces that happen to add up to an ad's length.
+    void judge_chains(std::map<long long, Promotion>& promotions) const {
+        struct Chain {
+            std::set<std::string> recordings;
+            bool anchored{};
+            double length{};
+        };
+        std::map<std::vector<long long>, Chain> chains;
+        const auto own_ad = [&](std::size_t index) { return promotions.at(airings_[index].entry).status == Status::ad; };
+        for (const auto& [name, indices] : by_recording_) {
+            std::vector<std::size_t> pieces;
+            for (const auto index : indices) {
+                if (!alive_[index]) continue;
+                const auto found = promotions.find(airings_[index].entry);
+                if (found != promotions.end() && (found->second.may_join || found->second.widely || found->second.status == Status::ad))
+                    pieces.push_back(index);
+            }
+            std::ranges::sort(pieces, [&](std::size_t x, std::size_t y) { return airings_[x].start() < airings_[y].start(); });
+            const auto abuts = [&](std::size_t x, std::size_t y) {
+                return std::abs(airings_[pieces[y]].start() - airings_[pieces[x]].end()) <= adjacent_gap;
+            };
+            for (std::size_t first = 0; first < pieces.size(); ++first) {
+                for (std::size_t last = first + 1; last < pieces.size() && last - first < chain_most_pieces; ++last) {
+                    if (!abuts(last - 1, last)) break;
+                    const double length = airings_[pieces[last]].end() - airings_[pieces[first]].start();
+                    if (!audio_ad_length(length)) continue;
+                    std::vector<long long> key;
+                    bool anchored = (first > 0 && abuts(first - 1, first) && own_ad(pieces[first - 1])) ||
+                                    (last + 1 < pieces.size() && abuts(last, last + 1) && own_ad(pieces[last + 1]));
+                    for (std::size_t piece = first; piece <= last; ++piece) {
+                        key.push_back(airings_[pieces[piece]].entry);
+                        anchored = anchored || own_ad(pieces[piece]);
+                    }
+                    auto& chain = chains[key];
+                    chain.recordings.insert(name);
+                    chain.anchored = chain.anchored || anchored;
+                    chain.length = length;
+                }
+            }
+        }
+        for (const auto& [key, chain] : chains) {
+            if (static_cast<int>(chain.recordings.size()) < chain_recordings && !chain.anchored) continue;
+            for (const auto entry : key) {
+                auto& promotion = promotions.at(entry);
+                if (promotion.status == Status::ad || !promotion.widely) continue;
+                const auto at = promotion.reason.find(", not an ad's length");
+                promotion.status = Status::ad;
+                promotion.reason = promotion.reason.substr(0, at) + ", no logo seen, " +
+                                   std::to_string(static_cast<int>(std::lround(chain.length))) + " s with the airings it abuts";
+            }
+        }
+    }
+
+    // An entry that may join a break and sits next to `ad` airings in at least
+    // rules.adjacent_broadcasts broadcasts becomes an ad; repeated until nothing
+    // changes, so a break fills outwards from its known ads.
+    void join_breaks(std::map<long long, Promotion>& promotions) const {
+        const int needed = options_.rules.adjacent_broadcasts;
+        if (needed <= 0) return;
+        for (bool changed = true; changed;) {
+            changed = false;
+            std::vector<std::pair<long long, std::size_t>> joined;
+            for (const auto& [id, promotion] : promotions) {
+                if (promotion.status == Status::ad || !(promotion.may_join || promotion.ad_if_beside)) continue;
+                const auto beside = beside_ads(id, promotions);
+                if (static_cast<int>(beside.size()) >= needed) joined.emplace_back(id, beside.size());
+            }
+            for (const auto& [id, count] : joined) {
+                auto& promotion = promotions.at(id);
+                promotion.reason = promotion.ad_if_beside
+                                       ? std::string(status_name(promotion.status)) + " by position, but next to ads in " +
+                                             std::to_string(count) + " recordings"
+                                       : "next to ads in " + std::to_string(count) + " broadcasts";
+                promotion.status = Status::ad;
+                promotion.ad_if_beside = false;
+                changed = true;
+            }
+        }
+    }
+
+    // Every entry is promoted again, since the rules look across entries and
+    // recordings and so an entry this search never touched can change; entries
+    // that changed, or that this search touched, are written.
     RepeatsResult save() {
         RepeatsResult result;
         result.airings_found = added_;
-        std::set<std::string> corrected;
-        for (const auto id : touched_) {
-            auto& entry = entries_.at(id);
-            const auto members = members_of(id);
+        link_broadcasts();
+        std::map<long long, Promotion> promotions;
+        for (auto& [id, entry] : entries_) {
             std::vector<AiringFacts> facts;
-            for (const auto index : members) {
+            for (const auto index : members_of(id)) {
                 auto& airing = airings_[index];
                 auto& recording = recordings_.at(airing.recording);
                 if (airing.recording == recording_) apply_evidence(airing, recording);
                 facts.push_back(facts_of(airing, recording));
             }
-            const auto promotion = promote(entry.status, entry.length, facts, options_.intro_credits);
+            promotions.emplace(id, promote(entry.status, entry.length, facts, options_.rules));
+        }
+        judge_chains(promotions);
+        join_breaks(promotions);
+
+        std::set<std::string> corrected;
+        for (auto& [id, entry] : entries_) {
+            const auto& promotion = promotions.at(id);
             const auto before = old_status_.contains(id) ? std::optional(old_status_.at(id)) : std::nullopt;
             entry.status = promotion.status;
             if (!promotion.reason.empty()) entry.reason = promotion.reason;
-            const bool changed = before ? *before != entry.status : entry.status != Status::candidate;
-            if (changed && entry.status != Status::candidate && (!before || *before == Status::candidate)) ++result.promoted;
+            const bool changed = (before ? *before != entry.status : entry.status != Status::candidate) || migrated_.contains(id);
+            const bool reworded = !old_reason_.contains(id) || old_reason_.at(id) != entry.reason;
+            if (!changed && !reworded && !touched_.contains(id)) continue;
+            const auto members = members_of(id);
+            const bool was_candidate = !before || *before == Status::candidate || migrated_.contains(id);
+            if (changed && entry.status != Status::candidate && was_candidate) ++result.promoted;
             const auto correct = [&](const std::string& name) {
                 if (name != recording_ && recordings_.at(name).context.source == "capture") corrected.insert(name);
             };
@@ -501,6 +694,9 @@ private:
     std::map<std::string, RecordingData> recordings_;
     std::map<long long, EntryInfo> entries_;
     std::map<long long, Status> old_status_;
+    std::map<long long, std::string> old_reason_;
+    std::set<long long> migrated_;  // programme by the old intro and credits rule
+    std::map<std::string, std::string> broadcast_group_;
     std::vector<Airing> airings_;
     std::vector<bool> alive_;
     std::map<std::string, std::vector<std::size_t>> by_recording_;
@@ -530,12 +726,19 @@ bool standard_length(double seconds) {
     return std::ranges::any_of(standard_lengths, [&](double length) { return std::abs(seconds - length) <= 1.0; });
 }
 
-Promotion promote(Status current, double length, std::span<const AiringFacts> airings, bool intro_credits) {
+bool audio_ad_length(double seconds) {
+    return std::ranges::any_of(audio_lengths, [&](double length) { return std::abs(seconds - length) <= 1.0; });
+}
+
+Promotion promote(Status current, double length, std::span<const AiringFacts> airings, const PromotionRules& rules) {
     if (current == Status::programme) return {current, ""};
-    std::set<std::string> series, channels;
+    std::set<std::string> series, broadcasts, channels, recordings;
     for (const auto& airing : airings) {
         if (!airing.series_key.empty()) series.insert(airing.series_key);
+        const auto& broadcast = airing.broadcast.empty() ? airing.series_key : airing.broadcast;
+        if (!broadcast.empty()) broadcasts.insert(broadcast);
         if (!airing.channel.empty()) channels.insert(airing.channel);
+        recordings.insert(airing.recording);
     }
     if (airings.size() < 2) {
         if (current == Status::intro || current == Status::credits)
@@ -543,8 +746,75 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
         return {Status::candidate, "one airing"};
     }
 
+    bool any_evidence = false, logo_free = true, logo_everywhere = true, mostly_logo = true, some_logo = false, seams_both = false;
+    for (const auto& airing : airings) {
+        if (!airing.has_evidence) continue;
+        any_evidence = true;
+        const bool seen = airing.logo_fraction >= logo_none_below;
+        logo_free = logo_free && !seen;
+        logo_everywhere = logo_everywhere && seen;
+        mostly_logo = mostly_logo && airing.logo_fraction >= logo_in_programme;
+        some_logo = some_logo || airing.logo_fraction >= logo_in_programme;
+        seams_both = seams_both || (airing.seam_start && airing.seam_end);
+    }
+    // Evidence vetoes: a logo seen in any airing keeps the entry from being an ad
+    // by recurrence alone.
+    const bool no_logo_seen = logo_free;
+
+    // Within one series, at positions that vary: not a theme, credits or recap.
+    std::string varying_key;
+    int varying_recordings = 0;
+    for (const auto& key : series) {
+        std::set<std::string> in_series, away;
+        double first_start = 0, last_start = 0, first_end = 0, last_end = 0;
+        bool any = false;
+        int count = 0, starts = 0, ends = 0;
+        for (const auto& airing : airings) {
+            if (airing.series_key != key || !airing.has_position) continue;
+            in_series.insert(airing.recording);
+            if (airing.from_start >= recap_edge_seconds && airing.to_end >= recap_edge_seconds) away.insert(airing.recording);
+            ++count;
+            starts += airing.near_start;
+            ends += airing.near_end;
+            first_start = any ? std::min(first_start, airing.from_start) : airing.from_start;
+            last_start = any ? std::max(last_start, airing.from_start) : airing.from_start;
+            first_end = any ? std::min(first_end, airing.to_end) : airing.to_end;
+            last_end = any ? std::max(last_end, airing.to_end) : airing.to_end;
+            any = true;
+        }
+        // Opening credits over the first act, after cold opens of varying length,
+        // vary too, but stay near the start.
+        const bool one_end = 3 * starts > 2 * count || 3 * ends > 2 * count;
+        const bool varies = std::min(last_start - first_start, last_end - first_end) > varying_position_seconds && !one_end;
+        if (varies && static_cast<int>(away.size()) >= within_series_recordings && static_cast<int>(away.size()) > varying_recordings) {
+            varying_key = key;
+            varying_recordings = static_cast<int>(away.size());
+        }
+    }
+    // Twice or more in one recording, minutes apart: a replay has its own
+    // commentary, so audio that repeats within a broadcast is an ad or promo.
+    std::map<std::string, std::vector<double>> starts_in;
+    for (const auto& airing : airings)
+        if (airing.has_position && airing.from_start >= recap_edge_seconds && airing.to_end >= recap_edge_seconds)
+            starts_in[airing.recording].push_back(airing.from_start);
+    std::string repeating;
+    for (auto& [name, starts] : starts_in) {
+        std::ranges::sort(starts);
+        if (starts.size() >= 2 && starts.back() - starts.front() >= within_recording_apart) {
+            repeating = name;
+            break;
+        }
+    }
+    const bool within_series = no_logo_seen && (!varying_key.empty() || !repeating.empty());
+    const std::string within_reason =
+        !varying_key.empty() ? "in " + std::to_string(varying_recordings) + " recordings of " + varying_key + " at varying positions"
+                             : "twice in one recording, minutes apart";
+
     // Intro and credits come first, so a theme bounded by black frames is never
-    // an ad.
+    // an ad. The series must hold at least half the entry's recordings: an ad
+    // that happened to air early in two episodes of one show, and in a dozen
+    // other shows, is not that show's theme.
+    bool series_holds = false;
     for (const auto& key : series) {
         std::set<std::string> in_series;
         bool all_start = true, all_end = true;
@@ -554,37 +824,44 @@ Promotion promote(Status current, double length, std::span<const AiringFacts> ai
             all_start = all_start && airing.near_start;
             all_end = all_end && airing.near_end;
         }
-        if (in_series.size() < 2 || !(all_start || all_end)) continue;
+        if (in_series.size() < 2 || 2 * in_series.size() < recordings.size()) continue;
+        series_holds = true;
+        if (!(all_start || all_end)) continue;
         const Status kind = all_start ? Status::intro : Status::credits;
-        const std::string what = all_start ? "intro" : "credits";
-        if (!intro_credits) return {Status::programme, "near the " + std::string(all_start ? "start" : "end") + " of " + key +
-                                                           " in every airing (" + what + " rule off until T4b)"};
-        return {kind, "near the " + std::string(all_start ? "start" : "end") + " of " + key + " in every airing"};
+        Promotion promotion{kind, "near the " + std::string(all_start ? "start" : "end") + " of " + key + " in every airing"};
+        promotion.ad_if_beside = no_logo_seen && audio_ad_length(length);
+        return promotion;
     }
-    // An intro or credits entry that a later airing breaks the rule for is
-    // programme: it is a series' own audio, so it never becomes an ad.
-    if (current == Status::intro || current == Status::credits)
+    // An ad that recurs within one series at varying positions: checked after
+    // intro and credits, so a theme after a cold open of varying length stays one.
+    if (within_series && audio_ad_length(length)) return {Status::ad, within_reason + ", no logo seen, an ad's length"};
+    // An intro or credits entry that a later airing in its series breaks the rule
+    // for is programme: it is a series' own audio, so it never becomes an ad.
+    if ((current == Status::intro || current == Status::credits) && series_holds)
         return {Status::programme, std::string(status_name(current)) + " until an airing away from the start or end"};
 
-    bool any_evidence = false, logo_free = true, logo_everywhere = true, mostly_logo = true, seams_both = false;
-    for (const auto& airing : airings) {
-        if (!airing.has_evidence) continue;
-        any_evidence = true;
-        const bool seen = airing.logo_fraction >= logo_none_below;
-        logo_free = logo_free && !seen;
-        logo_everywhere = logo_everywhere && seen;
-        mostly_logo = mostly_logo && airing.logo_fraction >= logo_in_programme;
-        seams_both = seams_both || (airing.seam_start && airing.seam_end);
-    }
-    const bool across = series.size() >= 2 || channels.size() >= 2;
+    const auto spread = static_cast<int>(broadcasts.size());
+    const bool across = spread >= 2 || channels.size() >= 2;
     const bool standard = standard_length(length);
+    // Evidence confirms: Comskip saw no logo in an airing.
     if (any_evidence && across && logo_free && (standard || seams_both))
         return {Status::ad, standard ? "across shows, no logo, standard length" : "across shows, no logo, seams at both ends"};
     if (any_evidence && !across && logo_free && seams_both && standard)
         return {Status::ad, "within one show, no logo, seams at both ends, standard length"};
     if (any_evidence && across && mostly_logo) return {Status::in_programme_ad, "across shows, logo during most of every airing"};
     if (any_evidence && logo_everywhere && series.size() <= 1) return {Status::programme, "logo in every airing, one series"};
-    return {Status::candidate, "no rule holds"};
+    const bool widely = spread >= rules.audio_series || (spread >= 2 && channels.size() >= 2);
+    if (no_logo_seen && widely && audio_ad_length(length))
+        return {Status::ad, "in " + std::to_string(spread) + " series, no logo seen, an ad's length"};
+    const bool may_join = no_logo_seen && spread >= 2 && length <= adjacent_max_length;
+    // Shown, never skipped: recurring segments under a logo, or recurring widely
+    // at other lengths (stings, billboards, promos).
+    if (any_evidence && across && some_logo) return {Status::in_programme_ad, "across shows, logo during most of an airing", may_join};
+    if (no_logo_seen && widely)
+        return {Status::in_programme_ad, "in " + std::to_string(spread) + " series, not an ad's length", may_join, true};
+    // Pieces of a split ad within one series: judged with the airings they abut.
+    if (within_series) return {Status::candidate, within_reason + ", not an ad's length", may_join, true};
+    return {Status::candidate, "no rule holds", may_join};
 }
 
 void Library::add_stream(const std::string& recording, const Context& context, std::span<const CodeRun> runs) {
@@ -618,6 +895,11 @@ bool Library::has_stream(const std::string& recording) {
     auto query = store_.prepare("SELECT 1 FROM recording WHERE id = ?");
     query.bind(1, recording);
     return query.step();
+}
+
+RepeatsResult Library::promote_all() {
+    Search search(store_, options_, "");
+    return search.promote_all();
 }
 
 RepeatsResult Library::find_repeats(const std::string& recording, const Evidence* evidence) {

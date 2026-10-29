@@ -16,6 +16,14 @@ seen so far is scored from its latest MarksFile, so corrections count, against
 Comskip-107's commercial blocks from the same evidence. Scores are in seconds
 (score_labels.py's rules, plus false breaks: cuts less than half on ad rows).
 Prints a table per plan and writes WORK/results.json.
+--base STORE starts every plan's store as a copy of STORE (a seeded library,
+such as a copy of production's); --drop ID removes a recording from that copy
+first (a labelled recording's own Plex file, so it cannot match itself), and
+the tool's `promote` then applies the rules to what is left. Each --tool-arg is
+passed to every pass and promote (the audio-only thresholds). The missed ad
+seconds are split into those some airing covers (a repeat the rules left
+unpromoted) and those none does (first airings: nothing else in the store has
+them).
 
 Live mode (step F5): harness.py TOOL WORK PCM_DIR EVIDENCE_DIR --live NAME...
   [--speed S] [--lag SECONDS] [--stall AT:SECONDS] [--limit SECONDS]
@@ -127,6 +135,22 @@ def score(labels, cuts):
             "kinds": {k: round(v, 1) for k, v in sorted(kinds.items())}}
 
 
+def minus(intervals, cuts):
+    """The parts of the intervals that no cut covers (cuts merged)."""
+    left = []
+    for s, e in intervals:
+        at = s
+        for cs, ce in cuts:
+            if ce <= at or cs >= e:
+                continue
+            if cs > at:
+                left.append((at, cs))
+            at = max(at, ce)
+        if at < e:
+            left.append((at, e))
+    return left
+
+
 def comskip_cuts(evidence):
     return union([(b["from"], b["to"]) for b in evidence["blocks"] if b["decision"] == "commercial"])
 
@@ -151,6 +175,9 @@ class Harness:
         self.evidence_dir = Path(args.evidence)
         self.labels = Path(args.labels)
         self.inputs = self.work / "inputs"
+        self.base = Path(args.base) if args.base else None
+        self.drop = args.drop or []
+        self.tool_args = [part for value in (args.tool_arg or []) for part in value.split()]
         self.inputs.mkdir(parents=True, exist_ok=True)
         for name, (channel, series, title, window, air) in CONTEXTS.items():
             context = {"channel": channel, "airStart": air, "source": "capture",
@@ -167,7 +194,7 @@ class Harness:
 
     def run_pass(self, store, name, seen, out):
         command = [self.tool, "pass", "--store", str(store), "--recording", name,
-                   "--context", str(self.inputs / f"{name}.context.json"), "--out", str(out)]
+                   "--context", str(self.inputs / f"{name}.context.json"), "--out", str(out)] + self.tool_args
         for other in seen + [name]:
             command += ["--evidence", str(self.inputs / f"{other}.evidence.json")]
         process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -189,8 +216,30 @@ class Harness:
         every = union([(s, e) for s, e, _ in rows])
         marked = union([(s, e) for s, e, status in rows if status == "ad"])
         return {"repeatShare": round(overlap(ads, every) / total, 3), "adEntryShare": round(overlap(ads, marked) / total, 3),
+                "every": every,
                 "repeatSeconds": round(sum(e - s for s, e in every), 1),
                 "repeatOutsideAds": round(sum(e - s for s, e in every) - overlap(ads, every), 1)}
+
+    def seed_store(self, store):
+        """The plan's store as a copy of --base, less the --drop recordings, with
+        the rules applied again to what is left."""
+        if not self.base:
+            return
+        shutil.copyfile(self.base, store)
+        with sqlite3.connect(store) as db:
+            for name in self.drop:
+                if not db.execute("SELECT 1 FROM recording WHERE id = ?", (name,)).fetchone():
+                    sys.exit(f"--drop {name}: not in the base store")
+                db.execute("DELETE FROM airing WHERE recording = ?", (name,))
+                db.execute("DELETE FROM run WHERE recording = ?", (name,))
+                db.execute("DELETE FROM recording WHERE id = ?", (name,))
+            # An entry no airing is left of would still match by its codes.
+            db.execute("DELETE FROM entry WHERE id NOT IN (SELECT entry FROM airing)")
+            db.execute("UPDATE entry SET airings = (SELECT count(*) FROM airing WHERE airing.entry = entry.id)")
+        result = subprocess.run([self.tool, "promote", "--store", str(store)] + self.tool_args, capture_output=True, text=True)
+        if result.returncode != 0:
+            sys.exit(f"promote failed ({result.returncode}): {result.stderr}")
+        print(f"  base store {self.base.name} less {len(self.drop)} recordings: {result.stdout.strip()}", flush=True)
 
     def entry_counts(self, store):
         with sqlite3.connect(store) as db:
@@ -211,6 +260,7 @@ class Harness:
                 shutil.rmtree(folder)
             folder.mkdir(parents=True)
             store = folder / "store.sqlite"
+            self.seed_store(store)
             latest = {}
             seen = []
             for name in group:
@@ -226,12 +276,18 @@ class Harness:
                     marks = latest[capture]["marks"]
                     ad = [(m["start"], m["end"]) for m in marks if m["kind"] == "ad"]
                     fingerprint = [(m["start"], m["end"]) for m in marks if m["kind"] == "ad" and m["basis"] != "comskip"]
+                    coverage = self.airing_coverage(store, capture, labels)
+                    missed = minus([(s, e) for s, e, k in labels if k == "ad"], union(ad))
+                    repeated = overlap(missed, coverage["every"])
+                    del coverage["every"]
+                    coverage["missedRepeated"] = round(repeated, 1)
+                    coverage["missedFirstAiring"] = round(sum(e - s for s, e in missed) - repeated, 1)
                     scores[capture] = {
                         "marks": score(labels, ad),
                         "comskip": score(labels, comskip_cuts(self.evidence(capture))),
                         "fingerprintMarks": len(fingerprint),
                         "nonAdMarks": [[m["start"], m["end"], m["kind"]] for m in marks if m["kind"] != "ad"],
-                        "coverage": self.airing_coverage(store, capture, labels),
+                        "coverage": coverage,
                     }
                 results["passes"].append({"store": str(store), "pass": name, "corrected": corrected,
                                           "promoted": result["promoted"], "airingsFound": result["airingsFound"],
@@ -257,7 +313,8 @@ def report(results):
                 print(f"    {capture:11} marks {m['breaks']:2}/{m['of']:2} missed {m['missed']:6.0f} cut {m['programmeCut']:5.0f} "
                       f"false {m['falseBreaks']} | comskip {c['breaks']:2}/{c['of']:2} missed {c['missed']:6.0f} "
                       f"cut {c['programmeCut']:5.0f} false {c['falseBreaks']} | repeats {100 * cov['repeatShare']:4.1f}% "
-                      f"ad entries {100 * cov['adEntryShare']:4.1f}% fp marks {s['fingerprintMarks']} "
+                      f"ad entries {100 * cov['adEntryShare']:4.1f}% missed repeated {cov['missedRepeated']:.0f} "
+                      f"first {cov['missedFirstAiring']:.0f} fp marks {s['fingerprintMarks']} "
                       f"other {len(s['nonAdMarks'])} | {'WORSE: ' + ', '.join(worse) if worse else 'ok'}")
 
 
@@ -629,6 +686,9 @@ def main():
     parser.add_argument("evidence")
     parser.add_argument("--labels", default=str(Path(__file__).resolve().parents[2] / "tests" / "labels"))
     parser.add_argument("--plan", action="append")
+    parser.add_argument("--base", help="start each plan's store as a copy of this store")
+    parser.add_argument("--drop", action="append", help="remove this recording from the --base copy")
+    parser.add_argument("--tool-arg", action="append", help="passed to every pass and promote (split on spaces)")
     parser.add_argument("--live", nargs="+")
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--lag", type=float, default=10.0)
