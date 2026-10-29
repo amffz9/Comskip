@@ -206,6 +206,18 @@ with tempfile.TemporaryDirectory(prefix="fingerprint cli ", dir=work) as directo
     assert run.returncode == 2 and run.stderr, (run.returncode, run.stderr)
     run = tool("context", "--store", store, "--recording", "cap 2")
     assert run.returncode == 6 and b"usage" in run.stderr, (run.returncode, run.stderr)
+    # --contexts: many recordings, one promote; ids the store lacks are listed, not fatal.
+    batch = root / "contexts.json"
+    batch.write_text(json.dumps({"cap 2": {**json.loads(context2b.read_text()), "network": "ABC"}, "gone": {}}))
+    run = tool("context", "--store", store, "--contexts", batch)
+    assert run.returncode == 0, run.stderr
+    result = json.loads(run.stdout)
+    assert result["replaced"] == 1 and result["unknown"] == ["gone"], result
+    with closing(sqlite3.connect(store)) as db:
+        stored = db.execute("SELECT context FROM recording WHERE id = 'cap 2'").fetchone()[0]
+    assert json.loads(stored)["network"] == "ABC", stored
+    run = tool("context", "--store", store, "--recording", "cap 2", "--contexts", batch)
+    assert run.returncode == 6 and b"usage" in run.stderr, (run.returncode, run.stderr)
 
     # live: the spot airs whole, then cut to 15 s; the Evidence file appears only
     # once the tool runs. Audio is paced at 10x real time; writing it never waits.

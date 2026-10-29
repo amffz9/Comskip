@@ -48,7 +48,11 @@ constexpr const char* usage =
     "       comskip-fingerprint search --store PATH --recording ID [--evidence PATH]... --out DIR\n"
     "       comskip-fingerprint pass   --store PATH --recording ID [--context PATH] [--evidence PATH]... --out DIR\n"
     "       comskip-fingerprint promote --store PATH\n"
+    "       comskip-fingerprint context --store PATH (--recording ID --context PATH | --contexts PATH)\n"
     "       comskip-fingerprint version\n"
+    "  context replaces stored recordings' contexts, keeping their codes, then promotes once;\n"
+    "  --contexts takes a JSON object of recording id to context, and ids not in the store are\n"
+    "  listed as unknown.\n"
     "  version prints the rules version, which rises when a search would find something else.\n"
     "  seed and pass read the audio stream on standard input and add its codes to the store;\n"
     "  search and pass find repeats and write one MarksFile per capture with evidence into DIR;\n"
@@ -66,6 +70,7 @@ struct Options {
     std::string store;
     std::string recording;
     std::string context;
+    std::string contexts;
     std::string codes;
     std::string out;
     std::string marks;
@@ -94,6 +99,7 @@ std::optional<Options> parse(int argc, char** argv) {
         if (name == "--store") options.store = value;
         else if (name == "--recording") options.recording = value;
         else if (name == "--context") options.context = value;
+        else if (name == "--contexts") options.contexts = value;
         else if (name == "--codes") options.codes = value;
         else if (name == "--out") options.out = value;
         else if (name == "--evidence") options.evidence.push_back(value);
@@ -134,17 +140,19 @@ std::optional<Options> parse(int argc, char** argv) {
             if (options.stall_at < 0 || options.stall_for < 0) return std::nullopt;
         } else return std::nullopt;
     }
+    const bool only_store = options.codes.empty() && options.out.empty() && options.marks.empty() && options.log.empty() &&
+                            options.evidence.empty() && options.stall_at < 0;
     if (options.command == "promote")
-        return options.recording.empty() && options.context.empty() && options.codes.empty() && options.out.empty() &&
-                       options.marks.empty() && options.log.empty() && options.evidence.empty() && options.stall_at < 0
+        return only_store && options.recording.empty() && options.context.empty() && options.contexts.empty()
                    ? std::optional(options)
                    : std::nullopt;
+    if (options.command == "context") {
+        const bool one = !options.recording.empty() && !options.context.empty() && options.contexts.empty();
+        const bool many = options.recording.empty() && options.context.empty() && !options.contexts.empty();
+        return only_store && !options.store.empty() && (one || many) ? std::optional(options) : std::nullopt;
+    }
+    if (!options.contexts.empty()) return std::nullopt;
     if (options.store.empty() || options.recording.empty()) return std::nullopt;
-    if (options.command == "context")
-        return !options.context.empty() && options.codes.empty() && options.out.empty() && options.marks.empty() &&
-                       options.log.empty() && options.evidence.empty() && options.stall_at < 0
-                   ? std::optional(options)
-                   : std::nullopt;
     if (options.command == "live")
         return options.evidence.size() == 1 && !options.marks.empty() && options.out.empty() && options.codes.empty()
                    ? std::optional(options)
@@ -216,19 +224,28 @@ int run_live(const Options& options, Context context) {
     return std::fflush(stdout) == 0 ? 0 : exit_failure;
 }
 
-int run_promote(const Options& options, const Context* context = nullptr) {
+// promote alone, or context: replace the given recordings' contexts, then promote once.
+int run_promote(const Options& options, const std::map<std::string, Context>& contexts = {}) {
     if (options.store.empty()) throw InputInvalid("promote needs --store");
     Store store(options.store);
     Library library(store, {options.intro_credits, "pass", options.rules, options.matching});
-    if (context && !library.replace_context(options.recording, *context))
+    std::vector<std::string> unknown;
+    for (const auto& [recording, context] : contexts)
+        if (!library.replace_context(recording, context)) unknown.push_back(recording);
+    // One named recording that isn't stored is a mistake; in a batch it is reported.
+    if (!options.recording.empty() && !unknown.empty())
         throw InputInvalid("Recording " + options.recording + " has no stored stream");
     const auto result = library.promote_all();
     std::map<std::string, int> counts;
     for (const auto& entry : library.entries()) ++counts[std::string(status_name(entry.status))];
-    const json::Value document = {{"promoted", result.promoted},
-                                  {"changedEntries", result.changed_entries.size()},
-                                  {"corrected", result.corrected},
-                                  {"entries", counts}};
+    json::Value document = {{"promoted", result.promoted},
+                            {"changedEntries", result.changed_entries.size()},
+                            {"corrected", result.corrected},
+                            {"entries", counts}};
+    if (!options.contexts.empty()) {
+        document["replaced"] = contexts.size() - unknown.size();
+        document["unknown"] = unknown;
+    }
     std::fputs((json::write(document) + "\n").c_str(), stdout);
     return std::fflush(stdout) == 0 ? 0 : exit_failure;
 }
@@ -248,7 +265,20 @@ int run(int argc, char** argv) {
                                                  : input([&] { return context_from_json(json::parse_file(options.context)); });
     if (options.command == "live") return run_live(options, context);
     if (options.command == "promote") return run_promote(options);
-    if (options.command == "context") return run_promote(options, &context);
+    if (options.command == "context") {
+        std::map<std::string, Context> contexts;
+        if (options.contexts.empty()) contexts.emplace(options.recording, context);
+        else
+            input([&] {
+                const auto document = json::parse_file(options.contexts);
+                return json::reading(options.contexts, [&] {
+                    if (!document.is_object()) throw json::Invalid(options.contexts + ": not an object of recording ids");
+                    for (const auto& [recording, value] : document.items()) contexts.emplace(recording, context_from_json(value));
+                    return 0;
+                });
+            });
+        return run_promote(options, contexts);
+    }
     std::map<std::string, Evidence> evidence;
     for (const auto& path : options.evidence) {
         auto copy = input([&] { return evidence_from_json(json::parse_file(path)); });
