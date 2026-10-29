@@ -51,7 +51,8 @@ constexpr const char* usage =
     "  --audio-series N and --adjacent N set the audio-only thresholds (for measurement;\n"
     "  defaults 3 and 2, --adjacent 0 turns joining breaks off).\n"
     "  --seed-bits N seeds repeats on codes within N bits (default 2; 0 is exact values) and\n"
-    "  --quality-gate off keeps repeats that agree loosely (for measurement).\n";
+    "  --quality-gate off keeps repeats that agree loosely (for measurement).\n"
+    "  --live-index-mb N caps the live index in memory (default 64).\n";
 
 struct Options {
     std::string command;
@@ -66,6 +67,7 @@ struct Options {
     bool intro_credits{};
     PromotionRules rules;
     MatchRules matching;
+    std::size_t live_index_bytes = comskip::fingerprint::live_index_bytes;
     double stall_at = -1;
     double stall_for{};
 };
@@ -93,7 +95,7 @@ std::optional<Options> parse(int argc, char** argv) {
         else if (name == "--quality-gate") {
             if (value != "on" && value != "off") return std::nullopt;
             options.matching.quality_gate = value == "on";
-        } else if (name == "--audio-series" || name == "--adjacent" || name == "--seed-bits") {
+        } else if (name == "--audio-series" || name == "--adjacent" || name == "--seed-bits" || name == "--live-index-mb") {
             int number = 0;
             try {
                 std::size_t used = 0;
@@ -106,6 +108,9 @@ std::optional<Options> parse(int argc, char** argv) {
             if (name == "--seed-bits") {
                 if (number > 5) return std::nullopt;  // the lookup visits keys within half of it
                 options.matching.seed_bits = number;
+            } else if (name == "--live-index-mb") {
+                if (number == 0) return std::nullopt;
+                options.live_index_bytes = static_cast<std::size_t>(number) << 20;
             } else {
                 (name == "--adjacent" ? options.rules.adjacent_broadcasts : options.rules.audio_series) = number;
             }
@@ -192,7 +197,8 @@ int run_live(const Options& options, Context context) {
     _setmode(_fileno(stdin), _O_BINARY);
 #endif
     LiveOptions live_options{options.store, options.recording, std::move(context), options.evidence.front(), options.marks,
-                             options.log, options.intro_credits, options.stall_at, options.stall_for, options.matching};
+                             options.log, options.intro_credits, options.stall_at, options.stall_for, options.matching,
+                             options.live_index_bytes};
     const auto result = live(live_options, read_available);
     std::fputs(live_result_json(options.recording, options.marks, result).c_str(), stdout);
     return std::fflush(stdout) == 0 ? 0 : exit_failure;

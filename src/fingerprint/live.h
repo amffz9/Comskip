@@ -1,5 +1,6 @@
 #pragma once
 #include "fingerprint/inputs.h"
+#include "fingerprint/library.h"
 #include "fingerprint/matching.h"
 #include "fingerprint/seed.h"
 #include <string>
@@ -23,6 +24,7 @@ struct LiveOptions {
     double stall_at = -1;
     double stall_for{};
     MatchRules matching;
+    std::size_t live_index_bytes = comskip::fingerprint::live_index_bytes;  // the live index's cap in memory
 };
 
 struct LiveResult {
@@ -35,9 +37,6 @@ struct LiveResult {
 
 // Audio the matching thread falls this far behind on is dropped and counted.
 inline constexpr double live_queue_seconds = 30;
-// The live index in memory holds at most this many bytes of codes (twice that
-// with its lookup).
-inline constexpr std::size_t live_index_code_bytes = 10u << 20;
 
 // Runs the job to the end of the audio. Throws InputInvalid for a malformed
 // stream and the store errors when the store can't be used at all; a store busy

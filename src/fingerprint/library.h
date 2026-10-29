@@ -182,16 +182,17 @@ public:
     // The promotion rules again over every entry, without a search (after the
     // rules change). Every capture with a changed entry is corrected.
     RepeatsResult promote_all();
-    // Entries with status ad or in-programme ad whose last airing is within 8
-    // weeks of now (Unix seconds), most recently aired first, at most 20 MB of
-    // codes.
-    std::vector<EntryInfo> live_index(double now);
-    // The same, at most max_bytes of codes, each entry handed to visit in turn
-    // so the whole list is never held at once.
-    void live_index(double now, std::size_t max_bytes, const std::function<void(EntryInfo&&)>& visit);
+    // Entries with status ad, in-programme ad, intro or credits, most recently
+    // aired first, while the live index holding them stays within
+    // live_index_bytes: when the store outgrows it, the entries aired longest
+    // ago are left out.
+    std::vector<EntryInfo> live_index();
+    // The same within max_bytes of live index, each entry handed to visit in
+    // turn so the whole list is never held at once.
+    void live_index(std::size_t max_bytes, const std::function<void(EntryInfo&&)>& visit);
     // What the live index holds (id, status, code count), read without the codes,
     // so a caller can tell cheaply whether it changed.
-    std::vector<std::tuple<long long, Status, long long>> live_index_key(double now, std::size_t max_bytes);
+    std::vector<std::tuple<long long, Status, long long>> live_index_key(std::size_t max_bytes);
 
     bool has_stream(const std::string& recording);
     // Marked airings of a recording (ad and in-programme ad; intro and credits too
@@ -207,6 +208,11 @@ private:
     LibraryOptions options_;
 };
 
-inline constexpr double live_index_weeks = 8;
-inline constexpr std::size_t live_index_bytes = 20u << 20;
+// The live index is capped by its size in memory, not by age (each live
+// capture is its own process and holds its own copy): 64 MB by default, about
+// 5.5 million codes, where the store's ads and in-programme ads, intros and
+// credits took about 2.3 MB in October 2026. An entry of n codes takes
+// 12 n bytes (a SeedIndex) and 12 for its id and status.
+inline constexpr std::size_t live_index_bytes = 64u << 20;
+inline constexpr std::size_t live_index_entry_bytes(std::size_t codes) { return codes * 12 + 12; }
 }

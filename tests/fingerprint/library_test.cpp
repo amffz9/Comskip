@@ -292,27 +292,37 @@ TEST_F(LibraryTest, PlexFilesAloneStayCandidates) {
     EXPECT_TRUE(result.corrected.empty());
 }
 
-TEST_F(LibraryTest, TheLiveIndexHoldsAdsAiredInTheLastEightWeeks) {
-    const auto spot = noise(13, codes_of(30.2));
-    Recording first(60, 3600), second(61, 3600);
-    first.put(900, spot);
-    second.put(1900, spot);
+TEST_F(LibraryTest, TheLiveIndexKeepsEveryAdNewestFirstWithinItsCap) {
+    const auto old_spot = noise(13, codes_of(30.2));
+    const auto new_spot = noise(14, codes_of(15.2));
+    Recording first(60, 3600), second(61, 3600), third(62, 3600), fourth(63, 3600);
+    first.put(900, old_spot);
+    second.put(1900, old_spot);
+    third.put(300, new_spot);
+    fourth.put(1300, new_spot);
     const auto a = evidence("a", {});
     const auto b = evidence("b", {});
-    const double then = now_2026 - 10 * week;
+    const auto c = evidence("c", {});
+    const auto d = evidence("d", {});
+    const double then = now_2026 - 52 * week;
     add("a", first, context("CBS", "x", 3600, then), &a);
     add("b", second, context("NBC", "y", 3600, then + 3600), &b);
-    ASSERT_EQ(with_status(Status::ad).size(), 1u);
-    EXPECT_TRUE(library_->live_index(now_2026).empty());
-    EXPECT_EQ(library_->live_index(then + 7200).size(), 1u);
-    // Found again by a pass today: back in the index.
-    Recording third(62, 3600);
-    third.put(300, spot);
-    const auto c = evidence("c", {});
-    add("c", third, context("ABC", "z", 3600, now_2026 - 3600), &c);
-    const auto index = library_->live_index(now_2026);
-    ASSERT_EQ(index.size(), 1u);
-    EXPECT_NEAR(index[0].last_airing, now_2026 - 3600 + 300, 2);
+    add("c", third, context("ABC", "z", 3600, now_2026 - 7200), &c);
+    add("d", fourth, context("FOX", "w", 3600, now_2026 - 3600), &d);
+    ASSERT_EQ(with_status(Status::ad).size(), 2u);
+    // A year old is no reason to leave the index: both, newest airing first.
+    const auto index = library_->live_index();
+    ASSERT_EQ(index.size(), 2u);
+    EXPECT_NEAR(static_cast<double>(index[0].codes.size()), static_cast<double>(new_spot.size()), 3);
+    EXPECT_NEAR(index[0].last_airing, now_2026 - 3600 + 1300, 2);
+    EXPECT_NEAR(static_cast<double>(index[1].codes.size()), static_cast<double>(old_spot.size()), 3);
+    // A cap with room for one keeps the entry aired most recently.
+    std::vector<EntryInfo> capped;
+    library_->live_index(live_index_entry_bytes(new_spot.size()) + 100, [&](EntryInfo&& entry) { capped.push_back(std::move(entry)); });
+    ASSERT_EQ(capped.size(), 1u);
+    EXPECT_EQ(capped[0].id, index[0].id);
+    EXPECT_EQ(library_->live_index_key(live_index_entry_bytes(new_spot.size()) + 100).size(), 1u);
+    EXPECT_EQ(library_->live_index_key(live_index_bytes).size(), 2u);
 }
 
 TEST_F(LibraryTest, TheSameStreamTwiceChangesNothing) {
